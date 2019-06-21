@@ -97,28 +97,28 @@ def build_graph_model(graph_wrapper, num_class, k_hop, graphsage_type,
                 feature,
                 hidden_size,
                 act="relu",
-                name="graphsage_mean_%s % i")
+                name="graphsage_mean_%s" % i)
         elif graphsage_type == 'graphsage_meanpool':
             feature = graphsage_meanpool(
                 graph_wrapper,
                 feature,
                 hidden_size,
                 act="relu",
-                name="graphsage_meanpool_%s % i")
+                name="graphsage_meanpool_%s" % i)
         elif graphsage_type == 'graphsage_maxpool':
             feature = graphsage_maxpool(
                 graph_wrapper,
                 feature,
                 hidden_size,
                 act="relu",
-                name="graphsage_maxpool_%s % i")
+                name="graphsage_maxpool_%s" % i)
         elif graphsage_type == 'graphsage_lstm':
             feature = graphsage_lstm(
                 graph_wrapper,
                 feature,
                 hidden_size,
                 act="relu",
-                name="graphsage_maxpool_%s % i")
+                name="graphsage_maxpool_%s" % i)
         else:
             raise ValueError("graphsage type %s is not"
                              " implemented" % graphsage_type)
