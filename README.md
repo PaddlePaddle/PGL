@@ -13,12 +13,13 @@ We provide python interfaces for storing/reading/querying graph structured data 
 
 ## Highlight: Efficient and Flexible Message Passing Paradigm
 
-One of the most important benefits of graph neural networks compared to other models is the ability to use node-to-node connectivity information, but coding the communication between nodes is very cumbersome. At PGL we adopt **Message Passing Paradigm** similar to [DGL](https://github.com/dmlc/dgl) to help to build a customize graph neural network easily. Users only need to write ```send``` and ```recv``` functions to easily implement a simple GCN. As shown in the following figure, for the first step the send function is defined on the edges of the graph, and the user can customize the send function $\phi^e$ to send the message from the source to the target node. For the second step, the recv function $\phi^v$ is responsible for aggregating $\oplus$ messages together from different sources.
+One of the most important benefits of graph neural networks compared to other models is the ability to use node-to-node connectivity information, but coding the communication between nodes is very cumbersome. At PGL we adopt **Message Passing Paradigm** similar to [DGL](https://github.com/dmlc/dgl) to help to build a customize graph neural network easily. Users only need to write ```send``` and ```recv``` functions to easily implement a simple GCN. As shown in the following figure, for the first step the send function is defined on the edges of the graph, and the user can customize the send function ![](http://latex.codecogs.com/gif.latex?\\phi^e}) to send the message from the source to the target node. For the second step, the recv function ![](http://latex.codecogs.com/gif.latex?\\phi^v}) is responsible for aggregating ![](http://latex.codecogs.com/gif.latex?\\oplus}) messages together from different sources.
+
 
 
 <img src="https://github.com/PaddlePaddle/PGL/blob/master/docs/source/_static/message_passing_paradigm.png" alt="The basic idea of message passing paradigm" width="800">
 
-As shown in the left of the following figure, to adapt general user-defined message aggregate functions, DGL uses the degree bucketing method to combine nodes with the same degree into a batch and then apply an aggregate function $\oplus$ on each batch serially. For our PGL UDF aggregate function, we organize the message as a [LodTensor](http://www.paddlepaddle.org/documentation/docs/en/1.4/user_guides/howto/basic_concept/lod_tensor_en.html) in [PaddlePaddle](https://github.com/PaddlePaddle/Paddle) taking the message as variable length sequences. And we **utilize the features of LodTensor in Paddle to obtain fast parallel aggregation**. 
+As shown in the left of the following figure, to adapt general user-defined message aggregate functions, DGL uses the degree bucketing method to combine nodes with the same degree into a batch and then apply an aggregate function ![](http://latex.codecogs.com/gif.latex?\\oplus}) on each batch serially. For our PGL UDF aggregate function, we organize the message as a [LodTensor](http://www.paddlepaddle.org/documentation/docs/en/1.4/user_guides/howto/basic_concept/lod_tensor_en.html) in [PaddlePaddle](https://github.com/PaddlePaddle/Paddle) taking the message as variable length sequences. And we **utilize the features of LodTensor in Paddle to obtain fast parallel aggregation**. 
 
 
 <img src="https://github.com/PaddlePaddle/PGL/blob/master/docs/source/_static/parallel_degree_bucketing.png" alt="The parallel degree bucketing of PGL" width="800">
@@ -53,7 +54,8 @@ We test all the GNN algorithms with Tesla V100-SXM2-16G running for 200 epochs t
 PGL requires:
 
 * paddle >= 1.5
-* networkx 
+* networkx
+* cython
 
 
 PGL supports both Python 2 & 3
