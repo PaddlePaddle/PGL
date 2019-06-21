@@ -7,6 +7,7 @@ Paddle Graph Learning (PGL) is an efficient and flexible graph learning framewor
 
 ![The Framework of Paddle Graph Learning (PGL)](https://github.com/PaddlePaddle/PGL/blob/master/docs/source/_static/framework_of_pgl.png)
 
+<img src="https://github.com/PaddlePaddle/PGL/blob/master/docs/source/_static/framework_of_pgl.png" alt="The framework of Paddle Graph Learning (PGL)" width="700">
 
 We provide python interfaces for storing/reading/querying graph structured data and two fundamental computational interfaces, which are walk based paradigm and message-passing based paradigm as shown in the above framework of PGL, for building cutting-edge graph learning algorithms.  Combined with the PaddlePaddle deep learning framework, we are able to support both graph representation learning models and graph neural networks, and thus our framework has a wide range of graph-based applications.
 
