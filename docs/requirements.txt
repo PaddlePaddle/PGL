@@ -1,0 +1,3 @@
+sphinx==2.1.0
+mistune
+sphinx_rtd_theme
