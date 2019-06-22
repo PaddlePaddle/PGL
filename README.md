@@ -63,10 +63,11 @@ PGL supports both Python 2 & 3
 
 ## Installation
 
+The current version of PGL is 0.1.0.beta. You can simply install it via pip.
+
+```sh
 pip install pgl
-
-
-
+```
 
 ## The Team
 

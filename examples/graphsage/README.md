@@ -12,6 +12,7 @@ The reddit dataset should be downloaded from the following links and placed in d
 
 ### Dependencies
 
+- sklearn
 - paddlepaddle>=1.4 (The speed can be faster in 1.5.)
 - pgl
 
