@@ -1,6 +1,6 @@
 # Paddle Graph Learning (PGL) 
 
-[DOC](https://pgl.readthedocs.io/en/latest/) | [Quick Start](https://pgl.readthedocs.io/en/latest/instruction.html)
+[DOC](https://pgl.readthedocs.io/en/latest/) | [Quick Start](https://pgl.readthedocs.io/en/latest/instruction.html) | [中文](./README.zh.md)
 
 Paddle Graph Learning (PGL) is an efficient and flexible graph learning framework based on [PaddlePaddle](https://github.com/PaddlePaddle/Paddle). 
 
