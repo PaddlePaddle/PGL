@@ -28,7 +28,7 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
         return fluid.layers.sequence_pool(msg, "sum")
 ```
 
-尽管PGL用了一些内核融合（kernel fusion）的方法来将常用的sum，max等聚合函数用scatter-gather进行优化。但是对于**复杂的用户定义函数**，他们使用的Degree Bucketing算法，仅仅使用串行的方案来处理不同的分块，并不同充分利用GPU进行加速。然而，在PGL中我们使用基于LodTensor的消息传递能够充分地利用GPU的并行优化，即使不使用scatter-gather的优化，PGL仍然有高效的性能表现。当然，我们也是提供了scatter优化的聚合函数。
+尽管DGL用了一些内核融合（kernel fusion）的方法来将常用的sum，max等聚合函数用scatter-gather进行优化。但是对于**复杂的用户定义函数**，他们使用的Degree Bucketing算法，仅仅使用串行的方案来处理不同的分块，并不同充分利用GPU进行加速。然而，在PGL中我们使用基于LodTensor的消息传递能够充分地利用GPU的并行优化，即使不使用scatter-gather的优化，PGL仍然有高效的性能表现。当然，我们也是提供了scatter优化的聚合函数。
 
 
 ## 性能测试
