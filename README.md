@@ -1,11 +1,11 @@
 # Paddle Graph Learning (PGL) 
 
-[DOC](https://pgl.readthedocs.io/en/latest/) | [Quick Start](https://pgl.readthedocs.io/en/latest/instruction.html)
+[DOC](https://pgl.readthedocs.io/en/latest/) | [Quick Start](https://pgl.readthedocs.io/en/latest/instruction.html) | [中文](./README.zh.md)
 
 Paddle Graph Learning (PGL) is an efficient and flexible graph learning framework based on [PaddlePaddle](https://github.com/PaddlePaddle/Paddle). 
 
 
-<img src="https://github.com/PaddlePaddle/PGL/blob/master/docs/source/_static/framework_of_pgl.png" alt="The Framework of Paddle Graph Learning (PGL)" width="800">
+<img src="./docs/source/_static/framework_of_pgl.png" alt="The Framework of Paddle Graph Learning (PGL)" width="800">
 
 
 We provide python interfaces for storing/reading/querying graph structured data and two fundamental computational interfaces, which are walk based paradigm and message-passing based paradigm as shown in the above framework of PGL, for building cutting-edge graph learning algorithms.  Combined with the PaddlePaddle deep learning framework, we are able to support both graph representation learning models and graph neural networks, and thus our framework has a wide range of graph-based applications.
@@ -17,12 +17,12 @@ One of the most important benefits of graph neural networks compared to other mo
 
 
 
-<img src="https://github.com/PaddlePaddle/PGL/blob/master/docs/source/_static/message_passing_paradigm.png" alt="The basic idea of message passing paradigm" width="800">
+<img src="./docs/source/_static/message_passing_paradigm.png" alt="The basic idea of message passing paradigm" width="800">
 
 As shown in the left of the following figure, to adapt general user-defined message aggregate functions, DGL uses the degree bucketing method to combine nodes with the same degree into a batch and then apply an aggregate function ![](http://latex.codecogs.com/gif.latex?\\oplus}) on each batch serially. For our PGL UDF aggregate function, we organize the message as a [LodTensor](http://www.paddlepaddle.org/documentation/docs/en/1.4/user_guides/howto/basic_concept/lod_tensor_en.html) in [PaddlePaddle](https://github.com/PaddlePaddle/Paddle) taking the message as variable length sequences. And we **utilize the features of LodTensor in Paddle to obtain fast parallel aggregation**. 
 
 
-<img src="https://github.com/PaddlePaddle/PGL/blob/master/docs/source/_static/parallel_degree_bucketing.png" alt="The parallel degree bucketing of PGL" width="800">
+<img src="./docs/source/_static/parallel_degree_bucketing.png" alt="The parallel degree bucketing of PGL" width="800">
 
 
 Users only need to call the ```sequence_ops``` functions provided by Paddle to easily implement efficient message aggregation. For examples, using ```sequence_pool``` to sum the neighbor message.
