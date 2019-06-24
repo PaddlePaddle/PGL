@@ -54,7 +54,7 @@ PGL依赖于:
 * cython
 
 
-PGL supports both Python 2 & 3
+PGL支持Python 2和3。
 
 
 ## 安装
