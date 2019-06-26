@@ -28,7 +28,7 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
         return fluid.layers.sequence_pool(msg, "sum")
 ```
 
-尽管DGL用了一些内核融合（kernel fusion）的方法来将常用的sum，max等聚合函数用scatter-gather进行优化。但是对于**复杂的用户定义函数**，他们使用的Degree Bucketing算法，仅仅使用串行的方案来处理不同的分块，并不同充分利用GPU进行加速。然而，在PGL中我们使用基于LodTensor的消息传递能够充分地利用GPU的并行优化，即使不使用scatter-gather的优化，PGL仍然有高效的性能表现。当然，我们也是提供了scatter优化的聚合函数。
+尽管DGL用了一些内核融合（kernel fusion）的方法来将常用的sum，max等聚合函数用scatter-gather进行优化。但是对于**复杂的用户定义函数**，他们使用的Degree Bucketing算法，仅仅使用串行的方案来处理不同的分块，并不同充分利用GPU进行加速。然而，在PGL中我们使用基于LodTensor的消息传递能够充分地利用GPU的并行优化，在复杂的用户定义函数下，PGL的速度在我们的实验中甚至能够达到DGL的13倍。即使不使用scatter-gather的优化，PGL仍然有高效的性能表现。当然，我们也是提供了scatter优化的聚合函数。
 
 
 ## 性能测试
@@ -36,7 +36,7 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 
 我们用Tesla V100-SXM2-16G测试了下列所有的GNN算法，每一个算法跑了200个Epoch来计算平均速度。准确率是在测试集上计算出来的，并且我们没有使用Early-stopping策略。
 
-| 数据集 | 模型 |  PGL准确率 | PGL速度 (epoch) | DGL速度 (epoch) |
+| 数据集 | 模型 |  PGL准确率 | PGL速度 (epoch) | DGL 0.3.0 速度 (epoch) |
 | -------- | ----- | ----------------- | ------------ | ------------------------------------ |
 | Cora | GCN |81.75% | 0.0047s | **0.0045s** |
 | Cora | GAT | 83.5% | **0.0119s** | 0.0141s |
@@ -44,6 +44,15 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 | Pubmed | GAT | 77% |0.0193s|**0.0144s**|
 | Citeseer | GCN |70.2%| **0.0045** |0.0046s|
 | Citeseer | GAT |68.8%| **0.0124s** |0.0139s|
+
+如果我们使用复杂的用户定义聚合函数，例如像[GraphSAGE-LSTM](https://cs.stanford.edu/people/jure/pubs/graphsage-nips17.pdf)那样忽略邻居信息的获取顺序，利用LSTM来聚合节点的邻居特征。DGL所使用的消息传递函数将退化成Degree Bucketing模式，在这个情况下DGL实现的模型会比PGL的慢的多。模型的性能会随着图规模而变化，在我们的实验中，PGL的速度甚至能够能达到DGL的13倍。
+
+| 数据集 |   PGL速度 (epoch) | DGL 0.3.0 速度 (epoch time) | 加速比 |
+| -------- |  ------------ | ------------------------------------ |----|
+| Cora | **0.0186s** | 0.1638s | 8.80x|
+| Pubmed | **0.0388s** |0.5275s | 13.59x|
+| Citeseer | **0.0150s** | 0.1278s | 8.52x |
+
 
 ## 依赖
 
