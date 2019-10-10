@@ -95,7 +95,7 @@ After defining the GCN layer, we can construct a deeper GCN model with two GCN l
 ```python
 output = gcn_layer(gw, gw.node_feat['feature'],
                 hidden_size=8, name='gcn_layer_1', activation='relu')
-output = gcn_layer(gw, output, hidden_size=1,
+output = gcn_layer(gw, output, hidden_size=2,
                 name='gcn_layer_2', activation=None)
 ```
 

@@ -26,20 +26,20 @@ from libc.stdlib cimport rand, RAND_MAX
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def build_index(np.ndarray[np.int32_t, ndim=1] u,
-        np.ndarray[np.int32_t, ndim=1] v,
-        int num_nodes):
+def build_index(np.ndarray[np.int64_t, ndim=1] u,
+        np.ndarray[np.int64_t, ndim=1] v,
+        long long num_nodes):
     """Building Edge Index
     """
-    cdef int i
-    cdef int h=len(u)
-    cdef int n_size = num_nodes
-    cdef np.ndarray[np.int32_t, ndim=1] degree = np.zeros([n_size], dtype=np.int32)
-    cdef np.ndarray[np.int32_t, ndim=1] count = np.zeros([n_size], dtype=np.int32)
-    cdef np.ndarray[np.int32_t, ndim=1] _tmp_v = np.zeros([h], dtype=np.int32)
-    cdef np.ndarray[np.int32_t, ndim=1] _tmp_u = np.zeros([h], dtype=np.int32)
-    cdef np.ndarray[np.int32_t, ndim=1] _tmp_eid = np.zeros([h], dtype=np.int32)
-    cdef np.ndarray[np.int32_t, ndim=1] indptr = np.zeros([n_size + 1], dtype=np.int32)
+    cdef long long i
+    cdef long long h=len(u)
+    cdef long long n_size = num_nodes
+    cdef np.ndarray[np.int64_t, ndim=1] degree = np.zeros([n_size], dtype=np.int64)
+    cdef np.ndarray[np.int64_t, ndim=1] count = np.zeros([n_size], dtype=np.int64)
+    cdef np.ndarray[np.int64_t, ndim=1] _tmp_v = np.zeros([h], dtype=np.int64)
+    cdef np.ndarray[np.int64_t, ndim=1] _tmp_u = np.zeros([h], dtype=np.int64)
+    cdef np.ndarray[np.int64_t, ndim=1] _tmp_eid = np.zeros([h], dtype=np.int64)
+    cdef np.ndarray[np.int64_t, ndim=1] indptr = np.zeros([n_size + 1], dtype=np.int64)
 
     with nogil:
         for i in xrange(h):
@@ -64,16 +64,16 @@ def build_index(np.ndarray[np.int32_t, ndim=1] u,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def map_edges(np.ndarray[np.int32_t, ndim=1] eid,
-        np.ndarray[np.int32_t, ndim=2] edges,
+def map_edges(np.ndarray[np.int64_t, ndim=1] eid,
+        np.ndarray[np.int64_t, ndim=2] edges,
         reindex):
     """Mapping edges by given dictionary
     """
-    cdef unordered_map[int, int] m = reindex
-    cdef int i = 0
-    cdef int h = len(eid)
-    cdef np.ndarray[np.int32_t, ndim=2] r_edges = np.zeros([h, 2], dtype=np.int32)
-    cdef int j
+    cdef unordered_map[long long, long long] m = reindex
+    cdef long long i = 0
+    cdef long long h = len(eid)
+    cdef np.ndarray[np.int64_t, ndim=2] r_edges = np.zeros([h, 2], dtype=np.int64)
+    cdef long long j
     with nogil:
         for i in xrange(h):
             j = eid[i]
@@ -86,31 +86,33 @@ def map_edges(np.ndarray[np.int32_t, ndim=1] eid,
 def map_nodes(nodes, reindex):
     """Mapping nodes by given dictionary
     """
-    cdef unordered_map[int, int] m = reindex
-    cdef int i = 0
-    cdef int h = len(nodes)
-    cdef np.ndarray[np.int32_t, ndim=1] new_nodes = np.zeros([h], dtype=np.int32)
-    cdef int j
-    for i in xrange(h):
-        j = nodes[i]
-        new_nodes[i] = m[j]
+    cdef np.ndarray[np.int64_t, ndim=1] t_nodes = np.array(nodes, dtype=np.int64)
+    cdef unordered_map[long long, long long] m = reindex
+    cdef long long i = 0
+    cdef long long h = len(nodes)
+    cdef np.ndarray[np.int64_t, ndim=1] new_nodes = np.zeros([h], dtype=np.int64)
+    cdef long long j
+    with nogil:
+        for i in xrange(h):
+            j = t_nodes[i]
+            new_nodes[i] = m[j]
     return new_nodes
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def node2vec_sample(np.ndarray[np.int32_t, ndim=1] succ,
-        np.ndarray[np.int32_t, ndim=1] prev_succ, int prev_node, 
+def node2vec_sample(np.ndarray[np.int64_t, ndim=1] succ,
+        np.ndarray[np.int64_t, ndim=1] prev_succ, long long prev_node,
         float p, float q):
     """Fast implement of node2vec sampling
     """
-    cdef int i
+    cdef long long i
     cdef succ_len = len(succ)
     cdef prev_succ_len = len(prev_succ)
 
     cdef vector[float] probs
     cdef float prob_sum = 0
 
-    cdef unordered_set[int] prev_succ_set
+    cdef unordered_set[long long] prev_succ_set
     for i in xrange(prev_succ_len):
         prev_succ_set.insert(prev_succ[i])
 
@@ -127,9 +129,177 @@ def node2vec_sample(np.ndarray[np.int32_t, ndim=1] succ,
 
     cdef float rand_num = float(rand())/RAND_MAX * prob_sum
 
-    cdef int sample_succ = 0
+    cdef long long sample_succ = 0
     for i in xrange(succ_len):
         rand_num -= probs[i]
         if rand_num <= 0:
             sample_succ = succ[i]
             return sample_succ
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def subset_choose_index(long long s_size,
+                            np.ndarray[ndim=1, dtype=np.int64_t] nid,
+                            np.ndarray[ndim=1, dtype=np.int64_t] rnd,
+                            np.ndarray[ndim=1, dtype=np.int64_t] buff_nid,
+                           long long offset):
+    cdef long long n_size = len(nid)
+    cdef long long i
+    cdef long long j
+    cdef unordered_map[long long, long long] m
+    with nogil:
+        for i in xrange(s_size):
+            j = rnd[offset + i] % n_size
+            if j >= i:
+                buff_nid[offset + i] = nid[j] if m.find(j) == m.end() else nid[m[j]]
+                m[j] = i if m.find(i) == m.end() else m[i]
+            else:
+                buff_nid[offset + i] = buff_nid[offset + j]
+                buff_nid[offset + j] = nid[i] if m.find(i) == m.end() else nid[m[i]]
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def subset_choose_index_eid(long long s_size,
+                            np.ndarray[ndim=1, dtype=np.int64_t] nid,
+                            np.ndarray[ndim=1, dtype=np.int64_t] eid,
+                            np.ndarray[ndim=1, dtype=np.int64_t] rnd,
+                            np.ndarray[ndim=1, dtype=np.int64_t] buff_nid,
+                            np.ndarray[ndim=1, dtype=np.int64_t] buff_eid,
+                           long long offset):
+    cdef long long n_size = len(nid)
+    cdef long long i
+    cdef long long j
+    cdef unordered_map[long long, long long] m
+    with nogil:
+        for i in xrange(s_size):
+            j = rnd[offset + i] % n_size
+            if j >= i:
+                if m.find(j) == m.end():
+                    buff_nid[offset + i], buff_eid[offset + i] = nid[j], eid[j]
+                else:
+                    buff_nid[offset + i], buff_eid[offset + i] = nid[m[j]], eid[m[j]]
+                m[j] = i if m.find(i) == m.end() else m[i]
+            else:
+                buff_nid[offset + i], buff_eid[offset + i] = buff_nid[offset + j], buff_eid[offset + j]
+                if m.find(i) == m.end():
+                    buff_nid[offset + j], buff_eid[offset + j] = nid[i], eid[i]
+                else:
+                    buff_nid[offset + j], buff_eid[offset + j] = nid[m[i]], eid[m[i]]
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def sample_subset(list nids, long long maxdegree, shuffle=False):
+    cdef np.ndarray[ndim=1, dtype=np.int64_t] buff_index
+    cdef long long buff_size, sample_size
+    cdef long long total_buff_size = 0
+    cdef long long inc = 0
+    cdef list output = []
+    for inc in xrange(len(nids)):
+        buff_size = len(nids[inc])
+        if buff_size > maxdegree:
+            total_buff_size += maxdegree
+        elif shuffle:
+            total_buff_size += buff_size
+    cdef np.ndarray[ndim=1, dtype=np.int64_t] buff_nid = np.zeros([total_buff_size], dtype=np.int64)
+    cdef np.ndarray[np.int64_t, ndim=1] rnd = np.random.randint(0,  np.iinfo(np.int64).max,
+                                                              dtype=np.int64, size=total_buff_size)
+
+    cdef long long offset = 0
+    for inc in xrange(len(nids)):
+        buff_size = len(nids[inc])
+        if not shuffle and buff_size <= maxdegree:
+            output.append(nids[inc])
+        else:
+            sample_size = buff_size if buff_size <= maxdegree else maxdegree
+            subset_choose_index(sample_size, nids[inc], rnd, buff_nid, offset)
+            output.append(buff_nid[offset:offset+sample_size])
+            offset += sample_size
+    return output
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def sample_subset_with_eid(list nids, list eids, long long maxdegree, shuffle=False):
+    cdef np.ndarray[ndim=1, dtype=np.int64_t] buff_index
+    cdef long long buff_size, sample_size
+    cdef long long total_buff_size = 0
+    cdef long long inc = 0
+    cdef list output = []
+    cdef list output_eid = []
+    for inc in xrange(len(nids)):
+        buff_size = len(nids[inc])
+        if buff_size > maxdegree:
+            total_buff_size += maxdegree
+        elif shuffle:
+            total_buff_size += buff_size
+    cdef np.ndarray[ndim=1, dtype=np.int64_t] buff_nid = np.zeros([total_buff_size], dtype=np.int64)
+    cdef np.ndarray[ndim=1, dtype=np.int64_t] buff_eid = np.zeros([total_buff_size], dtype=np.int64)
+    cdef np.ndarray[np.int64_t, ndim=1] rnd = np.random.randint(0,  np.iinfo(np.int64).max,
+                                                              dtype=np.int64, size=total_buff_size)
+
+    cdef long long offset = 0
+    for inc in xrange(len(nids)):
+        buff_size = len(nids[inc])
+        if not shuffle and buff_size <= maxdegree:
+            output.append(nids[inc])
+            output_eid.append(eids[inc])
+        else:
+            sample_size = buff_size if buff_size <= maxdegree else maxdegree
+            subset_choose_index_eid(sample_size, nids[inc], eids[inc], rnd, buff_nid, buff_eid, offset)
+            output.append(buff_nid[offset:offset+sample_size])
+            output_eid.append(buff_eid[offset:offset+sample_size])
+            offset += sample_size
+    return output, output_eid
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def skip_gram_gen_pair(vector[long long] walk, long win_size=5):
+    cdef vector[long long] src
+    cdef vector[long long] dst
+    cdef long long l = len(walk)
+    cdef long long real_win_size, left, right, i
+    cdef np.ndarray[np.int64_t, ndim=1] rnd = np.random.randint(1,  win_size+1,
+                                    dtype=np.int64, size=l)
+    with nogil:
+        for i in xrange(l):
+            real_win_size = rnd[i]
+            left = i - real_win_size
+            if left < 0:
+                left = 0
+            right = i + real_win_size
+            if right >= l:
+                right = l - 1
+            for j in xrange(left, right+1):
+                if walk[i] == walk[j]:
+                    continue
+                src.push_back(walk[i])
+                dst.push_back(walk[j])
+    return src, dst
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def alias_sample_build_table(np.ndarray[np.float64_t, ndim=1] probs):
+    cdef long long l = len(probs)
+    cdef np.ndarray[np.float64_t, ndim=1] alias = probs * l
+    cdef np.ndarray[np.int64_t, ndim=1] events = np.zeros(l, dtype=np.int64)
+
+    cdef vector[long long] larger_num, smaller_num
+    cdef long long i, s_i, l_i
+    with nogil:
+        for i in xrange(l):
+            if alias[i] > 1:
+                larger_num.push_back(i)
+            elif alias[i] < 1:
+                smaller_num.push_back(i)
+
+        while smaller_num.size() > 0 and larger_num.size() > 0:
+            s_i = smaller_num.back()
+            l_i = larger_num.back()
+            smaller_num.pop_back()
+            events[s_i] = l_i
+            alias[l_i] -= (1 - alias[s_i])
+            if alias[l_i] <= 1:
+                larger_num.pop_back()
+            if alias[l_i] < 1:
+                smaller_num.push_back(l_i)
+    return alias, events

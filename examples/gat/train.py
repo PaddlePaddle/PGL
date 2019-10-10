@@ -68,7 +68,7 @@ def main(args):
         node_index = fluid.layers.data(
             "node_index",
             shape=[None, 1],
-            dtype="int32",
+            dtype="int64",
             append_batch_size=False)
         node_label = fluid.layers.data(
             "node_label",
@@ -111,7 +111,7 @@ def main(args):
     for epoch in range(200):
         if epoch >= 3:
             t0 = time.time()
-        feed_dict["node_index"] = np.array(train_index, dtype="int32")
+        feed_dict["node_index"] = np.array(train_index, dtype="int64")
         feed_dict["node_label"] = np.array(train_label, dtype="int64")
         train_loss, train_acc = exe.run(train_program,
                                         feed=feed_dict,
@@ -121,7 +121,7 @@ def main(args):
             time_per_epoch = 1.0 * (time.time() - t0)
             dur.append(time_per_epoch)
 
-        feed_dict["node_index"] = np.array(val_index, dtype="int32")
+        feed_dict["node_index"] = np.array(val_index, dtype="int64")
         feed_dict["node_label"] = np.array(val_label, dtype="int64")
         val_loss, val_acc = exe.run(test_program,
                                     feed=feed_dict,
@@ -132,7 +132,7 @@ def main(args):
                  "Train Loss: %f " % train_loss + "Train Acc: %f " % train_acc
                  + "Val Loss: %f " % val_loss + "Val Acc: %f " % val_acc)
 
-    feed_dict["node_index"] = np.array(test_index, dtype="int32")
+    feed_dict["node_index"] = np.array(test_index, dtype="int64")
     feed_dict["node_label"] = np.array(test_label, dtype="int64")
     test_loss, test_acc = exe.run(test_program,
                                   feed=feed_dict,

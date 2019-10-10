@@ -114,25 +114,41 @@ class Graph(object):
             self._edge_feat = {}
 
         if isinstance(edges, np.ndarray):
-            if edges.dtype != "int32":
-                edges = edges.astype("int32")
+            if edges.dtype != "int64":
+                edges = edges.astype("int64")
         else:
-            edges = np.array(edges, dtype="int32")
+            edges = np.array(edges, dtype="int64")
 
         self._edges = edges
         self._num_nodes = num_nodes
 
         if len(edges) == 0:
-            # check emtpy edges
-            src, dst = np.array([], dtype="int32"), np.array([], dtype="int32")
-        else:
-            src = edges[:, 0]
-            dst = edges[:, 1]
+            raise ValueError("The Graph have no edges.")
 
-        self._adj_src_index = EdgeIndex(
-            u=src, v=dst, num_nodes=self._num_nodes)
-        self._adj_dst_index = EdgeIndex(
-            u=dst, v=src, num_nodes=self._num_nodes)
+        self._adj_src_index = None
+        self._adj_dst_index = None
+
+    @property
+    def adj_src_index(self):
+        """Return an EdgeIndex object for src.
+        """
+        if self._adj_src_index is None:
+            self._adj_src_index = EdgeIndex(
+                u=self._edges[:, 0],
+                v=self._edges[:, 1],
+                num_nodes=self._num_nodes)
+        return self._adj_src_index
+
+    @property
+    def adj_dst_index(self):
+        """Return an EdgeIndex object for dst.
+        """
+        if self._adj_dst_index is None:
+            self._adj_dst_index = EdgeIndex(
+                u=self._edges[:, 1],
+                v=self._edges[:, 0],
+                num_nodes=self._num_nodes)
+        return self._adj_dst_index
 
     @property
     def edge_feat(self):
@@ -180,16 +196,16 @@ class Graph(object):
         if sort_by not in ["src", "dst"]:
             raise ValueError("sort_by should be in 'src' or 'dst'.")
         if sort_by == 'src':
-            src, dst, eid = self._adj_src_index.triples()
+            src, dst, eid = self.adj_src_index.triples()
         else:
-            dst, src, eid = self._adj_dst_index.triples()
+            dst, src, eid = self.adj_dst_index.triples()
         return src, dst, eid
 
     @property
     def nodes(self):
         """Return all nodes id from 0 to :code:`num_nodes - 1`
         """
-        return np.arange(self._num_nodes, dtype="int32")
+        return np.arange(self._num_nodes, dtype="int64")
 
     def indegree(self, nodes=None):
         """Return the indegree of the given nodes
@@ -204,9 +220,9 @@ class Graph(object):
             A numpy.ndarray as the given nodes' indegree.
         """
         if nodes is None:
-            return self._adj_dst_index.degree
+            return self.adj_dst_index.degree
         else:
-            return self._adj_dst_index.degree[nodes]
+            return self.adj_dst_index.degree[nodes]
 
     def outdegree(self, nodes=None):
         """Return the outdegree of the given nodes.
@@ -221,9 +237,9 @@ class Graph(object):
             A numpy.array as the given nodes' outdegree.
         """
         if nodes is None:
-            return self._adj_src_index.degree
+            return self.adj_src_index.degree
         else:
-            return self._adj_src_index.degree[nodes]
+            return self.adj_src_index.degree[nodes]
 
     def successor(self, nodes=None, return_eids=False):
         """Find successor of given nodes.
@@ -273,17 +289,21 @@ class Graph(object):
         """
         if nodes is None:
             if return_eids:
-                return self._adj_src_index.v, self._adj_src_index.eid
+                return self.adj_src_index.v, self.adj_src_index.eid
             else:
-                return self._adj_src_index.v
+                return self.adj_src_index.v
         else:
             if return_eids:
-                return self._adj_src_index.v[nodes], self._adj_src_index.eid[
+                return self.adj_src_index.v[nodes], self.adj_src_index.eid[
                     nodes]
             else:
-                return self._adj_src_index.v[nodes]
+                return self.adj_src_index.v[nodes]
 
-    def sample_successor(self, nodes, max_degree, return_eids=False):
+    def sample_successor(self,
+                         nodes,
+                         max_degree,
+                         return_eids=False,
+                         shuffle=False):
         """Sample successors of given nodes.
 
         Args:
@@ -304,26 +324,20 @@ class Graph(object):
         node_succ = self.successor(nodes, return_eids=return_eids)
         if return_eids:
             node_succ, node_succ_eid = node_succ
+
         if nodes is None:
             nodes = self.nodes
 
-        sample_succ, sample_succ_eid = [], []
-        for i in range(len(nodes)):
-            max_size = min(max_degree, len(node_succ[i]))
-            if max_size == 0:
-                sample_succ.append([])
-                if return_eids:
-                    sample_succ_eid.append([])
-            else:
-                ind = np.random.choice(
-                    len(node_succ[i]), max_size, replace=False)
-                sample_succ.append(node_succ[i][ind])
-                if return_eids:
-                    sample_succ_eid.append(node_succ_eid[i][ind])
+        node_succ = node_succ.tolist()
+
         if return_eids:
-            return sample_succ, sample_succ_eid
+            node_succ_eid = node_succ_eid.tolist()
+
+        if return_eids:
+            return graph_kernel.sample_subset_with_eid(
+                node_succ, node_succ_eid, max_degree, shuffle)
         else:
-            return sample_succ
+            return graph_kernel.sample_subset(node_succ, max_degree, shuffle)
 
     def predecessor(self, nodes=None, return_eids=False):
         """Find predecessor of given nodes.
@@ -373,17 +387,21 @@ class Graph(object):
         """
         if nodes is None:
             if return_eids:
-                return self._adj_dst_index.v, self._adj_dst_index.eid
+                return self.adj_dst_index.v, self.adj_dst_index.eid
             else:
-                return self._adj_dst_index.v
+                return self.adj_dst_index.v
         else:
             if return_eids:
-                return self._adj_dst_index.v[nodes], self._adj_dst_index.eid[
+                return self.adj_dst_index.v[nodes], self.adj_dst_index.eid[
                     nodes]
             else:
-                return self._adj_dst_index.v[nodes]
+                return self.adj_dst_index.v[nodes]
 
-    def sample_predecessor(self, nodes, max_degree, return_eids=False):
+    def sample_predecessor(self,
+                           nodes,
+                           max_degree,
+                           return_eids=False,
+                           shuffle=False):
         """Sample predecessor of given nodes.
 
         Args:
@@ -407,24 +425,16 @@ class Graph(object):
         if nodes is None:
             nodes = self.nodes
 
-        sample_pred, sample_pred_eid = [], []
-        for i in range(len(nodes)):
-            max_size = min(max_degree, len(node_pred[i]))
-            if max_size == 0:
-                sample_pred.append([])
-                if return_eids:
-                    sample_pred_eid.append([])
-            else:
-                ind = np.random.choice(
-                    len(node_pred[i]), max_size, replace=False)
-                sample_pred.append(node_pred[i][ind])
-                if return_eids:
-                    sample_pred_eid.append(node_pred_eid[i][ind])
+        node_pred = node_pred.tolist()
 
         if return_eids:
-            return sample_pred, sample_pred_eid
+            node_pred_eid = node_pred_eid.tolist()
+
+        if return_eids:
+            return graph_kernel.sample_subset_with_eid(
+                node_pred, node_pred_eid, max_degree, shuffle)
         else:
-            return sample_pred
+            return graph_kernel.sample_subset(node_pred, max_degree, shuffle)
 
     def node_feat_info(self):
         """Return the information of node feature for GraphWrapper.
@@ -500,19 +510,21 @@ class Graph(object):
                 (key, _hide_num_nodes(value.shape), value.dtype))
         return edge_feat_info
 
-    def subgraph(self, nodes, eid):
+    def subgraph(self, nodes, eid=None, edges=None):
         """Generate subgraph with nodes and edge ids.
 
         This function will generate a :code:`pgl.graph.Subgraph` object and
         copy all corresponding node and edge features. Nodes and edges will
-        be reindex from 0.
+        be reindex from 0. Eid and edges can't both be None.
 
         WARNING: ALL NODES IN EID MUST BE INCLUDED BY NODES
 
         Args:
             nodes: Node ids which will be included in the subgraph.
 
-            eid: Edge ids which will be included in the subgraph.
+            eid (optional): Edge ids which will be included in the subgraph.
+
+            edges (optional): Edge(src, dst) list which will be included in the subgraph.
 
         Return:
             A :code:`pgl.graph.Subgraph` object.
@@ -522,11 +534,22 @@ class Graph(object):
         for ind, node in enumerate(nodes):
             reindex[node] = ind
 
-        eid = np.array(eid, dtype="int32")
-        sub_edges = graph_kernel.map_edges(eid, self._edges, reindex)
+        if eid is None and edges is None:
+            raise ValueError("Eid and edges can't be None at the same time.")
+
+        if edges is None:
+            edges = self._edges[eid]
+        else:
+            edges = np.array(edges, dtype="int64")
+
+        sub_edges = graph_kernel.map_edges(
+            np.arange(
+                len(edges), dtype="int64"), edges, reindex)
 
         sub_edge_feat = {}
         for key, value in self._edge_feat.items():
+            if eid is None:
+                raise ValueError("Eid can not be None with edge features.")
             sub_edge_feat[key] = value[eid]
 
         sub_node_feat = {}
@@ -554,7 +577,7 @@ class Graph(object):
         Return:
             Batch iterator
         """
-        perm = np.arange(self._num_nodes, dtype="int32")
+        perm = np.arange(self._num_nodes, dtype="int64")
         if shuffle:
             np.random.shuffle(perm)
         start = 0
@@ -644,7 +667,7 @@ class Graph(object):
                 break
             succ = self.successor(cur_nodes)
             sample_index = np.floor(
-                np.random.rand(outdegree.shape[0]) * outdegree).astype("int32")
+                np.random.rand(outdegree.shape[0]) * outdegree).astype("int64")
 
             nxt_cur_nodes = []
             for s, ind, walk_id in zip(succ, sample_index, cur_walk_ids):
@@ -677,8 +700,8 @@ class Graph(object):
 
         cur_walk_ids = np.arange(0, len(nodes))
         cur_nodes = np.array(nodes)
-        prev_nodes = np.array([-1] * len(nodes), dtype="int32")
-        prev_succs = np.array([[]] * len(nodes), dtype="int32")
+        prev_nodes = np.array([-1] * len(nodes), dtype="int64")
+        prev_succs = np.array([[]] * len(nodes), dtype="int64")
         for l in range(max_depth):
             # select the walks not end
             outdegree = self.outdegree(cur_nodes)
@@ -693,7 +716,7 @@ class Graph(object):
                 break
             cur_succs = self.successor(cur_nodes)
             num_nodes = cur_nodes.shape[0]
-            nxt_nodes = np.zeros(num_nodes, dtype="int32")
+            nxt_nodes = np.zeros(num_nodes, dtype="int64")
 
             for idx, (succ, prev_succ, walk_id, prev_node) in enumerate(
                     zip(cur_succs, prev_succs, cur_walk_ids, prev_nodes)):

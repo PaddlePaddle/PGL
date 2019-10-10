@@ -223,5 +223,25 @@ def scatter_add(input, index, updates):
         Same type and shape as input.
     """
 
-    output = fluid.layers.scatter(input, index, updates, overwrite=False)
+    output = fluid.layers.scatter(input, index, updates, mode='add')
+    return output
+
+
+def scatter_max(input, index, updates):
+    """Scatter max updates to input by given index.
+
+    Adds sparse updates to input variables.
+
+    Args:
+        input: Input tensor to be updated
+
+        index: Slice index
+
+        updates: Must have same type as input.
+
+    Return:
+        Same type and shape as input.
+    """
+
+    output = fluid.layers.scatter(input, index, updates, mode='max')
     return output
