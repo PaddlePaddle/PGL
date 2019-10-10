@@ -3,4 +3,4 @@ cython >= 0.25.2
 
 #paddlepaddle
 
-redis-py-cluster
+redis-py-cluster == 1.3.6
