@@ -5,7 +5,7 @@
 ## Datasets
 The datasets contain two networks: [BlogCatalog](http://socialcomputing.asu.edu/datasets/BlogCatalog3) and [Arxiv](http://snap.stanford.edu/data/ca-AstroPh.html).
 ## Dependencies
-- paddlepaddle>=1.4
+- paddlepaddle>=1.6
 - pgl
 
 ## How to run

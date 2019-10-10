@@ -20,7 +20,6 @@ import io
 import sys
 import numpy as np
 import pickle as pkl
-import networkx as nx
 
 from pgl import graph
 from pgl.utils.logger import log
@@ -91,6 +90,7 @@ class CitationDataset(object):
     def _load_data(self):
         """Load data
         """
+        import networkx as nx
         objnames = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
         objects = []
         for i in range(len(objnames)):
@@ -98,7 +98,7 @@ class CitationDataset(object):
                       'rb') as f:
                 objects.append(_pickle_load(f))
 
-        x, y, tx, ty, allx, ally, _graph = tuple(objects)
+        x, y, tx, ty, allx, ally, _graph = objects
         test_idx_reorder = _parse_index_file("{}/ind.{}.test.index".format(
             self.path, self.name))
         test_idx_range = np.sort(test_idx_reorder)

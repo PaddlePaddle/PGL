@@ -12,7 +12,7 @@ The reddit dataset should be downloaded from the following links and placed in d
 
 ### Dependencies
 
-- paddlepaddle>=1.4 (The speed can be faster in 1.5.)
+- paddlepaddle>=1.6
 - pgl
 
 ### How to run
@@ -21,6 +21,14 @@ To train a GraphSAGE model on Reddit Dataset, you can just run
 ```
  python train.py --use_cuda --epoch 10 --graphsage_type graphsage_mean --normalize --symmetry     
 ```
+
+If you want to train a GraphSAGE model with multiple GPUs, you can just run
+
+```
+CUDA_VISIBLE_DEVICES=0,1 python train_multi.py --use_cuda --epoch 10 --graphsage_type graphsage_mean --normalize --symmetry  --num_trainer 2    
+```
+
+
 
 #### Hyperparameters
 

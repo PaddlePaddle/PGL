@@ -13,8 +13,9 @@
 # limitations under the License.
 """Generate pgl apis
 """
-__version__ = "0.1.0.beta"
+__version__ = "1.0.0"
 from pgl import layers
 from pgl import graph_wrapper
 from pgl import graph
 from pgl import data_loader
+from pgl import contrib

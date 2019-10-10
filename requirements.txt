@@ -1,2 +1,6 @@
-numpy >= 1.14.5
+numpy >= 1.16.4
 cython >= 0.25.2
+
+#paddlepaddle
+
+redis-py-cluster

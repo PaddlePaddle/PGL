@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 import argparse
 import time
 
@@ -34,8 +35,9 @@ def load_data(normalize=True, symmetry=True):
         reddit_adj.npz: https://drive.google.com/open?id=174vb0Ws7Vxk_QTUtxqTgDHSQ4El4qDHt
         reddit.npz: https://drive.google.com/open?id=19SphVl_Oe8SJ1r87Hr5a6znx3nJu1F2J
     """
-    data = np.load("data/reddit.npz")
-    adj = sp.load_npz("data/reddit_adj.npz")
+    data_dir = os.path.dirname(os.path.abspath(__file__))
+    data = np.load(os.path.join(data_dir, "data/reddit.npz"))
+    adj = sp.load_npz(os.path.join(data_dir, "data/reddit_adj.npz"))
     if symmetry:
         adj = adj + adj.T
     adj = adj.tocoo()
@@ -64,7 +66,7 @@ def load_data(normalize=True, symmetry=True):
         num_nodes=feature.shape[0],
         edges=list(zip(src, dst)),
         node_feat={"index": np.arange(
-            0, len(feature), dtype="int32")})
+            0, len(feature), dtype="int64")})
 
     return {
         "graph": graph,
@@ -82,7 +84,7 @@ def load_data(normalize=True, symmetry=True):
 def build_graph_model(graph_wrapper, num_class, k_hop, graphsage_type,
                       hidden_size, feature):
     node_index = fluid.layers.data(
-        "node_index", shape=[None], dtype="int32", append_batch_size=False)
+        "node_index", shape=[None], dtype="int64", append_batch_size=False)
 
     node_label = fluid.layers.data(
         "node_label", shape=[None, 1], dtype="int64", append_batch_size=False)
@@ -198,7 +200,9 @@ def main(args):
             hide_batch_size=False)
 
         graph_wrapper = pgl.graph_wrapper.GraphWrapper(
-            "sub_graph", place, node_feat=data['graph'].node_feat_info())
+            "sub_graph",
+            fluid.CPUPlace(),
+            node_feat=data['graph'].node_feat_info())
         model_loss, model_acc = build_graph_model(
             graph_wrapper,
             num_class=data["num_class"],

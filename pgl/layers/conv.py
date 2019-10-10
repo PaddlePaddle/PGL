@@ -53,7 +53,7 @@ def gcn(gw, feature, hidden_size, activation, name, norm=None):
         feature = fluid.layers.fc(feature,
                                   size=hidden_size,
                                   bias_attr=False,
-                                  name=name)
+                                  param_attr=fluid.ParamAttr(name=name))
 
     if norm is not None:
         feature = feature * norm
@@ -67,7 +67,7 @@ def gcn(gw, feature, hidden_size, activation, name, norm=None):
         output = fluid.layers.fc(output,
                                  size=hidden_size,
                                  bias_attr=False,
-                                 name=name)
+                                 param_attr=fluid.ParamAttr(name=name))
 
     if norm is not None:
         output = output * norm
@@ -152,7 +152,7 @@ def gat(gw,
     ft = fluid.layers.fc(feature,
                          hidden_size * num_heads,
                          bias_attr=False,
-                         name=name + '_weight')
+                         param_attr=fluid.ParamAttr(name=name + '_weight'))
     left_a = fluid.layers.create_parameter(
         shape=[num_heads, hidden_size],
         dtype='float32',

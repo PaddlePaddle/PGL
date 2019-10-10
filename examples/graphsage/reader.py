@@ -17,12 +17,15 @@ import paddle
 import paddle.fluid as fluid
 import pgl
 import time
+from pgl.utils import mp_reader
 from pgl.utils.logger import log
 import train
 import time
 
 
 def node_batch_iter(nodes, node_label, batch_size):
+    """node_batch_iter
+    """
     perm = np.arange(len(nodes))
     np.random.shuffle(perm)
     start = 0
@@ -33,6 +36,8 @@ def node_batch_iter(nodes, node_label, batch_size):
 
 
 def traverse(item):
+    """traverse
+    """
     if isinstance(item, list) or isinstance(item, np.ndarray):
         for i in iter(item):
             for j in traverse(i):
@@ -42,13 +47,21 @@ def traverse(item):
 
 
 def flat_node_and_edge(nodes, eids):
+    """flat_node_and_edge
+    """
     nodes = list(set(traverse(nodes)))
     eids = list(set(traverse(eids)))
     return nodes, eids
 
 
-def worker(batch_info, graph, samples):
+def worker(batch_info, graph, graph_wrapper, samples):
+    """Worker
+    """
+
     def work():
+        """work
+        """
+        first = True
         for batch_train_samples, batch_train_labels in batch_info:
             start_nodes = batch_train_samples
             nodes = start_nodes
@@ -65,11 +78,14 @@ def worker(batch_info, graph, samples):
                 if len(start_nodes) == 0:
                     break
 
-            feed_dict = {}
-            feed_dict["nodes"] = [int(n) for n in nodes]
-            feed_dict["eids"] = [int(e) for e in eids]
-            feed_dict["node_label"] = [int(n) for n in batch_train_labels]
-            feed_dict["node_index"] = [int(n) for n in batch_train_samples]
+            subgraph = graph.subgraph(nodes=nodes, eid=eids)
+            sub_node_index = subgraph.reindex_from_parrent_nodes(
+                batch_train_samples)
+            feed_dict = graph_wrapper.to_feed(subgraph)
+            feed_dict["node_label"] = np.expand_dims(
+                np.array(
+                    batch_train_labels, dtype="int64"), -1)
+            feed_dict["node_index"] = sub_node_index
             yield feed_dict
 
     return work
@@ -82,26 +98,28 @@ def multiprocess_graph_reader(graph,
                               batch_size,
                               node_label,
                               num_workers=4):
+    """multiprocess_graph_reader
+    """
+
     def parse_to_subgraph(rd):
+        """parse_to_subgraph
+        """
+
         def work():
+            """work
+            """
+            last = time.time()
             for data in rd():
-                nodes = data["nodes"]
-                eids = data["eids"]
-                batch_train_labels = data["node_label"]
-                batch_train_samples = data["node_index"]
-                subgraph = graph.subgraph(nodes=nodes, eid=eids)
-                sub_node_index = subgraph.reindex_from_parrent_nodes(
-                    batch_train_samples)
-                feed_dict = graph_wrapper.to_feed(subgraph)
-                feed_dict["node_label"] = np.expand_dims(
-                    np.array(
-                        batch_train_labels, dtype="int64"), -1)
-                feed_dict["node_index"] = sub_node_index
+                this = time.time()
+                feed_dict = data
+                now = time.time()
+                last = now
                 yield feed_dict
 
         return work
 
     def reader():
+        """reader"""
         batch_info = list(
             node_batch_iter(
                 node_index, node_label, batch_size=batch_size))
@@ -110,9 +128,9 @@ def multiprocess_graph_reader(graph,
         for i in range(num_workers):
             reader_pool.append(
                 worker(batch_info[block_size * i:block_size * (i + 1)], graph,
-                       samples))
-        multi_process_sample = paddle.reader.multiprocess_reader(
-            reader_pool, use_pipe=False)
+                       graph_wrapper, samples))
+        multi_process_sample = mp_reader.multiprocess_reader(
+            reader_pool, use_pipe=True, queue_size=1000)
         r = parse_to_subgraph(multi_process_sample)
         return paddle.reader.buffered(r, 1000)
 
@@ -121,7 +139,10 @@ def multiprocess_graph_reader(graph,
 
 def graph_reader(graph, graph_wrapper, samples, node_index, batch_size,
                  node_label):
+    """graph_reader"""
+
     def reader():
+        """reader"""
         for batch_train_samples, batch_train_labels in node_batch_iter(
                 node_index, node_label, batch_size=batch_size):
             start_nodes = batch_train_samples
