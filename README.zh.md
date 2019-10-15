@@ -58,8 +58,7 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 
 PGL依赖于:
 
-* paddle >= 1.5
-* networkx
+* paddle >= 1.6
 * cython
 
 
@@ -68,7 +67,7 @@ PGL支持Python 2和3。
 
 ## 安装
 
-当前，PGL的版本是0.1.0.beta。你可以简单的用pip进行安装。
+当前，PGL的版本是1.0.0。你可以简单的用pip进行安装。
 
 ```sh
 pip install pgl
@@ -81,4 +80,3 @@ PGL由百度的NLP以及Paddle团队共同开发以及维护。
 ## License
 
 PGL uses Apache License 2.0.
-
