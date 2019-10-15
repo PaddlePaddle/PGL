@@ -1,4 +1,4 @@
-# PGL Examples for GCN
+# PGL Examples for DGI
 
 [Deep Graph Infomax \(DGI\)](https://arxiv.org/abs/1809.10341) is a general approach for learning node representations within graph-structured data in an unsupervised manner. DGI relies on maximizing mutual information between patch representations and corresponding high-level summaries of graphs---both derived using established graph convolutional network architectures.
 
