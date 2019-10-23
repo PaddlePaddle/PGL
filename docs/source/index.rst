@@ -15,14 +15,9 @@ Quick Start
 .. toctree::
     :maxdepth: 1
     :caption: Quick Start
-    :hidden:
 
-    instruction.rst
-
-See instruction_ for quick start.
-
-.. _instruction: instruction.html
-
+    quick_start/instruction.rst
+    quick_start/introduction_for_hetergraph.rst
 
 
 .. toctree::
