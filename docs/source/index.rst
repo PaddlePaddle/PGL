@@ -38,6 +38,7 @@ Quick Start
    examples/strucvec_examples.rst
    examples/gatne_examples.rst
    examples/metapath2vec_examples.rst
+   examples/unsup_graphsage_examples.rst
 
 .. toctree::
    :maxdepth: 2
