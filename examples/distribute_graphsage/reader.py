@@ -89,8 +89,7 @@ def worker(batch_info, graph_wrapper, samples):
                 if len(start_nodes) == 0:
                     break
 
-            subgraph = graph.subgraph(
-                nodes=nodes, eid=eids, edges=[eid2edges[e] for e in eids])
+            subgraph = graph.subgraph(nodes=nodes, eid=eids, edges=[ eid2edges[e] for e in eids])
             sub_node_index = subgraph.reindex_from_parrent_nodes(
                 batch_train_samples)
             feed_dict = graph_wrapper.to_feed(subgraph)
@@ -103,7 +102,8 @@ def worker(batch_info, graph_wrapper, samples):
     return work
 
 
-def multiprocess_graph_reader(graph_wrapper,
+def multiprocess_graph_reader(
+                              graph_wrapper,
                               samples,
                               node_index,
                               batch_size,
@@ -138,7 +138,7 @@ def multiprocess_graph_reader(graph_wrapper,
         reader_pool = []
         for i in range(num_workers):
             reader_pool.append(
-                worker(batch_info[block_size * i:block_size * (i + 1)],
+                worker(batch_info[block_size * i:block_size * (i + 1)], 
                        graph_wrapper, samples))
         multi_process_sample = mp_reader.multiprocess_reader(
             reader_pool, use_pipe=True, queue_size=1000)
@@ -146,3 +146,4 @@ def multiprocess_graph_reader(graph_wrapper,
         return paddle.reader.buffered(r, 1000)
 
     return reader()
+

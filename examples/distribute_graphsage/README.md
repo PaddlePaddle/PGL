@@ -55,3 +55,5 @@ python train.py --use_cuda --epoch 10 --graphsage_type graphsage_mean --sample_w
 - samples_1: The max neighbors for the first hop neighbor sampling. (default: 25)
 - samples_2: The max neighbors for the second hop neighbor sampling. (default: 10)
 - hidden_size: The hidden size of the GraphSAGE models.
+
+

@@ -16,7 +16,8 @@ python node2vec.py --use_cuda --dataset BlogCatalog --save_path ./tmp/node2vec_B
 python multi_class.py --use_cuda --ckpt_path ./tmp/node2vec_BlogCatalog/paddle_model --epoch 1000
 
 # link prediction task example
-python node2vec.py --use_cuda --dataset ArXiv --save_path ./tmp/node2vec_ArXiv --offline_learning --epoch 400
+python node2vec.py --use_cuda --dataset ArXiv --save_path
+./tmp/node2vec_ArXiv --offline_learning --epoch 10
 
 python link_predict.py --use_cuda --ckpt_path ./tmp/node2vec_ArXiv/paddle_model --epoch 400
 ```

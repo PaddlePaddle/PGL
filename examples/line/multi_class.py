@@ -33,6 +33,15 @@ from pgl.utils.logger import log
 from data_loader import FlickrDataset
 
 
+def load_param(dirname, var_name_list):
+    """load_param"""
+    for var_name in var_name_list:
+        var = fluid.global_scope().find_var(var_name)
+        var_tensor = var.get_tensor()
+        var_tmp = np.load(os.path.join(dirname, var_name + '.npy'))
+        var_tensor.set(var_tmp, fluid.CPUPlace())
+
+
 def set_seed(seed):
     """Set global random seed.
     """
@@ -200,12 +209,15 @@ def main(args):
             return False
         return os.path.exists(os.path.join(args.ckpt_path, var.name))
 
-    fluid.io.load_vars(
-        exe, args.ckpt_path, main_program=train_prog, predicate=existed_params)
+    log.info('loading pretrained parameters from npy')
+    load_param(args.ckpt_path, ['shared_w'])
+
     step = 0
     prev_time = time.time()
     train_model['pyreader'].start()
 
+    final_macro_f1 = 0.0
+    final_micro_f1 = 0.0
     while 1:
         try:
             train_loss_val, train_probs_val, train_labels_val, train_topk_val = exe.run(
@@ -257,7 +269,12 @@ def main(args):
                 log.info("\t\tStep %d " % step + "Test Loss: %f " %
                          test_loss_val + "Test Macro F1: %f " % test_macro_f1 +
                          "Test Micro F1: %f " % test_micro_f1)
+                final_macro_f1 = max(test_macro_f1, final_macro_f1)
+                final_micro_f1 = max(test_micro_f1, final_micro_f1)
                 break
+
+    log.info("\nFinal test Macro F1: %f " % final_macro_f1 +
+             "Final test Micro F1: %f " % final_micro_f1)
 
 
 if __name__ == '__main__':
@@ -268,7 +285,7 @@ if __name__ == '__main__':
         default='./data/flickr/',
         help='dataset for training')
     parser.add_argument("--use_cuda", action='store_true', help="use_cuda")
-    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--seed", type=int, default=1667)
     parser.add_argument(
         "--lr", type=float, default=0.025, help='learning rate')

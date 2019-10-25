@@ -36,7 +36,7 @@ For examples, use gpu to train LINE on Flickr dataset.
 # multiclass task example
 python line.py --use_cuda --order first_order --data_path ./data/flickr/ --save_dir ./checkpoints/model/
 
-python multi_class.py --ckpt_path ./checkpoints/model/model_eopch_20 --percent 0.5
+python multi_class.py --ckpt_path ./checkpoints/model/model_epoch_20 --percent 0.5
 
 ```
 
