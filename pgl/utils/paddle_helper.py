@@ -226,7 +226,6 @@ def scatter_add(input, index, updates):
     output = fluid.layers.scatter(input, index, updates, mode='add')
     return output
 
-
 def scatter_max(input, index, updates):
     """Scatter max updates to input by given index.
 
@@ -245,3 +244,4 @@ def scatter_max(input, index, updates):
 
     output = fluid.layers.scatter(input, index, updates, mode='max')
     return output
+
