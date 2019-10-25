@@ -1,8 +1,8 @@
 View the Code
 =============
 
-examples/gatne/main.py
+examples/gat/train.py
 
-.. literalinclude:: ../../../examples/gatne/main.py
+.. literalinclude:: ../../../examples/gat/train.py
     :language: python
     :linenos:
