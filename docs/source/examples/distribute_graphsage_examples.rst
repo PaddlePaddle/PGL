@@ -1,1 +1,1 @@
-.. mdinclude:: md/distribute_graphsage_examples.md
+.. mdinclude:: ../../../examples/distribute_graphsage/README.md

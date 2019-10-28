@@ -1,1 +1,1 @@
-.. mdinclude:: md/ges_examples.md
+.. mdinclude:: ../../../examples/ges/README.md

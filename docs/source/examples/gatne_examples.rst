@@ -1,1 +1,1 @@
-.. mdinclude:: md/gatne_examples.md
+.. mdinclude:: ../../../examples/GATNE/README.md

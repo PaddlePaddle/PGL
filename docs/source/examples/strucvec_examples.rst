@@ -1,1 +1,1 @@
-.. mdinclude:: md/strucvec_examples.md
+.. mdinclude:: ../../../examples/strucvec/README.md

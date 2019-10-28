@@ -1,1 +1,1 @@
-.. mdinclude:: md/static_gat_examples.md
+.. mdinclude:: ../../../examples/static_gat/README.md

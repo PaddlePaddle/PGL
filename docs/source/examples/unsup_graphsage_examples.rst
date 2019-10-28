@@ -1,1 +1,1 @@
-.. mdinclude:: md/unsup_graphsage_examples.md
+.. mdinclude:: ../../../examples/unsup_graphsage/README.md

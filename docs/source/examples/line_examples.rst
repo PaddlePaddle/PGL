@@ -1,1 +1,1 @@
-.. mdinclude:: md/line_examples.md
+.. mdinclude:: ../../../examples/line/README.md

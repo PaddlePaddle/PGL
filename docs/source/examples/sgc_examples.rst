@@ -1,1 +1,1 @@
-.. mdinclude:: md/sgc_examples.md
+.. mdinclude:: ../../../examples/sgc/README.md

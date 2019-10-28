@@ -1,1 +1,1 @@
-.. mdinclude:: md/gat_examples.md
+.. mdinclude:: ../../../examples/gat/README.md

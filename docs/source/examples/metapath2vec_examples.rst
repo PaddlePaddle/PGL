@@ -1,1 +1,1 @@
-.. mdinclude:: md/metapath2vec_examples.md
+.. mdinclude:: ../../../examples/metapath2vec/README.md

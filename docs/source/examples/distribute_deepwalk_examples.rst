@@ -1,1 +1,1 @@
-.. mdinclude:: md/distribute_deepwalk_examples.md
+.. mdinclude:: ../../../examples/distribute_deepwalk/README.md

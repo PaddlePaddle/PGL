@@ -1,1 +1,1 @@
-.. mdinclude:: md/node2vec_examples.md
+.. mdinclude:: ../../../examples/node2vec/README.md
