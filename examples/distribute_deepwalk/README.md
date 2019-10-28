@@ -1,4 +1,4 @@
-# distributed deepwalk in PGL
+# Distributed Deepwalk in PGL
 [Deepwalk](https://arxiv.org/pdf/1403.6652.pdf) is an algorithmic framework for representational learning on graphs. Given any graph, it can learn continuous feature representations for the nodes, which can then be used for various downstream machine learning tasks. Based on PGL, we reproduce distributed deepwalk algorithms and reach the same level of indicators as the paper.
 
 ## Datasets
