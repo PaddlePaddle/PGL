@@ -1,1 +1,1 @@
-.. mdinclude:: md/dgi_examples.md
+.. mdinclude:: ../../../examples/dgi/README.md
