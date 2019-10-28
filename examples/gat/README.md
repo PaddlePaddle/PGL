@@ -1,4 +1,4 @@
-# PGL Examples for GAT
+# GAT: Graph Attention Networks
 
 [Graph Attention Networks \(GAT\)](https://arxiv.org/abs/1710.10903) is a novel architectures that operate on graph-structured data, which leverages masked self-attentional layers to address the shortcomings of prior methods based on graph convolutions or their approximations. Based on PGL, we reproduce GAT algorithms and reach the same level of indicators as the paper in citation network benchmarks.
 ### Simple example to build single head GAT

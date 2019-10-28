@@ -1,4 +1,4 @@
-# PGL Examples for SGC 
+# SGC: Simplifying Graph Convolutional Networks 
 
 [Simplifying Graph Convolutional Networks \(SGC\)](https://arxiv.org/pdf/1902.07153.pdf) is a powerful neural network designed for machine learning on graphs. Based on PGL, we reproduce SGC algorithms and reach the same level of indicators as the paper in citation network benchmarks.
 

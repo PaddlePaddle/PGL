@@ -1,4 +1,4 @@
-# PGL Examples for GATNE
+# GATNE: General Attributed Multiplex HeTerogeneous Network Embedding
 [GATNE](https://arxiv.org/pdf/1905.01669.pdf) is a algorithms framework for embedding large-scale Attributed Multiplex Heterogeneous Networks(AMHN). Given a heterogeneous graph, which consists of nodes and edges of multiple types, it can learn continuous feature representations for every node. Based on PGL, we reproduce GATNE algorithm. 
 
 ## Datasets

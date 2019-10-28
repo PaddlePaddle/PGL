@@ -1,4 +1,4 @@
-# PGL examples for metapath2vec
+# metapath2vec: Scalable Representation Learning for Heterogeneous Networks
 [metapath2vec](https://ericdongyx.github.io/papers/KDD17-dong-chawla-swami-metapath2vec.pdf) is a algorithm framework for representation learning in heterogeneous networks which contains multiple types of nodes and links. Given a heterogeneous graph, metapath2vec algorithm first generates meta-path-based random walks and then use skipgram model to train a language model. Based on PGL, we reproduce metapath2vec algorithm.
 
 

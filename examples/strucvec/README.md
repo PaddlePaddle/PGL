@@ -1,13 +1,13 @@
-## PGL Examples For Struc2Vec
+# struc2vec: Learning Node Representations from Structural Identity
 [Struc2vec](https://arxiv.org/abs/1704.03165) is is a concept of symmetry in which network nodes are identified according to the network structure and their relationship to other nodes. A novel and flexible framework for learning latent representations is proposed in the paper of struc2vec. We reproduce Struc2vec algorithm in the PGL.
-##  DataSet
+###  DataSet
 The paper of use air-traffic network to valid algorithm of Struc2vec.
 The each edge in the dataset indicate that having one flight between the airports. Using the the connection between the airports to predict the level of activity. The following dataset will be used to valid the algorithm accuracy.Data collected from the Bureau of Transportation Statistics2 from January to October, 2016. The network has 1,190 nodes, 13,599 edges (diameter is 8). [Link](https://www.transtats.bts.gov/)
 
 - usa-airports.edgelist 
 - labels-usa-airports.txt
 
-## Dependencies
+### Dependencies
 If use want to use the struc2vec model in pgl, please install the gensim, pathos, fastdtw additional.
 - paddlepaddle>=1.6
 - pgl
@@ -15,11 +15,11 @@ If use want to use the struc2vec model in pgl, please install the gensim, pathos
 - pathos
 - fastdtw
 
-## How to use
+### How to use
 For examples, we want to train and valid the Struc2vec model on American airpot dataset 
 > python struc2vec.py --edge_file data/usa-airports.edgelist --label_file data/labels-usa-airports.txt --train True --valid True --opt2 True
 
-## Hyperparameters
+### Hyperparameters
 | Args| Meaning|
 | ------------- | ------------- |
 | edge_file | input file name for edges|
@@ -35,7 +35,7 @@ For examples, we want to train and valid the Struc2vec model on American airpot 
 | valid| The flag to use the w2v embedding to valid the classification result|
 | num_class| The num of class in classification model to be trained|
 
-##  Experiment results
+###  Experiment results
 | Dataset | Model | Metric | PGL Result | Paper repo Result |
 | ------------- | ------------- |------------- |------------- |------------- |
 | American airport dataset | Struc2vec without time cost optimization| ACC |0.6483|0.6340|

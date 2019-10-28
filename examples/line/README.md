@@ -1,4 +1,4 @@
-# PGL Examples for LINE
+# LINE: Large-scale Information Network Embedding
 [LINE](http://www.www2015.it/documents/proceedings/proceedings/p1067.pdf) is an algorithmic framework for embedding very large-scale information networks. It is suitable to a variety of networks including directed, undirected, binary or weighted edges. Based on PGL, we reproduce LINE algorithms and reach the same level of indicators as the paper.
 
 ## Datasets
