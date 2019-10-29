@@ -103,7 +103,7 @@ In most cases of large-scale graph learning, we need distributed graph storage a
 The following are 13 graph learning models that have been implemented in the framework.
 
 |Model | feature |
-|---|---|--- |
+|---|---|
 | [GCN](examples/gcn_examples.html)| Graph Convolutional Neural Networks |
 | [GAT](examples/gat_examples.html)| Graph Attention Network |
 | [GraphSage](examples/graphsage_examples.html)|Large-scale graph convolution network based on neighborhood sampling|
