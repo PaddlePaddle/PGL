@@ -35,7 +35,7 @@ Users only need to call the ```sequence_ops``` functions provided by Paddle to e
 
 Although DGL does some kernel fusion optimization for general sum, max and other aggregate functions with scatter-gather. For **complex user-defined functions** with degree bucketing algorithm, the serial execution for each degree bucket cannot take full advantage of the performance improvement provided by GPU. However, operations on the PGL LodTensor-based message is performed in parallel, which can fully utilize GPU parallel optimization. In our experiments, PGL can reach up to 13 times the speed of DGL with complex user-defined functions. Even without scatter-gather optimization, PGL still has excellent performance. Of course, we still provide build-in scatter-optimized message aggregation functions.
 
-## Performance
+### Performance
 
 
 We test all the following GNN algorithms with Tesla V100-SXM2-16G running for 200 epochs to get average speeds. And we report the accuracy on test dataset without early stoppping.
@@ -82,7 +82,7 @@ In most cases of large-scale graph learning, we need distributed graph storage a
 
 
 ## Highlight: Tons of Models
-The following are 13 graph learning models that have been implemented in the framework.
+The following are 13 graph learning models that have been implemented in the framework. See the details [here](https://pgl.readthedocs.io/en/latest/introduction.html#tons-of-models)
 
 |Model | feature |
 |---|---|
