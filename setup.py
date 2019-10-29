@@ -24,20 +24,23 @@ from setuptools.command.build_ext import build_ext as _build_ext
 try:
     from Cython.Build import cythonize
 except ImportError:
-     def cythonize(*args, **kwargs):
-         """cythonize"""
-         from Cython.Build import cythonize
-         return cythonize(*args, **kwargs)
+
+    def cythonize(*args, **kwargs):
+        """cythonize"""
+        from Cython.Build import cythonize
+        return cythonize(*args, **kwargs)
 
 
 class CustomBuildExt(_build_ext):
     """CustomBuildExt"""
+
     def finalize_options(self):
         _build_ext.finalize_options(self)
         # Prevent numpy from thinking it is still in its setup process:
         __builtins__.__NUMPY_SETUP__ = False
         import numpy
         self.include_dirs.append(numpy.get_include())
+
 
 workdir = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(workdir, './requirements.txt')) as f:
@@ -108,7 +111,7 @@ setup(
         'numpy>=1.16.4',
     ],
     install_requires=requirements,
-    cmdclass={'build_ext':CustomBuildExt},
+    cmdclass={'build_ext': CustomBuildExt},
     packages=find_packages(),
     include_package_data=True,
     #ext_modules=cythonize(extensions),
