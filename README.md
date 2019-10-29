@@ -82,7 +82,7 @@ In most cases of large-scale graph learning, we need distributed graph storage a
 
 
 ## Highlight: Tons of Models
-The following are 13 graph learning models that have been implemented in the framework. See the details [here](https://pgl.readthedocs.io/en/latest/introduction.html#tons-of-models)
+The following are 13 graph learning models that have been implemented in the framework. See the details [here](https://pgl.readthedocs.io/en/latest/introduction.html#highlight-tons-of-models)
 
 |Model | feature |
 |---|---|
