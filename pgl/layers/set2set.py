@@ -23,6 +23,8 @@ import paddle.fluid.layers as L
 
 import pgl
 
+__all__ = ['Set2Set']
+
 
 class Set2Set(object):
     """Implementation of set2set pooling operator.

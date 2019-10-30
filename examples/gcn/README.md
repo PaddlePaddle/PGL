@@ -1,4 +1,4 @@
-# PGL Examples for GCN
+# GCN: Graph Convolutional Networks
 
 [Graph Convolutional Network \(GCN\)](https://arxiv.org/abs/1609.02907) is a powerful neural network designed for machine learning on graphs. Based on PGL, we reproduce GCN algorithms and reach the same level of indicators as the paper in citation network benchmarks.
 

@@ -1,4 +1,4 @@
-# PGL Examples for node2vec
+# node2vec: Scalable Feature Learning for Networks 
 [Node2vec](https://cs.stanford.edu/~jure/pubs/node2vec-kdd16.pdf) is an algorithmic framework for representational learning on graphs. Given any graph, it can learn continuous feature representations for the nodes, which can then be used for various downstream machine learning tasks. Based on PGL, we reproduce node2vec algorithms and reach the same level of indicators as the paper.
 ## Datasets
 The datasets contain two networks: [BlogCatalog](http://socialcomputing.asu.edu/datasets/BlogCatalog3) and [Arxiv](http://snap.stanford.edu/data/ca-AstroPh.html). 
@@ -16,7 +16,8 @@ python node2vec.py --use_cuda --dataset BlogCatalog --save_path ./tmp/node2vec_B
 python multi_class.py --use_cuda --ckpt_path ./tmp/node2vec_BlogCatalog/paddle_model --epoch 1000
 
 # link prediction task example
-python node2vec.py --use_cuda --dataset ArXiv --save_path ./tmp/node2vec_ArXiv --offline_learning --epoch 400
+python node2vec.py --use_cuda --dataset ArXiv --save_path
+./tmp/node2vec_ArXiv --offline_learning --epoch 10
 
 python link_predict.py --use_cuda --ckpt_path ./tmp/node2vec_ArXiv/paddle_model --epoch 400
 ```

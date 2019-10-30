@@ -9,3 +9,5 @@ API Reference
    pgl.data_loader
    pgl.utils.paddle_helper
    pgl.utils.mp_reader
+   pgl.contrib.heter_graph
+   pgl.contrib.heter_graph_wrapper

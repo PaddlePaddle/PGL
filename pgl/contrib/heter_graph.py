@@ -14,11 +14,12 @@
 """
     This package implement Heterogeneous Graph structure for handling Heterogeneous graph data.
 """
+import time
 import numpy as np
 import pickle as pkl
 import time
 import pgl.graph_kernel as graph_kernel
-from pgl import graph
+from pgl.graph import Graph
 
 __all__ = ['HeterGraph']
 
@@ -31,122 +32,110 @@ def _hide_num_nodes(shape):
     return shape
 
 
-class HeterGraph(object):
-    """Implementation of graph structure in pgl
-
-    This is a simple implementation of heterogeneous graph structure in pgl
+class NodeGraph(Graph):
+    """Implementation of a graph that has multple node types.
 
     Args:
-        num_nodes_every_type: dict, number of nodes for every node type
+        num_nodes: number of nodes in the graph
+        edges: list of (u, v) tuples
+        node_types (optional): list of (u, node_type) tuples to specify the node type of every node
+        node_feat (optional): a dict of numpy array as node features
+        edge_feat (optional): a dict of numpy array as edge features
+    """
 
-        edges_every_type: dict, every element is a list of (u, v) tuples.
+    def __init__(self,
+                 num_nodes,
+                 edges,
+                 node_types=None,
+                 node_feat=None,
+                 edge_feat=None):
+        super(NodeGraph, self).__init__(num_nodes, edges, node_feat, edge_feat)
 
-        node_feat_every_type: features for every node type.
+        if isinstance(node_types, list):
+            self._node_types = np.array(node_types, dtype=object)[:, 1]
+        else:
+            self._node_types = node_types
+
+
+class HeterGraph(object):
+    """Implementation of heterogeneous graph structure in pgl
+
+    This is a simple implementation of heterogeneous graph structure in pgl.
+
+    Args:
+        num_nodes: number of nodes in a heterogeneous graph
+        edges: dict, every element in dict is a list of (u, v) tuples.
+        node_types (optional): list of (u, node_type) tuples to specify the node type of every node
+        node_feat (optional): a dict of numpy array as node features
+        edge_feat (optional): a dict of dict as edge features for every edge type
 
     Examples:
         .. code-block:: python
 
             import numpy as np
-            num_nodes_every_type = {'type1':3,'type2':4, 'type3':2}
-            edges_every_type = {
-                ('type1','type2', 'edges_type1'): [(0,1), (1,2)], 
-                ('type1', 'type3', 'edges_type2'): [(1,2), (3,1)],
+            num_nodes = 4
+            node_types = [(0, 'user'), (1, 'item'), (2, 'item'), (3, 'user')]
+            edges = {
+                'edges_type1': [(0,1), (3,2)],
+                'edges_type2': [(1,2), (3,1)],
             }
-            node_feat_every_type = {
-                'type1': {'features1': np.random.randn(3, 4),
-                          'features2': np.random.randn(3, 4)}, 
-                'type2': {'features3': np.random.randn(4, 4)},
-                'type3': {'features1': np.random.randn(2, 4),
-                          'features2': np.random.randn(2, 4)}
-            }
-            edges_feat_every_type = {
-                ('type1','type2','edges_type1'): {'h': np.random.randn(2, 4)},
-                ('type1', 'type3', 'edges_type2'): {'h':np.random.randn(2, 4)},
+            node_feat = {'feature': np.random.randn(4, 16)}
+            edges_feat = {
+                'edges_type1': {'h': np.random.randn(2, 16)},
+                'edges_type2': {'h': np.random.randn(2, 16)},
             }
 
             g = heter_graph.HeterGraph(
-                            num_nodes_every_type=num_nodes_every_type, 
-                            edges_every_type=edges_every_type,
-                            node_feat_every_type=node_feat_every_type,
-                            edge_feat_every_type=edges_feat_every_type)
-
+                            num_nodes=num_nodes,
+                            edges=edges,
+                            node_types=node_types,
+                            node_feat=node_feat,
+                            edge_feat=edges_feat)
     """
 
     def __init__(self,
-                 num_nodes_every_type,
-                 edges_every_type,
-                 node_feat_every_type=None,
-                 edge_feat_every_type=None):
+                 num_nodes,
+                 edges,
+                 node_types=None,
+                 node_feat=None,
+                 edge_feat=None):
+        self._num_nodes = num_nodes
+        self._edges_dict = edges
 
-        self._num_nodes_dict = num_nodes_every_type
-        self._edges_dict = edges_every_type
-        if node_feat_every_type is not None:
-            self._node_feat = node_feat_every_type
+        if node_feat is not None:
+            self._node_feat = node_feat
         else:
             self._node_feat = {}
 
-        if edge_feat_every_type is not None:
-            self._edge_feat = edge_feat_every_type
+        if edge_feat is not None:
+            self._edge_feat = edge_feat
         else:
             self._edge_feat = {}
 
         self._multi_graph = {}
         for key, value in self._edges_dict.items():
-            if not self._node_feat:
-                node_feat = None
-            else:
-                node_feat = self._node_feat[key[0]]
-
             if not self._edge_feat:
                 edge_feat = None
             else:
                 edge_feat = self._edge_feat[key]
 
-            self._multi_graph[key] = graph.Graph(
-                num_nodes=self._num_nodes_dict[key[1]],
+            self._multi_graph[key] = NodeGraph(
+                num_nodes=self._num_nodes,
                 edges=value,
-                node_feat=node_feat,
+                node_types=node_types,
+                node_feat=self._node_feat,
                 edge_feat=edge_feat)
+
+    @property
+    def num_nodes(self):
+        """Return the number of nodes.
+        """
+        return self._num_nodes
 
     def __getitem__(self, edge_type):
         """__getitem__
         """
         return self._multi_graph[edge_type]
-
-    def meta_path_random_walk(self, start_node, edge_types, meta_path,
-                              max_depth):
-        """Meta path random walk sampling.
-
-        Args:
-            start_nodes: int, node to begin random walk.
-            edge_types: list, the edge types to be sampled.
-            meta_path: 'user-item-user'
-            max_depth: the max length of every walk.
-        """
-        edges_type_list = []
-        node_type_list = meta_path.split('-')
-        for i in range(1, len(node_type_list)):
-            edges_type_list.append(
-                (node_type_list[i - 1], node_type_list[i], edge_types[i - 1]))
-
-        no_neighbors_flag = False
-        walk = [start_node]
-        for i in range(max_depth):
-            for e_type in edges_type_list:
-                cur_node = [walk[-1]]
-                nxt_node = self._multi_graph[e_type].sample_successor(
-                    cur_node, max_degree=1)  # list of np.array
-                nxt_node = nxt_node[0]
-                if len(nxt_node) == 0:
-                    no_neighbors_flag = True
-                    break
-                else:
-                    walk.append(nxt_node.tolist()[0])
-
-            if no_neighbors_flag:
-                break
-
-        return walk
 
     def node_feat_info(self):
         """Return the information of node feature for HeterGraphWrapper.
@@ -155,17 +144,13 @@ class HeterGraph(object):
         function is used to help constructing HeterGraphWrapper
 
         Return:
-            A dict of list of tuple (name, shape, dtype) for all given node feature.
+            A list of tuple (name, shape, dtype) for all given node feature.
 
         """
-        node_feat_info = {}
-        for node_type_name, feat_dict in self._node_feat.items():
-            tmp_node_feat_info = []
-            for feat_name, feat in feat_dict.items():
-                full_name = feat_name
-                tmp_node_feat_info.append(
-                    (full_name, _hide_num_nodes(feat.shape), feat.dtype))
-            node_feat_info[node_type_name] = tmp_node_feat_info
+        node_feat_info = []
+        for feat_name, feat in self._node_feat.items():
+            node_feat_info.append(
+                (feat_name, _hide_num_nodes(feat.shape), feat.dtype))
 
         return node_feat_info
 
@@ -193,7 +178,7 @@ class HeterGraph(object):
         """Return the information of all edge types.
         
         Return:
-            A list of tuple ('srctype','dsttype', 'edges_type') for all edge types.
+            A list of all edge types.
         
         """
         edge_types_info = []

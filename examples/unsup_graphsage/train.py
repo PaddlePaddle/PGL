@@ -318,7 +318,7 @@ def main(args):
                     model_dict=ret_dict,
                     epoch=epoch,
                     batch_size=args.batch_size,
-                    log_per_step=10)
+                    log_per_step=1)
                 epoch_end = time.time()
                 print("Epoch: {0}, Train total expend: {1} ".format(
                     epoch, epoch_end - epoch_start))
@@ -326,7 +326,7 @@ def main(args):
                 log.info("Run Epoch Error %s" % e)
             fluid.io.save_params(
                 exe,
-                dirname=args.checkpoint + '_%s' % epoch,
+                dirname=args.checkpoint + '_%s' % (epoch + 1),
                 main_program=train_program)
 
             log.info("EPOCH END")
@@ -343,7 +343,7 @@ def main(args):
             args.num_layers,
             ret_dict.graph_wrappers,
             batch_size=args.batch_size,
-            data=(test_src, test_src, test_src, test_src),
+            data=(test_src, test_src, test_src),
             samples=args.samples,
             num_workers=args.sample_workers,
             feed_name_list=feed_name_list,

@@ -22,7 +22,10 @@ import pgl
 from pgl.utils.logger import log
 from pgl import graph_kernel
 
-__all__ = ['graphsage_sample', 'node2vec_sample', 'deepwalk_sample']
+__all__ = [
+    'graphsage_sample', 'node2vec_sample', 'deepwalk_sample',
+    'metapath_randomwalk'
+]
 
 
 def edge_hash(src, dst):
@@ -250,4 +253,46 @@ def node2vec_sample(graph, nodes, max_depth, p=1.0, q=1.0):
 
         prev_nodes, prev_succs = cur_nodes, cur_succs
         cur_nodes = nxt_nodes
+    return walk
+
+
+def metapath_randomwalk(graph, start_node, metapath, walk_length):
+    """Implementation of metapath random walk in heterogeneous graph.
+
+    Args:
+        graph: instance of pgl heterogeneous graph
+        start_node: start node to generate walk
+        metapath: meta path for sample nodes. 
+            e.g: "user-item-user"
+        walk_length: the walk length
+
+    Return:
+        a list of metapath walk, each element is a node id.
+        
+    """
+    np.random.seed()
+    walk = []
+    metapath = metapath.split('-')
+    assert metapath[0] == metapath[
+        -1], "The last meta path item should be the same as the first one"
+    mp_len = len(metapath) - 1
+
+    walk.append(start_node)
+    for i in range(1, walk_length):
+        cur_node = walk[-1]
+        succs = graph.successor(cur_node)
+        if succs.size > 0:
+            succs_node_types = graph._node_types[succs]
+        else:
+            # no successor of current node
+            break
+
+        succs_nodes = succs[np.where(succs_node_types == metapath[i % mp_len])[
+            0]]
+        if succs_nodes.size > 0:
+            walk.append(np.random.choice(succs_nodes))
+        else:
+            # no successor of such node type
+            break
+
     return walk

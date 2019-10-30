@@ -1,4 +1,7 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved.
+"""
+sklearn_classify.py
+"""
+# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +39,7 @@ def train_lr_l2_model(args, data):
             test_size=0.2,
             random_state=random_num + random_seed)
 
-        # use the one vs rest to train the lr model with l2
+        # use the one vs rest to train the lr model with l2 
         pred_test = []
         for i in range(0, args.num_class):
             y_train_relabel = np.where(y_train == i, 1, 0)
