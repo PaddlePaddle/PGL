@@ -16,6 +16,7 @@
 
 from pgl.layers import conv
 from pgl.layers.conv import *
+from pgl.layers import set2set
 from pgl.layers.set2set import *
 
 __all__ = []

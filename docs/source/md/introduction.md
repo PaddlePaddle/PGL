@@ -1,8 +1,5 @@
 # Paddle Graph Learning (PGL)
 
-<div />
-<div align=left><img src="_static/logo.png" width="300"></div>
-<div />
 Paddle Graph Learning (PGL) is an efficient and flexible graph learning framework based on [PaddlePaddle](https://github.com/PaddlePaddle/Paddle).
 
 

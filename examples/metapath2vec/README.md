@@ -20,7 +20,7 @@ Some important hyper parameters in config.yaml:
 - **use_cuda**: use GPU to train model
 - **data_path**: the directory of dataset that you want to load
 - **lr**: learning rate
-- **neg_num**: number of negatie samples.
+- **neg_num**: number of negative samples.
 - **num_walks**: number of walks started from each node
 - **walk_length**: walk length
 - **metapath**: meta path scheme
