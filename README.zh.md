@@ -77,10 +77,10 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 
 ## 特色：丰富性——覆盖业界大部分图学习网络
 
-下列是框架中已经自带实现的十三种图网络学习模型
+下列是框架中已经自带实现的十三种图网络学习模型。详情请参考[这里](https://pgl.readthedocs.io/en/latest/introduction.html#highlight-tons-of-models)
 
 | 模型 | 特点 |
-|---|---|--- |
+|---|---|
 | GCN | 图卷积网络 |
 | GAT | 基于Attention的图卷积网络 |
 | GraphSage | 基于邻居采样的大规模图卷积网络 |
