@@ -1,6 +1,6 @@
 ## Step 1: using PGL to create a graph 
 Suppose we have a graph with 10 nodes and 14 edges as shown in the following figure:
-![A simple graph](_static/quick_start_graph.png)
+![A simple graph](images/quick_start_graph.png)
 
 Our purpose is to train a graph neural network to classify yellow and green nodes. So we can create this graph in such way:
 ```python

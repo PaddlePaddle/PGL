@@ -42,6 +42,16 @@ def make_dir(path):
             raise
 
 
+def save_param(dirname, var_name_list):
+    """save_param"""
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+    for var_name in var_name_list:
+        var = fluid.global_scope().find_var(var_name)
+        var_tensor = var.get_tensor()
+        np.save(os.path.join(dirname, var_name + '.npy'), np.array(var_tensor))
+
+
 def set_seed(seed):
     """Set global random seed.
     """
@@ -153,9 +163,9 @@ def main(args):
 
         # save parameters in every epoch
         log.info("saving persistables parameters...")
-        fluid.io.save_persistables(exe,
-                                   os.path.join(args.save_dir, "model_epoch_%d"
-                                                % (epoch + 1)), main_program)
+        cur_save_path = os.path.join(args.save_dir,
+                                     "model_epoch_%d" % (epoch + 1))
+        save_param(cur_save_path, ['shared_w'])
 
 
 if __name__ == '__main__':

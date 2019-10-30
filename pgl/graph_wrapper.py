@@ -596,8 +596,7 @@ class GraphWrapper(BaseGraphWrapper):
 
         feed_dict[self.__data_name_prefix + '/edges_src'] = src
         feed_dict[self.__data_name_prefix + '/edges_dst'] = dst
-        feed_dict[self.__data_name_prefix + '/num_nodes'] = np.array(
-            graph.num_nodes)
+        feed_dict[self.__data_name_prefix + '/num_nodes'] = np.array(graph.num_nodes)
         feed_dict[self.__data_name_prefix + '/uniq_dst'] = uniq_dst
         feed_dict[self.__data_name_prefix + '/uniq_dst_count'] = uniq_dst_count
         feed_dict[self.__data_name_prefix + '/node_ids'] = graph.nodes

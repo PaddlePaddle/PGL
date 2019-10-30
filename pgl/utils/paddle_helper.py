@@ -223,7 +223,7 @@ def scatter_add(input, index, updates):
         Same type and shape as input.
     """
 
-    output = fluid.layers.scatter(input, index, updates, mode='add')
+    output = fluid.layers.scatter(input, index, updates, overwrite=False)
     return output
 
 
