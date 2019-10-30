@@ -96,7 +96,7 @@ In most cases of large-scale graph learning, we need distributed graph storage a
 <div/>
 
 
-## Highlight: Tons of Models
+## Model Zoo
 The following are 13 graph learning models that have been implemented in the framework.
 
 |Model | feature |

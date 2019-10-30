@@ -75,7 +75,7 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 <img src="./docs/source/_static/distributed_frame.png" alt="The distributed frame of PGL" width="800">
 
 
-## 特色：丰富性——覆盖业界大部分图学习网络
+## 丰富性——覆盖业界大部分图学习网络
 
 下列是框架中已经自带实现的十三种图网络学习模型。详情请参考[这里](https://pgl.readthedocs.io/en/latest/introduction.html#highlight-tons-of-models)
 
