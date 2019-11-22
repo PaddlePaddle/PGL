@@ -125,6 +125,8 @@ pip install pgl
 
 PGL is developed and maintained by NLP and Paddle Teams at Baidu
 
+E-mail: nlp-gnn[at]baidu.com
+
 ## License
 
 PGL uses Apache License 2.0.
