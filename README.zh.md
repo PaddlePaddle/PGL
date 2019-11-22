@@ -121,6 +121,8 @@ pip install pgl
 
 PGL由百度的NLP以及Paddle团队共同开发以及维护。
 
+联系方式 E-mail: nlp-gnn[at]baidu.com
+
 ## License
 
 PGL uses Apache License 2.0.
