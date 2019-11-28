@@ -1,6 +1,6 @@
 <img src="./docs/source/_static/logo.png" alt="The logo of Paddle Graph Learning (PGL)" width="320">
 
-[文档](https://pgl.readthedocs.io/en/latest/) | [快速开始](https://pgl.readthedocs.io/en/latest/instruction.html) | [English](./README.md)
+[文档](https://pgl.readthedocs.io/en/latest/) | [快速开始](https://pgl.readthedocs.io/en/latest/quick_start/instruction.html) | [English](./README.md)
 
 Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/PaddlePaddle/Paddle)的高效易用的图学习框架
 
