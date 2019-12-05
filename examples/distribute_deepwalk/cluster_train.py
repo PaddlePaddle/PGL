@@ -108,9 +108,7 @@ def build_complied_prog(train_program, model_loss):
 
     compiled_prog = F.compiler.CompiledProgram(
         train_program).with_data_parallel(
-            loss_name=model_loss.name,
-            build_strategy=build_strategy,
-            exec_strategy=exec_strategy)
+            loss_name=model_loss.name)
     return compiled_prog
 
 
