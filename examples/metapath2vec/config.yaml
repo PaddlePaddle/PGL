@@ -13,9 +13,12 @@ sampler:
         new_author_label_file: author_label.txt
         new_venue_label_file: venue_label.txt
         walk_saved_path: walks/
+        walk_batch_size: 1000
         num_walks: 1000
         walk_length: 100
-        metapath: conf-paper-author-paper-conf
+        num_sample_workers: 16
+        first_node_type: conf
+        metapath: c2p-p2a-a2p-p2c  #conf-paper-author-paper-conf
 
 optimizer:
     type: Adam
