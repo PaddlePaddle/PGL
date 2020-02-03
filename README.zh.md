@@ -1,6 +1,6 @@
 <img src="./docs/source/_static/logo.png" alt="The logo of Paddle Graph Learning (PGL)" width="320">
 
-[文档](https://pgl.readthedocs.io/en/latest/) | [快速开始](https://pgl.readthedocs.io/en/latest/instruction.html) | [English](./README.md)
+[文档](https://pgl.readthedocs.io/en/latest/) | [快速开始](https://pgl.readthedocs.io/en/latest/quick_start/instruction.html) | [English](./README.md)
 
 Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/PaddlePaddle/Paddle)的高效易用的图学习框架
 
@@ -28,7 +28,7 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
         return fluid.layers.sequence_pool(msg, "sum")
 ```
 
-尽管DGL用了一些内核融合（kernel fusion）的方法来将常用的sum，max等聚合函数用scatter-gather进行优化。但是对于**复杂的用户定义函数**，他们使用的Degree Bucketing算法，仅仅使用串行的方案来处理不同的分块，并不同充分利用GPU进行加速。然而，在PGL中我们使用基于LodTensor的消息传递能够充分地利用GPU的并行优化，在复杂的用户定义函数下，PGL的速度在我们的实验中甚至能够达到DGL的13倍。即使不使用scatter-gather的优化，PGL仍然有高效的性能表现。当然，我们也是提供了scatter优化的聚合函数。
+尽管DGL用了一些内核融合（kernel fusion）的方法来将常用的sum，max等聚合函数用scatter-gather进行优化。但是对于**复杂的用户定义函数**，他们使用的Degree Bucketing算法，仅仅使用串行的方案来处理不同的分块，并不会充分利用GPU进行加速。然而，在PGL中我们使用基于LodTensor的消息传递能够充分地利用GPU的并行优化，在复杂的用户定义函数下，PGL的速度在我们的实验中甚至能够达到DGL的13倍。即使不使用scatter-gather的优化，PGL仍然有高效的性能表现。当然，我们也是提供了scatter优化的聚合函数。
 
 
 ### 性能测试
@@ -75,12 +75,12 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 <img src="./docs/source/_static/distributed_frame.png" alt="The distributed frame of PGL" width="800">
 
 
-## 特色：丰富性——覆盖业界大部分图学习网络
+## 丰富性——覆盖业界大部分图学习网络
 
-下列是框架中已经自带实现的十三种图网络学习模型
+下列是框架中已经自带实现的十三种图网络学习模型。详情请参考[这里](https://pgl.readthedocs.io/en/latest/introduction.html#highlight-tons-of-models)
 
 | 模型 | 特点 |
-|---|---|--- |
+|---|---|
 | GCN | 图卷积网络 |
 | GAT | 基于Attention的图卷积网络 |
 | GraphSage | 基于邻居采样的大规模图卷积网络 |
@@ -120,6 +120,8 @@ pip install pgl
 ## 团队
 
 PGL由百度的NLP以及Paddle团队共同开发以及维护。
+
+联系方式 E-mail: nlp-gnn[at]baidu.com
 
 ## License
 

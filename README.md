@@ -1,6 +1,6 @@
 <img src="./docs/source/_static/logo.png" alt="The logo of Paddle Graph Learning (PGL)" width="320">
 
-[DOC](https://pgl.readthedocs.io/en/latest/) | [Quick Start](https://pgl.readthedocs.io/en/latest/instruction.html) | [中文](./README.zh.md)
+[DOC](https://pgl.readthedocs.io/en/latest/) | [Quick Start](https://pgl.readthedocs.io/en/latest/quick_start/instruction.html) | [中文](./README.zh.md)
 
 Paddle Graph Learning (PGL) is an efficient and flexible graph learning framework based on [PaddlePaddle](https://github.com/PaddlePaddle/Paddle).
 
@@ -76,12 +76,12 @@ Because of the different node types on the heterogeneous graph, the message deli
 
 
 ## Large-Scale: Support distributed graph storage and distributed training algorithms
-In most cases of large-scale graph learning, we need distributed graph storage and distributed training support. As shown in the following figure, PGL provided a general solution of large-scale training, we adopted [PaddleFleet](https://github.com/PaddlePaddle/Fleet) as our distributed parameter servers, which supports large scale distributed embeddings and a lightweighted distributed storage engine so tcan easily set up a large scale distributed training algorithm with MPI clusters.
+In most cases of large-scale graph learning, we need distributed graph storage and distributed training support. As shown in the following figure, PGL provided a general solution of large-scale training, we adopted [PaddleFleet](https://github.com/PaddlePaddle/Fleet) as our distributed parameter servers, which supports large scale distributed embeddings and a lightweighted distributed storage engine so it can easily set up a large scale distributed training algorithm with MPI clusters.
 
 <img src="./docs/source/_static/distributed_frame.png" alt="The distributed frame of PGL" width="800">
 
 
-## Highlight: Tons of Models
+## Model Zoo
 The following are 13 graph learning models that have been implemented in the framework. See the details [here](https://pgl.readthedocs.io/en/latest/introduction.html#highlight-tons-of-models)
 
 |Model | feature |
@@ -124,6 +124,8 @@ pip install pgl
 ## The Team
 
 PGL is developed and maintained by NLP and Paddle Teams at Baidu
+
+E-mail: nlp-gnn[at]baidu.com
 
 ## License
 
