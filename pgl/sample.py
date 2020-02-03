@@ -256,43 +256,64 @@ def node2vec_sample(graph, nodes, max_depth, p=1.0, q=1.0):
     return walk
 
 
-def metapath_randomwalk(graph, start_node, metapath, walk_length):
+def metapath_randomwalk(graph,
+                        start_nodes,
+                        metapath,
+                        walk_length,
+                        alias_name=None,
+                        events_name=None):
     """Implementation of metapath random walk in heterogeneous graph.
 
     Args:
         graph: instance of pgl heterogeneous graph
-        start_node: start node to generate walk
+        start_nodes: start nodes to generate walk
         metapath: meta path for sample nodes. 
-            e.g: "user-item-user"
+            e.g: "c2p-p2a-a2p-p2c"
         walk_length: the walk length
 
     Return:
-        a list of metapath walk, each element is a node id.
+        a list of metapath walks. 
         
     """
-    np.random.seed()
+
+    edge_types = metapath.split('-')
+
     walk = []
-    metapath = metapath.split('-')
-    assert metapath[0] == metapath[
-        -1], "The last meta path item should be the same as the first one"
-    mp_len = len(metapath) - 1
+    for node in start_nodes:
+        walk.append([node])
 
-    walk.append(start_node)
-    for i in range(1, walk_length):
-        cur_node = walk[-1]
-        succs = graph.successor(cur_node)
-        if succs.size > 0:
-            succs_node_types = graph._node_types[succs]
+    cur_walk_ids = np.arange(0, len(start_nodes))
+    cur_nodes = np.array(start_nodes)
+    mp_len = len(edge_types)
+    for i in range(0, walk_length - 1):
+        g = graph[edge_types[i % mp_len]]
+
+        cur_succs = g.successor(cur_nodes)
+        mask = [len(succ) > 0 for succ in cur_succs]
+
+        if np.any(mask):
+            cur_walk_ids = cur_walk_ids[mask]
+            cur_nodes = cur_nodes[mask]
+            cur_succs = cur_succs[mask]
         else:
-            # no successor of current node
+            # stop when all nodes have no successor
             break
 
-        succs_nodes = succs[np.where(succs_node_types == metapath[i % mp_len])[
-            0]]
-        if succs_nodes.size > 0:
-            walk.append(np.random.choice(succs_nodes))
+        if alias_name is not None and events_name is not None:
+            sample_index = [
+                alias_sample([1], g.node_feat[alias_name][node],
+                             g.node_feat[events_name][node])[0]
+                for node in cur_nodes
+            ]
         else:
-            # no successor of such node type
-            break
+            outdegree = [len(cur_succ) for cur_succ in cur_succs]
+            sample_index = np.floor(
+                np.random.rand(cur_succs.shape[0]) * outdegree).astype("int64")
+
+        nxt_cur_nodes = []
+        for s, ind, walk_id in zip(cur_succs, sample_index, cur_walk_ids):
+            walk[walk_id].append(s[ind])
+            nxt_cur_nodes.append(s[ind])
+        cur_nodes = np.array(nxt_cur_nodes)
 
     return walk

@@ -195,7 +195,7 @@ def run_epoch(batch_iter,
 
         if num_trainer > 1:
             num_samples = sum(
-                [len(batch["node_index"]) for batch in batch_feed_dict])
+                [len(_batch["node_index"]) for _batch in batch_feed_dict])
         else:
             num_samples = len(batch_feed_dict["node_index"])
         total_loss += batch_loss * num_samples

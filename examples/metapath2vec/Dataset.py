@@ -40,8 +40,10 @@ class Dataset(object):
 
     def __init__(self, config):
         self.config = config
-        self.walk_files = config['input_path'] + config['walk_path']
-        self.word2id_file = config['input_path'] + config['word2id_file']
+        self.walk_files = os.path.join(config['input_path'],
+                                       config['walk_path'])
+        self.word2id_file = os.path.join(config['input_path'],
+                                         config['word2id_file'])
 
         self.word2freq = {}
         self.word2id = {}
@@ -65,7 +67,7 @@ class Dataset(object):
         for walk_file in glob.glob(self.walk_files):
             with open(walk_file, 'r') as reader:
                 for walk in reader:
-                    walk = walk.strip().split(' ')
+                    walk = walk.strip().split()
                     if len(walk) > 1:
                         self.sentences_count += 1
                         for word in walk:
@@ -123,7 +125,7 @@ class Dataset(object):
         for filename in walkpath_files:
             with open(filename) as reader:
                 for line in reader:
-                    words = line.strip().split(' ')
+                    words = line.strip().split()
                     if len(words) > 1:
                         word_ids = [
                             self.word2id[w] for w in words if w in self.word2id

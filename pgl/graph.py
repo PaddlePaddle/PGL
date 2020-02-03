@@ -43,8 +43,8 @@ class EdgeIndex(object):
     """
 
     def __init__(self, u, v, num_nodes):
-        self._v, self._eid, self._degree, self._sorted_u,\
-                self._sorted_v, self._sorted_eid = graph_kernel.build_index(u, v, num_nodes)
+        self._degree, self._sorted_v, self._sorted_u, \
+             self._sorted_eid, self._indptr = graph_kernel.build_index(u, v, num_nodes)
 
     @property
     def degree(self):
@@ -52,17 +52,25 @@ class EdgeIndex(object):
         """
         return self._degree
 
-    @property
-    def v(self):
-        """Return the compressed v.
+    def view_v(self, u=None):
+        """Return the compressed v for given u.
         """
-        return self._v
+        if u is None:
+            return np.split(self._sorted_v, self._indptr[1:])
+        else:
+            u = np.array(u, dtype="int64")
+            return graph_kernel.slice_by_index(
+                self._sorted_v, self._indptr, index=u)
 
-    @property
-    def eid(self):
-        """Return the edge id.
+    def view_eid(self, u=None):
+        """Return the compressed edge id for given u.
         """
-        return self._eid
+        if u is None:
+            return np.split(self._sorted_eid, self._indptr[1:])
+        else:
+            u = np.array(u, dtype="int64")
+            return graph_kernel.slice_by_index(
+                self._sorted_eid, self._indptr, index=u)
 
     def triples(self):
         """Return the sorted (u, v, eid) tuples.
@@ -287,17 +295,11 @@ class Graph(object):
                        []]
 
         """
-        if nodes is None:
-            if return_eids:
-                return self.adj_src_index.v, self.adj_src_index.eid
-            else:
-                return self.adj_src_index.v
+        if return_eids:
+            return self.adj_src_index.view_v(
+                nodes), self.adj_src_index.view_eid(nodes)
         else:
-            if return_eids:
-                return self.adj_src_index.v[nodes], self.adj_src_index.eid[
-                    nodes]
-            else:
-                return self.adj_src_index.v[nodes]
+            return self.adj_src_index.view_v(nodes)
 
     def sample_successor(self,
                          nodes,
@@ -385,17 +387,11 @@ class Graph(object):
                        [2]]
 
         """
-        if nodes is None:
-            if return_eids:
-                return self.adj_dst_index.v, self.adj_dst_index.eid
-            else:
-                return self.adj_dst_index.v
+        if return_eids:
+            return self.adj_dst_index.view_v(
+                nodes), self.adj_dst_index.view_eid(nodes)
         else:
-            if return_eids:
-                return self.adj_dst_index.v[nodes], self.adj_dst_index.eid[
-                    nodes]
-            else:
-                return self.adj_dst_index.v[nodes]
+            return self.adj_dst_index.view_v(nodes)
 
     def sample_predecessor(self,
                            nodes,
