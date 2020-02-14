@@ -15,6 +15,7 @@
     This package implement Graph structure for handling graph data.
 """
 
+import os
 import numpy as np
 import pickle as pkl
 import time
@@ -77,6 +78,15 @@ class EdgeIndex(object):
         """
         return self._sorted_u, self._sorted_v, self._sorted_eid
 
+    def dump(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        np.save(path + '/degree.npy', self._degree)
+        np.save(path + '/sorted_u.npy', self._sorted_u)
+        np.save(path + '/sorted_v.npy', self._sorted_v)
+        np.save(path + '/sorted_eid.npy', self._sorted_eid)
+        np.save(path + '/indptr.npy', self._indptr)
+
 
 class Graph(object):
     """Implementation of graph structure in pgl.
@@ -135,6 +145,18 @@ class Graph(object):
 
         self._adj_src_index = None
         self._adj_dst_index = None
+
+    def dump(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        np.save(path + '/num_nodes.npy', self._num_nodes)
+        np.save(path + '/edges.npy', self._edges)
+
+        if self._adj_src_index:
+            self._adj_src_index.dump(path + '/adj_src')
+
+        if self._adj_dst_index:
+            self._adj_dst_index.dump(path + '/adj_dst')
 
     @property
     def adj_src_index(self):
@@ -506,7 +528,13 @@ class Graph(object):
                 (key, _hide_num_nodes(value.shape), value.dtype))
         return edge_feat_info
 
-    def subgraph(self, nodes, eid=None, edges=None):
+    def subgraph(self,
+                 nodes,
+                 eid=None,
+                 edges=None,
+                 edge_feats=None,
+                 with_node_feat=True,
+                 with_edge_feat=True):
         """Generate subgraph with nodes and edge ids.
 
         This function will generate a :code:`pgl.graph.Subgraph` object and
@@ -521,6 +549,10 @@ class Graph(object):
             eid (optional): Edge ids which will be included in the subgraph.
 
             edges (optional): Edge(src, dst) list which will be included in the subgraph.
+    
+            with_node_feat: Whether to inherit node features from parent graph.
+
+            with_edge_feat: Whether to inherit edge features from parent graph.
 
         Return:
             A :code:`pgl.graph.Subgraph` object.
@@ -543,14 +575,20 @@ class Graph(object):
                 len(edges), dtype="int64"), edges, reindex)
 
         sub_edge_feat = {}
-        for key, value in self._edge_feat.items():
-            if eid is None:
-                raise ValueError("Eid can not be None with edge features.")
-            sub_edge_feat[key] = value[eid]
+        if edges is None:
+            if with_edge_feat:
+                for key, value in self._edge_feat.items():
+                    if eid is None:
+                        raise ValueError(
+                            "Eid can not be None with edge features.")
+                    sub_edge_feat[key] = value[eid]
+        else:
+            sub_edge_feat = edge_feats
 
         sub_node_feat = {}
-        for key, value in self._node_feat.items():
-            sub_node_feat[key] = value[nodes]
+        if with_node_feat:
+            for key, value in self._node_feat.items():
+                sub_node_feat[key] = value[nodes]
 
         subgraph = SubGraph(
             num_nodes=len(nodes),
@@ -779,3 +817,27 @@ class SubGraph(Graph):
             A list of node ids in parent graph.
         """
         return graph_kernel.map_nodes(nodes, self._to_reindex)
+
+
+class MemmapEdgeIndex(EdgeIndex):
+    def __init__(self, path):
+        self._degree = np.load(path + '/degree.npy', mmap_mode="r")
+        self._sorted_u = np.load(path + '/sorted_u.npy', mmap_mode="r")
+        self._sorted_v = np.load(path + '/sorted_v.npy', mmap_mode="r")
+        self._sorted_eid = np.load(path + '/sorted_eid.npy', mmap_mode="r")
+        self._indptr = np.load(path + '/indptr.npy', mmap_mode="r")
+
+
+class MemmapGraph(Graph):
+    def __init__(self, path):
+        self._num_nodes = np.load(path + '/num_nodes.npy')
+        self._edges = np.load(path + '/edges.npy', mmap_mode="r")
+        if os.path.exists(path + '/adj_src'):
+            self._adj_src_index = MemmapEdgeIndex(path + '/adj_src')
+        else:
+            self._adj_src_index = None
+
+        if os.path.exists(path + '/adj_dst'):
+            self._adj_dst_index = MemmapEdgeIndex(path + '/adj_dst')
+        else:
+            self._adj_dst_index = None

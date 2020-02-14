@@ -89,8 +89,8 @@ class BaseGraphWrapper(object):
     """
 
     def __init__(self):
-        self._node_feat_tensor_dict = {}
-        self._edge_feat_tensor_dict = {}
+        self.node_feat_tensor_dict = {}
+        self.edge_feat_tensor_dict = {}
         self._edges_src = None
         self._edges_dst = None
         self._num_nodes = None
@@ -98,6 +98,10 @@ class BaseGraphWrapper(object):
         self._edge_uniq_dst = None
         self._edge_uniq_dst_count = None
         self._node_ids = None
+        self._data_name_prefix = ""
+
+    def __repr__(self):
+        return self._data_name_prefix
 
     def send(self, message_func, nfeat_list=None, efeat_list=None):
         """Send message from all src nodes to dst nodes.
@@ -220,7 +224,7 @@ class BaseGraphWrapper(object):
             A dictionary whose keys are the feature names and the values
             are feature tensor.
         """
-        return self._edge_feat_tensor_dict
+        return self.edge_feat_tensor_dict
 
     @property
     def node_feat(self):
@@ -230,7 +234,7 @@ class BaseGraphWrapper(object):
             A dictionary whose keys are the feature names and the values
             are feature tensor.
         """
-        return self._node_feat_tensor_dict
+        return self.node_feat_tensor_dict
 
     def indegree(self):
         """Return the indegree tensor for all nodes.
@@ -298,8 +302,8 @@ class StaticGraphWrapper(BaseGraphWrapper):
 
     def __init__(self, name, graph, place):
         super(StaticGraphWrapper, self).__init__()
+        self._data_name_prefix = name
         self._initializers = []
-        self.__data_name_prefix = name
         self.__create_graph_attr(graph)
 
     def __create_graph_attr(self, graph):
@@ -326,43 +330,43 @@ class StaticGraphWrapper(BaseGraphWrapper):
         self._edges_src, init = paddle_helper.constant(
             dtype="int64",
             value=src,
-            name=self.__data_name_prefix + '/edges_src')
+            name=self._data_name_prefix + '/edges_src')
         self._initializers.append(init)
 
         self._edges_dst, init = paddle_helper.constant(
             dtype="int64",
             value=dst,
-            name=self.__data_name_prefix + '/edges_dst')
+            name=self._data_name_prefix + '/edges_dst')
         self._initializers.append(init)
 
         self._num_nodes, init = paddle_helper.constant(
             dtype="int64",
             hide_batch_size=False,
             value=np.array([graph.num_nodes]),
-            name=self.__data_name_prefix + '/num_nodes')
+            name=self._data_name_prefix + '/num_nodes')
         self._initializers.append(init)
 
         self._edge_uniq_dst, init = paddle_helper.constant(
-            name=self.__data_name_prefix + "/uniq_dst",
+            name=self._data_name_prefix + "/uniq_dst",
             dtype="int64",
             value=uniq_dst)
         self._initializers.append(init)
 
         self._edge_uniq_dst_count, init = paddle_helper.constant(
-            name=self.__data_name_prefix + "/uniq_dst_count",
+            name=self._data_name_prefix + "/uniq_dst_count",
             dtype="int32",
             value=uniq_dst_count)
         self._initializers.append(init)
 
         node_ids_value = np.arange(0, graph.num_nodes, dtype="int64")
         self._node_ids, init = paddle_helper.constant(
-            name=self.__data_name_prefix + "/node_ids",
+            name=self._data_name_prefix + "/node_ids",
             dtype="int64",
             value=node_ids_value)
         self._initializers.append(init)
 
         self._indegree, init = paddle_helper.constant(
-            name=self.__data_name_prefix + "/indegree",
+            name=self._data_name_prefix + "/indegree",
             dtype="int64",
             value=indegree)
         self._initializers.append(init)
@@ -373,9 +377,9 @@ class StaticGraphWrapper(BaseGraphWrapper):
         for node_feat_name, node_feat_value in node_feat.items():
             node_feat_shape = node_feat_value.shape
             node_feat_dtype = node_feat_value.dtype
-            self._node_feat_tensor_dict[
+            self.node_feat_tensor_dict[
                 node_feat_name], init = paddle_helper.constant(
-                    name=self.__data_name_prefix + '/node_feat/' +
+                    name=self._data_name_prefix + '/node_feat/' +
                     node_feat_name,
                     dtype=node_feat_dtype,
                     value=node_feat_value)
@@ -387,9 +391,9 @@ class StaticGraphWrapper(BaseGraphWrapper):
         for edge_feat_name, edge_feat_value in edge_feat.items():
             edge_feat_shape = edge_feat_value.shape
             edge_feat_dtype = edge_feat_value.dtype
-            self._edge_feat_tensor_dict[
+            self.edge_feat_tensor_dict[
                 edge_feat_name], init = paddle_helper.constant(
-                    name=self.__data_name_prefix + '/edge_feat/' +
+                    name=self._data_name_prefix + '/edge_feat/' +
                     edge_feat_name,
                     dtype=edge_feat_dtype,
                     value=edge_feat_value)
@@ -477,8 +481,8 @@ class GraphWrapper(BaseGraphWrapper):
     def __init__(self, name, place, node_feat=[], edge_feat=[]):
         super(GraphWrapper, self).__init__()
         # collect holders for PyReader
+        self._data_name_prefix = name
         self._holder_list = []
-        self.__data_name_prefix = name
         self._place = place
         self.__create_graph_attr_holders()
         for node_feat_name, node_feat_shape, node_feat_dtype in node_feat:
@@ -493,43 +497,43 @@ class GraphWrapper(BaseGraphWrapper):
         """Create data holders for graph attributes.
         """
         self._edges_src = fluid.layers.data(
-            self.__data_name_prefix + '/edges_src',
+            self._data_name_prefix + '/edges_src',
             shape=[None],
             append_batch_size=False,
             dtype="int64",
             stop_gradient=True)
         self._edges_dst = fluid.layers.data(
-            self.__data_name_prefix + '/edges_dst',
+            self._data_name_prefix + '/edges_dst',
             shape=[None],
             append_batch_size=False,
             dtype="int64",
             stop_gradient=True)
         self._num_nodes = fluid.layers.data(
-            self.__data_name_prefix + '/num_nodes',
+            self._data_name_prefix + '/num_nodes',
             shape=[1],
             append_batch_size=False,
             dtype='int64',
             stop_gradient=True)
         self._edge_uniq_dst = fluid.layers.data(
-            self.__data_name_prefix + "/uniq_dst",
+            self._data_name_prefix + "/uniq_dst",
             shape=[None],
             append_batch_size=False,
             dtype="int64",
             stop_gradient=True)
         self._edge_uniq_dst_count = fluid.layers.data(
-            self.__data_name_prefix + "/uniq_dst_count",
+            self._data_name_prefix + "/uniq_dst_count",
             shape=[None],
             append_batch_size=False,
             dtype="int32",
             stop_gradient=True)
         self._node_ids = fluid.layers.data(
-            self.__data_name_prefix + "/node_ids",
+            self._data_name_prefix + "/node_ids",
             shape=[None],
             append_batch_size=False,
             dtype="int64",
             stop_gradient=True)
         self._indegree = fluid.layers.data(
-            self.__data_name_prefix + "/indegree",
+            self._data_name_prefix + "/indegree",
             shape=[None],
             append_batch_size=False,
             dtype="int64",
@@ -545,12 +549,12 @@ class GraphWrapper(BaseGraphWrapper):
         """Create data holders for node features.
         """
         feat_holder = fluid.layers.data(
-            self.__data_name_prefix + '/node_feat/' + node_feat_name,
+            self._data_name_prefix + '/node_feat/' + node_feat_name,
             shape=node_feat_shape,
             append_batch_size=False,
             dtype=node_feat_dtype,
             stop_gradient=True)
-        self._node_feat_tensor_dict[node_feat_name] = feat_holder
+        self.node_feat_tensor_dict[node_feat_name] = feat_holder
         self._holder_list.append(feat_holder)
 
     def __create_graph_edge_feat_holders(self, edge_feat_name, edge_feat_shape,
@@ -558,12 +562,12 @@ class GraphWrapper(BaseGraphWrapper):
         """Create edge holders for edge features.
         """
         feat_holder = fluid.layers.data(
-            self.__data_name_prefix + '/edge_feat/' + edge_feat_name,
+            self._data_name_prefix + '/edge_feat/' + edge_feat_name,
             shape=edge_feat_shape,
             append_batch_size=False,
             dtype=edge_feat_dtype,
             stop_gradient=True)
-        self._edge_feat_tensor_dict[edge_feat_name] = feat_holder
+        self.edge_feat_tensor_dict[edge_feat_name] = feat_holder
         self._holder_list.append(feat_holder)
 
     def to_feed(self, graph):
@@ -594,20 +598,21 @@ class GraphWrapper(BaseGraphWrapper):
             edge_feat[key] = value[eid]
         node_feat = graph.node_feat
 
-        feed_dict[self.__data_name_prefix + '/edges_src'] = src
-        feed_dict[self.__data_name_prefix + '/edges_dst'] = dst
-        feed_dict[self.__data_name_prefix + '/num_nodes'] = np.array(graph.num_nodes)
-        feed_dict[self.__data_name_prefix + '/uniq_dst'] = uniq_dst
-        feed_dict[self.__data_name_prefix + '/uniq_dst_count'] = uniq_dst_count
-        feed_dict[self.__data_name_prefix + '/node_ids'] = graph.nodes
-        feed_dict[self.__data_name_prefix + '/indegree'] = indegree
+        feed_dict[self._data_name_prefix + '/edges_src'] = src
+        feed_dict[self._data_name_prefix + '/edges_dst'] = dst
+        feed_dict[self._data_name_prefix + '/num_nodes'] = np.array(
+            graph.num_nodes)
+        feed_dict[self._data_name_prefix + '/uniq_dst'] = uniq_dst
+        feed_dict[self._data_name_prefix + '/uniq_dst_count'] = uniq_dst_count
+        feed_dict[self._data_name_prefix + '/node_ids'] = graph.nodes
+        feed_dict[self._data_name_prefix + '/indegree'] = indegree
 
-        for key in self._node_feat_tensor_dict:
-            feed_dict[self.__data_name_prefix + '/node_feat/' +
+        for key in self.node_feat_tensor_dict:
+            feed_dict[self._data_name_prefix + '/node_feat/' +
                       key] = node_feat[key]
 
-        for key in self._edge_feat_tensor_dict:
-            feed_dict[self.__data_name_prefix + '/edge_feat/' +
+        for key in self.edge_feat_tensor_dict:
+            feed_dict[self._data_name_prefix + '/edge_feat/' +
                       key] = edge_feat[key]
 
         return feed_dict
