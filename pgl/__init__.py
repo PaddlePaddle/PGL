@@ -18,4 +18,6 @@ from pgl import layers
 from pgl import graph_wrapper
 from pgl import graph
 from pgl import data_loader
+from pgl import heter_graph
+from pgl import heter_graph_wrapper
 from pgl import contrib
