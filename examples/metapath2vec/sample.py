@@ -28,7 +28,7 @@ import tqdm
 import time
 import logging
 import random
-from pgl.contrib import heter_graph
+from pgl import heter_graph
 from pgl.sample import metapath_randomwalk
 from utils import *
 

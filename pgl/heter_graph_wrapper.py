@@ -64,8 +64,8 @@ class HeterGraphWrapper(object):
 
             import paddle.fluid as fluid
             import numpy as np
-            from pgl.contrib import heter_graph
-            from pgl.contrib import heter_graph_wrapper
+            from pgl import heter_graph
+            from pgl import heter_graph_wrapper
             num_nodes = 4
             node_types = [(0, 'user'), (1, 'item'), (2, 'item'), (3, 'user')]
             edges = {

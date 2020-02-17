@@ -23,7 +23,7 @@ import tqdm
 import time
 import logging
 import random
-from pgl.contrib import heter_graph
+from pgl import heter_graph
 import pickle as pkl
 
 
@@ -71,8 +71,12 @@ class Dataset(object):
                     if len(walk) > 1:
                         self.sentences_count += 1
                         for word in walk:
-                            self.token_count += 1
-                            word_freq[word] = word_freq.get(word, 0) + 1
+                            if int(word) >= self.config[
+                                    'paper_start_index']:  # remove paper
+                                continue
+                            else:
+                                self.token_count += 1
+                                word_freq[word] = word_freq.get(word, 0) + 1
 
         wid = 0
         logging.info('Read %d sentences.' % self.sentences_count)
@@ -126,6 +130,10 @@ class Dataset(object):
             with open(filename) as reader:
                 for line in reader:
                     words = line.strip().split()
+                    words = [
+                        w for w in words
+                        if int(w) < self.config['paper_start_index']
+                    ]
                     if len(words) > 1:
                         word_ids = [
                             self.word2id[w] for w in words if w in self.word2id

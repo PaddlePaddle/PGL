@@ -262,59 +262,32 @@ def main(args):
     else:
         train_exe = exe
 
-    if args.sample_workers > 1:
-        train_iter = reader.multiprocess_graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            num_workers=args.sample_workers,
-            batch_size=args.batch_size,
-            node_index=data['train_index'],
-            node_label=data["train_label"])
-    else:
-        train_iter = reader.graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            batch_size=args.batch_size,
-            node_index=data['train_index'],
-            node_label=data["train_label"])
+    train_iter = reader.multiprocess_graph_reader(
+        data['graph'],
+        graph_wrapper,
+        samples=samples,
+        num_workers=args.sample_workers,
+        batch_size=args.batch_size,
+        node_index=data['train_index'],
+        node_label=data["train_label"])
 
-    if args.sample_workers > 1:
-        val_iter = reader.multiprocess_graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            num_workers=args.sample_workers,
-            batch_size=args.batch_size,
-            node_index=data['val_index'],
-            node_label=data["val_label"])
-    else:
-        val_iter = reader.graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            batch_size=args.batch_size,
-            node_index=data['val_index'],
-            node_label=data["val_label"])
+    val_iter = reader.multiprocess_graph_reader(
+        data['graph'],
+        graph_wrapper,
+        samples=samples,
+        num_workers=args.sample_workers,
+        batch_size=args.batch_size,
+        node_index=data['val_index'],
+        node_label=data["val_label"])
 
-    if args.sample_workers > 1:
-        test_iter = reader.multiprocess_graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            num_workers=args.sample_workers,
-            batch_size=args.batch_size,
-            node_index=data['test_index'],
-            node_label=data["test_label"])
-    else:
-        test_iter = reader.graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            batch_size=args.batch_size,
-            node_index=data['test_index'],
-            node_label=data["test_label"])
+    test_iter = reader.multiprocess_graph_reader(
+        data['graph'],
+        graph_wrapper,
+        samples=samples,
+        num_workers=args.sample_workers,
+        batch_size=args.batch_size,
+        node_index=data['test_index'],
+        node_label=data["test_label"])
 
     for epoch in range(args.epoch):
         run_epoch(

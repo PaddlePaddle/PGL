@@ -28,7 +28,7 @@ import pgl.graph as pgraph
 import pickle as pkl
 from pgl.utils.logger import log
 import pgl.graph_kernel as graph_kernel
-from pgl.contrib import heter_graph
+from pgl import heter_graph
 import pgl.redis_graph as rg
 
 

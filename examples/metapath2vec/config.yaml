@@ -42,9 +42,10 @@ data_loader:
         walk_path: walks/*
         word2id_file: word2id.pkl
         batch_size: 32
-        win_size: 7  # default: 7
+        win_size: 5  # default: 7
         neg_num: 5
         min_count: 10
+        paper_start_index: 1697414
 
 model:
     type: SkipgramModel

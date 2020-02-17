@@ -97,11 +97,7 @@ def load_data(normalize=True, symmetry=True, scale=1):
     graph = pgl.graph.Graph(
         num_nodes=feature.shape[0],
         edges=edges,
-        node_feat={
-            "index": np.arange(
-                0, len(feature), dtype="int64"),
-            "feature": feature
-        })
+        node_feat={"feature": feature})
 
     return {
         "graph": graph,
@@ -244,59 +240,32 @@ def main(args):
 
     test_program = train_program.clone(for_test=True)
 
-    if args.sample_workers > 1:
-        train_iter = reader.multiprocess_graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            num_workers=args.sample_workers,
-            batch_size=args.batch_size,
-            node_index=data['train_index'],
-            node_label=data["train_label"])
-    else:
-        train_iter = reader.graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            batch_size=args.batch_size,
-            node_index=data['train_index'],
-            node_label=data["train_label"])
+    train_iter = reader.multiprocess_graph_reader(
+        data['graph'],
+        graph_wrapper,
+        samples=samples,
+        num_workers=args.sample_workers,
+        batch_size=args.batch_size,
+        node_index=data['train_index'],
+        node_label=data["train_label"])
 
-    if args.sample_workers > 1:
-        val_iter = reader.multiprocess_graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            num_workers=args.sample_workers,
-            batch_size=args.batch_size,
-            node_index=data['val_index'],
-            node_label=data["val_label"])
-    else:
-        val_iter = reader.graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            batch_size=args.batch_size,
-            node_index=data['val_index'],
-            node_label=data["val_label"])
+    val_iter = reader.multiprocess_graph_reader(
+        data['graph'],
+        graph_wrapper,
+        samples=samples,
+        num_workers=args.sample_workers,
+        batch_size=args.batch_size,
+        node_index=data['val_index'],
+        node_label=data["val_label"])
 
-    if args.sample_workers > 1:
-        test_iter = reader.multiprocess_graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            num_workers=args.sample_workers,
-            batch_size=args.batch_size,
-            node_index=data['test_index'],
-            node_label=data["test_label"])
-    else:
-        test_iter = reader.graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            batch_size=args.batch_size,
-            node_index=data['test_index'],
-            node_label=data["test_label"])
+    test_iter = reader.multiprocess_graph_reader(
+        data['graph'],
+        graph_wrapper,
+        samples=samples,
+        num_workers=args.sample_workers,
+        batch_size=args.batch_size,
+        node_index=data['test_index'],
+        node_label=data["test_label"])
 
     with fluid.program_guard(train_program, startup_program):
         adam = fluid.optimizer.Adam(learning_rate=args.lr)
