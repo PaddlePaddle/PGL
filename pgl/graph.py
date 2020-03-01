@@ -81,11 +81,11 @@ class EdgeIndex(object):
     def dump(self, path):
         if not os.path.exists(path):
             os.makedirs(path)
-        np.save(path + '/degree.npy', self._degree)
-        np.save(path + '/sorted_u.npy', self._sorted_u)
-        np.save(path + '/sorted_v.npy', self._sorted_v)
-        np.save(path + '/sorted_eid.npy', self._sorted_eid)
-        np.save(path + '/indptr.npy', self._indptr)
+        np.save(os.path.join(path, 'degree.npy'), self._degree)
+        np.save(os.path.join(path, 'sorted_u.npy'), self._sorted_u)
+        np.save(os.path.join(path, 'sorted_v.npy'), self._sorted_v)
+        np.save(os.path.join(path, 'sorted_eid.npy'), self._sorted_eid)
+        np.save(os.path.join(path, 'indptr.npy'), self._indptr)
 
 
 class Graph(object):
@@ -149,14 +149,27 @@ class Graph(object):
     def dump(self, path):
         if not os.path.exists(path):
             os.makedirs(path)
-        np.save(path + '/num_nodes.npy', self._num_nodes)
-        np.save(path + '/edges.npy', self._edges)
+        np.save(os.path.join(path, 'num_nodes.npy'), self._num_nodes)
+        np.save(os.path.join(path, 'edges.npy'), self._edges)
 
         if self._adj_src_index:
-            self._adj_src_index.dump(path + '/adj_src')
+            self._adj_src_index.dump(os.path.join(path, 'adj_src'))
 
         if self._adj_dst_index:
-            self._adj_dst_index.dump(path + '/adj_dst')
+            self._adj_dst_index.dump(os.path.join(path, 'adj_dst'))
+
+        def dump_feat(feat_path, feat):
+            """Dump all features to .npy file.
+            """
+            if len(feat) == 0:
+                return
+            if not os.path.exists(feat_path):
+                os.makedirs(feat_path)
+            for key in feat:
+                np.save(os.path.join(feat_path, key + ".npy"), feat[key])
+
+        dump_feat(os.path.join(path, "node_feat"), self.node_feat)
+        dump_feat(os.path.join(path, "edge_feat"), self.edge_feat)
 
     @property
     def adj_src_index(self):
@@ -821,23 +834,41 @@ class SubGraph(Graph):
 
 class MemmapEdgeIndex(EdgeIndex):
     def __init__(self, path):
-        self._degree = np.load(path + '/degree.npy', mmap_mode="r")
-        self._sorted_u = np.load(path + '/sorted_u.npy', mmap_mode="r")
-        self._sorted_v = np.load(path + '/sorted_v.npy', mmap_mode="r")
-        self._sorted_eid = np.load(path + '/sorted_eid.npy', mmap_mode="r")
-        self._indptr = np.load(path + '/indptr.npy', mmap_mode="r")
+        self._degree = np.load(os.path.join(path, 'degree.npy'), mmap_mode="r")
+        self._sorted_u = np.load(
+            os.path.join(path, 'sorted_u.npy'), mmap_mode="r")
+        self._sorted_v = np.load(
+            os.path.join(path, 'sorted_v.npy'), mmap_mode="r")
+        self._sorted_eid = np.load(
+            os.path.join(path, 'sorted_eid.npy'), mmap_mode="r")
+        self._indptr = np.load(os.path.join(path, 'indptr.npy'), mmap_mode="r")
 
 
 class MemmapGraph(Graph):
     def __init__(self, path):
-        self._num_nodes = np.load(path + '/num_nodes.npy')
-        self._edges = np.load(path + '/edges.npy', mmap_mode="r")
-        if os.path.exists(path + '/adj_src'):
-            self._adj_src_index = MemmapEdgeIndex(path + '/adj_src')
+        self._num_nodes = np.load(os.path.join(path, 'num_nodes.npy'))
+        self._edges = np.load(os.path.join(path, 'edges.npy'), mmap_mode="r")
+        if os.path.isdir(os.path.join(path, 'adj_src')):
+            self._adj_src_index = MemmapEdgeIndex(
+                os.path.join(path, 'adj_src'))
         else:
             self._adj_src_index = None
 
-        if os.path.exists(path + '/adj_dst'):
-            self._adj_dst_index = MemmapEdgeIndex(path + '/adj_dst')
+        if os.path.isdir(os.path.join(path, 'adj_dst')):
+            self._adj_dst_index = MemmapEdgeIndex(
+                os.path.join(path, 'adj_dst'))
         else:
             self._adj_dst_index = None
+
+        def load_feat(feat_path):
+            """Load features from .npy file.
+            """
+            feat = {}
+            if os.path.isdir(feat_path):
+                for feat_name in os.listdir(feat_path):
+                    feat[os.path.splitext(feat_name)[0]] = np.load(
+                        os.path.join(feat_path, feat_name), mmap_mode="r")
+            return feat
+
+        self._node_feat = load_feat(os.path.join(path, 'node_feat'))
+        self._edge_feat = load_feat(os.path.join(path, 'edge_feat'))
