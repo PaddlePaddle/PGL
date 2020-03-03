@@ -19,8 +19,8 @@ import pgl
 import time
 from pgl.utils import mp_reader
 from pgl.utils.logger import log
-import train
 import time
+import copy
 
 
 def node_batch_iter(nodes, node_label, batch_size):
@@ -46,12 +46,11 @@ def traverse(item):
         yield item
 
 
-def flat_node_and_edge(nodes, eids):
+def flat_node_and_edge(nodes):
     """flat_node_and_edge
     """
     nodes = list(set(traverse(nodes)))
-    eids = list(set(traverse(eids)))
-    return nodes, eids
+    return nodes
 
 
 def worker(batch_info, graph, graph_wrapper, samples):
@@ -61,31 +60,42 @@ def worker(batch_info, graph, graph_wrapper, samples):
     def work():
         """work
         """
-        first = True
+        _graph_wrapper = copy.copy(graph_wrapper)
+        _graph_wrapper.node_feat_tensor_dict = {}
         for batch_train_samples, batch_train_labels in batch_info:
             start_nodes = batch_train_samples
             nodes = start_nodes
-            eids = []
+            edges = []
             for max_deg in samples:
-                pred, pred_eid = graph.sample_predecessor(
-                    start_nodes, max_degree=max_deg, return_eids=True)
+                pred_nodes = graph.sample_predecessor(
+                    start_nodes, max_degree=max_deg)
+
+                for dst_node, src_nodes in zip(start_nodes, pred_nodes):
+                    for src_node in src_nodes:
+                        edges.append((src_node, dst_node))
+
                 last_nodes = nodes
-                nodes = [nodes, pred]
-                eids = [eids, pred_eid]
-                nodes, eids = flat_node_and_edge(nodes, eids)
+                nodes = [nodes, pred_nodes]
+                nodes = flat_node_and_edge(nodes)
                 # Find new nodes
                 start_nodes = list(set(nodes) - set(last_nodes))
                 if len(start_nodes) == 0:
                     break
 
-            subgraph = graph.subgraph(nodes=nodes, eid=eids)
+            subgraph = graph.subgraph(
+                nodes=nodes,
+                edges=edges,
+                with_node_feat=False,
+                with_edge_feat=False)
+
             sub_node_index = subgraph.reindex_from_parrent_nodes(
                 batch_train_samples)
-            feed_dict = graph_wrapper.to_feed(subgraph)
+            feed_dict = _graph_wrapper.to_feed(subgraph)
             feed_dict["node_label"] = np.expand_dims(
                 np.array(
                     batch_train_labels, dtype="int64"), -1)
             feed_dict["node_index"] = sub_node_index
+            feed_dict["parent_node_index"] = np.array(nodes, dtype="int64")
             yield feed_dict
 
     return work
@@ -97,23 +107,25 @@ def multiprocess_graph_reader(graph,
                               node_index,
                               batch_size,
                               node_label,
+                              with_parent_node_index=False,
                               num_workers=4):
     """multiprocess_graph_reader
     """
 
-    def parse_to_subgraph(rd):
+    def parse_to_subgraph(rd, prefix, node_feat, _with_parent_node_index):
         """parse_to_subgraph
         """
 
         def work():
             """work
             """
-            last = time.time()
             for data in rd():
-                this = time.time()
                 feed_dict = data
-                now = time.time()
-                last = now
+                for key in node_feat:
+                    feed_dict[prefix + '/node_feat/' + key] = node_feat[key][
+                        feed_dict["parent_node_index"]]
+                if not _with_parent_node_index:
+                    del feed_dict["parent_node_index"]
                 yield feed_dict
 
         return work
@@ -129,46 +141,17 @@ def multiprocess_graph_reader(graph,
             reader_pool.append(
                 worker(batch_info[block_size * i:block_size * (i + 1)], graph,
                        graph_wrapper, samples))
-        multi_process_sample = mp_reader.multiprocess_reader(
-            reader_pool, use_pipe=True, queue_size=1000)
-        r = parse_to_subgraph(multi_process_sample)
-        return paddle.reader.buffered(r, 1000)
+
+        if len(reader_pool) == 1:
+            r = parse_to_subgraph(reader_pool[0],
+                                  repr(graph_wrapper), graph.node_feat,
+                                  with_parent_node_index)
+        else:
+            multi_process_sample = mp_reader.multiprocess_reader(
+                reader_pool, use_pipe=True, queue_size=1000)
+            r = parse_to_subgraph(multi_process_sample,
+                                  repr(graph_wrapper), graph.node_feat,
+                                  with_parent_node_index)
+        return paddle.reader.buffered(r, num_workers)
 
     return reader()
-
-
-def graph_reader(graph, graph_wrapper, samples, node_index, batch_size,
-                 node_label):
-    """graph_reader"""
-
-    def reader():
-        """reader"""
-        for batch_train_samples, batch_train_labels in node_batch_iter(
-                node_index, node_label, batch_size=batch_size):
-            start_nodes = batch_train_samples
-            nodes = start_nodes
-            eids = []
-            for max_deg in samples:
-                pred, pred_eid = graph.sample_predecessor(
-                    start_nodes, max_degree=max_deg, return_eids=True)
-                last_nodes = nodes
-                nodes = [nodes, pred]
-                eids = [eids, pred_eid]
-                nodes, eids = flat_node_and_edge(nodes, eids)
-                # Find new nodes
-                start_nodes = list(set(nodes) - set(last_nodes))
-                if len(start_nodes) == 0:
-                    break
-
-            subgraph = graph.subgraph(nodes=nodes, eid=eids)
-            feed_dict = graph_wrapper.to_feed(subgraph)
-            sub_node_index = subgraph.reindex_from_parrent_nodes(
-                batch_train_samples)
-
-            feed_dict["node_label"] = np.expand_dims(
-                np.array(
-                    batch_train_labels, dtype="int64"), -1)
-            feed_dict["node_index"] = np.array(sub_node_index, dtype="int32")
-            yield feed_dict
-
-    return paddle.reader.buffered(reader, 1000)

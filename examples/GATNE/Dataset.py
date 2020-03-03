@@ -21,7 +21,7 @@ import tqdm
 import numpy as np
 import logging
 import random
-from pgl.contrib import heter_graph
+from pgl import heter_graph
 import pickle as pkl
 
 

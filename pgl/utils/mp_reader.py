@@ -25,6 +25,8 @@ except:
 import numpy as np
 import time
 import paddle.fluid as fluid
+from queue import Queue
+import threading
 
 
 def serialize_data(data):
@@ -129,22 +131,39 @@ def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
             p.start()
 
         reader_num = len(readers)
-        finish_num = 0
         conn_to_remove = []
         finish_flag = np.zeros(len(conns), dtype="int32")
+        start = time.time()
+
+        def queue_worker(sub_conn, que):
+            while True:
+                buff = sub_conn.recv()
+                sample = deserialize_data(buff)
+                if sample is None:
+                    que.put(None)
+                    sub_conn.close()
+                    break
+                que.put(sample)
+
+        thread_pool = []
+        output_queue = Queue(maxsize=reader_num)
+        for i in range(reader_num):
+            t = threading.Thread(
+                target=queue_worker, args=(conns[i], output_queue))
+            t.daemon = True
+            t.start()
+            thread_pool.append(t)
+
+        finish_num = 0
         while finish_num < reader_num:
-            for conn_id, conn in enumerate(conns):
-                if finish_flag[conn_id] > 0:
-                    continue
-                if conn.poll(0.01):
-                    buff = conn.recv()
-                    sample = deserialize_data(buff)
-                    if sample is None:
-                        finish_num += 1
-                        conn.close()
-                        finish_flag[conn_id] = 1
-                    else:
-                        yield sample
+            sample = output_queue.get()
+            if sample is None:
+                finish_num += 1
+            else:
+                yield sample
+
+        for thread in thread_pool:
+            thread.join()
 
     if use_pipe:
         return pipe_reader

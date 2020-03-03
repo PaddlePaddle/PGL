@@ -101,7 +101,7 @@ class SkipgramModel(object):
 
         pos_score = fl.squeeze(pos_logits, axes=[1])
         pos_score = fl.clip(pos_score, min=-10, max=10)
-        pos_score = -1.0 * fl.logsigmoid(pos_score)
+        pos_score = -self.neg_num * fl.logsigmoid(pos_score)
 
         neg_logits = fl.matmul(
             embed_src, weight_negs,
@@ -111,4 +111,4 @@ class SkipgramModel(object):
         neg_score = -1.0 * fl.logsigmoid(-1.0 * neg_score)
         neg_score = fl.reduce_sum(neg_score, dim=1, keep_dim=True)
 
-        self.loss = fl.reduce_mean(pos_score + neg_score)
+        self.loss = fl.reduce_mean(pos_score + neg_score) / self.neg_num / 2

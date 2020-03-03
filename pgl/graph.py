@@ -15,6 +15,7 @@
     This package implement Graph structure for handling graph data.
 """
 
+import os
 import numpy as np
 import pickle as pkl
 import time
@@ -43,8 +44,8 @@ class EdgeIndex(object):
     """
 
     def __init__(self, u, v, num_nodes):
-        self._v, self._eid, self._degree, self._sorted_u,\
-                self._sorted_v, self._sorted_eid = graph_kernel.build_index(u, v, num_nodes)
+        self._degree, self._sorted_v, self._sorted_u, \
+             self._sorted_eid, self._indptr = graph_kernel.build_index(u, v, num_nodes)
 
     @property
     def degree(self):
@@ -52,22 +53,39 @@ class EdgeIndex(object):
         """
         return self._degree
 
-    @property
-    def v(self):
-        """Return the compressed v.
+    def view_v(self, u=None):
+        """Return the compressed v for given u.
         """
-        return self._v
+        if u is None:
+            return np.split(self._sorted_v, self._indptr[1:])
+        else:
+            u = np.array(u, dtype="int64")
+            return graph_kernel.slice_by_index(
+                self._sorted_v, self._indptr, index=u)
 
-    @property
-    def eid(self):
-        """Return the edge id.
+    def view_eid(self, u=None):
+        """Return the compressed edge id for given u.
         """
-        return self._eid
+        if u is None:
+            return np.split(self._sorted_eid, self._indptr[1:])
+        else:
+            u = np.array(u, dtype="int64")
+            return graph_kernel.slice_by_index(
+                self._sorted_eid, self._indptr, index=u)
 
     def triples(self):
         """Return the sorted (u, v, eid) tuples.
         """
         return self._sorted_u, self._sorted_v, self._sorted_eid
+
+    def dump(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        np.save(os.path.join(path, 'degree.npy'), self._degree)
+        np.save(os.path.join(path, 'sorted_u.npy'), self._sorted_u)
+        np.save(os.path.join(path, 'sorted_v.npy'), self._sorted_v)
+        np.save(os.path.join(path, 'sorted_eid.npy'), self._sorted_eid)
+        np.save(os.path.join(path, 'indptr.npy'), self._indptr)
 
 
 class Graph(object):
@@ -127,6 +145,31 @@ class Graph(object):
 
         self._adj_src_index = None
         self._adj_dst_index = None
+
+    def dump(self, path):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        np.save(os.path.join(path, 'num_nodes.npy'), self._num_nodes)
+        np.save(os.path.join(path, 'edges.npy'), self._edges)
+
+        if self._adj_src_index:
+            self._adj_src_index.dump(os.path.join(path, 'adj_src'))
+
+        if self._adj_dst_index:
+            self._adj_dst_index.dump(os.path.join(path, 'adj_dst'))
+
+        def dump_feat(feat_path, feat):
+            """Dump all features to .npy file.
+            """
+            if len(feat) == 0:
+                return
+            if not os.path.exists(feat_path):
+                os.makedirs(feat_path)
+            for key in feat:
+                np.save(os.path.join(feat_path, key + ".npy"), feat[key])
+
+        dump_feat(os.path.join(path, "node_feat"), self.node_feat)
+        dump_feat(os.path.join(path, "edge_feat"), self.edge_feat)
 
     @property
     def adj_src_index(self):
@@ -287,17 +330,11 @@ class Graph(object):
                        []]
 
         """
-        if nodes is None:
-            if return_eids:
-                return self.adj_src_index.v, self.adj_src_index.eid
-            else:
-                return self.adj_src_index.v
+        if return_eids:
+            return self.adj_src_index.view_v(
+                nodes), self.adj_src_index.view_eid(nodes)
         else:
-            if return_eids:
-                return self.adj_src_index.v[nodes], self.adj_src_index.eid[
-                    nodes]
-            else:
-                return self.adj_src_index.v[nodes]
+            return self.adj_src_index.view_v(nodes)
 
     def sample_successor(self,
                          nodes,
@@ -385,17 +422,11 @@ class Graph(object):
                        [2]]
 
         """
-        if nodes is None:
-            if return_eids:
-                return self.adj_dst_index.v, self.adj_dst_index.eid
-            else:
-                return self.adj_dst_index.v
+        if return_eids:
+            return self.adj_dst_index.view_v(
+                nodes), self.adj_dst_index.view_eid(nodes)
         else:
-            if return_eids:
-                return self.adj_dst_index.v[nodes], self.adj_dst_index.eid[
-                    nodes]
-            else:
-                return self.adj_dst_index.v[nodes]
+            return self.adj_dst_index.view_v(nodes)
 
     def sample_predecessor(self,
                            nodes,
@@ -510,7 +541,13 @@ class Graph(object):
                 (key, _hide_num_nodes(value.shape), value.dtype))
         return edge_feat_info
 
-    def subgraph(self, nodes, eid=None, edges=None):
+    def subgraph(self,
+                 nodes,
+                 eid=None,
+                 edges=None,
+                 edge_feats=None,
+                 with_node_feat=True,
+                 with_edge_feat=True):
         """Generate subgraph with nodes and edge ids.
 
         This function will generate a :code:`pgl.graph.Subgraph` object and
@@ -525,6 +562,10 @@ class Graph(object):
             eid (optional): Edge ids which will be included in the subgraph.
 
             edges (optional): Edge(src, dst) list which will be included in the subgraph.
+    
+            with_node_feat: Whether to inherit node features from parent graph.
+
+            with_edge_feat: Whether to inherit edge features from parent graph.
 
         Return:
             A :code:`pgl.graph.Subgraph` object.
@@ -547,14 +588,20 @@ class Graph(object):
                 len(edges), dtype="int64"), edges, reindex)
 
         sub_edge_feat = {}
-        for key, value in self._edge_feat.items():
-            if eid is None:
-                raise ValueError("Eid can not be None with edge features.")
-            sub_edge_feat[key] = value[eid]
+        if edges is None:
+            if with_edge_feat:
+                for key, value in self._edge_feat.items():
+                    if eid is None:
+                        raise ValueError(
+                            "Eid can not be None with edge features.")
+                    sub_edge_feat[key] = value[eid]
+        else:
+            sub_edge_feat = edge_feats
 
         sub_node_feat = {}
-        for key, value in self._node_feat.items():
-            sub_node_feat[key] = value[nodes]
+        if with_node_feat:
+            for key, value in self._node_feat.items():
+                sub_node_feat[key] = value[nodes]
 
         subgraph = SubGraph(
             num_nodes=len(nodes),
@@ -783,3 +830,45 @@ class SubGraph(Graph):
             A list of node ids in parent graph.
         """
         return graph_kernel.map_nodes(nodes, self._to_reindex)
+
+
+class MemmapEdgeIndex(EdgeIndex):
+    def __init__(self, path):
+        self._degree = np.load(os.path.join(path, 'degree.npy'), mmap_mode="r")
+        self._sorted_u = np.load(
+            os.path.join(path, 'sorted_u.npy'), mmap_mode="r")
+        self._sorted_v = np.load(
+            os.path.join(path, 'sorted_v.npy'), mmap_mode="r")
+        self._sorted_eid = np.load(
+            os.path.join(path, 'sorted_eid.npy'), mmap_mode="r")
+        self._indptr = np.load(os.path.join(path, 'indptr.npy'), mmap_mode="r")
+
+
+class MemmapGraph(Graph):
+    def __init__(self, path):
+        self._num_nodes = np.load(os.path.join(path, 'num_nodes.npy'))
+        self._edges = np.load(os.path.join(path, 'edges.npy'), mmap_mode="r")
+        if os.path.isdir(os.path.join(path, 'adj_src')):
+            self._adj_src_index = MemmapEdgeIndex(
+                os.path.join(path, 'adj_src'))
+        else:
+            self._adj_src_index = None
+
+        if os.path.isdir(os.path.join(path, 'adj_dst')):
+            self._adj_dst_index = MemmapEdgeIndex(
+                os.path.join(path, 'adj_dst'))
+        else:
+            self._adj_dst_index = None
+
+        def load_feat(feat_path):
+            """Load features from .npy file.
+            """
+            feat = {}
+            if os.path.isdir(feat_path):
+                for feat_name in os.listdir(feat_path):
+                    feat[os.path.splitext(feat_name)[0]] = np.load(
+                        os.path.join(feat_path, feat_name), mmap_mode="r")
+            return feat
+
+        self._node_feat = load_feat(os.path.join(path, 'node_feat'))
+        self._edge_feat = load_feat(os.path.join(path, 'edge_feat'))
