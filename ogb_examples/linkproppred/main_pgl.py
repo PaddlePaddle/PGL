@@ -14,10 +14,13 @@
 """test ogb
 """
 import argparse
+import time
+import logging
+import numpy as np
+
+import paddle.fluid as fluid
 
 import pgl
-import numpy as np
-import paddle.fluid as fluid
 from pgl.contrib.ogb.linkproppred.dataset_pgl import PglLinkPropPredDataset
 from pgl.utils import paddle_helper
 from ogb.linkproppred import Evaluator
@@ -44,12 +47,12 @@ class GNNModel(object):
 
         self.src_nodes = fluid.layers.data(
             name='src_nodes',
-            shape=[None, 1],
+            shape=[None],
             dtype='int64', )
 
         self.dst_nodes = fluid.layers.data(
             name='dst_nodes',
-            shape=[None, 1],
+            shape=[None],
             dtype='int64', )
 
         self.edge_label = fluid.layers.data(
@@ -63,7 +66,6 @@ class GNNModel(object):
             shape=[self.num_nodes, self.emb_dim],
             dtype="float32",
             name=self.name + "_embedding")
-        #  edge_attr = fluid.layers.fc(graph.edge_feat["feat"], size=self.emb_dim)
 
         for layer in range(self.num_layers):
             msg = graph.send(
@@ -83,8 +85,8 @@ class GNNModel(object):
                 name=self.name + '_bias_%s' % layer)
             h = fluid.layers.elementwise_add(h, bias, act="relu")
 
-        src = fluid.layers.gather(h, self.src_nodes)
-        dst = fluid.layers.gather(h, self.dst_nodes)
+        src = fluid.layers.gather(h, self.src_nodes, overwrite=False)
+        dst = fluid.layers.gather(h, self.dst_nodes, overwrite=False)
         edge_embed = src * dst
         pred = fluid.layers.fc(input=edge_embed,
                                size=1,
@@ -107,17 +109,22 @@ def main():
     parser.add_argument(
         '--epochs',
         type=int,
-        default=100,
+        default=4,
         help='number of epochs to train (default: 100)')
     parser.add_argument(
         '--dataset',
         type=str,
         default="ogbl-ppa",
         help='dataset name (default: protein protein associations)')
+    parser.add_argument('--use_cuda', action='store_true')
+    parser.add_argument('--batch_size', type=int, default=5120)
+    parser.add_argument('--embed_dim', type=int, default=64)
+    parser.add_argument('--num_layers', type=int, default=2)
+    parser.add_argument('--lr', type=float, default=0.001)
     args = parser.parse_args()
+    print(args)
 
-    #place = fluid.CUDAPlace(0)
-    place = fluid.CPUPlace()  # Dataset too big to use GPU
+    place = fluid.CUDAPlace(0) if args.use_cuda else fluid.CPUPlace()
 
     ### automatic dataloading and splitting
     print("loadding dataset")
@@ -135,19 +142,20 @@ def main():
 
     train_program = fluid.Program()
     startup_program = fluid.Program()
-    test_program = fluid.Program()
+
     # degree normalize
     indegree = graph_data.indegree()
     norm = np.zeros_like(indegree, dtype="float32")
     norm[indegree > 0] = np.power(indegree[indegree > 0], -0.5)
     graph_data.node_feat["norm"] = np.expand_dims(norm, -1).astype("float32")
+    #  graph_data.node_feat["index"] = np.array([i for i in range(graph_data.num_nodes)], dtype=np.int64).reshape(-1,1)
 
     with fluid.program_guard(train_program, startup_program):
         model = GNNModel(
             name="gnn",
             num_nodes=graph_data.num_nodes,
-            emb_dim=64,
-            num_layers=2)
+            emb_dim=args.embed_dim,
+            num_layers=args.num_layers)
         gw = pgl.graph_wrapper.GraphWrapper(
             "graph",
             place,
@@ -158,50 +166,106 @@ def main():
     val_program = train_program.clone(for_test=True)
 
     with fluid.program_guard(train_program, startup_program):
+        global_steps = int(splitted_edge['train_edge'].shape[0] /
+                           args.batch_size * 2)
+        learning_rate = fluid.layers.polynomial_decay(args.lr, global_steps,
+                                                      0.00005)
+
         adam = fluid.optimizer.Adam(
-            learning_rate=1e-2,
+            learning_rate=learning_rate,
             regularization=fluid.regularizer.L2DecayRegularizer(
                 regularization_coeff=0.0005))
         adam.minimize(loss)
 
     exe = fluid.Executor(place)
     exe.run(startup_program)
-
     feed = gw.to_feed(graph_data)
+
+    print("evaluate result before training: ")
+    result = test(exe, val_program, prob, evaluator, feed, splitted_edge)
+    print(result)
+
+    print("training")
+    cc = 0
     for epoch in range(1, args.epochs + 1):
-        feed['src_nodes'] = splitted_edge["train_edge"][:, 0].reshape(-1, 1)
-        feed['dst_nodes'] = splitted_edge["train_edge"][:, 1].reshape(-1, 1)
-        feed['edge_label'] = splitted_edge["train_edge_label"].astype(
-            "float32").reshape(-1, 1)
-        res_loss, y_pred = exe.run(train_program,
-                                   feed=feed,
-                                   fetch_list=[loss, prob])
-        print("Loss %s" % res_loss[0])
+        for batch_data, batch_label in data_generator(
+                graph_data,
+                splitted_edge["train_edge"],
+                splitted_edge["train_edge_label"],
+                batch_size=args.batch_size):
+            feed['src_nodes'] = batch_data[:, 0].reshape(-1, 1)
+            feed['dst_nodes'] = batch_data[:, 1].reshape(-1, 1)
+            feed['edge_label'] = batch_label.astype("float32")
 
-        result = {}
-        print("Evaluating...")
-        feed['src_nodes'] = splitted_edge["valid_edge"][:, 0].reshape(-1, 1)
-        feed['dst_nodes'] = splitted_edge["valid_edge"][:, 1].reshape(-1, 1)
-        feed['edge_label'] = splitted_edge["valid_edge_label"].astype(
-            "float32").reshape(-1, 1)
-        y_pred = exe.run(val_program, feed=feed, fetch_list=[prob])[0]
-        input_dict = {
-            "y_true": splitted_edge["valid_edge_label"],
-            "y_pred": y_pred.reshape(-1, ),
-        }
-        result["valid"] = evaluator.eval(input_dict)
+            res_loss, y_pred, b_lr = exe.run(
+                train_program,
+                feed=feed,
+                fetch_list=[loss, prob, learning_rate])
+            if cc % 1 == 0:
+                print("epoch %d | step %d | lr %s | Loss %s" %
+                      (epoch, cc, b_lr[0], res_loss[0]))
+            cc += 1
 
-        feed['src_nodes'] = splitted_edge["test_edge"][:, 0].reshape(-1, 1)
-        feed['dst_nodes'] = splitted_edge["test_edge"][:, 1].reshape(-1, 1)
-        feed['edge_label'] = splitted_edge["test_edge_label"].astype(
-            "float32").reshape(-1, 1)
-        y_pred = exe.run(val_program, feed=feed, fetch_list=[prob])[0]
-        input_dict = {
-            "y_true": splitted_edge["test_edge_label"],
-            "y_pred": y_pred.reshape(-1, ),
-        }
-        result["test"] = evaluator.eval(input_dict)
-        print(result)
+            if cc % 20 == 0:
+                print("Evaluating...")
+                result = test(exe, val_program, prob, evaluator, feed,
+                              splitted_edge)
+                print("epoch %d | step %d" % (epoch, cc))
+                print(result)
+
+
+def test(exe, val_program, prob, evaluator, feed, splitted_edge):
+    """Evaluation"""
+    result = {}
+    feed['src_nodes'] = splitted_edge["valid_edge"][:, 0].reshape(-1, 1)
+    feed['dst_nodes'] = splitted_edge["valid_edge"][:, 1].reshape(-1, 1)
+    feed['edge_label'] = splitted_edge["valid_edge_label"].astype(
+        "float32").reshape(-1, 1)
+    y_pred = exe.run(val_program, feed=feed, fetch_list=[prob])[0]
+    input_dict = {
+        "y_true": splitted_edge["valid_edge_label"],
+        "y_pred": y_pred.reshape(-1, ),
+    }
+    result["valid"] = evaluator.eval(input_dict)
+
+    feed['src_nodes'] = splitted_edge["test_edge"][:, 0].reshape(-1, 1)
+    feed['dst_nodes'] = splitted_edge["test_edge"][:, 1].reshape(-1, 1)
+    feed['edge_label'] = splitted_edge["test_edge_label"].astype(
+        "float32").reshape(-1, 1)
+    y_pred = exe.run(val_program, feed=feed, fetch_list=[prob])[0]
+    input_dict = {
+        "y_true": splitted_edge["test_edge_label"],
+        "y_pred": y_pred.reshape(-1, ),
+    }
+    result["test"] = evaluator.eval(input_dict)
+    return result
+
+
+def data_generator(graph, data, label_data, batch_size, shuffle=True):
+    """Data Generator"""
+    perm = np.arange(0, len(data))
+    if shuffle:
+        np.random.shuffle(perm)
+
+    offset = 0
+    while offset < len(perm):
+        batch_index = perm[offset:(offset + batch_size)]
+        offset += batch_size
+        pos_data = data[batch_index]
+        pos_label = label_data[batch_index]
+
+        neg_src_node = pos_data[:, 0]
+        neg_dst_node = np.random.choice(
+            pos_data.reshape(-1, ), size=len(neg_src_node))
+        neg_data = np.hstack(
+            [neg_src_node.reshape(-1, 1), neg_dst_node.reshape(-1, 1)])
+        exists = graph.has_edges_between(neg_src_node, neg_dst_node)
+        neg_data = neg_data[np.invert(exists)]
+        neg_label = np.zeros(shape=len(neg_data), dtype=np.int64)
+
+        batch_data = np.vstack([pos_data, neg_data])
+        label = np.vstack([pos_label.reshape(-1, 1), neg_label.reshape(-1, 1)])
+        yield batch_data, label
 
 
 if __name__ == "__main__":

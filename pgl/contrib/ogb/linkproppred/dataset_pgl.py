@@ -60,7 +60,7 @@ class PglLinkPropPredDataset(object):
         """pre_process downlaoding data
         """
         processed_dir = osp.join(self.root, 'processed')
-        pre_processed_file_path = osp.join(processed_dir, 'dgl_data_processed')
+        pre_processed_file_path = osp.join(processed_dir, 'pgl_data_processed')
 
         if osp.exists(pre_processed_file_path):
             #TODO: Reload Preprocess files
