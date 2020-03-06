@@ -70,6 +70,55 @@ class HeterGraphTest(unittest.TestCase):
             self.assertEqual(len(nodes), batch_size)
             self.assertListEqual(list(nodes), ground[idx])
 
+    def test_sample_successor(self):
+        print()
+        nodes = [4, 5, 8]
+        md = 2
+        succes = self.graph.sample_successor(
+            edge_type='p2a', nodes=nodes, max_degree=md, return_eids=False)
+        self.assertIsInstance(succes, list)
+        ground = [[10, 11, 12, 14, 13], [], [14]]
+        for succ, g in zip(succes, ground):
+            self.assertIsInstance(succ, np.ndarray)
+            for i in succ:
+                self.assertIn(i, g)
+
+        nodes = [4]
+        succes = self.graph.sample_successor(
+            edge_type='p2a', nodes=nodes, max_degree=md, return_eids=False)
+        self.assertIsInstance(succes, list)
+        ground = [[10, 11, 12, 14, 13]]
+        for succ, g in zip(succes, ground):
+            self.assertIsInstance(succ, np.ndarray)
+            for i in succ:
+                self.assertIn(i, g)
+
+    def test_successor(self):
+        print()
+        nodes = [4, 5, 8]
+        e_type = 'p2a'
+        succes = self.graph.successor(
+            edge_type=e_type,
+            nodes=nodes, )
+
+        self.assertIsInstance(succes, np.ndarray)
+        ground = [[10, 11, 12, 14, 13], [], [14]]
+        for succ, g in zip(succes, ground):
+            self.assertIsInstance(succ, np.ndarray)
+            self.assertCountEqual(succ, g)
+
+        nodes = [4]
+        e_type = 'p2a'
+        succes = self.graph.successor(
+            edge_type=e_type,
+            nodes=nodes, )
+
+        self.assertIsInstance(succes, np.ndarray)
+        ground = [[10, 11, 12, 14, 13]]
+        for succ, g in zip(succes, ground):
+            self.assertIsInstance(succ, np.ndarray)
+            self.assertCountEqual(succ, g)
+
     def test_sample_nodes(self):
         print()
         p_ground = [4, 5, 6, 7, 8, 9]
