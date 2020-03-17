@@ -623,6 +623,7 @@ class GraphWrapper(BaseGraphWrapper):
             self._indegree,
             self._graph_lod,
             self._num_graph,
+            self._num_edges,
         ])
 
     def __create_graph_node_feat_holders(self, node_feat_name, node_feat_shape,
