@@ -56,7 +56,7 @@ def edge_hash(src, dst):
 def graphsage_sample(graph, nodes, samples, ignore_edges=[]):
     """Implement of graphsage sample.
     
-    Reference paper: https://cs.stanford.edu/~jure/pubs/node2vec-kdd16.pdf.
+    Reference paper: https://cs.stanford.edu/people/jure/pubs/graphsage-nips17.pdf.
 
     Args:
         graph: A pgl graph instance
@@ -84,7 +84,6 @@ def graphsage_sample(graph, nodes, samples, ignore_edges=[]):
             continue
         batch_pred_nodes, batch_pred_eids = graph.sample_predecessor(
             start_nodes, samples[layer_idx], return_eids=True)
-        log.debug("sample_predecessor time: %s" % (time.time() - start))
         start = time.time()
         last_nodes_set = nodes_set
 
@@ -120,7 +119,6 @@ def graphsage_sample(graph, nodes, samples, ignore_edges=[]):
         # only for this task
         subgraphs[i].node_feat["index"] = np.array(
             layer_nodes[0], dtype="int64")
-    log.debug("subgraph time: %s" % (time.time() - start))
 
     return subgraphs
 
