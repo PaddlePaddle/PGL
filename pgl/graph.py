@@ -20,8 +20,9 @@ import numpy as np
 import pickle as pkl
 import time
 import pgl.graph_kernel as graph_kernel
+from collections import defaultdict
 
-__all__ = ['Graph', 'SubGraph']
+__all__ = ['Graph', 'SubGraph', 'MultiGraph']
 
 
 def _hide_num_nodes(shape):
@@ -140,11 +141,11 @@ class Graph(object):
         self._edges = edges
         self._num_nodes = num_nodes
 
-        if len(edges) == 0:
-            raise ValueError("The Graph have no edges.")
-
         self._adj_src_index = None
         self._adj_dst_index = None
+        self.indegree()
+        self._num_graph = 1
+        self._graph_lod = np.array([0, self.num_nodes], dtype="int32")
 
     def dump(self, path):
         if not os.path.exists(path):
@@ -176,10 +177,15 @@ class Graph(object):
         """Return an EdgeIndex object for src.
         """
         if self._adj_src_index is None:
+            if len(self._edges) == 0:
+                u = np.array([], dtype="int64")
+                v = np.array([], dtype="int64")
+            else:
+                u = self._edges[:, 0]
+                v = self._edges[:, 1]
+
             self._adj_src_index = EdgeIndex(
-                u=self._edges[:, 0],
-                v=self._edges[:, 1],
-                num_nodes=self._num_nodes)
+                u=u, v=v, num_nodes=self._num_nodes)
         return self._adj_src_index
 
     @property
@@ -187,10 +193,15 @@ class Graph(object):
         """Return an EdgeIndex object for dst.
         """
         if self._adj_dst_index is None:
+            if len(self._edges) == 0:
+                v = np.array([], dtype="int64")
+                u = np.array([], dtype="int64")
+            else:
+                v = self._edges[:, 0]
+                u = self._edges[:, 1]
+
             self._adj_dst_index = EdgeIndex(
-                u=self._edges[:, 1],
-                v=self._edges[:, 0],
-                num_nodes=self._num_nodes)
+                u=u, v=v, num_nodes=self._num_nodes)
         return self._adj_dst_index
 
     @property
@@ -777,6 +788,16 @@ class Graph(object):
             cur_nodes = nxt_nodes
         return walk
 
+    @property
+    def num_graph(self):
+        """ Return Number of Graphs"""
+        return self._num_graph
+
+    @property
+    def graph_lod(self):
+        """ Return Graph Lod Index for Paddle Computation"""
+        return self._graph_lod
+
 
 class SubGraph(Graph):
     """Implementation of SubGraph in pgl.
@@ -830,6 +851,81 @@ class SubGraph(Graph):
             A list of node ids in parent graph.
         """
         return graph_kernel.map_nodes(nodes, self._to_reindex)
+
+
+class MultiGraph(Graph):
+    """Implementation of multiple disjoint graph structure in pgl.
+
+    This is a simple implementation of graph structure in pgl.
+
+    Args:
+        graph_list :  A list of Graph Instances
+
+    Examples:
+
+        .. code-block:: python
+        
+            batch_graph = MultiGraph([graph1, graph2, graph3])
+
+    """
+
+    def __init__(self, graph_list):
+        num_nodes = np.sum([g.num_nodes for g in graph_list])
+        node_feat = self._join_node_feature(graph_list)
+        edge_feat = self._join_edge_feature(graph_list)
+        edges = self._join_edges(graph_list)
+        super(MultiGraph, self).__init__(
+            num_nodes=num_nodes,
+            edges=edges,
+            node_feat=node_feat,
+            edge_feat=edge_feat)
+        self._num_graph = len(graph_list)
+        self._src_graph = graph_list
+        graph_lod = [g.num_nodes for g in graph_list]
+        graph_lod = np.cumsum(graph_lod, dtype="int32")
+        graph_lod = np.insert(graph_lod, 0, 0)
+        self._graph_lod = graph_lod
+
+    def __getitem__(self, index):
+        return self._src_graph[index]
+
+    def _join_node_feature(self, graph_list):
+        """join node features for multiple graph"""
+        node_feat = defaultdict(lambda: [])
+        for graph in graph_list:
+            for key in graph.node_feat:
+                node_feat[key].append(graph.node_feat[key])
+        ret_node_feat = {}
+        for key in node_feat:
+            ret_node_feat[key] = np.vstack(node_feat[key])
+        return ret_node_feat
+
+    def _join_edge_feature(self, graph_list):
+        """join edge features for multiple graph"""
+        edge_feat = defaultdict(lambda: [])
+        for graph in graph_list:
+            for key in graph.edge_feat:
+                efeat = graph.edge_feat[key]
+                if len(efeat) > 0:
+                    edge_feat[key].append(efeat)
+
+        ret_edge_feat = {}
+        for key in edge_feat:
+            ret_edge_feat[key] = np.vstack(edge_feat[key])
+        return ret_edge_feat
+
+    def _join_edges(self, graph_list):
+        """join edges for multiple graph"""
+        list_edges = []
+        start_offset = 0
+        for graph in graph_list:
+            edges = graph.edges
+            if len(edges) > 0:
+                edges = edges + start_offset
+                list_edges.append(edges)
+            start_offset += graph.num_nodes
+        edges = np.vstack(list_edges)
+        return edges
 
 
 class MemmapEdgeIndex(EdgeIndex):

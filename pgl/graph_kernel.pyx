@@ -219,7 +219,11 @@ def sample_subset(list nids, long long maxdegree, shuffle=False):
             output.append(nids[inc])
         else:
             sample_size = buff_size if buff_size <= maxdegree else maxdegree
-            subset_choose_index(sample_size, nids[inc], rnd, buff_nid, offset)
+            if isinstance(nids[inc], list):
+                tmp = np.array(nids[inc], dtype=np.int64)
+            else:
+                tmp = nids[inc]
+            subset_choose_index(sample_size, tmp, rnd, buff_nid, offset)
             output.append(buff_nid[offset:offset+sample_size])
             offset += sample_size
     return output
@@ -252,7 +256,14 @@ def sample_subset_with_eid(list nids, list eids, long long maxdegree, shuffle=Fa
             output_eid.append(eids[inc])
         else:
             sample_size = buff_size if buff_size <= maxdegree else maxdegree
-            subset_choose_index_eid(sample_size, nids[inc], eids[inc], rnd, buff_nid, buff_eid, offset)
+            if isinstance(nids[inc], list):
+                tmp = np.array(nids[inc], dtype=np.int64)
+                tmp_eids = np.array(eids[inc], dtype=np.int64)
+            else:
+                tmp = nids[inc]
+                tmp_eids = eids[inc]
+
+            subset_choose_index_eid(sample_size, tmp, tmp_eids, rnd, buff_nid, buff_eid, offset)
             output.append(buff_nid[offset:offset+sample_size])
             output_eid.append(buff_eid[offset:offset+sample_size])
             offset += sample_size
