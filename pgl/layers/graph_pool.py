@@ -52,11 +52,10 @@ def graph_norm(gw, feature):
     Args:
         gw: Graph wrapper object (:code:`StaticGraphWrapper` or :code:`GraphWrapper`)
 
-        graph_level (default: False):  If :code:`graph_level=True` return shape (num_graphs, 1)
-                    elif :code:`graph_level=False return shape (num_nodes, 1)`
+        feature: A tensor with shape (num_nodes, hidden_size)
 
     Return:
-        A tensor with shape (num_graphs, 1) or (num_node, 1)
+        A tensor with shape (num_nodes, hidden_size)
     """
     nodes = fluid.layers.fill_constant(
         [gw.num_nodes, 1], dtype="float32", value=1.0)
