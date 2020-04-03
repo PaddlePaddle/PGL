@@ -21,7 +21,7 @@ import logging
 
 import paddle.fluid as fluid
 import paddle.fluid.layers as fl
-from pgl.contrib import heter_graph_wrapper
+from pgl import heter_graph_wrapper
 
 
 class GATNE(object):

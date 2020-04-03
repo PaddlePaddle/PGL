@@ -13,59 +13,49 @@
 # limitations under the License.
 """Optimized Multiprocessing Reader for PaddlePaddle
 """
-import logging
-log = logging.getLogger(__name__)
 import multiprocessing
-import copy
-try:
-    import ujson as json
-except:
-    log.info("ujson not install, fail back to use json instead")
-    import json
 import numpy as np
 import time
+
 import paddle.fluid as fluid
-from queue import Queue
-import threading
+import pyarrow
+
+
+def _serialize_serializable(obj):
+    """Serialize Feed Dict
+    """
+    return {"type": type(obj), "data": obj.__dict__}
+
+
+def _deserialize_serializable(obj):
+    """Deserialize Feed Dict
+    """
+
+    val = obj["type"].__new__(obj["type"])
+    val.__dict__.update(obj["data"])
+    return val
+
+
+context = pyarrow.default_serialization_context()
+
+context.register_type(
+    object,
+    "object",
+    custom_serializer=_serialize_serializable,
+    custom_deserializer=_deserialize_serializable)
 
 
 def serialize_data(data):
     """serialize_data"""
-    if data is None:
-        return None
-    return numpy_serialize_data(data)  #, ensure_ascii=False)
-
-
-def numpy_serialize_data(data):
-    """serialize_data"""
-    ret_data = {}
-    for key in data:
-        if isinstance(data[key], np.ndarray):
-            ret_data[key] = (data[key].tobytes(), list(data[key].shape),
-                             "%s" % data[key].dtype)
-        else:
-            ret_data[key] = data[key]
-    return ret_data
-
-
-def numpy_deserialize_data(data):
-    """deserialize_data"""
-    if data is None:
-        return None
-    for key in data:
-        if isinstance(data[key], tuple):
-            value = np.frombuffer(
-                data[key][0], dtype=data[key][2]).reshape(data[key][1])
-            data[key] = value
-    return data
+    return pyarrow.serialize(data, context=context).to_buffer().to_pybytes()
 
 
 def deserialize_data(data):
     """deserialize_data"""
-    return numpy_deserialize_data(data)
+    return pyarrow.deserialize(data, context=context)
 
 
-def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
+def multiprocess_reader(readers, use_pipe=True, queue_size=1000):
     """
     multiprocess_reader use python multi process to read data from readers
     and then use multiprocess.Queue or multiprocess.Pipe to merge all
@@ -111,7 +101,7 @@ def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
             else:
                 yield sample
 
-    def _read_into_pipe(reader, conn, max_pipe_size):
+    def _read_into_pipe(reader, conn):
         """read_into_pipe"""
         for sample in reader():
             if sample is None:
@@ -127,43 +117,27 @@ def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
             parent_conn, child_conn = multiprocessing.Pipe()
             conns.append(parent_conn)
             p = multiprocessing.Process(
-                target=_read_into_pipe, args=(reader, child_conn, pipe_size))
+                target=_read_into_pipe, args=(reader, child_conn))
             p.start()
 
         reader_num = len(readers)
+        finish_num = 0
         conn_to_remove = []
         finish_flag = np.zeros(len(conns), dtype="int32")
-        start = time.time()
-
-        def queue_worker(sub_conn, que):
-            while True:
-                buff = sub_conn.recv()
-                sample = deserialize_data(buff)
-                if sample is None:
-                    que.put(None)
-                    sub_conn.close()
-                    break
-                que.put(sample)
-
-        thread_pool = []
-        output_queue = Queue(maxsize=reader_num)
-        for i in range(reader_num):
-            t = threading.Thread(
-                target=queue_worker, args=(conns[i], output_queue))
-            t.daemon = True
-            t.start()
-            thread_pool.append(t)
-
-        finish_num = 0
         while finish_num < reader_num:
-            sample = output_queue.get()
-            if sample is None:
-                finish_num += 1
-            else:
-                yield sample
-
-        for thread in thread_pool:
-            thread.join()
+            for conn_id, conn in enumerate(conns):
+                if finish_flag[conn_id] > 0:
+                    continue
+                buff = conn.recv()
+                now = time.time()
+                sample = deserialize_data(buff)
+                out = time.time() - now
+                if sample is None:
+                    finish_num += 1
+                    conn.close()
+                    finish_flag[conn_id] = 1
+                else:
+                    yield sample
 
     if use_pipe:
         return pipe_reader
