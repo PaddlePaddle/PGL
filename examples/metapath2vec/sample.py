@@ -18,6 +18,7 @@ training metapath2vec model.
 
 import multiprocessing
 from multiprocessing import Pool
+from multiprocessing import Process
 import argparse
 import sys
 import os
@@ -27,7 +28,7 @@ import tqdm
 import time
 import logging
 import random
-from pgl.contrib import heter_graph
+from pgl import heter_graph
 from pgl.sample import metapath_randomwalk
 from utils import *
 
@@ -77,9 +78,14 @@ class Sampler(object):
             self.config['data_path'] + 'paper_conf.txt', self.paper_id2index,
             self.conf_id2index)
 
-        edges_by_types['edge'] = paper_author_edges + paper_conf_edges
-        logging.info('%d edges have been loaded.' %
-                     (len(edges_by_types['edge'])))
+        #  edges_by_types['edge'] = paper_author_edges + paper_conf_edges
+        edges_by_types['p2c'] = paper_conf_edges
+        edges_by_types['c2p'] = [(dst, src) for src, dst in paper_conf_edges]
+        edges_by_types['p2a'] = paper_author_edges
+        edges_by_types['a2p'] = [(dst, src) for src, dst in paper_author_edges]
+
+        #  logging.info('%d edges have been loaded.' %
+        #               (len(edges_by_types['edge'])))
 
         node_features = {
             'index': np.array([i for i in range(num_nodes)]).reshape(
@@ -110,7 +116,7 @@ class Sampler(object):
 
         return id2index, name2index, node_types
 
-    def load_edges(self, file_, src2index, dst2index, symmetry=True):
+    def load_edges(self, file_, src2index, dst2index, symmetry=False):
         """Load edges from file.
         """
         edges = []
@@ -143,41 +149,65 @@ class Sampler(object):
         return index_label_list
 
 
-def generate_walks(args):
-    """Generate metapath random walk and save to file.
+def walk_generator(graph, batch_size, metapath, n_type, walk_length):
+    """Generate metapath random walk.
     """
-    g, meta_path, filename, walk_length = args
-    walks = []
-    node_types = g._node_types
-    first_type = meta_path.split('-')[0]
-    nodes = np.where(node_types == first_type)[0]
-    if len(nodes) > 4000:
-        nodes = np.random.choice(nodes, 4000, replace=False)
+    np.random.seed(os.getpid())
+    while True:
+        for start_nodes in graph.node_batch_iter(
+                batch_size=batch_size, n_type=n_type):
+            walks = metapath_randomwalk(
+                graph=graph,
+                start_nodes=start_nodes,
+                metapath=metapath,
+                walk_length=walk_length)
+            yield walks
 
-    logging.info('%d number of start nodes' % (len(nodes)))
-    logging.info('save walks in file: %s' % (filename))
 
+def walk_to_files(g, batch_size, metapath, n_type, walk_length, max_num,
+                  filename):
+    """Generate metapath randomwalk and save in files"""
+    #  g, batch_size, metapath, n_type, walk_length, max_num, filename = args
     with open(filename, 'w') as writer:
-        for start_node in nodes:
-            walk = metapath_randomwalk(g, start_node, meta_path, walk_length)
-            walk = [str(walk[i]) for i in range(0, len(walk), 2)]  # skip paper
-            writer.write(' '.join(walk) + '\n')
+        cc = 0
+        for walks in walk_generator(g, batch_size, metapath, n_type,
+                                    walk_length):
+            for walk in walks:
+                writer.write("%s\n" % "\t".join([str(i) for i in walk]))
+                cc += 1
+                if cc == max_num:
+                    return
+        return
 
 
-def multiprocess_generate_walks(sampler, edge_type, meta_path, num_walks,
-                                walk_length, saved_path):
-    """Use multiprocess to generate metapath random walk.
+def multiprocess_generate_walks_to_files(graph, n_type, meta_path, num_walks,
+                                         walk_length, batch_size,
+                                         num_sample_workers, saved_path):
+    """Use multiprocess to generate metapath random walk to files.
     """
-    args = []
-    for i in range(num_walks):
-        filename = saved_path + '%04d' % (i)
-        args.append(
-            (sampler.graph[edge_type], meta_path, filename, walk_length))
 
-    pool = Pool(16)
-    pool.map(generate_walks, args)
-    pool.close()
-    pool.join()
+    num_nodes_by_type = graph.num_nodes_by_type(n_type)
+    logging.info("num_nodes_by_type: %s" % num_nodes_by_type)
+    max_num = (num_walks * num_nodes_by_type // num_sample_workers) + 1
+    logging.info("max sample number of every worker: %s" % max_num)
+
+    args = []
+    for i in range(num_sample_workers):
+        filename = os.path.join(saved_path, 'part-%05d' % (i))
+        args.append((graph, batch_size, meta_path, n_type, walk_length,
+                     max_num, filename))
+
+    ps = []
+    for i in range(num_sample_workers):
+        p = Process(target=walk_to_files, args=args[i])
+        p.start()
+        ps.append(p)
+    for i in range(num_sample_workers):
+        ps[i].join()
+    #  pool = Pool(num_sample_workers)
+    #  pool.map(walk_to_files, args)
+    #  pool.close()
+    #  pool.join()
 
 
 if __name__ == "__main__":
@@ -220,13 +250,15 @@ if __name__ == "__main__":
 
     begin = time.time()
     logging.info('multi process sampling')
-    multiprocess_generate_walks(
-        sampler=sampler,
-        edge_type='edge',
+    multiprocess_generate_walks_to_files(
+        graph=sampler.graph,
+        n_type=config['first_node_type'],
         meta_path=config['metapath'],
         num_walks=config['num_walks'],
         walk_length=config['walk_length'],
-        saved_path=config['walk_saved_path'])
+        batch_size=config['walk_batch_size'],
+        num_sample_workers=config['num_sample_workers'],
+        saved_path=config['walk_saved_path'], )
     logging.info('total time: %.4f' % (time.time() - begin))
 
     logging.info('generating multi class data')
