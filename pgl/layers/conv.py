@@ -231,15 +231,7 @@ def gin(gw,
 
     output = fluid.layers.fc(output,
                              size=hidden_size,
-                             bias_attr=False,
+                             bias_attr=True,
                              param_attr=fluid.ParamAttr(name="%s_w" % name))
-
-    bias = fluid.layers.create_parameter(
-        shape=[hidden_size],
-        dtype='float32',
-        is_bias=True,
-        attr=fluid.ParamAttr(name="%s_b" % name))
-
-    output = fluid.layers.elementwise_add(output, bias, act=activation)
 
     return output
