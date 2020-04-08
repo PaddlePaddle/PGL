@@ -18,7 +18,7 @@ import paddle.fluid as fluid
 from pgl import graph_wrapper
 from pgl.utils import paddle_helper
 
-__all__ = ['gcn', 'gat']
+__all__ = ['gcn', 'gat', 'gin']
 
 
 def gcn(gw, feature, hidden_size, activation, name, norm=None):
@@ -177,4 +177,53 @@ def gat(gw,
         name=name + '_bias')
     bias.stop_gradient = True
     output = fluid.layers.elementwise_add(output, bias, act=activation)
+    return output
+
+
+def gin(gw, feature, name, init_eps=0.0, train_eps=False, apply_func=None):
+    """Implementation of Graph Isomorphism Network (GIN) layer.
+
+    This is an implementation of the paper How Powerful are Graph Neural Networks?
+    (https://arxiv.org/pdf/1810.00826.pdf).
+
+    Args:
+        gw: Graph wrapper object (:code:`StaticGraphWrapper` or :code:`GraphWrapper`)
+
+        feature: A tensor with shape (num_nodes, feature_size).
+
+        name: GIN layer names.
+
+        init_eps: float, optional
+            Initial :math:`\epsilon` value, default is 0.
+
+        train_eps: bool, optional
+            if True, :math:`\epsilon` will be a learnable parameter.
+
+        apply_func: Callable activation function or None. 
+            Default is None. If not None, apply this function to the updated feature.
+
+    Return:
+        A tensor with shape (num_nodes, output_size) where ``output_size`` is the 
+        output dimensionality of ``apply_func``. If ``apply_func`` is None, ``output_size``
+        should be the same as ``feature_size``.
+    """
+
+    def send_src_copy(src_feat, dst_feat, edge_feat):
+        return src_feat["h"]
+
+    epsilon = fluid.layers.create_parameter(
+        shape=[1, 1],
+        dtype="float32",
+        attr=F.ParamAttr(name="%s_eps" % name),
+        default_initializer=F.initializer.ConstantInitializer(value=init_eps))
+
+    if not train_eps:
+        epsilon.stop_gradient = True
+
+    msg = gw.send(send_src_copy, nfeat_list=[("h", feature)])
+    output = gw.recv(msg, "sum") + (1.0 + epsilon) * feature
+
+    if apply_func is not None:
+        output = apply_func(output, name)
+
     return output
