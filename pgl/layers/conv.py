@@ -180,7 +180,13 @@ def gat(gw,
     return output
 
 
-def gin(gw, feature, name, init_eps=0.0, train_eps=False, apply_func=None):
+def gin(gw,
+        feature,
+        hidden_size,
+        activation,
+        name,
+        init_eps=0.0,
+        train_eps=False):
     """Implementation of Graph Isomorphism Network (GIN) layer.
 
     This is an implementation of the paper How Powerful are Graph Neural Networks?
@@ -193,19 +199,18 @@ def gin(gw, feature, name, init_eps=0.0, train_eps=False, apply_func=None):
 
         name: GIN layer names.
 
+        hidden_size: The hidden size for gin.
+
+        activation: The activation for the output.
+
         init_eps: float, optional
             Initial :math:`\epsilon` value, default is 0.
 
         train_eps: bool, optional
             if True, :math:`\epsilon` will be a learnable parameter.
 
-        apply_func: Callable activation function or None. 
-            Default is None. If not None, apply this function to the updated feature.
-
     Return:
-        A tensor with shape (num_nodes, output_size) where ``output_size`` is the 
-        output dimensionality of ``apply_func``. If ``apply_func`` is None, ``output_size``
-        should be the same as ``feature_size``.
+        A tensor with shape (num_nodes, hidden_size).
     """
 
     def send_src_copy(src_feat, dst_feat, edge_feat):
@@ -214,8 +219,9 @@ def gin(gw, feature, name, init_eps=0.0, train_eps=False, apply_func=None):
     epsilon = fluid.layers.create_parameter(
         shape=[1, 1],
         dtype="float32",
-        attr=F.ParamAttr(name="%s_eps" % name),
-        default_initializer=F.initializer.ConstantInitializer(value=init_eps))
+        attr=fluid.ParamAttr(name="%s_eps" % name),
+        default_initializer=fluid.initializer.ConstantInitializer(
+            value=init_eps))
 
     if not train_eps:
         epsilon.stop_gradient = True
@@ -223,7 +229,17 @@ def gin(gw, feature, name, init_eps=0.0, train_eps=False, apply_func=None):
     msg = gw.send(send_src_copy, nfeat_list=[("h", feature)])
     output = gw.recv(msg, "sum") + (1.0 + epsilon) * feature
 
-    if apply_func is not None:
-        output = apply_func(output, name)
+    output = fluid.layers.fc(output,
+                             size=hidden_size,
+                             bias_attr=False,
+                             param_attr=fluid.ParamAttr(name="%s_w" % name))
+
+    bias = fluid.layers.create_parameter(
+        shape=[hidden_size],
+        dtype='float32',
+        is_bias=True,
+        attr=fluid.ParamAttr(name="%s_b" % name))
+
+    output = fluid.layers.elementwise_add(output, bias, act=activation)
 
     return output
