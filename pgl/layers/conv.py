@@ -192,6 +192,9 @@ def gin(gw,
     This is an implementation of the paper How Powerful are Graph Neural Networks?
     (https://arxiv.org/pdf/1810.00826.pdf).
 
+    In their implementation, all MLPs have 2 layers. Batch normalization is applied
+    on every hidden layer.
+
     Args:
         gw: Graph wrapper object (:code:`StaticGraphWrapper` or :code:`GraphWrapper`)
 
@@ -231,7 +234,17 @@ def gin(gw,
 
     output = fluid.layers.fc(output,
                              size=hidden_size,
-                             bias_attr=True,
-                             param_attr=fluid.ParamAttr(name="%s_w" % name))
+                             act=None,
+                             param_attr=fluid.ParamAttr(name="%s_w_0" % name),
+                             bias_attr=fluid.ParamAttr(name="%s_b_0" % name))
+
+    output = fluid.layers.batch_norm(output)
+    output = getattr(fluid.layers, activation)(output)
+
+    output = fluid.layers.fc(output,
+                             size=hidden_size,
+                             act=activation,
+                             param_attr=fluid.ParamAttr(name="%s_w_1" % name),
+                             bias_attr=fluid.ParamAttr(name="%s_b_1" % name))
 
     return output
