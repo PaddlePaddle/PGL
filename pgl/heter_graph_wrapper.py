@@ -44,7 +44,7 @@ class HeterGraphWrapper(object):
     Args:
         name: The heterogeneous graph data prefix
 
-        place: fluid.CPUPlace or fluid.GPUPlace(n) indicating the
+        place: fluid.CPUPlace or fluid.CUDAPlace(n) indicating the
                device to hold the graph data.
 
         node_feat: A dict of list of tuples that decribe the details of node

@@ -51,7 +51,7 @@ class GinTest(unittest.TestCase):
         g = graph.Graph(num_nodes=num_nodes, edges=edges, node_feat=node_feat)
 
         use_cuda = False
-        place = F.GPUPlace(0) if use_cuda else F.CPUPlace()
+        place = F.CUDAPlace(0) if use_cuda else F.CPUPlace()
 
         prog = F.Program()
         startup_prog = F.Program()

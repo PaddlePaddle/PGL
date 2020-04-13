@@ -49,7 +49,7 @@ Currently our PGL is developed based on static computational mode of paddle (weâ
 import paddle.fluid as fluid
 
 use_cuda = False  
-place = fluid.GPUPlace(0) if use_cuda else fluid.CPUPlace()
+place = fluid.CUDAPlace(0) if use_cuda else fluid.CPUPlace()
 
 # use GraphWrapper as a container for graph data to construct a graph neural network
 gw = pgl.graph_wrapper.GraphWrapper(name='graph',

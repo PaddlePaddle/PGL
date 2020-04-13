@@ -278,7 +278,7 @@ class StaticGraphWrapper(BaseGraphWrapper):
 
         graph: The static graph that should be put into memory
 
-        place: fluid.CPUPlace or fluid.GPUPlace(n) indicating the
+        place: fluid.CPUPlace or fluid.CUDAPlace(n) indicating the
                device to hold the graph data.
 
     Examples:
@@ -456,7 +456,7 @@ class StaticGraphWrapper(BaseGraphWrapper):
         """Placing the graph data into the devices.
 
         Args:
-            place: fluid.CPUPlace or fluid.GPUPlace(n) indicating the
+            place: fluid.CPUPlace or fluid.CUDAPlace(n) indicating the
                    device to hold the graph data.
         """
         log.info(
@@ -475,7 +475,7 @@ class GraphWrapper(BaseGraphWrapper):
     Args:
         name: The graph data prefix
 
-        place: fluid.CPUPlace or fluid.GPUPlace(n) indicating the
+        place: fluid.CPUPlace or fluid.CUDAPlace(n) indicating the
                device to hold the graph data.
 
         node_feat: A list of tuples that decribe the details of node
