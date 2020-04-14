@@ -516,7 +516,6 @@ class GraphWrapper(BaseGraphWrapper):
                         })
 
             graph_wrapper = GraphWrapper(name="graph",
-                        place=place,
                         node_feat=graph.node_feat_info(),
                         edge_feat=graph.edge_feat_info())
 
@@ -531,12 +530,11 @@ class GraphWrapper(BaseGraphWrapper):
                 ret = exe.run(fetch_list=[...], feed=feed_dict )
     """
 
-    def __init__(self, name, place, node_feat=[], edge_feat=[]):
+    def __init__(self, name, node_feat=[], edge_feat=[], **kwargs):
         super(GraphWrapper, self).__init__()
         # collect holders for PyReader
         self._data_name_prefix = name
         self._holder_list = []
-        self._place = place
         self.__create_graph_attr_holders()
         for node_feat_name, node_feat_shape, node_feat_dtype in node_feat:
             self.__create_graph_node_feat_holders(

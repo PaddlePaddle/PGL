@@ -88,7 +88,7 @@ def build_graph_model(args):
 
     graph_wrappers.append(
         pgl.graph_wrapper.GraphWrapper(
-            "layer_0", fluid.CPUPlace(), node_feat=node_feature_info))
+            "layer_0", node_feat=node_feature_info))
     #edge_feat=[("f", [None, 1], "float32")]))
 
     num_embed = args.num_nodes
