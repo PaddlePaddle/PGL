@@ -148,7 +148,6 @@ def main():
     with fluid.program_guard(train_program, startup_program):
         gw = pgl.graph_wrapper.GraphWrapper(
             "graph",
-            place=place,
             node_feat=graph_data.node_feat_info(),
             edge_feat=graph_data.edge_feat_info())
         pred = model.forward(gw)

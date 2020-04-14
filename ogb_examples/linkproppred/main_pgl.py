@@ -158,7 +158,6 @@ def main():
             num_layers=args.num_layers)
         gw = pgl.graph_wrapper.GraphWrapper(
             "graph",
-            place,
             node_feat=graph_data.node_feat_info(),
             edge_feat=graph_data.edge_feat_info())
         pred, prob, loss = model.forward(gw)

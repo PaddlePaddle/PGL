@@ -77,7 +77,6 @@ place = fluid.CPUPlace()
 
 # create a GraphWrapper as a container for graph data
 gw = heter_graph_wrapper.HeterGraphWrapper(name='heter_graph', 
-                                    place = place, 
                                     edge_types = g.edge_types_info(),
                                     node_feat=g.node_feat_info(),
                                     edge_feat=g.edge_feat_info())
