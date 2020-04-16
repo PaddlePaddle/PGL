@@ -55,21 +55,8 @@ class GINModel(object):
 
             features_list.append(h)
 
-        pooled_h = pgl.layers.graph_pooling(self.gw, features_list[0],
-                                            self.pool_type)
-        output = fl.dropout(
-            pooled_h,
-            self.dropout_prob,
-            dropout_implementation="upscale_in_train")
-
-        output = fl.fc(output,
-                       size=self.num_class,
-                       act=None,
-                       param_attr=fluid.ParamAttr(name="final_fc_0"))
-
+        output = 0
         for i, h in enumerate(features_list):
-            if i == 0:
-                continue
             pooled_h = pgl.layers.graph_pooling(self.gw, h, self.pool_type)
             drop_h = fl.dropout(
                 pooled_h,
