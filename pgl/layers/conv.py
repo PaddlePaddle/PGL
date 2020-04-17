@@ -230,7 +230,7 @@ def gin(gw,
         epsilon.stop_gradient = True
 
     msg = gw.send(send_src_copy, nfeat_list=[("h", feature)])
-    output = gw.recv(msg, "sum") + (1.0 + epsilon) * feature
+    output = gw.recv(msg, "sum") + feature * (epsilon + 1.0)
 
     output = fluid.layers.fc(output,
                              size=hidden_size,
