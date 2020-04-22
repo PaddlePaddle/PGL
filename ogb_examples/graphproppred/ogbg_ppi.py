@@ -93,10 +93,21 @@ class GNNModel(object):
         self.atom_encoder = AtomEncoder(name=name, emb_dim=emb_dim)
         self.bond_encoder = BondEncoder(name=name, emb_dim=emb_dim)
 
+    def edges_encoder(self, inputs, name):
+        outputs = fluid.layers.fc(inputs,
+                                  size=self.emb_dim,
+                                  param_attr=fluid.ParamAttr(name=name))
+        return outputs
+
     def forward(self, graph):
         """foward"""
-        h_node = self.atom_encoder(graph.node_feat['feat'])
-        h_edge = self.bond_encoder(graph.edge_feat['feat'])
+        #  h_node = self.atom_encoder(graph.node_feat['feat'])
+        h_node = fluid.layers.embedding(
+            graph.node_feat['feat'], size=[1, self.emb_dim])
+
+        #  h_edge = self.bond_encoder(graph.edge_feat['feat'])
+        h_edge = self.edges_encoder(
+            graph.edge_feat['feat'], name="edges_encoder")
         for layer in range(self.num_layers):
             msg = graph.send(
                 send_func,
@@ -134,6 +145,13 @@ def main():
 
     ### automatic dataloading and splitting
     dataset = PglGraphPropPredDataset(name=args.dataset)
+
+    for i in range(len(dataset)):
+        g, l = dataset[i]
+        if not g.node_feat:
+            g.node_feat['feat'] = np.array(
+                [0 for _ in range(g.num_nodes)]).reshape(-1, 1)
+
     splitted_idx = dataset.get_idx_split()
 
     ### automatic evaluator. takes dataset name as input
@@ -147,7 +165,8 @@ def main():
     startup_program = fluid.Program()
     test_program = fluid.Program()
     # degree normalize
-    graph_data.edge_feat["feat"] = graph_data.edge_feat["feat"].astype("int64")
+    graph_data.edge_feat["feat"] = graph_data.edge_feat["feat"].astype(
+        "float32")
     graph_data.node_feat["feat"] = graph_data.node_feat["feat"].astype("int64")
 
     model = GNNModel(
