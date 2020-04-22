@@ -19,10 +19,11 @@ import os
 import numpy as np
 from collections import defaultdict
 from pgl.utils.logger import log
-from pybloom import BloomFilter
+
+#from pybloom import BloomFilter
 
 
-class KBloader:
+class KGLoader:
     """
     load the FB15K
     """
@@ -65,8 +66,9 @@ class KBloader:
 
     def training_data_no_filter(self, train_triple_positive):
         """faster, no filter for exists triples"""
-        size = len(train_triple_positive)
-        train_triple_negative = train_triple_positive + 0
+        size = len(train_triple_positive) * self._neg_times
+        train_triple_negative = train_triple_positive.repeat(
+            self._neg_times, axis=0)
         replace_head_probability = 0.5 * np.ones(size)
         replace_entity_id = np.random.randint(self.entity_total, size=size)
         random_num = np.random.random(size=size)
@@ -122,7 +124,6 @@ class KBloader:
         """
         n = len(self._triple_train)
         rand_idx = np.random.permutation(n)
-        rand_idx = rand_idx % n
         n_triple = len(rand_idx)
         start = 0
         while start < n_triple:

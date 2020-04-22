@@ -99,8 +99,10 @@ class Evaluate:
                                                  feed=batch_feed_dict)
                 yield batch_feed_dict["test_triple"], head_score, tail_score
                 n_used_eval_triple += 1
-                print('[{:.3f}s] #evaluation triple: {}/{}'.format(
-                    timeit.default_timer() - start, n_used_eval_triple, 5000))
+                if n_used_eval_triple % 500 == 0:
+                    print('[{:.3f}s] #evaluation triple: {}/{}'.format(
+                        timeit.default_timer(
+                        ) - start, n_used_eval_triple, self.reader.test_num))
 
         res_reader = mp_reader_mapper(
             reader=iterator,

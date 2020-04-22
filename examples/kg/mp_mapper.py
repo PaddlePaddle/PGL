@@ -65,12 +65,16 @@ def mp_reader_mapper(reader, func, num_works=4):
             all_process.append(p)
 
         data_iter = reader()
+        if not hasattr(data_iter, "__next__"):
+            __next__ = data_iter.next
+        else:
+            __next__ = data_iter.__next__
 
         def next_data():
             """next_data"""
             _next = None
             try:
-                _next = data_iter.next()
+                _next = __next__()
             except StopIteration:
                 # log.debug(traceback.format_exc())
                 pass
