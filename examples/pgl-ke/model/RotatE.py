@@ -13,9 +13,9 @@
 # limitations under the License.
 """
 RotatE:
-"Learning entity and relation embeddings for knowledge graph completion."
-Lin, Yankai, et al.
-https://www.aaai.org/ocs/index.php/AAAI/AAAI15/paper/view/9571/9523
+"RotatE: Knowledge Graph Embedding by Relational Rotation in Complex Space."
+Sun, Zhiqing, et al.
+https://arxiv.org/abs/1902.10197
 """
 import paddle.fluid as fluid
 from .Model import Model

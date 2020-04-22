@@ -36,6 +36,7 @@ class TransR(Model):
                  args,
                  optimizer="adam"):
         """init"""
+        self._neg_times = args.neg_times
         super(TransR, self).__init__(
             model_name="TransR",
             data_reader=data_reader,
@@ -60,19 +61,19 @@ class TransR(Model):
             dtype="float32",
             name=self.rel_name,
             default_initializer=fluid.initializer.Xavier())
+        init_values = np.tile(
+            np.identity(
+                self._hidden_size, dtype="float32").reshape(-1),
+            (self._relation_total, 1))
         transfer_matrix = fluid.layers.create_parameter(
             shape=[
                 self._relation_total, self._hidden_size * self._hidden_size
             ],
             dtype="float32",
-            name=self._prefix + "transfer_matrix", )
-        # Here is a trick, must init with identity matrix to get good hit@10 performance.
-        fluid.layers.assign(
-            np.tile(
-                np.identity(
-                    self._hidden_size, dtype="float32").reshape(-1),
-                (self._relation_total, 1)),
-            transfer_matrix)
+            name=self._prefix + "transfer_matrix",
+            default_initializer=fluid.initializer.NumpyArrayInitializer(
+                init_values))
+
         return entity_embedding, relation_embedding, transfer_matrix
 
     def score_with_l2_normalize(self, head, rel, tail):
@@ -111,7 +112,7 @@ class TransR(Model):
         pos_head_trans = self.matmul_with_expend_dims(pos_head, rel_matrix)
         pos_tail_trans = self.matmul_with_expend_dims(pos_tail, rel_matrix)
 
-        trans_neg = False
+        trans_neg = True
         if trans_neg:
             rel_matrix_neg = fluid.layers.reshape(
                 lookup_table(self.train_neg_input[:, 1], transfer_matrix),
@@ -133,6 +134,9 @@ class TransR(Model):
             fluid.layers.abs(pos_score), -1, keep_dim=False)
         neg = fluid.layers.reduce_sum(
             fluid.layers.abs(neg_score), -1, keep_dim=False)
+        neg = fluid.layers.reshape(
+            neg, shape=[-1, self._neg_times], inplace=True)
+
         loss = fluid.layers.reduce_mean(
             fluid.layers.relu(pos - neg + self._margin))
         return [loss]
