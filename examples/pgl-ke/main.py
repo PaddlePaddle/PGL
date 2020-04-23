@@ -16,10 +16,13 @@ The script to run these models.
 """
 import argparse
 import timeit
+import os
+import numpy as np
 import paddle.fluid as fluid
-from data_loader import KBloader
+from data_loader import KGLoader
 from evalutate import Evaluate
 from model import model_dict
+from model.utils import load_var
 from mp_mapper import mp_reader_mapper
 from pgl.utils.logger import log
 
@@ -49,6 +52,7 @@ def run_round(batch_iter,
     run_time = 0
     data_time = 0
     t2 = timeit.default_timer()
+    start_epoch_time = timeit.default_timer()
     for batch_feed_dict in batch_iter():
         batch += 1
         t1 = timeit.default_timer()
@@ -62,8 +66,11 @@ def run_round(batch_iter,
         if batch % log_per_step == 0:
             tmp_epoch += 1
             if prefix == "train":
-                log.info("Epoch %s Ava Loss %s" %
-                         (epoch + tmp_epoch, tmp_loss / batch))
+                log.info("Epoch %s (%.7f sec) Train Loss: %.7f" %
+                         (epoch + tmp_epoch,
+                          timeit.default_timer() - start_epoch_time,
+                          tmp_loss[0] / batch))
+                start_epoch_time = timeit.default_timer()
             else:
                 log.info("Batch %s" % batch)
             batch = 0
@@ -84,7 +91,7 @@ def train(args):
     :param args: all args.
     :return: None
     """
-    kgreader = KBloader(
+    kgreader = KGLoader(
         batch_size=args.batch_size,
         data_dir=args.data_dir,
         neg_mode=args.neg_mode,
@@ -117,8 +124,8 @@ def train(args):
 
         reader = mp_reader_mapper(
             data_repeat,
-            func=kgreader.training_data_map,
-            #func=kgreader.training_data_no_filter,
+            func=kgreader.training_data_no_filter
+            if args.nofilter else kgreader.training_data_map,
             num_works=args.sample_workers)
 
         return reader
@@ -148,6 +155,20 @@ def train(args):
     exe = fluid.Executor(places[0])
     exe.run(model.startup_program)
     exe.run(fluid.default_startup_program())
+    if args.pretrain and model.model_name in ["TransR", "transr"]:
+        pretrain_ent = os.path.join(args.checkpoint,
+                                    model.ent_name.replace("TransR", "TransE"))
+        pretrain_rel = os.path.join(args.checkpoint,
+                                    model.rel_name.replace("TransR", "TransE"))
+        if os.path.exists(pretrain_ent):
+            print("loading pretrain!")
+            #var = fluid.global_scope().find_var(model.ent_name)
+            load_var(exe, model.train_program, model.ent_name, pretrain_ent)
+            #var = fluid.global_scope().find_var(model.rel_name)
+            load_var(exe, model.train_program, model.rel_name, pretrain_rel)
+        else:
+            raise ValueError("pretrain file {} not exists!".format(
+                pretrain_ent))
 
     prog = fluid.CompiledProgram(model.train_program).with_data_parallel(
         loss_name=model.train_fetch_vars[0].name)
@@ -182,9 +203,9 @@ def train(args):
             log_per_step=kgreader.train_num // args.batch_size,
             epoch=epoch * args.evaluate_per_iteration)
         log.info("epoch\t%s" % ((1 + epoch) * args.evaluate_per_iteration))
-        if True:
-            fluid.io.save_params(
-                exe, dirname=args.checkpoint, main_program=model.train_program)
+        fluid.io.save_params(
+            exe, dirname=args.checkpoint, main_program=model.train_program)
+        if not args.noeval:
             eva = Evaluate(kgreader)
             eva.launch_evaluation(
                 exe=exe,
@@ -272,6 +293,22 @@ def main():
     parser.add_argument('--neg_times', type=int, help='neg_times', default=1)
     parser.add_argument(
         '--neg_mode', type=bool, help='return neg mode flag', default=False)
+
+    parser.add_argument(
+        '--nofilter',
+        type=bool,
+        help='don\'t filter invalid examples',
+        default=False)
+    parser.add_argument(
+        '--pretrain',
+        type=bool,
+        help='pretrain for TransR model',
+        default=False)
+    parser.add_argument(
+        '--noeval',
+        type=bool,
+        help='whether to evaluate the result',
+        default=False)
 
     args = parser.parse_args()
     log.info(args)

@@ -34,6 +34,7 @@ class TransE(Model):
                  learning_rate,
                  args,
                  optimizer="adam"):
+        self._neg_times = args.neg_times
         super(TransE, self).__init__(
             model_name="TransE",
             data_reader=data_reader,
@@ -84,6 +85,9 @@ class TransE(Model):
             fluid.layers.abs(pos_score), 1, keep_dim=False)
         neg = fluid.layers.reduce_sum(
             fluid.layers.abs(neg_score), 1, keep_dim=False)
+        neg = fluid.layers.reshape(
+            neg, shape=[-1, self._neg_times], inplace=True)
+
         loss = fluid.layers.reduce_mean(
             fluid.layers.relu(pos - neg + self._margin))
         return [loss]
