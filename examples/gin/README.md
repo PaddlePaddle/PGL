@@ -9,7 +9,7 @@ After downloading the data，uncompress them, then a directory named `./dataset/
 
 ### Dependencies
 
-- paddlepaddle 1.6
+- paddlepaddle >= 1.6
 - pgl 1.0.2
 
 ### How to run
