@@ -50,7 +50,16 @@ class GINModel(object):
                     init_eps=0.0,
                     train_eps=self.train_eps)
 
-            h = fl.batch_norm(h)
+            h = fl.layer_norm(
+                h,
+                begin_norm_axis=1,
+                param_attr=fluid.ParamAttr(
+                    name="norm_scale_%s" % (i),
+                    initializer=fluid.initializer.Constant(1.0)),
+                bias_attr=fluid.ParamAttr(
+                    name="norm_bias_%s" % (i),
+                    initializer=fluid.initializer.Constant(0.0)), )
+
             h = fl.relu(h)
 
             features_list.append(h)
