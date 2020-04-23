@@ -16,7 +16,11 @@ python setup.py install
 ```
 
 ### How to run
-For example, use GPU to train model on ogbg-molhiv dataset.
+For example, use GPU to train model on ogbg-molhiv dataset and ogb-molpcba dataset.
 ```
-python main_pgl.py --use_cuda --dataset ogbg-molhiv
+export CUDA_VISIBLE_DEVICES=1
+python -u main.py --config hiv_config.yaml
+
+export CUDA_VISIBLE_DEVICES=2
+python -u main.py --config pcba_config.yaml
 ```
