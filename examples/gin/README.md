@@ -4,7 +4,8 @@
 
 ### Datasets
 
-The dataset can be downloaded from [here](https://github.com/weihua916/powerful-gnns/blob/master/dataset.zip)
+The dataset can be downloaded from [here](https://github.com/weihua916/powerful-gnns/blob/master/dataset.zip).
+After downloading the data，uncompress them, then a directory named `./dataset/` can be found in current directory. Note that the current directory is the root directory of GIN model.
 
 ### Dependencies
 
@@ -15,7 +16,7 @@ The dataset can be downloaded from [here](https://github.com/weihua916/powerful-
 
 For examples, use GPU to train GIN model on MUTAG dataset.
 ```
-python main.py --use_cuda --dataset_name MUTAG 
+python main.py --use_cuda --dataset_name MUTAG  --data_path ./dataset
 ```
 
 ### Hyperparameters
