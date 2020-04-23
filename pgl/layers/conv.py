@@ -239,7 +239,8 @@ def gin(gw,
                              bias_attr=fluid.ParamAttr(name="%s_b_0" % name))
 
     output = fluid.layers.batch_norm(output)
-    output = getattr(fluid.layers, activation)(output)
+    if activation is not None:
+        output = getattr(fluid.layers, activation)(output)
 
     output = fluid.layers.fc(output,
                              size=hidden_size,
