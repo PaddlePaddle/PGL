@@ -238,7 +238,6 @@ def gin(gw,
                              param_attr=fluid.ParamAttr(name="%s_w_0" % name),
                              bias_attr=fluid.ParamAttr(name="%s_b_0" % name))
 
-    output = fluid.layers.batch_norm(output)
     output = fluid.layers.layer_norm(
         output,
         begin_norm_axis=1,
