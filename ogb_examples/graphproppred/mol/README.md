@@ -24,3 +24,9 @@ python -u main.py --config hiv_config.yaml
 export CUDA_VISIBLE_DEVICES=2
 python -u main.py --config pcba_config.yaml
 ```
+
+### Experiment results
+
+| model | hiv (rocauc)| pcba (prcauc)|
+|-------|-------------|--------------|
+| GIN   |0.7719 (0.0079) | 0.2232 (0.0018) |

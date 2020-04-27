@@ -1,6 +1,6 @@
-task_name: pcba.0423
+task_name: pcba
 use_cuda: True
-seed: 1667
+seed: 28994
 dataset_name: ogbg-molpcba
 eval_metrics: null
 task_type: null
@@ -31,7 +31,7 @@ num_workers: 12
 output_dir: ./outputs/
 
 # trainging config
-epoch: 40
+epoch: 50
 learning_rate: 0.005
 lr_scheduler: linear_warmup_decay
 weight_decay: 0.01
