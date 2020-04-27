@@ -171,8 +171,10 @@ def main(args):
 if __name__ == "__main__":
     args = parser.parse_args()
     if args.config is not None:
-        args = Config(args.config, isCreate=True, isSave=True)
+        config = Config(args.config, isCreate=True, isSave=True)
 
-    log.info(args)
+    config['use_cuda'] = args.use_cuda
 
-    main(args)
+    log.info(config)
+
+    main(config)

@@ -1,5 +1,4 @@
 task_name: hiv
-use_cuda: True
 seed: 15391
 dataset_name: ogbg-molhiv
 eval_metrics: null 

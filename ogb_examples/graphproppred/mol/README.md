@@ -18,11 +18,16 @@ python setup.py install
 ### How to run
 For example, use GPU to train model on ogbg-molhiv dataset and ogb-molpcba dataset.
 ```
-export CUDA_VISIBLE_DEVICES=1
-python -u main.py --config hiv_config.yaml
+CUDA_VISIBLE_DEVICES=1 python -u main.py --config hiv_config.yaml --use_cuda
 
-export CUDA_VISIBLE_DEVICES=2
-python -u main.py --config pcba_config.yaml
+CUDA_VISIBLE_DEVICES=2 python -u main.py --config pcba_config.yaml --use_cuda
+```
+
+If you want to use CPU to train model, environment variables `CPU_NUM` should be specified and should be in the range of 1 to N, where N is the total CPU number on your machine.
+```
+CPU_NUM=1 python -u main.py --config hiv_config.yaml
+
+CPU_NUM=1 python -u main.py --config pcba_config.yaml
 ```
 
 ### Experiment results

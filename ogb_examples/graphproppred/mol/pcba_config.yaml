@@ -1,5 +1,4 @@
 task_name: pcba
-use_cuda: True
 seed: 28994
 dataset_name: ogbg-molpcba
 eval_metrics: null
