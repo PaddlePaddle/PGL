@@ -4,8 +4,8 @@
 
 ### Requirements
 
-- paddlpaddle 1.7.1
-- pgl 1.0.1
+- paddlpaddle >= 1.7.1
+- pgl 1.0.2
 - ogb
 
 NOTE: To install ogb that is fited for this project, run below command to install ogb
