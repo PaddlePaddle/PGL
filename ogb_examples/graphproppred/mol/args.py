@@ -25,6 +25,7 @@ from utils.args import ArgumentGroup
 
 # yapf: disable
 parser = argparse.ArgumentParser(__doc__)
+parser.add_argument('--use_cuda', action='store_true')
 model_g = ArgumentGroup(parser, "model", "model configuration and paths.")
 model_g.add_arg("init_checkpoint",          str,  None,           "Init checkpoint to resume training from.")
 model_g.add_arg("init_pretraining_params",  str,  None,
@@ -80,7 +81,6 @@ data_g.add_arg("random_seed",         int,  None,     "Random seed.")
 data_g.add_arg("buf_size",         int,  1000,     "Random seed.")
 
 run_type_g = ArgumentGroup(parser, "run_type", "running type options.")
-run_type_g.add_arg("use_cuda",                     bool,   False,  "If set, use GPU for training.")
 run_type_g.add_arg("num_iteration_per_drop_scope", int,    10,    "Iteration intervals to drop scope.")
 run_type_g.add_arg("do_train",                     bool,   True,  "Whether to perform training.")
 run_type_g.add_arg("do_val",                       bool,   True,  "Whether to perform evaluation on dev data set.")
