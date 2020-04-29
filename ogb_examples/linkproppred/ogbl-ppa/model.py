@@ -100,9 +100,7 @@ class BaseGraph(object):
 
         self.metrics = {
             "loss": self.loss,
-            "top1": batch_auc_out,
-            "max": L.reduce_max(self.logits),
-            "min": L.reduce_min(self.logits)
+            "auc": batch_auc_out,
         }
 
     def neighbor_aggregator(self, node_repr):
