@@ -1,4 +1,4 @@
-# PGL Examples for GAT
+# GAT: Graph Attention Networks
 
 [Graph Attention Networks \(GAT\)](https://arxiv.org/abs/1710.10903) is a novel architectures that operate on graph-structured data, which leverages masked self-attentional layers to address the shortcomings of prior methods based on graph convolutions or their approximations. Based on PGL, we reproduce GAT algorithms and reach the same level of indicators as the paper in citation network benchmarks.
 ### Simple example to build single head GAT
@@ -26,24 +26,25 @@ def gat_layer(graph_wrapper, node_feature, hidden_size):
     return output
 ```
 
+
 ### Datasets
 
 The datasets contain three citation networks: CORA, PUBMED, CITESEER. The details for these three datasets can be found in the [paper](https://arxiv.org/abs/1609.02907).
 
 ### Dependencies
 
-- paddlepaddle>=1.4 (The speed can be faster in 1.5.)
+- paddlepaddle>=1.6
 - pgl
 
 ### Performance
 
 We train our models for 200 epochs and report the accuracy on the test dataset.
 
-| Dataset | Accuracy | Speed with paddle 1.4 <br> (epoch time) | Speed with paddle 1.5 <br> (epoch time)|
-| --- | --- | --- |---|
-| Cora | ~83% | 0.0188s | 0.0175s | 
-| Pubmed | ~78% | 0.0449s  | 0.0295s |
-| Citeseer | ~70% | 0.0275 | 0.0253s | 
+| Dataset | Accuracy |
+| --- | --- |
+| Cora | ~83% | 
+| Pubmed | ~78% |
+| Citeseer | ~70% | 
 
 ### How to run
 

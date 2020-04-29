@@ -1,4 +1,4 @@
-# PGL Examples for GCN
+# GCN: Graph Convolutional Networks
 
 [Graph Convolutional Network \(GCN\)](https://arxiv.org/abs/1609.02907) is a powerful neural network designed for machine learning on graphs. Based on PGL, we reproduce GCN algorithms and reach the same level of indicators as the paper in citation network benchmarks.
 
@@ -26,18 +26,18 @@ The datasets contain three citation networks: CORA, PUBMED, CITESEER. The detail
 
 ### Dependencies
 
-- paddlepaddle>=1.4 (The speed can be faster in 1.5.)
+- paddlepaddle>=1.6
 - pgl
 
 ### Performance
 
 We train our models for 200 epochs and report the accuracy on the test dataset.
 
-| Dataset | Accuracy | Speed with paddle 1.4 <br> (epoch time) | Speed with paddle 1.5 <br> (epoch time)|
-| --- | --- | --- |---|
-| Cora | ~81% | 0.0106s | 0.0104s | 
-| Pubmed | ~79% | 0.0210s  | 0.0154s |
-| Citeseer | ~71% | 0.0175s | 0.0177s | 
+| Dataset | Accuracy |
+| --- | --- |
+| Cora | ~81% | 
+| Pubmed | ~79% |
+| Citeseer | ~71% | 
 
 
 ### How to run

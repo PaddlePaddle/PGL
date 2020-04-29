@@ -1,1 +1,1 @@
-.. mdinclude:: md/gcn_examples.md
+.. mdinclude:: ../../../examples/gcn/README.md

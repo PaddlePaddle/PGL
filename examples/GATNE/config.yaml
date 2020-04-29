@@ -1,0 +1,38 @@
+task_name: train.gatne
+use_cuda: True
+log_level: info 
+seed: 1667
+
+optimizer:
+    type:
+    args:
+        lr: 0.005
+
+trainer:
+    type: trainer
+    args:
+        epochs: 2
+        log_dir: logs/
+        save_dir: checkpoints/
+        output_dir: outputs/
+    
+data_loader:
+    type: Dataset
+    args:
+        data_path: ./data/youtube/
+        train_pairs_file: train_pairs.pkl
+        batch_size: 256
+        num_walks: 20  
+        walk_length: 10 
+        win_size: 5
+        neg_num: 5
+        slf_loop: True
+        symmetry_edge: True
+
+model:
+    type: GATNE
+    args:
+        dimensions: 200 
+        edge_dim: 32 
+        att_dim: 32   
+        att_head: 1

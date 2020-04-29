@@ -1,1 +1,1 @@
-.. mdinclude:: md/graphsage_examples.md
+.. mdinclude:: ../../../examples/graphsage/README.md

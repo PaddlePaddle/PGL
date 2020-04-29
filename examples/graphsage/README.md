@@ -1,4 +1,4 @@
-# GraphSAGE in PGL
+# GraphSAGE: Inductive Representation Learning on Large Graphs
 
 [GraphSAGE](https://cs.stanford.edu/people/jure/pubs/graphsage-nips17.pdf) is a general inductive framework that leverages node feature
 information (e.g., text attributes) to efficiently generate node embeddings for previously unseen data. Instead of training individual embeddings for each node, GraphSAGE learns a function that generates embeddings by sampling and aggregating features from a node’s local neighborhood. Based on PGL, we reproduce GraphSAGE algorithm and reach the same level of indicators as the paper in Reddit Dataset. Besides, this is an example of subgraph sampling and training in PGL.
@@ -12,14 +12,21 @@ The reddit dataset should be downloaded from the following links and placed in d
 
 ### Dependencies
 
-- paddlepaddle>=1.4 (The speed can be faster in 1.5.)
+- paddlepaddle>=1.6
 - pgl
 
 ### How to run
 
 To train a GraphSAGE model on Reddit Dataset, you can just run
+
 ```
  python train.py --use_cuda --epoch 10 --graphsage_type graphsage_mean --normalize --symmetry     
+```
+
+If you want to train a GraphSAGE model with multiple GPUs, you can just run
+
+```
+CUDA_VISIBLE_DEVICES=0,1 python train_multi.py --use_cuda --epoch 10 --graphsage_type graphsage_mean --normalize --symmetry  --num_trainer 2    
 ```
 
 #### Hyperparameters

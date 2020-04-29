@@ -16,10 +16,35 @@ import os
 import sys
 import re
 import codecs
-import numpy as np
 from setuptools import setup, find_packages
-from setuptools.extension import Extension
-from Cython.Build import cythonize
+from setuptools import Extension
+from setuptools import dist
+from setuptools.command.build_ext import build_ext as _build_ext
+
+try:
+    from Cython.Build import cythonize
+except ImportError:
+
+    def cythonize(*args, **kwargs):
+        """cythonize"""
+        from Cython.Build import cythonize
+        return cythonize(*args, **kwargs)
+
+
+class CustomBuildExt(_build_ext):
+    """CustomBuildExt"""
+
+    def finalize_options(self):
+        _build_ext.finalize_options(self)
+        # Prevent numpy from thinking it is still in its setup process:
+        __builtins__.__NUMPY_SETUP__ = False
+        import numpy
+        self.include_dirs.append(numpy.get_include())
+
+
+workdir = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(workdir, './requirements.txt')) as f:
+    requirements = f.read().splitlines()
 
 cur_dir = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(cur_dir, 'README.md'), 'rb') as f:
@@ -58,7 +83,6 @@ extensions = [
         "pgl.graph_kernel",
         ["pgl/graph_kernel.pyx"],
         language="c++",
-        include_dirs=[np.get_include()],
         extra_compile_args=compile_extra_args,
         extra_link_args=link_extra_args, ),
 ]
@@ -66,7 +90,6 @@ extensions = [
 
 def get_package_data(path):
     files = []
-    print(path)
     for root, dirnames, filenames in os.walk(path):
         for filename in filenames:
             files.append(os.path.join(root, filename))
@@ -83,9 +106,16 @@ setup(
     long_description_content_type='text/markdown',
     url="https://github.com/PaddlePaddle/PGL",
     package_data=package_data,
+    setup_requires=[
+        'setuptools>=18.0',
+        'numpy>=1.16.4',
+    ],
+    install_requires=requirements,
+    cmdclass={'build_ext': CustomBuildExt},
     packages=find_packages(),
     include_package_data=True,
-    ext_modules=cythonize(extensions),
+    #ext_modules=cythonize(extensions),
+    ext_modules=extensions,
     classifiers=[
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Apache Software License',

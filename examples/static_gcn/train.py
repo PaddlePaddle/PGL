@@ -85,7 +85,7 @@ def main(args):
     initializer = []
     with fluid.program_guard(train_program, startup_program):
         train_node_index, init = paddle_helper.constant(
-            "train_node_index", dtype="int32", value=train_index)
+            "train_node_index", dtype="int64", value=train_index)
         initializer.append(init)
 
         train_node_label, init = paddle_helper.constant(
@@ -104,7 +104,7 @@ def main(args):
 
     with fluid.program_guard(val_program, startup_program):
         val_node_index, init = paddle_helper.constant(
-            "val_node_index", dtype="int32", value=val_index)
+            "val_node_index", dtype="int64", value=val_index)
         initializer.append(init)
 
         val_node_label, init = paddle_helper.constant(
@@ -120,7 +120,7 @@ def main(args):
 
     with fluid.program_guard(test_program, startup_program):
         test_node_index, init = paddle_helper.constant(
-            "test_node_index", dtype="int32", value=test_index)
+            "test_node_index", dtype="int64", value=test_index)
         initializer.append(init)
 
         test_node_label, init = paddle_helper.constant(

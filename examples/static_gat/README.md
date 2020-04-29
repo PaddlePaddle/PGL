@@ -11,7 +11,7 @@ The datasets contain three citation networks: CORA, PUBMED, CITESEER. The detail
 
 ### Dependencies
 
-- paddlepaddle>=1.4 (The speed can be faster in 1.5.)
+- paddlepaddle>=1.6
 - pgl
 
 ### Performance
@@ -19,11 +19,11 @@ The datasets contain three citation networks: CORA, PUBMED, CITESEER. The detail
 We train our models for 200 epochs and report the accuracy on the test dataset.
 
 
-| Dataset | Accuracy | Speed with paddle 1.4 <br> (epoch time) | Speed with paddle 1.5 <br> (epoch time)| examples/gat | Improvement |
-| --- | --- | --- |---| --- | --- |
-| Cora | ~83% | 0.0145s | 0.0119s | 0.0175s | 1.47x |
-| Pubmed | ~78% | 0.0352s | 0.0193s |0.0295s | 1.53x |
-| Citeseer | ~70% | 0.0148s | 0.0124s |0.0253s | 2.04x |
+| Dataset | Accuracy | epoch time | examples/gat | Improvement |
+| --- | --- | --- | --- | --- |
+| Cora | ~83% | 0.0119s | 0.0175s | 1.47x |
+| Pubmed | ~78% | 0.0193s |0.0295s | 1.53x |
+| Citeseer | ~70% | 0.0124s |0.0253s | 2.04x |
 
 ### How to run
 

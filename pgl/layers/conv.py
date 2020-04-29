@@ -18,7 +18,7 @@ import paddle.fluid as fluid
 from pgl import graph_wrapper
 from pgl.utils import paddle_helper
 
-__all__ = ['gcn', 'gat']
+__all__ = ['gcn', 'gat', 'gin']
 
 
 def gcn(gw, feature, hidden_size, activation, name, norm=None):
@@ -53,7 +53,7 @@ def gcn(gw, feature, hidden_size, activation, name, norm=None):
         feature = fluid.layers.fc(feature,
                                   size=hidden_size,
                                   bias_attr=False,
-                                  name=name)
+                                  param_attr=fluid.ParamAttr(name=name))
 
     if norm is not None:
         feature = feature * norm
@@ -67,7 +67,7 @@ def gcn(gw, feature, hidden_size, activation, name, norm=None):
         output = fluid.layers.fc(output,
                                  size=hidden_size,
                                  bias_attr=False,
-                                 name=name)
+                                 param_attr=fluid.ParamAttr(name=name))
 
     if norm is not None:
         output = output * norm
@@ -152,7 +152,7 @@ def gat(gw,
     ft = fluid.layers.fc(feature,
                          hidden_size * num_heads,
                          bias_attr=False,
-                         name=name + '_weight')
+                         param_attr=fluid.ParamAttr(name=name + '_weight'))
     left_a = fluid.layers.create_parameter(
         shape=[num_heads, hidden_size],
         dtype='float32',
@@ -177,4 +177,74 @@ def gat(gw,
         name=name + '_bias')
     bias.stop_gradient = True
     output = fluid.layers.elementwise_add(output, bias, act=activation)
+    return output
+
+
+def gin(gw,
+        feature,
+        hidden_size,
+        activation,
+        name,
+        init_eps=0.0,
+        train_eps=False):
+    """Implementation of Graph Isomorphism Network (GIN) layer.
+
+    This is an implementation of the paper How Powerful are Graph Neural Networks?
+    (https://arxiv.org/pdf/1810.00826.pdf).
+
+    In their implementation, all MLPs have 2 layers. Batch normalization is applied
+    on every hidden layer.
+
+    Args:
+        gw: Graph wrapper object (:code:`StaticGraphWrapper` or :code:`GraphWrapper`)
+
+        feature: A tensor with shape (num_nodes, feature_size).
+
+        name: GIN layer names.
+
+        hidden_size: The hidden size for gin.
+
+        activation: The activation for the output.
+
+        init_eps: float, optional
+            Initial :math:`\epsilon` value, default is 0.
+
+        train_eps: bool, optional
+            if True, :math:`\epsilon` will be a learnable parameter.
+
+    Return:
+        A tensor with shape (num_nodes, hidden_size).
+    """
+
+    def send_src_copy(src_feat, dst_feat, edge_feat):
+        return src_feat["h"]
+
+    epsilon = fluid.layers.create_parameter(
+        shape=[1, 1],
+        dtype="float32",
+        attr=fluid.ParamAttr(name="%s_eps" % name),
+        default_initializer=fluid.initializer.ConstantInitializer(
+            value=init_eps))
+
+    if not train_eps:
+        epsilon.stop_gradient = True
+
+    msg = gw.send(send_src_copy, nfeat_list=[("h", feature)])
+    output = gw.recv(msg, "sum") + feature * (epsilon + 1.0)
+
+    output = fluid.layers.fc(output,
+                             size=hidden_size,
+                             act=None,
+                             param_attr=fluid.ParamAttr(name="%s_w_0" % name),
+                             bias_attr=fluid.ParamAttr(name="%s_b_0" % name))
+
+    output = fluid.layers.batch_norm(output)
+    output = getattr(fluid.layers, activation)(output)
+
+    output = fluid.layers.fc(output,
+                             size=hidden_size,
+                             act=activation,
+                             param_attr=fluid.ParamAttr(name="%s_w_1" % name),
+                             bias_attr=fluid.ParamAttr(name="%s_b_1" % name))
+
     return output

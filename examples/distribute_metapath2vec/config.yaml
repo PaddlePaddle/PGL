@@ -1,0 +1,41 @@
+# graph data config
+edge_path: "./data/data_processed"
+edge_files: "p2a:paper_author.txt,p2c:paper_conference.txt,p2t:paper_type.txt"
+node_types_file: "node_types.txt"
+num_nodes: 37791
+symmetry: True
+
+# skipgram pair data config 
+win_size: 5
+neg_num: 5
+# average; m2v_plus
+neg_sample_type: "average" 
+
+# random walk config
+# m2v; multi_m2v;
+walk_mode: "m2v" 
+meta_path: "c2p-p2a-a2p-p2c"
+first_node_type: "c"
+walk_len: 24
+batch_size: 4
+node_shuffle: True
+node_files: null
+num_sample_workers: 2
+
+# model config
+embed_dim: 64
+is_sparse: True
+# only use when num_nodes > 100,000,000, slower than noraml embedding
+is_distributed: False 
+
+# trainging config
+epochs: 10
+optimizer: "sgd"
+lr: 0.1
+warm_start_from_dir: null
+walkpath_files: "None"
+train_files: "None"
+steps_per_save: 1000
+save_path: "./checkpoints"
+log_dir: "./logs"
+CPU_NUM: 16

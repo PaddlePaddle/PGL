@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 import argparse
 import time
 
@@ -34,8 +35,9 @@ def load_data(normalize=True, symmetry=True):
         reddit_adj.npz: https://drive.google.com/open?id=174vb0Ws7Vxk_QTUtxqTgDHSQ4El4qDHt
         reddit.npz: https://drive.google.com/open?id=19SphVl_Oe8SJ1r87Hr5a6znx3nJu1F2J
     """
-    data = np.load("data/reddit.npz")
-    adj = sp.load_npz("data/reddit_adj.npz")
+    data_dir = os.path.dirname(os.path.abspath(__file__))
+    data = np.load(os.path.join(data_dir, "data/reddit.npz"))
+    adj = sp.load_npz(os.path.join(data_dir, "data/reddit_adj.npz"))
     if symmetry:
         adj = adj + adj.T
     adj = adj.tocoo()
@@ -61,10 +63,7 @@ def load_data(normalize=True, symmetry=True):
 
     log.info("Feature shape %s" % (repr(feature.shape)))
     graph = pgl.graph.Graph(
-        num_nodes=feature.shape[0],
-        edges=list(zip(src, dst)),
-        node_feat={"index": np.arange(
-            0, len(feature), dtype="int32")})
+        num_nodes=feature.shape[0], edges=list(zip(src, dst)))
 
     return {
         "graph": graph,
@@ -82,12 +81,18 @@ def load_data(normalize=True, symmetry=True):
 def build_graph_model(graph_wrapper, num_class, k_hop, graphsage_type,
                       hidden_size, feature):
     node_index = fluid.layers.data(
-        "node_index", shape=[None], dtype="int32", append_batch_size=False)
+        "node_index", shape=[None], dtype="int64", append_batch_size=False)
 
     node_label = fluid.layers.data(
         "node_label", shape=[None, 1], dtype="int64", append_batch_size=False)
 
-    feature = fluid.layers.gather(feature, graph_wrapper.node_feat['index'])
+    parent_node_index = fluid.layers.data(
+        "parent_node_index",
+        shape=[None],
+        dtype="int64",
+        append_batch_size=False)
+
+    feature = fluid.layers.gather(feature, parent_node_index)
     feature.stop_gradient = True
 
     for i in range(k_hop):
@@ -97,28 +102,28 @@ def build_graph_model(graph_wrapper, num_class, k_hop, graphsage_type,
                 feature,
                 hidden_size,
                 act="relu",
-                name="graphsage_mean_%s % i")
+                name="graphsage_mean_%s" % i)
         elif graphsage_type == 'graphsage_meanpool':
             feature = graphsage_meanpool(
                 graph_wrapper,
                 feature,
                 hidden_size,
                 act="relu",
-                name="graphsage_meanpool_%s % i")
+                name="graphsage_meanpool_%s" % i)
         elif graphsage_type == 'graphsage_maxpool':
             feature = graphsage_maxpool(
                 graph_wrapper,
                 feature,
                 hidden_size,
                 act="relu",
-                name="graphsage_maxpool_%s % i")
+                name="graphsage_maxpool_%s" % i)
         elif graphsage_type == 'graphsage_lstm':
             feature = graphsage_lstm(
                 graph_wrapper,
                 feature,
                 hidden_size,
                 act="relu",
-                name="graphsage_maxpool_%s % i")
+                name="graphsage_maxpool_%s" % i)
         else:
             raise ValueError("graphsage type %s is not"
                              " implemented" % graphsage_type)
@@ -198,7 +203,9 @@ def main(args):
             hide_batch_size=False)
 
         graph_wrapper = pgl.graph_wrapper.GraphWrapper(
-            "sub_graph", place, node_feat=data['graph'].node_feat_info())
+            "sub_graph",
+            fluid.CPUPlace(),
+            node_feat=data['graph'].node_feat_info())
         model_loss, model_acc = build_graph_model(
             graph_wrapper,
             num_class=data["num_class"],
@@ -217,59 +224,35 @@ def main(args):
     exe.run(startup_program)
     feature_init(place)
 
-    if args.sample_workers > 1:
-        train_iter = reader.multiprocess_graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            num_workers=args.sample_workers,
-            batch_size=args.batch_size,
-            node_index=data['train_index'],
-            node_label=data["train_label"])
-    else:
-        train_iter = reader.graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            batch_size=args.batch_size,
-            node_index=data['train_index'],
-            node_label=data["train_label"])
+    train_iter = reader.multiprocess_graph_reader(
+        data['graph'],
+        graph_wrapper,
+        samples=samples,
+        num_workers=args.sample_workers,
+        batch_size=args.batch_size,
+        with_parent_node_index=True,
+        node_index=data['train_index'],
+        node_label=data["train_label"])
 
-    if args.sample_workers > 1:
-        val_iter = reader.multiprocess_graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            num_workers=args.sample_workers,
-            batch_size=args.batch_size,
-            node_index=data['val_index'],
-            node_label=data["val_label"])
-    else:
-        val_iter = reader.graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            batch_size=args.batch_size,
-            node_index=data['val_index'],
-            node_label=data["val_label"])
+    val_iter = reader.multiprocess_graph_reader(
+        data['graph'],
+        graph_wrapper,
+        samples=samples,
+        num_workers=args.sample_workers,
+        batch_size=args.batch_size,
+        with_parent_node_index=True,
+        node_index=data['val_index'],
+        node_label=data["val_label"])
 
-    if args.sample_workers > 1:
-        test_iter = reader.multiprocess_graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            num_workers=args.sample_workers,
-            batch_size=args.batch_size,
-            node_index=data['test_index'],
-            node_label=data["test_label"])
-    else:
-        test_iter = reader.graph_reader(
-            data['graph'],
-            graph_wrapper,
-            samples=samples,
-            batch_size=args.batch_size,
-            node_index=data['test_index'],
-            node_label=data["test_label"])
+    test_iter = reader.multiprocess_graph_reader(
+        data['graph'],
+        graph_wrapper,
+        samples=samples,
+        num_workers=args.sample_workers,
+        batch_size=args.batch_size,
+        with_parent_node_index=True,
+        node_index=data['test_index'],
+        node_label=data["test_label"])
 
     for epoch in range(args.epoch):
         run_epoch(

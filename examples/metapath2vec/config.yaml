@@ -1,0 +1,53 @@
+task_name: train.metapath2vec
+use_cuda: True
+log_level: info 
+seed: 1667
+
+sampler:
+    type:
+    args:
+        data_path: ./data/net_aminer/
+        author_label_file: ./data/label/googlescholar.8area.author.label.txt
+        venue_label_file: ./data/label/googlescholar.8area.venue.label.txt
+        output_path: ./data/out_aminer_CPAPC/
+        new_author_label_file: author_label.txt
+        new_venue_label_file: venue_label.txt
+        walk_saved_path: walks/
+        walk_batch_size: 1000
+        num_walks: 1000
+        walk_length: 100
+        num_sample_workers: 16
+        first_node_type: conf
+        metapath: c2p-p2a-a2p-p2c  #conf-paper-author-paper-conf
+
+optimizer:
+    type: Adam
+    args:
+        lr: 0.005
+        end_lr: 0.0001
+
+trainer:
+    type: trainer
+    args:
+        epochs: 5
+        log_dir: logs/
+        save_dir: checkpoints/
+        output_dir: outputs/
+        num_sample_workers: 8
+    
+data_loader:
+    type: Dataset
+    args:
+        input_path: ./data/out_aminer_CPAPC/  # same path as output_path in sampler
+        walk_path: walks/*
+        word2id_file: word2id.pkl
+        batch_size: 32
+        win_size: 5  # default: 7
+        neg_num: 5
+        min_count: 10
+        paper_start_index: 1697414
+
+model:
+    type: SkipgramModel
+    args:
+        embed_dim: 128
