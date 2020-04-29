@@ -11,7 +11,7 @@
 
 - PGL for [Open Graph Benchmark](https://github.com/snap-stanford/ogb) examples can be find [here](./ogb_exmaples/).
 
-- We add newly graph level operators like GraphPooling and [GraphNormalization](https://arxiv.org/abs/2003.00982) for graph level predictions.
+- We add newly graph level operators like **GraphPooling** and [**GraphNormalization**](https://arxiv.org/abs/2003.00982) for graph level predictions.
 
 ------
 
