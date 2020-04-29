@@ -6,8 +6,11 @@
 ### Requirements
 
 paddlpaddle >= 1.7.1
+
 pgl 1.0.2
+
 ogb
+
 
 ### How to Run
 
