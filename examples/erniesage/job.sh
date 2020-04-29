@@ -37,18 +37,8 @@ fi
 
 export FLAGS_communicator_recv_wait_times=5000000
 
-export PATH=/opt/compiler/gcc-4.8.2/bin:$PATH
-PYTHONPATH=`which python`
-PYTHONPATH=`dirname $PYTHONPATH`
-PYTHONPATH=`readlink -f $PYTHONPATH/../`
-export PATH=$PYTHONPATH/bin/:$PATH
-
-which python
-
 mkdir -p output
-echo "PADDLE_PSERVERS" $PADDLE_PSERVERS
 
-echo $CPU_NUM
 python ./train.py --conf $config
 if [[ $TRAINING_ROLE == "TRAINER" ]];then
     python ./infer.py --conf $config
