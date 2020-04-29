@@ -44,9 +44,6 @@ class HeterGraphWrapper(object):
     Args:
         name: The heterogeneous graph data prefix
 
-        place: fluid.CPUPlace or fluid.CUDAPlace(n) indicating the
-               device to hold the graph data.
-
         node_feat: A dict of list of tuples that decribe the details of node
                    feature tenosr. Each tuple mush be (name, shape, dtype)
                    and the first dimension of the shape must be set unknown
@@ -85,19 +82,15 @@ class HeterGraphWrapper(object):
                             node_feat=node_feat,
                             edge_feat=edges_feat)
            
-            place = fluid.CPUPlace()
-
             gw = heter_graph_wrapper.HeterGraphWrapper(
                                 name='heter_graph', 
-                                place = place, 
                                 edge_types = g.edge_types_info(),
                                 node_feat=g.node_feat_info(),
                                 edge_feat=g.edge_feat_info())
     """
 
-    def __init__(self, name, place, edge_types, node_feat={}, edge_feat={}):
+    def __init__(self, name, edge_types, node_feat={}, edge_feat={}, **kwargs):
         self.__data_name_prefix = name
-        self._place = place
         self._edge_types = edge_types
         self._multi_gw = {}
         for edge_type in self._edge_types:
@@ -114,7 +107,6 @@ class HeterGraphWrapper(object):
 
             self._multi_gw[edge_type] = GraphWrapper(
                 name=type_name,
-                place=self._place,
                 node_feat=n_feat,
                 edge_feat=e_feat)
 

@@ -53,7 +53,6 @@ class GATNE(object):
 
         self.gw = heter_graph_wrapper.HeterGraphWrapper(
             name="heter_graph",
-            place=place,
             edge_types=self.graph.edge_types_info(),
             node_feat=self.graph.node_feat_info(),
             edge_feat=self.graph.edge_feat_info())
