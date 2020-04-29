@@ -27,13 +27,12 @@ export FLAGS_rpc_deadline=3000000
 export FLAGS_rpc_retry_times=1000
 
 if [[ $async_mode == "True" ]];then
-    echo 123
+    echo "async_mode is True"
 else
     export FLAGS_communicator_send_queue_size=1
     export FLAGS_communicator_min_send_grad_num_before_recv=0
     export FLAGS_communicator_max_merge_var_num=1 # important! 
     export FLAGS_communicator_merge_sparse_grad=0
-    echo 123
 fi
 
 export FLAGS_communicator_recv_wait_times=5000000
