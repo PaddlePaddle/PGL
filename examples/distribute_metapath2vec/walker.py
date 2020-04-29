@@ -87,9 +87,12 @@ class NodeGenerator(object):
             idx = cc % num_n_type
             n_type = n_type_list[idx]
             try:
-                nodes = node_generators[n_type].next()
+                nodes = next(node_generators[n_type])
             except StopIteration as e:
-                log.info("exception when iteration")
+                log.info("node type of %s iteration finished in one epoch" %
+                         (n_type))
+                node_generators[n_type] = \
+                        self.graph.node_batch_iter(self.batch_size, n_type=n_type)
                 break
             yield (nodes, idx)
             cc += 1
