@@ -13,6 +13,8 @@
 
 - We add newly graph level operators like **GraphPooling** and [**GraphNormalization**](https://arxiv.org/abs/2003.00982) for graph level predictions.
 
+- We relase a PGL-KE toolkit [here](./exmaples/pgl-ke) including classical knowledge graph algorithms like TransE, TransR, RotatE.
+
 ------
 
 Paddle Graph Learning (PGL) is an efficient and flexible graph learning framework based on [PaddlePaddle](https://github.com/PaddlePaddle/Paddle).
