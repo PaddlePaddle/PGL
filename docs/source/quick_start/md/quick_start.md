@@ -53,7 +53,6 @@ place = fluid.CUDAPlace(0) if use_cuda else fluid.CPUPlace()
 
 # use GraphWrapper as a container for graph data to construct a graph neural network
 gw = pgl.graph_wrapper.GraphWrapper(name='graph',
-                        place = place,
                         node_feat=g.node_feat_info())
 ```
 
