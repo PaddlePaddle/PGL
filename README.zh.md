@@ -81,6 +81,7 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 
 | 模型 | 特点 |
 |---|---|
+| [**ERNIESage**](./examples/erniesage/) | 能同时建模文本以及图结构的ERNIE SAmple aggreGatE |
 | GCN | 图卷积网络 |
 | GAT | 基于Attention的图卷积网络 |
 | GraphSage | 基于邻居采样的大规模图卷积网络 |
