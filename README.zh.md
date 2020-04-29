@@ -7,6 +7,8 @@
 
 ## 最新消息
 
+PGL v1.1 2020.4.29
+
 - **ERNIESage**是PGL团队最新提出的模型，可以用于建模文本以及图结构信息。你可以在[这里](./examples/erniesage)看到详细的介绍。
 
 - PGL现在提供[Open Graph Benchmark](https://github.com/snap-stanford/ogb)的一些例子，你可以在[这里](./ogb_examples)找到。
@@ -14,6 +16,8 @@
 - 新增了图级别的算子包括**GraphPooling**以及[**GraphNormalization**](https://arxiv.org/abs/2003.00982)，这样你就能实现更多复杂的图级别分类模型。
 
 - 新增PGL-KE工具包，里面包含许多经典知识图谱图嵌入算法，包括TransE, TransR, RotatE，详情可见[这里](./examples/pgl-ke)
+
+------
 
 Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/PaddlePaddle/Paddle)的高效易用的图学习框架
 
