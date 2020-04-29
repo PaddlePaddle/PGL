@@ -4,7 +4,9 @@
 
 ## Breaking News !!
 
-PGL releases v1.1 and brings more examples including [**ERNIESage**](./examples/erniesage/), a novel model for modeling text and graph structures. 
+- You can find **ERNIESage**, a novel model for modeling text and graph structures, and its introduction [here](./examples/erniesage/).
+
+- PGL for [Open Graph Benchmark](https://github.com/snap-stanford/ogb) examples can be find [here](./ogb_exmaples/).
 
 ------
 
