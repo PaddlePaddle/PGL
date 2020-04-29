@@ -30,15 +30,15 @@ ssl._create_default_https_context = ssl._create_unverified_context
 import numpy as np
 import multiprocessing
 
+import pgl
 import paddle
 import paddle.fluid as F
 import paddle.fluid.layers as L
-import pgl
 
+from args import parser
 from utils.args import print_arguments, check_cuda
 from utils.init import init_checkpoint, init_pretraining_params
-from args import parser
-from model import BaseGraph, GCNGraph
+from model import BaseGraph
 from dataloader.ogbl_ppa_dataloader import PPADataGenerator
 from monitor.train_monitor import train_and_evaluate, OgbEvaluator
 
