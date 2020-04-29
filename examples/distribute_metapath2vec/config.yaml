@@ -31,7 +31,7 @@ is_distributed: False
 # trainging config
 epochs: 10
 optimizer: "sgd"
-lr: 1.0
+lr: 0.1
 warm_start_from_dir: null
 walkpath_files: "None"
 train_files: "None"
