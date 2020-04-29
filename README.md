@@ -15,7 +15,7 @@ PGL v1.1 2020.4.29
 
 - We add newly graph level operators like **GraphPooling** and [**GraphNormalization**](https://arxiv.org/abs/2003.00982) for graph level predictions.
 
-- We relase a PGL-KE toolkit [here](./exmaples/pgl-ke) including classical knowledge graph algorithms like TransE, TransR, RotatE.
+- We relase a PGL-KE toolkit [here](./exmaples/pgl-ke) including classical knowledge graph embedding t algorithms like TransE, TransR, RotatE.
 
 ------
 
