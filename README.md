@@ -86,6 +86,7 @@ The following are 13 graph learning models that have been implemented in the fra
 
 |Model | feature |
 |---|---|
+| [**ERNIESage**](./examples/erniesage/) | ERNIE SAmple aggreGatE for Text and Graph |
 | GCN | Graph Convolutional Neural Networks |
 | GAT | Graph Attention Network |
 | GraphSage |Large-scale graph convolution network based on neighborhood sampling|
