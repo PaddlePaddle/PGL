@@ -35,7 +35,7 @@
 
 ## How to run
 
-我们采用了[PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet)作为我们的分布式训练框架，在```config/*.yaml```中，由部分用于训练ERNIESage的配置。
+我们采用了[PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet)作为我们的分布式训练框架，在```config/*.yaml```中，有部分用于训练ERNIESage的配置。
 
 ```sh
 # 分布式GPU模式或单机模式ERNIESage
