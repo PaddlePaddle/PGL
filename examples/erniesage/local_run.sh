@@ -57,7 +57,6 @@ collective_local_train(){
 }
 
 eval $(parse_yaml $config)
-unalias python
 
 python3 ./preprocessing/dump_graph.py -i $input_data -o $graph_path --encoding $encoding \
     -l $max_seqlen --vocab_file $ernie_vocab_file

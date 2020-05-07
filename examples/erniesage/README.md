@@ -39,10 +39,10 @@
 
 ```sh
 # 分布式GPU模式或单机模式ERNIESage
-sh local_run.sh config/enriesage_v1_gpu.yaml
+sh local_run.sh config/erniesage_v2_gpu.yaml
 
 # 分布式CPU模式训练ERNIESage
-sh local_run.sh config/enriesage_v1_cpu.yaml
+sh local_run.sh config/erniesage_v2_cpu.yaml
 ```
 
 ## Hyperparamters
