@@ -58,8 +58,8 @@ Now, we can build a heterogenous graph by using PGL.
 import paddle.fluid as fluid
 import paddle.fluid.layers as fl
 import pgl
-from pgl.contrib import heter_graph
-from pgl.contrib import heter_graph_wrapper
+from pgl import heter_graph
+from pgl import heter_graph_wrapper
 
 g = heter_graph.HeterGraph(num_nodes=num_nodes,
                             edges=edges,
@@ -77,7 +77,6 @@ place = fluid.CPUPlace()
 
 # create a GraphWrapper as a container for graph data
 gw = heter_graph_wrapper.HeterGraphWrapper(name='heter_graph', 
-                                    place = place, 
                                     edge_types = g.edge_types_info(),
                                     node_feat=g.node_feat_info(),
                                     edge_feat=g.edge_feat_info())
@@ -161,8 +160,3 @@ for epoch in range(30):
     train_loss = exe.run(fluid.default_main_program(), feed=feed_dict, fetch_list=[loss], return_numpy=True)
     print('Epoch %d | Loss: %f'%(epoch, train_loss[0]))
 ```
-
-
-
-
-

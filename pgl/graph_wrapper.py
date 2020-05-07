@@ -40,7 +40,6 @@ def recv(dst, uniq_dst, bucketing_index, msg, reduce_function, num_nodes,
          num_edges):
     """Recv message from given msg to dst nodes.
     """
-    empty_msg_flag = fluid.layers.cast(num_edges > 0, dtype="float32")
     if reduce_function == "sum":
         if isinstance(msg, dict):
             raise TypeError("The message for build-in function"
@@ -49,8 +48,9 @@ def recv(dst, uniq_dst, bucketing_index, msg, reduce_function, num_nodes,
         try:
             out_dim = msg.shape[-1]
             init_output = fluid.layers.fill_constant(
-                shape=[num_nodes, out_dim], value=0, dtype="float32")
+                shape=[num_nodes, out_dim], value=0, dtype=msg.dtype)
             init_output.stop_gradient = False
+            empty_msg_flag = fluid.layers.cast(num_edges > 0, dtype=msg.dtype)
             msg = msg * empty_msg_flag
             output = paddle_helper.scatter_add(init_output, dst, msg)
             return output
@@ -66,10 +66,12 @@ def recv(dst, uniq_dst, bucketing_index, msg, reduce_function, num_nodes,
     bucketed_msg = op.nested_lod_reset(msg, bucketing_index)
     output = reduce_function(bucketed_msg)
     output_dim = output.shape[-1]
+
+    empty_msg_flag = fluid.layers.cast(num_edges > 0, dtype=output.dtype)
     output = output * empty_msg_flag
 
     init_output = fluid.layers.fill_constant(
-        shape=[num_nodes, output_dim], value=0, dtype="float32")
+        shape=[num_nodes, output_dim], value=0, dtype=output.dtype)
     init_output.stop_gradient = True
     final_output = fluid.layers.scatter(init_output, uniq_dst, output)
     return final_output
@@ -278,7 +280,7 @@ class StaticGraphWrapper(BaseGraphWrapper):
 
         graph: The static graph that should be put into memory
 
-        place: fluid.CPUPlace or fluid.GPUPlace(n) indicating the
+        place: fluid.CPUPlace or fluid.CUDAPlace(n) indicating the
                device to hold the graph data.
 
     Examples:
@@ -456,7 +458,7 @@ class StaticGraphWrapper(BaseGraphWrapper):
         """Placing the graph data into the devices.
 
         Args:
-            place: fluid.CPUPlace or fluid.GPUPlace(n) indicating the
+            place: fluid.CPUPlace or fluid.CUDAPlace(n) indicating the
                    device to hold the graph data.
         """
         log.info(
@@ -474,9 +476,6 @@ class GraphWrapper(BaseGraphWrapper):
 
     Args:
         name: The graph data prefix
-
-        place: fluid.CPUPlace or fluid.GPUPlace(n) indicating the
-               device to hold the graph data.
 
         node_feat: A list of tuples that decribe the details of node
                    feature tenosr. Each tuple mush be (name, shape, dtype)
@@ -516,7 +515,6 @@ class GraphWrapper(BaseGraphWrapper):
                         })
 
             graph_wrapper = GraphWrapper(name="graph",
-                        place=place,
                         node_feat=graph.node_feat_info(),
                         edge_feat=graph.edge_feat_info())
 
@@ -531,12 +529,11 @@ class GraphWrapper(BaseGraphWrapper):
                 ret = exe.run(fetch_list=[...], feed=feed_dict )
     """
 
-    def __init__(self, name, place, node_feat=[], edge_feat=[]):
+    def __init__(self, name, node_feat=[], edge_feat=[], **kwargs):
         super(GraphWrapper, self).__init__()
         # collect holders for PyReader
         self._data_name_prefix = name
         self._holder_list = []
-        self._place = place
         self.__create_graph_attr_holders()
         for node_feat_name, node_feat_shape, node_feat_dtype in node_feat:
             self.__create_graph_node_feat_holders(

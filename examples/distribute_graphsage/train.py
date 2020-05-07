@@ -170,7 +170,7 @@ def main(args):
 
     with fluid.program_guard(train_program, startup_program):
         graph_wrapper = pgl.graph_wrapper.GraphWrapper(
-            "sub_graph", fluid.CPUPlace(), node_feat=[('feats', [None, 602], np.dtype('float32'))])
+            "sub_graph", node_feat=[('feats', [None, 602], np.dtype('float32'))])
         model_loss, model_acc = build_graph_model(
             graph_wrapper,
             num_class=data["num_class"],

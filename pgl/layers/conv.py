@@ -230,7 +230,7 @@ def gin(gw,
         epsilon.stop_gradient = True
 
     msg = gw.send(send_src_copy, nfeat_list=[("h", feature)])
-    output = gw.recv(msg, "sum") + (1.0 + epsilon) * feature
+    output = gw.recv(msg, "sum") + feature * (epsilon + 1.0)
 
     output = fluid.layers.fc(output,
                              size=hidden_size,
@@ -238,8 +238,18 @@ def gin(gw,
                              param_attr=fluid.ParamAttr(name="%s_w_0" % name),
                              bias_attr=fluid.ParamAttr(name="%s_b_0" % name))
 
-    output = fluid.layers.batch_norm(output)
-    output = getattr(fluid.layers, activation)(output)
+    output = fluid.layers.layer_norm(
+        output,
+        begin_norm_axis=1,
+        param_attr=fluid.ParamAttr(
+            name="norm_scale_%s" % (name),
+            initializer=fluid.initializer.Constant(1.0)),
+        bias_attr=fluid.ParamAttr(
+            name="norm_bias_%s" % (name),
+            initializer=fluid.initializer.Constant(0.0)), )
+
+    if activation is not None:
+        output = getattr(fluid.layers, activation)(output)
 
     output = fluid.layers.fc(output,
                              size=hidden_size,
