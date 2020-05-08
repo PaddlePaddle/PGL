@@ -40,7 +40,7 @@ class BaseGraphWrapperBuilder(object):
             # all graph have same node_feat_info
             graph_wrappers.append(
                 pgl.graph_wrapper.GraphWrapper(
-                    "layer_%s" % i, place, node_feat=self.node_feature_info, edge_feat=self.edge_feature_info))
+                    "layer_%s" % i, node_feat=self.node_feature_info, edge_feat=self.edge_feature_info))
         return graph_wrappers
 
 
