@@ -35,7 +35,7 @@
 
 ## How to run
 
-我们采用了[PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet)作为我们的分布式训练框架，在```config/*.yaml```中，有部分用于训练ERNIESage的配置。
+我们采用了[PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet)作为我们的分布式训练框架，在```config/*.yaml```中，有部分用于训练ERNIESage的配置, 其中ERNIE模型```ckpt_path```以及词表```ernie_vocab_file```在[ERNIE](https://github.com/PaddlePaddle/ERNIE)下载。
 
 ```sh
 # 分布式GPU模式或单机模式ERNIESage
