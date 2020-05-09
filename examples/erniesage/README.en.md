@@ -32,6 +32,10 @@ Thanks to the flexibility and usability of PGL, **ERNIESage** can be quickly imp
 - pgl>=1.1
 
 ## Dataformat
+In the example data ```data.txt```, part of NLPCC2016-DBQA is used, and the format is "query \t answer" for each line.
+```text
+NLPCC2016-DBQA is a sub-task of NLPCC-ICCPOL 2016 Shared Task which is hosted by NLPCC(Natural Language Processing and Chinese Computing), this task targets on selecting documents from the candidates to answer the questions. [url: http://tcci.ccf.org.cn/conference/2016/dldoc/evagline2.pdf]
+```
 
 ## How to run
 
