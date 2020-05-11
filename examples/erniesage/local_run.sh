@@ -50,7 +50,6 @@ transpiler_local_train(){
 }
 
 collective_local_train(){
-    export PATH=./python27-gcc482-gpu/bin/:$PATH
     echo `which python`
     python -m paddle.distributed.launch train.py --conf $config
     python -m paddle.distributed.launch infer.py --conf $config
@@ -58,8 +57,7 @@ collective_local_train(){
 
 eval $(parse_yaml $config)
 
-python3 ./preprocessing/dump_graph.py -i $input_data -o $graph_path --encoding $encoding \
-    -l $max_seqlen --vocab_file $ernie_vocab_file
+python ./preprocessing/dump_graph.py -i $input_data -o $graph_path --encoding $encoding -l $max_seqlen --vocab_file $ernie_vocab_file
 
 if [[ $learner_type == "cpu" ]];then
     transpiler_local_train

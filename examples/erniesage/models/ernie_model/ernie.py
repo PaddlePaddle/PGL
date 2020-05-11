@@ -59,6 +59,8 @@ class ErnieModel(object):
     def __init__(self,
                  src_ids,
                  sentence_ids,
+                 position_ids=None,
+                 input_mask=None,
                  task_ids=None,
                  config=None,
                  weight_sharing=True,
@@ -66,8 +68,10 @@ class ErnieModel(object):
                  name=""):
 
         self._set_config(config, name, weight_sharing)
-        input_mask = self._build_input_mask(src_ids)
-        position_ids = self._build_position_ids(src_ids)
+        if position_ids is None:
+            position_ids = self._build_position_ids(src_ids)
+        if input_mask is None:
+            input_mask = self._build_input_mask(src_ids)
         self._build_model(src_ids, position_ids, sentence_ids, task_ids,
                           input_mask)
         self._debug_summary(input_mask)

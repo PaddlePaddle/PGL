@@ -193,6 +193,7 @@ class CollectiveLearner(Learner):
     def optimize(self, loss, optimizer_type, lr):
         optimizer = F.optimizer.Adam(learning_rate=lr)
         dist_strategy = DistributedStrategy()
+        dist_strategy.enable_sequential_execution = True
         optimizer = cfleet.distributed_optimizer(optimizer, strategy=dist_strategy)
         _, param_grads = optimizer.minimize(loss, F.default_startup_program())
     

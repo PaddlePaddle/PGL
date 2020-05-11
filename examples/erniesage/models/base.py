@@ -129,7 +129,9 @@ class BaseNet(object):
             "user_index", shape=[None], dtype="int64", append_batch_size=False)
         item_index = L.data(
             "item_index", shape=[None], dtype="int64", append_batch_size=False)
-        return [user_index, item_index]
+        neg_item_index = L.data(
+            "neg_item_index", shape=[None], dtype="int64", append_batch_size=False)
+        return [user_index, item_index, neg_item_index]
 
     def build_embedding(self, graph_wrappers, inputs=None):
         num_embed = int(np.load(os.path.join(self.config.graph_path, "num_nodes.npy")))
@@ -177,18 +179,58 @@ class BaseNet(object):
         outputs.append(src_real_index)
         return inputs, outputs
 
+def all_gather(X):
+    trainer_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
+    trainer_num = int(os.getenv("PADDLE_TRAINERS_NUM", "0"))
+    if trainer_num == 1:
+        copy_X = X * 1
+        copy_X.stop_gradients=True
+        return copy_X
+
+    Xs = []
+    for i in range(trainer_num):
+        copy_X = X * 1
+        copy_X =  L.collective._broadcast(copy_X, i, True)
+        copy_X.stop_gradients=True
+        Xs.append(copy_X)
+
+    if len(Xs) > 1:
+        Xs=L.concat(Xs, 0)
+        Xs.stop_gradients=True
+    else:
+        Xs = Xs[0]
+    return Xs
+
 class BaseLoss(object):
     def __init__(self, config):
         self.config = config
 
     def __call__(self, outputs):
-        user_feat, item_feat = outputs[0], outputs[1]
+        user_feat, item_feat, neg_item_feat = outputs[0], outputs[1], outputs[2]
         loss_type = self.config.loss_type
+
+        if self.config.neg_type == "batch_neg":
+            neg_item_feat = item_feat
         # Calc Loss
         if self.config.loss_type == "hinge":
             pos = L.reduce_sum(user_feat * item_feat, -1, keep_dim=True) # [B, 1]
-            neg = L.matmul(user_feat, item_feat, transpose_y=True) # [B, B]
+            neg = L.matmul(user_feat, neg_item_feat, transpose_y=True) # [B, B]
             loss = L.reduce_mean(L.relu(neg - pos + self.config.margin))
+        elif self.config.loss_type == "all_hinge":
+            pos = L.reduce_sum(user_feat * item_feat, -1, keep_dim=True) # [B, 1]
+            all_pos = all_gather(pos) # [B * n, 1]
+            all_neg_item_feat = all_gather(neg_item_feat) # [B * n, 1]
+            all_user_feat = all_gather(user_feat) # [B * n, 1]
+
+            neg1 = L.matmul(user_feat, all_neg_item_feat, transpose_y=True) # [B, B * n]
+            neg2 = L.matmul(all_user_feat, neg_item_feat, transpose_y=True) # [B *n, B]
+
+            loss1 = L.reduce_mean(L.relu(neg1 - pos + self.config.margin))
+            loss2 = L.reduce_mean(L.relu(neg2 - all_pos + self.config.margin))
+
+            #loss = (loss1 + loss2) / 2
+            loss = loss1 + loss2
+        
         elif self.config.loss_type == "softmax":
             pass
             # TODO
