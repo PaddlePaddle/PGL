@@ -19,8 +19,6 @@ from contextlib import contextmanager
 import paddle.fluid as fluid
 import paddle.fluid.layers as L
 import paddle.fluid.layers as layers
-#import propeller.paddle as propeller
-#from propeller import log
 
 #determin this at the begining
 to_3d = lambda a: a  # will change later
@@ -85,7 +83,7 @@ def multi_head_attention(queries,
         # The value 0 in shape attr means copying the corresponding dimension
         # size of the input as the output dimension size.
         reshaped = layers.reshape(
-            x=x, shape=[0, 0, n_head, hidden_size // n_head], inplace=True)
+                x=x, shape=[0, 0, n_head, hidden_size // n_head], inplace=True)
 
         # permuate the dimensions into:
         # [batch_size, n_head, max_sequence_len, hidden_size_per_head]
@@ -262,7 +260,6 @@ def encoder_layer(enc_input,
     with the post_process_layer to add residual connection, layer normalization
     and droput.
     """
-    #L.Print(L.reduce_mean(enc_input), message='1')
     attn_output, ctx_multiheads_attn = multi_head_attention(
         pre_process_layer(
             enc_input,
@@ -279,7 +276,6 @@ def encoder_layer(enc_input,
         attention_dropout,
         param_initializer=param_initializer,
         name=name + '_multi_head_att')
-    #L.Print(L.reduce_mean(attn_output), message='1')
     attn_output = post_process_layer(
         enc_input,
         attn_output,
@@ -287,7 +283,6 @@ def encoder_layer(enc_input,
         prepostprocess_dropout,
         name=name + '_post_att')
 
-    #L.Print(L.reduce_mean(attn_output), message='2')
     ffd_output = positionwise_feed_forward(
         pre_process_layer(
             attn_output,
@@ -300,14 +295,12 @@ def encoder_layer(enc_input,
         hidden_act,
         param_initializer=param_initializer,
         name=name + '_ffn')
-    #L.Print(L.reduce_mean(ffd_output), message='3')
     ret = post_process_layer(
         attn_output,
         ffd_output,
         postprocess_cmd,
         prepostprocess_dropout,
         name=name + '_post_ffn')
-    #L.Print(L.reduce_mean(ret), message='4')
     return ret, ctx_multiheads_attn, ffd_output
 
 
@@ -374,7 +367,7 @@ def encoder(enc_input,
     encoder_layer.
     """
 
-    #global to_2d, to_3d  #, batch, seqlen, dynamic_dim
+    global to_2d, to_3d  #, batch, seqlen, dynamic_dim
     d_shape = L.shape(input_mask)
     pad_idx = build_pad_idx(input_mask)
     attn_bias = build_attn_bias(input_mask, n_head, enc_input.dtype)
@@ -391,14 +384,14 @@ def encoder(enc_input,
     # if attn_bias.dtype != enc_input.dtype:
     # attn_bias = L.cast(attn_bias, enc_input.dtype)
 
-    # def to_2d(t_3d):
-        # t_2d = L.gather_nd(t_3d, pad_idx)
-        # return t_2d
+    def to_2d(t_3d):
+        t_2d = L.gather_nd(t_3d, pad_idx)
+        return t_2d
 
-    # def to_3d(t_2d):
-        # t_3d = L.scatter_nd(
-        # pad_idx, t_2d, shape=[d_shape[0], d_shape[1], d_model])
-        # return t_3d
+    def to_3d(t_2d):
+        t_3d = L.scatter_nd(
+        pad_idx, t_2d, shape=[d_shape[0], d_shape[1], d_model])
+        return t_3d
 
     enc_input = to_2d(enc_input)
     all_hidden = []
@@ -456,7 +449,7 @@ def graph_encoder(enc_input,
     encoder_layer.
     """
 
-    #global to_2d, to_3d  #, batch, seqlen, dynamic_dim
+    global to_2d, to_3d  #, batch, seqlen, dynamic_dim
     d_shape = L.shape(input_mask)
     pad_idx = build_pad_idx(input_mask)
     attn_bias = build_graph_attn_bias(input_mask, n_head, enc_input.dtype, slot_seqlen)
@@ -474,14 +467,14 @@ def graph_encoder(enc_input,
     # if attn_bias.dtype != enc_input.dtype:
     # attn_bias = L.cast(attn_bias, enc_input.dtype)
 
-    # def to_2d(t_3d):
-        # t_2d = L.gather_nd(t_3d, pad_idx)
-        # return t_2d
+    def to_2d(t_3d):
+        t_2d = L.gather_nd(t_3d, pad_idx)
+        return t_2d
 
-    # def to_3d(t_2d):
-        # t_3d = L.scatter_nd(
-        # pad_idx, t_2d, shape=[d_shape[0], d_shape[1], d_model])
-        # return t_3d
+    def to_3d(t_2d):
+        t_3d = L.scatter_nd(
+        pad_idx, t_2d, shape=[d_shape[0], d_shape[1], d_model])
+        return t_3d
 
     enc_input = to_2d(enc_input)
     all_hidden = []

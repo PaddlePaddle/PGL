@@ -36,7 +36,7 @@ transpiler_local_train(){
     for((i=0;i<${PADDLE_PSERVERS_NUM};i++))
     do
         echo "start ps server: ${i}"
-        TRAINING_ROLE="PSERVER" PADDLE_TRAINER_ID=${i} sh job.sh local $config \
+        TRAINING_ROLE="PSERVER" PADDLE_TRAINER_ID=${i} python ./train.py --conf $config \
             &> $BASE/pserver.$i.log &
         echo $! >> job_id
     done
@@ -44,8 +44,8 @@ transpiler_local_train(){
     for((j=0;j<${PADDLE_TRAINERS_NUM};j++))
     do
         echo "start ps work: ${j}"
-        TRAINING_ROLE="TRAINER" PADDLE_TRAINER_ID=${j} sh job.sh local $config \
-        echo $! >> job_id
+        TRAINING_ROLE="TRAINER" PADDLE_TRAINER_ID=${j} python ./train.py --conf $config 
+        TRAINING_ROLE="TRAINER" PADDLE_TRAINER_ID=${j} python ./infer.py --conf $config 
     done
 }
 

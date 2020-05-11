@@ -183,5 +183,6 @@ if __name__ == "__main__":
     parser.add_argument("--conf", type=str, default="./config.yaml")
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
+    config.loss_type = "hinge"
     print(config)
     main(config)

@@ -4,9 +4,9 @@
 learner_type: "cpu"
 optimizer_type: "adam"
 lr: 0.00005
-batch_size: 2
-CPU_NUM: 10
-epoch: 20
+batch_size: 4
+CPU_NUM: 16
+epoch: 3
 log_per_step: 1
 save_per_step: 100
 output_path: "./output"
@@ -31,6 +31,7 @@ final_fc: true
 final_l2_norm: true
 loss_type: "hinge"
 margin: 0.3
+neg_type: "random_neg"
 
 # infer config ------
 infer_model: "./output/last"
