@@ -36,7 +36,7 @@ transpiler_local_train(){
     for((i=0;i<${PADDLE_PSERVERS_NUM};i++))
     do
         echo "start ps server: ${i}"
-        TRAINING_ROLE="PSERVER" PADDLE_TRAINER_ID=${i} sh job.sh local $config \
+        TRAINING_ROLE="PSERVER" PADDLE_TRAINER_ID=${i} python ./train.py --conf $config \
             &> $BASE/pserver.$i.log &
         echo $! >> job_id
     done
@@ -44,23 +44,20 @@ transpiler_local_train(){
     for((j=0;j<${PADDLE_TRAINERS_NUM};j++))
     do
         echo "start ps work: ${j}"
-        TRAINING_ROLE="TRAINER" PADDLE_TRAINER_ID=${j} sh job.sh local $config \
-        echo $! >> job_id
+        TRAINING_ROLE="TRAINER" PADDLE_TRAINER_ID=${j} python ./train.py --conf $config 
+        TRAINING_ROLE="TRAINER" PADDLE_TRAINER_ID=${j} python ./infer.py --conf $config 
     done
 }
 
 collective_local_train(){
-    export PATH=./python27-gcc482-gpu/bin/:$PATH
     echo `which python`
     python -m paddle.distributed.launch train.py --conf $config
     python -m paddle.distributed.launch infer.py --conf $config
 }
 
 eval $(parse_yaml $config)
-unalias python
 
-python3 ./preprocessing/dump_graph.py -i $input_data -o $graph_path --encoding $encoding \
-    -l $max_seqlen --vocab_file $ernie_vocab_file
+python ./preprocessing/dump_graph.py -i $input_data -o $graph_path --encoding $encoding -l $max_seqlen --vocab_file $ernie_vocab_file
 
 if [[ $learner_type == "cpu" ]];then
     transpiler_local_train

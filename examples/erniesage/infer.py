@@ -72,7 +72,7 @@ def run_predict(py_reader,
         
     for batch_feed_dict in py_reader():
         batch += 1
-        batch_usr_feat, batch_ad_feat, batch_src_real_index = exe.run(
+        batch_usr_feat, batch_ad_feat, _, batch_src_real_index = exe.run(
             program,
             feed=batch_feed_dict,
             fetch_list=model_dict.outputs)
@@ -183,5 +183,6 @@ if __name__ == "__main__":
     parser.add_argument("--conf", type=str, default="./config.yaml")
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
+    config.loss_type = "hinge"
     print(config)
     main(config)
