@@ -18,7 +18,6 @@ import paddle.fluid.layers as L
 from models.base import BaseNet, BaseGNNModel
 from models.ernie_model.ernie import ErnieModel
 from models.ernie_model.ernie import ErnieGraphModel
-from models.ernie_model.ernie import ErnieConfig
 from models.message_passing import copy_send
 
 

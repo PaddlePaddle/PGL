@@ -86,6 +86,7 @@ class GraphGenerator(BaseDataGenerator):
 
         nodes = np.unique(np.concatenate([batch_src, batch_dst, batch_neg], 0))
         subgraphs = graphsage_sample(self.graph, nodes, self.samples, ignore_edges=ignore_edges)
+        #subgraphs[0].reindex_to_parrent_nodes(subgraphs[0].nodes)
         feed_dict = {}
         for i in range(self.num_layers):
             feed_dict.update(self.graph_wrappers[i].to_feed(subgraphs[i]))
@@ -97,7 +98,7 @@ class GraphGenerator(BaseDataGenerator):
 
         feed_dict["user_index"] = np.array(sub_src_idx, dtype="int64")
         feed_dict["item_index"] = np.array(sub_dst_idx, dtype="int64")
-        #feed_dict["neg_item_index"] = np.array(sub_neg_idx, dtype="int64")
+        feed_dict["neg_item_index"] = np.array(sub_neg_idx, dtype="int64")
         feed_dict["term_ids"] = self.term_ids[subgraphs[0].node_feat["index"]]
         return feed_dict
 

@@ -53,6 +53,7 @@ def dump_graph(args):
     term_file = io.open(os.path.join(args.outpath, "terms.txt"), "w", encoding=args.encoding)
     terms = []
     count = 0
+    item_distribution = []
 
     with io.open(args.inpath, encoding=args.encoding) as f:
         edges = []
@@ -66,6 +67,7 @@ def dump_graph(args):
                     str2id[s] = count
                     count += 1
                     term_file.write(str(col_idx) + "\t" + col + "\n")
+                    item_distribution.append(0)
                     
                 slots.append(str2id[s])
 
@@ -74,6 +76,7 @@ def dump_graph(args):
             neg_samples.append(slots[2:])
             edges.append((src, dst))
             edges.append((dst, src))
+            item_distribution[dst] += 1
 
         term_file.close()
         edges = np.array(edges, dtype="int64")
@@ -82,12 +85,14 @@ def dump_graph(args):
     log.info("building graph...")
     graph = pgl.graph.Graph(num_nodes=num_nodes, edges=edges)
     indegree = graph.indegree()
+    graph.indegree()
     graph.outdegree()
     graph.dump(args.outpath)
     
     # dump alias sample table
-    sqrt_indegree = np.sqrt(indegree)
-    distribution = 1. * sqrt_indegree / sqrt_indegree.sum()
+    item_distribution = np.array(item_distribution)
+    item_distribution = np.sqrt(item_distribution)
+    distribution = 1. * item_distribution / item_distribution.sum()
     alias, events = alias_sample_build_table(distribution)
     np.save(os.path.join(args.outpath, "alias.npy"), alias)
     np.save(os.path.join(args.outpath, "events.npy"), events)
