@@ -26,7 +26,8 @@ def _prepro(config):
             s, d = e
             l = "{}\t{}\t{}\n".format(s, d, idx)
             f.write(l)
-    np.savez(config['node_feat_path'], feats=data['feats'])
+    feats = data['feats'].astype(np.float32)
+    np.savez(config['node_feat_path'], feats=feats)
 
 if __name__ == '__main__':
     config = _load_config('./redis_graph.cfg')
