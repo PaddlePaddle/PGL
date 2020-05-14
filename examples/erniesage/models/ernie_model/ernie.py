@@ -104,7 +104,7 @@ class ErnieModel(object):
         zero = L.fill_constant([1], dtype='int64', value=0)
         input_mask = L.logical_not(L.equal(src_ids,
                                            zero))  # assume pad id == 0
-        input_mask = L.cast(input_mask, 'float')
+        input_mask = L.cast(input_mask, 'float32')
         input_mask.stop_gradient = True
         return input_mask
 
