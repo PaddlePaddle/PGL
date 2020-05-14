@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+import sys
 import numpy as np
 import pickle as pkl
 import paddle
@@ -146,4 +148,49 @@ def multiprocess_graph_reader(
         return paddle.reader.buffered(r, 1000)
 
     return reader()
+
+
+def load_data():
+    """
+        data from https://github.com/matenure/FastGCN/issues/8
+        reddit.npz: https://drive.google.com/open?id=19SphVl_Oe8SJ1r87Hr5a6znx3nJu1F2J
+        reddit_index_label is preprocess from reddit.npz without feats key.
+    """
+    data_dir = os.path.dirname(os.path.abspath(__file__))
+    data = np.load(os.path.join(data_dir, "data/reddit_index_label.npz"))
+
+    num_class = 41
+
+    train_label = data['y_train']
+    val_label = data['y_val']
+    test_label = data['y_test']
+
+    train_index = data['train_index']
+    val_index = data['val_index']
+    test_index = data['test_index']
+
+    return {
+        "train_index": train_index,
+        "train_label": train_label,
+        "val_label": val_label,
+        "val_index": val_index,
+        "test_index": test_index,
+        "test_label": test_label,
+        "num_class": 41
+    }
+
+def get_iter(args, graph_wrapper, mode):
+    data = load_data()
+    train_iter = multiprocess_graph_reader(
+        graph_wrapper,
+        samples=args.samples,
+        num_workers=args.num_sample_workers,
+        batch_size=args.batch_size,
+        node_index=data['train_index'],
+        node_label=data["train_label"])
+    return train_iter
+
+if __name__ == '__main__':
+    for e in train_iter():
+        print(e)
 
