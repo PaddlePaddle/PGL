@@ -80,7 +80,7 @@ class GraphGenerator(BaseDataGenerator):
             batch_neg = sampled_batch_neg
 
         if self.phase == "train":
-            ignore_edges = set()
+            ignore_edges = np.concatenate([np.stack([batch_src, batch_dst], 1), np.stack([batch_dst, batch_src], 1)], 0)
         else:
             ignore_edges = set()
 
@@ -99,7 +99,7 @@ class GraphGenerator(BaseDataGenerator):
         feed_dict["user_index"] = np.array(sub_src_idx, dtype="int64")
         feed_dict["item_index"] = np.array(sub_dst_idx, dtype="int64")
         feed_dict["neg_item_index"] = np.array(sub_neg_idx, dtype="int64")
-        feed_dict["term_ids"] = self.term_ids[subgraphs[0].node_feat["index"]]
+        feed_dict["term_ids"] = self.term_ids[subgraphs[0].node_feat["index"]].astype(np.int64)
         return feed_dict
 
     def __call__(self):
