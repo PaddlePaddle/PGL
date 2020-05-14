@@ -36,7 +36,7 @@ from tokenization import FullTokenizer
 
 
 def term2id(string, tokenizer, max_seqlen):
-    string = string.split("\t")[1]
+    #string = string.split("\t")[1]
     tokens = tokenizer.tokenize(string)
     ids = tokenizer.convert_tokens_to_ids(tokens)
     ids = ids[:max_seqlen-1]
@@ -99,19 +99,13 @@ def dump_graph(args):
     np.save(os.path.join(args.outpath, "neg_samples.npy"), np.array(neg_samples))
     log.info("End Build Graph")
 
-def dump_id2str_map(args):
-    log.info("Dump id2str map starting...")
-    id2str = np.array([line.strip("\n") for line in open(os.path.join(args.outpath, "terms.txt"), "r", encoding=args.encoding)])
-    np.save(os.path.join(args.outpath, "id2str.npy"), id2str)
-    log.info("Dump id2str map done.")
-
 def dump_node_feat(args):
     log.info("Dump node feat starting...")
-    id2str = np.load(os.path.join(args.outpath, "id2str.npy"), mmap_mode="r")
+    id2str = [line.strip("\n").split("\t")[1] for line in io.open(os.path.join(args.outpath, "terms.txt"), encoding=args.encoding)]
     pool = multiprocessing.Pool()
     tokenizer = FullTokenizer(args.vocab_file)
     term_ids = pool.map(partial(term2id, tokenizer=tokenizer, max_seqlen=args.max_seqlen), id2str)
-    np.save(os.path.join(args.outpath, "term_ids.npy"), np.array(term_ids))
+    np.save(os.path.join(args.outpath, "term_ids.npy"), np.array(term_ids, np.uint16))
     log.info("Dump node feat done.")
     pool.terminate()
 
@@ -124,5 +118,4 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--outpath", type=str, default=None)
     args = parser.parse_args()
     dump_graph(args)
-    dump_id2str_map(args)
     dump_node_feat(args)
