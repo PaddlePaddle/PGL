@@ -31,7 +31,7 @@ final_fc: true
 final_l2_norm: true
 loss_type: "hinge"
 margin: 0.3
-neg_type: "random_neg"
+neg_type: "batch_neg"
 
 # infer config ------
 infer_model: "./output/last"

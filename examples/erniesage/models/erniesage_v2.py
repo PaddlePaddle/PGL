@@ -27,7 +27,7 @@ class ErnieSageV2(BaseNet):
             src_position_ids = L.expand(src_position_ids, [src_batch, 1, 1]) # [B, slot_seqlen * num_b, 1]
             zero = L.fill_constant([1], dtype='int64', value=0)
             input_mask = L.cast(L.equal(src_ids, zero), "int32")  # assume pad id == 0 [B, slot_seqlen, 1]
-            src_pad_len = L.reduce_sum(input_mask, 1) # [B, 1, 1]
+            src_pad_len = L.reduce_sum(input_mask, 1, keep_dim=True) # [B, 1, 1]
 
             dst_position_ids = L.reshape(
                 L.range(

@@ -24,7 +24,7 @@ from pgl.sample import edge_hash
 class GraphGenerator(BaseDataGenerator):
     def __init__(self, graph_wrappers, data, batch_size, samples,
         num_workers, feed_name_list, use_pyreader,
-        phase, graph_data_path, shuffle=True, buf_size=1000):
+        phase, graph_data_path, shuffle=True, buf_size=1000, neg_type="batch_neg"):
 
         super(GraphGenerator, self).__init__(
             buf_size=buf_size,
@@ -40,6 +40,7 @@ class GraphGenerator(BaseDataGenerator):
         self.phase = phase
         self.load_graph(graph_data_path)
         self.num_layers = len(graph_wrappers)
+        self.neg_type= neg_type
 
     def load_graph(self, graph_data_path):
         self.graph = pgl.graph.MemmapGraph(graph_data_path)
@@ -72,7 +73,11 @@ class GraphGenerator(BaseDataGenerator):
         batch_src = np.array(batch_src, dtype="int64")
         batch_dst = np.array(batch_dst, dtype="int64")
 
-        sampled_batch_neg = alias_sample(batch_dst.shape, self.alias, self.events)
+        if self.neg_type == "batch_neg":
+            neg_shape = [1]
+        else:
+            neg_shape = batch_dst.shape
+        sampled_batch_neg = alias_sample(neg_shape, self.alias, self.events)
     
         if len(batch_neg) > 0:
             batch_neg = np.concatenate([batch_neg, sampled_batch_neg], 0)
@@ -80,7 +85,8 @@ class GraphGenerator(BaseDataGenerator):
             batch_neg = sampled_batch_neg
 
         if self.phase == "train":
-            ignore_edges = np.concatenate([np.stack([batch_src, batch_dst], 1), np.stack([batch_dst, batch_src], 1)], 0)
+            #ignore_edges = np.concatenate([np.stack([batch_src, batch_dst], 1), np.stack([batch_dst, batch_src], 1)], 0)
+            ignore_edges = set()
         else:
             ignore_edges = set()
 
