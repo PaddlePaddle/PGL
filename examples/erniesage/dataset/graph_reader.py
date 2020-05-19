@@ -73,7 +73,7 @@ class GraphGenerator(BaseDataGenerator):
         batch_src = np.array(batch_src, dtype="int64")
         batch_dst = np.array(batch_dst, dtype="int64")
 
-        if neg_type == "batch_neg":
+        if self.neg_type == "batch_neg":
             neg_shape = [1]
         else:
             neg_shape = batch_dst.shape
