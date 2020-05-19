@@ -32,8 +32,9 @@ class TrainData(object):
         trainer_count = int(os.getenv("PADDLE_TRAINERS_NUM", "1"))
         log.info("trainer_id: %s, trainer_count: %s." % (trainer_id, trainer_count))
 
-        edges = np.load(os.path.join(graph_path, "edges.npy"), allow_pickle=True)
+        bidirectional_edges = np.load(os.path.join(graph_path, "edges.npy"), allow_pickle=True)
         # edges is bidirectional.
+        edges = bidirectional_edges[0::2]
         train_usr = edges[trainer_id::trainer_count, 0]
         train_ad = edges[trainer_id::trainer_count, 1]
         returns = {
@@ -73,7 +74,8 @@ def main(config):
         use_pyreader=config.use_pyreader,
         phase="train",
         graph_data_path=config.graph_path,
-        shuffle=True)
+        shuffle=True,
+        neg_type=config.neg_type)
 
     log.info("build graph reader done.")
 
