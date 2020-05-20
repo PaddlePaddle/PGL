@@ -18,7 +18,7 @@ import paddle.fluid as fluid
 from pgl import graph_wrapper
 from pgl.utils import paddle_helper
 
-__all__ = ['gcn', 'gat', 'gin']
+__all__ = ['gcn', 'gat', 'gin', 'GaAN']
 
 
 def gcn(gw, feature, hidden_size, activation, name, norm=None):
@@ -258,3 +258,83 @@ def gin(gw,
                              bias_attr=fluid.ParamAttr(name="%s_b_1" % name))
 
     return output
+
+def GaAN(gw, feature, hidden_size_a, hidden_size_v, hidden_size_m, hidden_size_o, heads,
+        name):
+    """
+    This is an implementation of the paper GaAN: Gated Attention Networks for Learning 
+    on Large and Spatiotemporal Graphs(https://arxiv.org/abs/1803.07294)
+    """
+    # project the feature of nodes into new vector spaces
+    feat_key = fluid.layers.fc(feature, hidden_size_a * heads, bias_attr=False,
+                    param_attr=fluid.ParamAttr(name=name + '_project_key'))
+    feat_value = fluid.layers.fc(feature, hidden_size_v * heads, bias_attr=False,
+                    param_attr=fluid.ParamAttr(name=name + '_project_value'))
+    feat_query = fluid.layers.fc(feature, hidden_size_a * heads, bias_attr=False,
+                    param_attr=fluid.ParamAttr(name=name + '_project_query'))
+    feat_gate = fluid.layers.fc(feature, hidden_size_m, bias_attr=False,
+                    param_attr=fluid.ParamAttr(name=name + '_project_gate'))
+    
+    # send function
+    def send_func(src_feat, dst_feat, edge_feat):
+        feat_query, feat_key = dst_feat['feat_query'], src_feat['feat_key']
+        feat_query = fluid.layers.reshape(feat_query, [-1, heads, hidden_size_a])
+        feat_key = fluid.layers.reshape(feat_key, [-1, heads, hidden_size_a])
+        alpha = fluid.layers.reduce_sum(feat_key * feat_query, dim=-1)
+
+        return {'dst_node_feat': dst_feat['node_feat'],
+                'src_node_feat': src_feat['node_feat'],
+                'feat_value': src_feat['feat_value'],
+                'alpha': alpha,
+                'feat_gate': src_feat['feat_gate']}
+
+    # send stage
+    message = gw.send(send_func, nfeat_list=[('node_feat', feature),
+                ('feat_key', feat_key), ('feat_value', feat_value),
+                ('feat_query', feat_query), ('feat_gate', feat_gate)],
+                efeat_list=None,
+                )
+
+    # recv function
+    def recv_func(message):
+        dst_feat = message['dst_node_feat'] # feature of dst nodes on each edge
+        src_feat = message['src_node_feat'] # feature of src nodes on each edge
+        x = fluid.layers.sequence_pool(dst_feat, 'average') # feature of center nodes
+        z = fluid.layers.sequence_pool(src_feat, 'average') # mean feature of neighbors
+
+        # compute gate
+        feat_gate = message['feat_gate']
+        g_max = fluid.layers.sequence_pool(feat_gate, 'max')
+        g = fluid.layers.concat([x, g_max, z], axis=1)
+        g = fluid.layers.fc(g, heads, bias_attr=False, act='sigmoid')
+
+        # softmax of attention coefficient
+        alpha = message['alpha']
+        alpha = paddle_helper.sequence_softmax(alpha)
+
+        feat_value = message['feat_value']
+        old = feat_value
+        feat_value = fluid.layers.reshape(feat_value, [-1, heads, hidden_size_v])
+        feat_value = fluid.layers.elementwise_mul(feat_value, alpha, axis=0)
+        feat_value = fluid.layers.reshape(feat_value, [-1, heads * hidden_size_v])
+        feat_value = fluid.layers.lod_reset(feat_value, old)
+        
+        feat_value = fluid.layers.sequence_pool(feat_value, 'sum')
+        feat_value = fluid.layers.reshape(feat_value, [-1, heads, hidden_size_v])
+        output = fluid.layers.elementwise_mul(feat_value, g, axis=0)
+        output = fluid.layers.reshape(output, [-1, heads*hidden_size_v])
+        output = fluid.layers.concat([x, output], axis=1)
+
+        return output
+
+    # recv stage
+    output = gw.recv(message, recv_func)
+    
+    # output
+    output = fluid.layers.fc(output, hidden_size_o, bias_attr=False,
+                    param_attr=fluid.ParamAttr(name=name+'_project_output'))
+    outout = fluid.layers.leaky_relu(output, alpha=0.1)
+    output = fluid.layers.dropout(output, dropout_prob=0.1)
+
+    return output
+
