@@ -27,3 +27,9 @@ python train.py --lr 1e-2 --rc 0 --batch_size 1024 --epochs 100
 - hidden_size_v: the size of value vectors
 - hidden_size_m: the size of projection space for computing gates
 - hidden_size_o: the size of output of GaAN layer 
+
+## Performance
+We train our models for 100 epochs and report the **rocauc** on the test dataset.
+|dataset|mean|std|
+|-|-|-|
+|ogbn-proteins|0.7786|0.0048|
