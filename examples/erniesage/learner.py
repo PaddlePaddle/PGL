@@ -26,6 +26,17 @@ from paddle.fluid.incubate.fleet.collective import fleet as cfleet
 from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler import fleet as tfleet
 import paddle.fluid.incubate.fleet.base.role_maker as role_maker
 from tensorboardX import SummaryWriter
+from paddle.fluid.transpiler.distribute_transpiler import DistributedMode
+from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler.distributed_strategy import TrainerRuntimeConfig
+
+# hack it!
+base_get_communicator_flags = TrainerRuntimeConfig.get_communicator_flags
+def get_communicator_flags(self):
+    flag_dict = base_get_communicator_flags(self)
+    flag_dict['communicator_max_merge_var_num'] = str(1)
+    flag_dict['communicator_send_queue_size'] = str(1)
+    return flag_dict
+TrainerRuntimeConfig.get_communicator_flags = get_communicator_flags
 
 
 class Learner(object):
@@ -132,8 +143,6 @@ class TranspilerLearner(Learner):
         self.model = model
 
     def optimize(self, loss, optimizer_type, lr):
-        strategy = DistributeTranspilerConfig()
-        strategy.sync_mode = False
         log.info('learning rate:%f' % lr)
         if optimizer_type == "sgd":
             optimizer = F.optimizer.SGD(learning_rate=lr)
@@ -143,7 +152,8 @@ class TranspilerLearner(Learner):
         else:
             raise ValueError("Unknown Optimizer %s" % optimizer_type)
         #create the DistributeTranspiler configure
-        optimizer = tfleet.distributed_optimizer(optimizer, strategy)
+        self.strategy = StrategyFactory.create_sync_strategy()
+        optimizer = tfleet.distributed_optimizer(optimizer, self.strategy)
         optimizer.minimize(loss)
 
     def init_and_run_ps_worker(self, ckpt_path):
@@ -193,6 +203,7 @@ class CollectiveLearner(Learner):
     def optimize(self, loss, optimizer_type, lr):
         optimizer = F.optimizer.Adam(learning_rate=lr)
         dist_strategy = DistributedStrategy()
+        dist_strategy.enable_sequential_execution = True
         optimizer = cfleet.distributed_optimizer(optimizer, strategy=dist_strategy)
         _, param_grads = optimizer.minimize(loss, F.default_startup_program())
     

@@ -18,14 +18,12 @@ import paddle.fluid.layers as L
 from models.base import BaseNet, BaseGNNModel
 from models.ernie_model.ernie import ErnieModel
 from models.ernie_model.ernie import ErnieGraphModel
-from models.ernie_model.ernie import ErnieConfig
 from models.message_passing import copy_send
 
 
 class ErnieSageV3(BaseNet):
     def __init__(self, config):
         super(ErnieSageV3, self).__init__(config)
-        self.config.layer_type = "ernie_recv_sum"
 
     def build_inputs(self):
         inputs = super(ErnieSageV3, self).build_inputs()
@@ -36,11 +34,10 @@ class ErnieSageV3(BaseNet):
     def gnn_layer(self, gw, feature, hidden_size, act, initializer, learning_rate, name):
         def ernie_recv(feat):
             """doc"""
-            # TODO maxlen  400
-            #pad_value = L.cast(L.assign(input=np.array([0], dtype=np.int32)), "int64")
+            num_neighbor = self.config.samples[0]
             pad_value = L.zeros([1], "int64")
-            out, _ = L.sequence_pad(feat, pad_value=pad_value, maxlen=10)
-            out = L.reshape(out, [0, 400])
+            out, _ = L.sequence_pad(feat, pad_value=pad_value, maxlen=num_neighbor)
+            out = L.reshape(out, [0, self.config.max_seqlen*num_neighbor])
             return out
 
         def erniesage_v3_aggregator(gw, feature, hidden_size, act, initializer, learning_rate, name):
@@ -74,7 +71,7 @@ class ErnieSageV3(BaseNet):
                 act,
                 initializer,
                 learning_rate=fc_lr,
-                name="%s_%s" % (self.config.layer_type, i))
+                name="%s_%s" % ("erniesage_v3", i))
             features.append(feature)
         return features
 
@@ -86,17 +83,16 @@ class ErnieSageV3(BaseNet):
         ernie = ErnieGraphModel(
             src_ids=feat,
             config=ernie_config,
-            slot_seqlen=self.config.max_seqlen,
-            name="student_")
+            slot_seqlen=self.config.max_seqlen)
         feat = ernie.get_pooled_output()
         fc_lr = self.config.lr / 0.001
-        feat= L.fc(feat,
-                   self.config.hidden_size,
-                   act="relu",
-                   param_attr=F.ParamAttr(name=name + "_l",
-                   learning_rate=fc_lr),
-                   )
-        feat = L.l2_normalize(feat, axis=1)
+        # feat = L.fc(feat,
+                   # self.config.hidden_size,
+                   # act="relu",
+                   # param_attr=F.ParamAttr(name=name + "_l",
+                   # learning_rate=fc_lr),
+                   # )
+        #feat = L.l2_normalize(feat, axis=1)
 
         if self.config.final_fc:
             feat = L.fc(feat,

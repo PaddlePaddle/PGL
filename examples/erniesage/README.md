@@ -8,7 +8,7 @@
 
 <img src="./docs/source/_static/text_graph.png" alt="Text Graph" width="800">
 
-**ERNIESage** 由PGL团队提出，是ERNIE SAmple aggreGatE的简称，该模型可以同时建模文本语义与图结构信息，有效提升 Text Graph 的应用效果。其中 [**ERNIE**](https://github.com/PaddlePaddle/ERNIE) 是百度推出的基于知识增强的持续学习语义理解框架，
+**ERNIESage** 由PGL团队提出，是ERNIE SAmple aggreGatE的简称，该模型可以同时建模文本语义与图结构信息，有效提升 Text Graph 的应用效果。其中 [**ERNIE**](https://github.com/PaddlePaddle/ERNIE) 是百度推出的基于知识增强的持续学习语义理解框架。
 
 **ERNIESage** 是 ERNIE 与 GraphSAGE 碰撞的结果，是 ERNIE SAmple aggreGatE 的简称，它的结构如下图所示，主要思想是通过 ERNIE 作为聚合函数（Aggregators），建模自身节点和邻居节点的语义与结构关系。ERNIESage 对于文本的建模是构建在邻居聚合的阶段，中心节点文本会与所有邻居节点文本进行拼接；然后通过预训练的 ERNIE 模型进行消息汇聚，捕捉中心节点以及邻居节点之间的相互关系；最后使用 ERNIESage 搭配独特的邻居互相看不见的 Attention Mask 和独立的 Position Embedding 体系，就可以轻松构建 TextGraph 中句子之间以及词之间的关系。
 
@@ -32,17 +32,22 @@
 - pgl>=1.1
 
 ## Dataformat
+示例数据```data.txt```中使用了NLPCC2016-DBQA的部分数据，格式为每行"query \t answer"。
+```text
+NLPCC2016-DBQA 是由国际自然语言处理和中文计算会议 NLPCC 于 2016 年举办的评测任务，其目标是从候选中找到合适的文档作为问题的答案。[链接: http://tcci.ccf.org.cn/conference/2016/dldoc/evagline2.pdf]
+```
 
 ## How to run
 
-我们采用了[PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet)作为我们的分布式训练框架，在```config/*.yaml```中，由部分用于训练ERNIESage的配置。
+我们采用了[PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet)作为我们的分布式训练框架，在```config/*.yaml```中，有部分用于训练ERNIESage的配置, 其中ERNIE模型```ckpt_path```以及词表```ernie_vocab_file```在[ERNIE](https://github.com/PaddlePaddle/ERNIE)下载。
+
 
 ```sh
 # 分布式GPU模式或单机模式ERNIESage
-sh local_run.sh config/enriesage_v1_gpu.yaml
+sh local_run.sh config/erniesage_v2_gpu.yaml
 
 # 分布式CPU模式训练ERNIESage
-sh local_run.sh config/enriesage_v1_cpu.yaml
+sh local_run.sh config/erniesage_v2_cpu.yaml
 ```
 
 ## Hyperparamters

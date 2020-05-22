@@ -6,9 +6,9 @@ optimizer_type: "adam"
 lr: 0.00005
 batch_size: 32
 CPU_NUM: 10
-epoch: 20
-log_per_step: 1
-save_per_step: 100
+epoch: 3
+log_per_step: 10
+save_per_step: 1000
 output_path: "./output"
 ckpt_path: "./ernie_base_ckpt"
 
@@ -31,6 +31,7 @@ final_fc: true
 final_l2_norm: true
 loss_type: "hinge"
 margin: 0.3
+neg_type: "batch_neg"
 
 # infer config ------
 infer_model: "./output/last"
@@ -48,7 +49,7 @@ ernie_config:
     max_position_embeddings: 513
     num_attention_heads: 12
     num_hidden_layers: 12
-    sent_type_vocab_size: 4
+    sent_type_vocab_size: 2
     task_type_vocab_size: 3
     vocab_size: 18000
     use_task_id: false

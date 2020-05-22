@@ -3,8 +3,6 @@ import paddle.fluid as F
 import paddle.fluid.layers as L
 from models.base import BaseNet, BaseGNNModel
 from models.ernie_model.ernie import ErnieModel
-from models.ernie_model.ernie import ErnieGraphModel
-from models.ernie_model.ernie import ErnieConfig
 
 
 class ErnieSageV2(BaseNet):
@@ -16,19 +14,52 @@ class ErnieSageV2(BaseNet):
         return inputs + [term_ids]
 
     def gnn_layer(self, gw, feature, hidden_size, act, initializer, learning_rate, name):
+        def build_position_ids(src_ids, dst_ids):
+            src_shape = L.shape(src_ids)
+            src_batch = src_shape[0]
+            src_seqlen = src_shape[1]
+            dst_seqlen = src_seqlen - 1 # without cls
+
+            src_position_ids = L.reshape(
+                L.range(
+                    0, src_seqlen, 1, dtype='int32'), [1, src_seqlen, 1],
+                inplace=True) # [1, slot_seqlen, 1]
+            src_position_ids = L.expand(src_position_ids, [src_batch, 1, 1]) # [B, slot_seqlen * num_b, 1]
+            zero = L.fill_constant([1], dtype='int64', value=0)
+            input_mask = L.cast(L.equal(src_ids, zero), "int32")  # assume pad id == 0 [B, slot_seqlen, 1]
+            src_pad_len = L.reduce_sum(input_mask, 1, keep_dim=True) # [B, 1, 1]
+
+            dst_position_ids = L.reshape(
+                L.range(
+                    src_seqlen, src_seqlen+dst_seqlen, 1, dtype='int32'), [1, dst_seqlen, 1],
+                inplace=True) # [1, slot_seqlen, 1]
+            dst_position_ids = L.expand(dst_position_ids, [src_batch, 1, 1]) # [B, slot_seqlen, 1]
+            dst_position_ids = dst_position_ids - src_pad_len # [B, slot_seqlen, 1]
+
+            position_ids = L.concat([src_position_ids, dst_position_ids], 1)
+            position_ids = L.cast(position_ids, 'int64')
+            position_ids.stop_gradient = True
+            return position_ids
+
+
         def ernie_send(src_feat, dst_feat, edge_feat):
             """doc"""
+            # input_ids
             cls = L.fill_constant_batch_size_like(src_feat["term_ids"], [-1, 1, 1], "int64", 1)
             src_ids = L.concat([cls, src_feat["term_ids"]], 1)
             dst_ids = dst_feat["term_ids"]
 
+            # sent_ids
             sent_ids = L.concat([L.zeros_like(src_ids), L.ones_like(dst_ids)], 1)
             term_ids = L.concat([src_ids, dst_ids], 1)
+
+            # position_ids
+            position_ids = build_position_ids(src_ids, dst_ids)
 
             term_ids.stop_gradient = True
             sent_ids.stop_gradient = True
             ernie = ErnieModel(
-                term_ids, sent_ids,
+                term_ids, sent_ids, position_ids,
                 config=self.config.ernie_config)
             feature = ernie.get_pooled_output()
             return feature

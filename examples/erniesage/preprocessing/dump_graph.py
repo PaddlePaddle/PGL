@@ -36,7 +36,7 @@ from tokenization import FullTokenizer
 
 
 def term2id(string, tokenizer, max_seqlen):
-    string = string.split("\t")[1]
+    #string = string.split("\t")[1]
     tokens = tokenizer.tokenize(string)
     ids = tokenizer.convert_tokens_to_ids(tokens)
     ids = ids[:max_seqlen-1]
@@ -53,6 +53,7 @@ def dump_graph(args):
     term_file = io.open(os.path.join(args.outpath, "terms.txt"), "w", encoding=args.encoding)
     terms = []
     count = 0
+    item_distribution = []
 
     with io.open(args.inpath, encoding=args.encoding) as f:
         edges = []
@@ -66,6 +67,7 @@ def dump_graph(args):
                     str2id[s] = count
                     count += 1
                     term_file.write(str(col_idx) + "\t" + col + "\n")
+                    item_distribution.append(0)
                     
                 slots.append(str2id[s])
 
@@ -74,6 +76,7 @@ def dump_graph(args):
             neg_samples.append(slots[2:])
             edges.append((src, dst))
             edges.append((dst, src))
+            item_distribution[dst] += 1
 
         term_file.close()
         edges = np.array(edges, dtype="int64")
@@ -82,31 +85,27 @@ def dump_graph(args):
     log.info("building graph...")
     graph = pgl.graph.Graph(num_nodes=num_nodes, edges=edges)
     indegree = graph.indegree()
+    graph.indegree()
     graph.outdegree()
     graph.dump(args.outpath)
     
     # dump alias sample table
-    sqrt_indegree = np.sqrt(indegree)
-    distribution = 1. * sqrt_indegree / sqrt_indegree.sum()
+    item_distribution = np.array(item_distribution)
+    item_distribution = np.sqrt(item_distribution)
+    distribution = 1. * item_distribution / item_distribution.sum()
     alias, events = alias_sample_build_table(distribution)
     np.save(os.path.join(args.outpath, "alias.npy"), alias)
     np.save(os.path.join(args.outpath, "events.npy"), events)
     np.save(os.path.join(args.outpath, "neg_samples.npy"), np.array(neg_samples))
     log.info("End Build Graph")
 
-def dump_id2str_map(args):
-    log.info("Dump id2str map starting...")
-    id2str = np.array([line.strip("\n") for line in open(os.path.join(args.outpath, "terms.txt"), "r", encoding=args.encoding)])
-    np.save(os.path.join(args.outpath, "id2str.npy"), id2str)
-    log.info("Dump id2str map done.")
-
 def dump_node_feat(args):
     log.info("Dump node feat starting...")
-    id2str = np.load(os.path.join(args.outpath, "id2str.npy"), mmap_mode="r")
+    id2str = [line.strip("\n").split("\t")[1] for line in io.open(os.path.join(args.outpath, "terms.txt"), encoding=args.encoding)]
     pool = multiprocessing.Pool()
     tokenizer = FullTokenizer(args.vocab_file)
     term_ids = pool.map(partial(term2id, tokenizer=tokenizer, max_seqlen=args.max_seqlen), id2str)
-    np.save(os.path.join(args.outpath, "term_ids.npy"), np.array(term_ids))
+    np.save(os.path.join(args.outpath, "term_ids.npy"), np.array(term_ids, np.uint16))
     log.info("Dump node feat done.")
     pool.terminate()
 
@@ -119,5 +118,4 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--outpath", type=str, default=None)
     args = parser.parse_args()
     dump_graph(args)
-    dump_id2str_map(args)
     dump_node_feat(args)

@@ -59,8 +59,7 @@ def run_predict(py_reader,
               log_per_step=1,
               args=None):
 
-    if args.input_type == "text":
-        id2str = np.load(os.path.join(args.graph_path, "id2str.npy"), mmap_mode="r")
+    id2str = io.open(os.path.join(args.graph_path, "terms.txt"), encoding=args.encoding).readlines()
 
     trainer_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
     trainer_count = int(os.getenv("PADDLE_TRAINERS_NUM", "1"))
@@ -72,7 +71,7 @@ def run_predict(py_reader,
         
     for batch_feed_dict in py_reader():
         batch += 1
-        batch_usr_feat, batch_ad_feat, batch_src_real_index = exe.run(
+        batch_usr_feat, batch_ad_feat, _, batch_src_real_index = exe.run(
             program,
             feed=batch_feed_dict,
             fetch_list=model_dict.outputs)
@@ -82,7 +81,7 @@ def run_predict(py_reader,
 
         for ufs, _, sri in zip(batch_usr_feat, batch_ad_feat, batch_src_real_index):
             if args.input_type == "text":
-                sri = id2str[int(sri)]
+                sri = id2str[int(sri)].strip("\n")
             line = "{}\t{}\n".format(sri, tostr(ufs))
             fout.write(line)
 
@@ -183,5 +182,6 @@ if __name__ == "__main__":
     parser.add_argument("--conf", type=str, default="./config.yaml")
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
+    config.loss_type = "hinge"
     print(config)
     main(config)

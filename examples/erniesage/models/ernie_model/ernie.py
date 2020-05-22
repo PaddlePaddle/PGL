@@ -59,6 +59,8 @@ class ErnieModel(object):
     def __init__(self,
                  src_ids,
                  sentence_ids,
+                 position_ids=None,
+                 input_mask=None,
                  task_ids=None,
                  config=None,
                  weight_sharing=True,
@@ -66,8 +68,10 @@ class ErnieModel(object):
                  name=""):
 
         self._set_config(config, name, weight_sharing)
-        input_mask = self._build_input_mask(src_ids)
-        position_ids = self._build_position_ids(src_ids)
+        if position_ids is None:
+            position_ids = self._build_position_ids(src_ids)
+        if input_mask is None:
+            input_mask = self._build_input_mask(src_ids)
         self._build_model(src_ids, position_ids, sentence_ids, task_ids,
                           input_mask)
         self._debug_summary(input_mask)
@@ -100,7 +104,7 @@ class ErnieModel(object):
         zero = L.fill_constant([1], dtype='int64', value=0)
         input_mask = L.logical_not(L.equal(src_ids,
                                            zero))  # assume pad id == 0
-        input_mask = L.cast(input_mask, 'float')
+        input_mask = L.cast(input_mask, 'float32')
         input_mask.stop_gradient = True
         return input_mask
 
@@ -338,7 +342,7 @@ class ErnieGraphModel(ErnieModel):
             L.range(
                 0, slot_seqlen, 1, dtype='int32'), [1, slot_seqlen, 1],
             inplace=True) # [1, slot_seqlen, 1]
-        a_position_ids = L.expand(a_position_ids, [src_batch, 1, 1]) # [B, slot_seqlen * num_b, 1]
+        a_position_ids = L.expand(a_position_ids, [src_batch, 1, 1]) # [B, slot_seqlen, 1]
 
         zero = L.fill_constant([1], dtype='int64', value=0)
         input_mask = L.cast(L.equal(src_ids[:, :slot_seqlen], zero), "int32")  # assume pad id == 0 [B, slot_seqlen, 1]
