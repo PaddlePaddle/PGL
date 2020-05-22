@@ -19,8 +19,8 @@ def build_graph():
     # Each node can be represented by a d-dimensional feature vector, here for simple, the feature vectors are randomly generated.
     d = 16
     feature = np.random.randn(num_node, d).astype("float32")
-    # each edge also can be represented by a feature vector
-    edge_feature = np.random.randn(len(edge_list), d).astype("float32")
+    # each edge has it own weight
+    edge_feature = np.random.randn(len(edge_list), 1).astype("float32")
     
     # create a graph
     g = graph.Graph(num_nodes = num_node,
@@ -66,13 +66,13 @@ In this tutorial, we use a simple Graph Convolutional Network(GCN) developed by 
 In PGL, we can easily implement a GCN layer as follows:
 ```python
 # define GCN layer function
-def gcn_layer(gw, feature, hidden_size, name, activation):
+def gcn_layer(gw, nfeat, efeat, hidden_size, name, activation):
     # gw is a GraphWrapper；feature is the feature vectors of nodes
     
     # define message function
     def send_func(src_feat, dst_feat, edge_feat): 
         # In this tutorial, we return the feature vector of the source node as message
-        return src_feat['h']
+        return src_feat['h'] * edge_feat['e']
 
     # define reduce function
     def recv_func(feat):
@@ -80,7 +80,7 @@ def gcn_layer(gw, feature, hidden_size, name, activation):
         return fluid.layers.sequence_pool(feat, pool_type='sum')
 
     # trigger message to passing
-    msg = gw.send(send_func, nfeat_list=[('h', feature)])
+    msg = gw.send(send_func, nfeat_list=[('h', nfeat)], efeat_list=[('e', efeat)])
     # recv funciton receives message and trigger reduce funcition to handle message 
     output = gw.recv(msg, recv_func)
     output = fluid.layers.fc(output,
@@ -92,10 +92,10 @@ def gcn_layer(gw, feature, hidden_size, name, activation):
 ```
 After defining the GCN layer, we can construct a deeper GCN model with two GCN layers.
 ```python
-output = gcn_layer(gw, gw.node_feat['feature'],
+output = gcn_layer(gw, gw.node_feat['feature'], gw.edge_feat['edge_feature'],
                 hidden_size=8, name='gcn_layer_1', activation='relu')
-output = gcn_layer(gw, output, hidden_size=1,
-                name='gcn_layer_2', activation=None)
+output = gcn_layer(gw, output, gw.edge_feat['edge_feature'],
+                hidden_size=1, name='gcn_layer_2', activation=None)
 ```
 
 ## Step 3:  data preprocessing
