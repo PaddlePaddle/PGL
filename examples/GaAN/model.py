@@ -1,6 +1,8 @@
 from paddle import fluid
 from pgl.utils import paddle_helper
-from pgl.layers import GaAN
+
+# from pgl.layers import gaan
+from conv import gaan
 
 class GaANModel(object):
     def __init__(self, num_class, num_layers, hidden_size_a=24, 
@@ -19,9 +21,9 @@ class GaANModel(object):
     def forward(self, gw):
         feature = gw.node_feat['node_feat']
         for i in range(self.num_layers):
-            feature = GaAN(gw, feature, self.hidden_size_a, self.hidden_size_v,
-                                    self.hidden_size_m, self.hidden_size_o, self.heads, 
-                                    self.name+'_'+str(i))
+            feature = gaan(gw, feature, self.hidden_size_a, self.hidden_size_v,
+                           self.hidden_size_m, self.hidden_size_o, self.heads, 
+                           self.name+'_'+str(i))
         
         pred = fluid.layers.fc(
             feature, self.num_class, act=None, name=self.name + "_pred_output")
