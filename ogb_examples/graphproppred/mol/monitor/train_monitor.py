@@ -79,7 +79,7 @@ def train_and_evaluate(exe,
     global_step = 0
 
     timestamp = datetime.now().strftime("%Hh%Mm%Ss")
-    log_path = os.path.join(args.log_dir, "visualdl_log_%s" % timestamp)
+    log_path = os.path.join(args.log_dir, "log_%s" % timestamp)
     _create_if_not_exist(log_path)
 
     writer = log_writer(log_path)
