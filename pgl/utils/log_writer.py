@@ -3,12 +3,12 @@
 
 import sys
 
-log_writer = None
+LogWriter = None
 
-if sys.version[0] == 3:
+if int(sys.version[0]) == 3:
     from visualdl import LogWriter
-    log_writer = LogWriter
+    LogWriter = LogWriter
 
 else:
     from tensorboardX import SummaryWriter
-    log_writer = SummaryWriter
+    LogWriter = SummaryWriter

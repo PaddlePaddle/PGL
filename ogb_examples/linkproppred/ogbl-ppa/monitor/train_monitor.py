@@ -18,7 +18,7 @@ import numpy as np
 import sys
 import os
 import paddle.fluid as F
-from pgl.utils.log_writer import log_writer
+from pgl.utils.log_writer import LogWriter
 from ogb.linkproppred import Evaluator
 from ogb.linkproppred import LinkPropPredDataset
 
@@ -115,7 +115,7 @@ def train_and_evaluate(exe,
     log_path = os.path.join(output_path, "log")
     _create_if_not_exist(log_path)
 
-    writer = log_writer(log_path)
+    writer = LogWriter(log_path)
 
     best_model = 0
     for e in range(epoch):

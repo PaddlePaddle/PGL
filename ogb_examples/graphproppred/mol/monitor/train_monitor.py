@@ -22,7 +22,7 @@ from collections import defaultdict
 
 import paddle.fluid as F
 from pgl.utils.logger import log
-from pgl.utils.log_writer import log_writer
+from pgl.utils.log_writer import LogWriter
 
 
 def multi_device(reader, dev_count):
@@ -82,7 +82,7 @@ def train_and_evaluate(exe,
     log_path = os.path.join(args.log_dir, "log_%s" % timestamp)
     _create_if_not_exist(log_path)
 
-    writer = log_writer(log_path)
+    writer = LogWriter(log_path)
 
     best_valid_score = 0.0
     for e in range(args.epoch):
