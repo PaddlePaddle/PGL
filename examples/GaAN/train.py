@@ -1,10 +1,22 @@
+# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 from preprocess import get_graph_data
 import pgl
 import argparse
 import numpy as np
 import time
 from paddle import fluid
-from visualdl import LogWriter
 
 import reader
 from train_tool import train_epoch, valid_epoch
@@ -49,10 +61,8 @@ if __name__ == "__main__":
                        help="the hidden size of each layer in GaAN")
     
     args = parser.parse_args()
-    
-#     d_name = "ogbn-proteins"
 
-    print("超参数配置".center(50, "="))
+    print("Parameters Setting".center(50, "="))
     print("lr = {}, rc = {}, epochs = {}, batch_size = {}".format(args.lr, args.rc, args.epochs,
                                                                   args.batch_size))
     print("Experiment ID: {}".format(args.exp_id).center(50, "="))
@@ -63,20 +73,6 @@ if __name__ == "__main__":
     g, label, train_idx, valid_idx, test_idx, evaluator = get_graph_data(d_name=d_name, 
                                                                          mini_data=eval(args.mini_data))
     
-    
-    # create log writer
-    log_writer = LogWriter(args.log_path+'/'+str(args.exp_id), sync_cycle=10)
-    with log_writer.mode("train") as logger:
-        log_train_loss_epoch = logger.scalar("loss")
-        log_train_rocauc_epoch = logger.scalar("rocauc")
-    with log_writer.mode("valid") as logger:
-        log_valid_loss_epoch = logger.scalar("loss")
-        log_valid_rocauc_epoch = logger.scalar("rocauc")
-    log_text = log_writer.text("text")
-    log_time = log_writer.scalar("time")
-    log_test_loss = log_writer.scalar("test_loss")
-    log_test_rocauc = log_writer.scalar("test_rocauc")
-
     if args.model == "GaAN":
         graph_model = GaANModel(112, 3, args.hidden_size_a, args.hidden_size_v, args.hidden_size_m,
                                 args.hidden_size_o, args.heads)
@@ -162,17 +158,13 @@ if __name__ == "__main__":
 
     start = time.time()
     print("Training Begin".center(50, "="))
-    log_text.add_record(0, "Training Begin".center(50, "="))
     best_valid = -1.0
     for epoch in range(args.epochs):
         start_e = time.time()
-#         print("Train Epoch {}".format(epoch).center(50, "="))
         train_loss, train_rocauc = train_epoch(
             train_iter, program=train_program, exe=exe, loss=loss, score=score, 
             evaluator=evaluator, epoch=epoch
         )
-
-        print("Valid Epoch {}".format(epoch).center(50, "="))
         valid_loss, valid_rocauc = valid_epoch(
             val_iter, program=val_program, exe=exe, loss=loss, score=score,
             evaluator=evaluator, epoch=epoch)
@@ -180,16 +172,7 @@ if __name__ == "__main__":
         print("Epoch {}: train_loss={:.4},val_loss={:.4}, train_rocauc={:.4}, val_rocauc={:.4}, s/epoch={:.3}".format(
             epoch, train_loss, valid_loss, train_rocauc, valid_rocauc, end_e-start_e
         ))
-        log_text.add_record(epoch+1,
-            "Epoch {}: train_loss={:.4},val_loss={:.4}, train_rocauc={:.4}, val_rocauc={:.4}, s/epoch={:.3}".format(
-            epoch, train_loss, valid_loss, train_rocauc, valid_rocauc, end_e-start_e
-        ))
-        log_train_loss_epoch.add_record(epoch, train_loss)
-        log_valid_loss_epoch.add_record(epoch, valid_loss)
-        log_train_rocauc_epoch.add_record(epoch, train_rocauc)
-        log_valid_rocauc_epoch.add_record(epoch, valid_rocauc)
-        log_time.add_record(epoch, end_e-start_e)
-        
+
         if valid_rocauc > best_valid:
             print("Update: new {}, old {}".format(valid_rocauc, best_valid))
             best_valid = valid_rocauc
@@ -198,23 +181,14 @@ if __name__ == "__main__":
             
 
     print("Test Stage".center(50, "="))
-    log_text.add_record(args.epochs+1, "Test Stage".center(50, "="))
     
     fluid.io.load_params(executor=exe, dirname='./params/'+str(args.exp_id), main_program=val_program)
     
     test_loss, test_rocauc = valid_epoch(
         test_iter, program=val_program, exe=exe, loss=loss, score=score,
         evaluator=evaluator, epoch=epoch)
-    log_test_loss.add_record(0, test_loss)
-    log_test_rocauc.add_record(0, test_rocauc)
     end = time.time()
     print("test_loss={:.4},test_rocauc={:.4}, Total Time={:.3}".format(
             test_loss, test_rocauc, end-start
     ))
     print("End".center(50, "="))
-    log_text.add_record(args.epochs+2, "test_loss={:.4},test_rocauc={:.4}, Total Time={:.3}".format(
-            test_loss, test_rocauc, end-start
-    ))
-    log_text.add_record(args.epochs+3, "End".center(50, "="))
-    
-    
