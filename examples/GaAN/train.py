@@ -18,7 +18,6 @@ import argparse
 import numpy as np
 import time
 from paddle import fluid
-from visualdl import LogWriter
 
 import reader
 from train_tool import train_epoch, valid_epoch 

@@ -34,7 +34,7 @@ def load(name):
 
 def main(args):
     dataset = load(args.dataset)
-
+   
     # normalize
     indegree = dataset.graph.indegree()
     norm = np.zeros_like(indegree, dtype="float32")
@@ -119,7 +119,7 @@ def main(args):
                                         feed=feed_dict,
                                         fetch_list=[loss, acc],
                                         return_numpy=True)
-
+        
         if epoch >= 3:
             time_per_epoch = 1.0 * (time.time() - t0)
             dur.append(time_per_epoch)
