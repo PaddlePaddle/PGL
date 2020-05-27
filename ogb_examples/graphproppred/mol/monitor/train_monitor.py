@@ -19,10 +19,10 @@ import os
 from datetime import datetime
 import logging
 from collections import defaultdict
-from tensorboardX import SummaryWriter
 
 import paddle.fluid as F
 from pgl.utils.logger import log
+from pgl.utils.log_writer import log_writer
 
 
 def multi_device(reader, dev_count):
@@ -79,10 +79,10 @@ def train_and_evaluate(exe,
     global_step = 0
 
     timestamp = datetime.now().strftime("%Hh%Mm%Ss")
-    log_path = os.path.join(args.log_dir, "tensorboard_log_%s" % timestamp)
+    log_path = os.path.join(args.log_dir, "visualdl_log_%s" % timestamp)
     _create_if_not_exist(log_path)
 
-    writer = SummaryWriter(log_path)
+    writer = log_writer(log_path)
 
     best_valid_score = 0.0
     for e in range(args.epoch):
@@ -99,7 +99,7 @@ def train_and_evaluate(exe,
             ret = model.metrics.parse(ret)
             if global_step % args.train_log_step == 0:
                 writer.add_scalar(
-                    "batch_loss", ret['loss'], global_step=global_step)
+                    "batch_loss", ret['loss'], global_step)
                 log.info("epoch: %d | step: %d | loss: %.4f " %
                          (e, global_step, ret['loss']))
 
@@ -111,7 +111,7 @@ def train_and_evaluate(exe,
                 for key, value in valid_ret.items():
                     message += "%s %.4f | " % (key, value)
                     writer.add_scalar(
-                        "eval_%s" % key, value, global_step=global_step)
+                        "eval_%s" % key, value, global_step)
                 log.info(message)
 
                 # testing
@@ -120,7 +120,7 @@ def train_and_evaluate(exe,
                 for key, value in test_ret.items():
                     message += "%s %.4f | " % (key, value)
                     writer.add_scalar(
-                        "test_%s" % key, value, global_step=global_step)
+                        "test_%s" % key, value, global_step)
                 log.info(message)
 
         # evaluate after one epoch
@@ -128,7 +128,7 @@ def train_and_evaluate(exe,
         message = "epoch %s valid: " % e
         for key, value in valid_ret.items():
             message += "%s %.4f | " % (key, value)
-            writer.add_scalar("eval_%s" % key, value, global_step=global_step)
+            writer.add_scalar("eval_%s" % key, value, global_step)
         log.info(message)
 
         # testing
@@ -136,7 +136,7 @@ def train_and_evaluate(exe,
         message = "epoch %s test: " % e
         for key, value in test_ret.items():
             message += "%s %.4f | " % (key, value)
-            writer.add_scalar("test_%s" % key, value, global_step=global_step)
+            writer.add_scalar("test_%s" % key, value, global_step)
         log.info(message)
 
         message = "epoch %s best %s result | " % (e, args.eval_metrics)

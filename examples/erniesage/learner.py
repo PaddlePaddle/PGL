@@ -17,6 +17,7 @@ role = os.getenv("TRAINING_ROLE", "TRAINER")
 
 import numpy as np
 from pgl.utils.logger import log
+from pgl.utils.log_writter import log_writter
 import paddle.fluid as F
 import paddle.fluid.layers as L
 from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler import StrategyFactory
@@ -25,7 +26,6 @@ from paddle.fluid.transpiler.distribute_transpiler import DistributeTranspilerCo
 from paddle.fluid.incubate.fleet.collective import fleet as cfleet
 from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler import fleet as tfleet
 import paddle.fluid.incubate.fleet.base.role_maker as role_maker
-from tensorboardX import SummaryWriter
 from paddle.fluid.transpiler.distribute_transpiler import DistributedMode
 from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler.distributed_strategy import TrainerRuntimeConfig
 
@@ -77,7 +77,7 @@ class Learner(object):
         start = time.time()
         trainer_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
         if trainer_id == 0:
-            writer = SummaryWriter(os.path.join(self.config.output_path, "train_history"))
+            writer = log_writer(os.path.join(self.config.output_path, "train_history"))
 
         for epoch_idx in range(self.config.epoch):
             for idx, batch_feed_dict in enumerate(self.model.data_loader()):
