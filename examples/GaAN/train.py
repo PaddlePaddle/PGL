@@ -194,16 +194,12 @@ if __name__ == "__main__":
             print("Update: new {}, old {}".format(valid_rocauc, best_valid))
             best_valid = valid_rocauc
             
-#             fluid.io.save_vars(executor=exe, dirname='./vars/'+str(args.exp_id), main_program=val_program,
-#                               predicate=lambda x: True)
             fluid.io.save_params(executor=exe, dirname='./params/'+str(args.exp_id), main_program=val_program)
             
 
     print("Test Stage".center(50, "="))
     log_text.add_record(args.epochs+1, "Test Stage".center(50, "="))
     
-#     fluid.io.load_vars(executor=exe, dirname='./params/'+str(args.exp_id), main_program=val_program,
-#                       predicate=lambda x: True)
     fluid.io.load_params(executor=exe, dirname='./params/'+str(args.exp_id), main_program=val_program)
     
     test_loss, test_rocauc = valid_epoch(
