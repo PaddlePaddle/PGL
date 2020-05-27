@@ -6,9 +6,9 @@
 The ogbn-proteins dataset will be downloaded in directory ./dataset automatically.
 
 ## Dependencies
-- paddlepaddle
-- pgl
-- ogb
+- [paddlepaddle >= 1.6](https://github.com/paddlepaddle/paddle)
+- [pgl 1.1](https://github.com/PaddlePaddle/PGL)
+- [ogb 1.1.1](https://github.com/snap-stanford/ogb)
 
 ## How to run
 ```bash
