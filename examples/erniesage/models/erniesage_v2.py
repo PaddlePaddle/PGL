@@ -48,6 +48,9 @@ class ErnieSageV2(BaseNet):
             cls = L.fill_constant_batch_size_like(src_feat["term_ids"], [-1, 1, 1], "int64", 1)
             src_ids = L.concat([cls, src_feat["term_ids"]], 1)
             dst_ids = dst_feat["term_ids"]
+            # cls = L.fill_constant_batch_size_like(dst_feat["term_ids"], [-1, 1, 1], "int64", 1)
+            # src_ids = L.concat([cls, dst_feat["term_ids"]], 1)
+            # dst_ids = src_feat["term_ids"]
 
             # sent_ids
             sent_ids = L.concat([L.zeros_like(src_ids), L.ones_like(dst_ids)], 1)
@@ -81,14 +84,16 @@ class ErnieSageV2(BaseNet):
             self_feature = L.fc(self_feature,
                                            hidden_size,
                                            act=act,
-                                           param_attr=F.ParamAttr(name=name + "_l",
+                                           param_attr=F.ParamAttr(name=name + "_l.w_0",
                                            learning_rate=learning_rate),
+                                           bias_attr=name+"_l.b_0"
                                            )
             neigh_feature = L.fc(neigh_feature,
                                             hidden_size,
                                             act=act,
-                                            param_attr=F.ParamAttr(name=name + "_r",
-                                           learning_rate=learning_rate),
+                                            param_attr=F.ParamAttr(name=name + "_r.w_0",
+                                            learning_rate=learning_rate),
+                                            bias_attr=name+"_r.b_0"
                                             )
             output = L.concat([self_feature, neigh_feature], axis=1)
             output = L.l2_normalize(output, axis=1)
