@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from preprocess import get_graph_data
 import pgl
 import argparse
@@ -20,17 +19,23 @@ import time
 from paddle import fluid
 
 import reader
-from train_tool import train_epoch, valid_epoch 
+from train_tool import train_epoch, valid_epoch
+
+
+from model import GaANModel
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Training")
+    parser = argparse.ArgumentParser(description="ogb Training")
     parser.add_argument("--d_name", type=str, choices=["ogbn-proteins"], default="ogbn-proteins",
                        help="the name of dataset in ogb")
+    parser.add_argument("--model", type=str, choices=["GaAN"], default="GaAN",
+                       help="the name of model")
     parser.add_argument("--mini_data", type=str, choices=["True", "False"], default="False",
                        help="use a small dataset to test the code")
     parser.add_argument("--use_gpu", type=bool, choices=[True, False], default=True,
                        help="use gpu")
-    parser.add_argument("--gpu_id", type=int, default=0,
+    parser.add_argument("--gpu_id", type=int, default=4,
                        help="the id of gpu")
     parser.add_argument("--exp_id", type=int, default=0,
                        help="the id of experiment")
@@ -57,7 +62,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    print("setting".center(50, "="))
+    print("Parameters Setting".center(50, "="))
     print("lr = {}, rc = {}, epochs = {}, batch_size = {}".format(args.lr, args.rc, args.epochs,
                                                                   args.batch_size))
     print("Experiment ID: {}".format(args.exp_id).center(50, "="))
@@ -65,24 +70,12 @@ if __name__ == "__main__":
     d_name = args.d_name
     
     # get data
-    g, label, train_idx, valid_idx, test_idx, evaluator = get_graph_data(
-                                                            d_name=d_name, 
-                                                            mini_data=eval(args.mini_data))
+    g, label, train_idx, valid_idx, test_idx, evaluator = get_graph_data(d_name=d_name, 
+                                                                         mini_data=eval(args.mini_data))
     
-    
-    # create log writer
-    log_writer = LogWriter(args.log_path, sync_cycle=10)
-    with log_writer.mode("train") as logger:
-        log_train_loss_epoch = logger.scalar("loss")
-        log_train_rocauc_epoch = logger.scalar("rocauc")
-    with log_writer.mode("valid") as logger:
-        log_valid_loss_epoch = logger.scalar("loss")
-        log_valid_rocauc_epoch = logger.scalar("rocauc")
-    log_text = log_writer.text("text")
-    log_time = log_writer.scalar("time")
-    log_test_loss = log_writer.scalar("test_loss")
-    log_test_rocauc = log_writer.scalar("test_rocauc")
-
+    if args.model == "GaAN":
+        graph_model = GaANModel(112, 3, args.hidden_size_a, args.hidden_size_v, args.hidden_size_m,
+                                args.hidden_size_o, args.heads)
     
     # training
     samples = [25, 10] # 2-hop sample size
@@ -101,6 +94,7 @@ if __name__ == "__main__":
             edge_feat=g.edge_feat_info()
         )
 
+
         node_index = fluid.layers.data('node_index', shape=[None, 1], dtype="int64",
                                        append_batch_size=False)
 
@@ -108,11 +102,8 @@ if __name__ == "__main__":
                                        append_batch_size=False)
         parent_node_index = fluid.layers.data('parent_node_index', shape=[None, 1], dtype="int64",
                                        append_batch_size=False)
-        feature = gw.node_feat['node_feat']
-        for i in range(3):
-            feature = pgl.layers.GaAN(gw, feature, args.hidden_size_a, args.hidden_size_v,
-                    args.hidden_size_m, args.hidden_size_o, args.heads, name='GaAN_'+str(i))
-        output = fluid.layers.fc(feature, 112, act=None)
+
+        output = graph_model.forward(gw)
         output = fluid.layers.gather(output, node_index)
         score = fluid.layers.sigmoid(output)
 
@@ -167,16 +158,13 @@ if __name__ == "__main__":
 
     start = time.time()
     print("Training Begin".center(50, "="))
-    log_text.add_record(0, "Training Begin".center(50, "="))
+    best_valid = -1.0
     for epoch in range(args.epochs):
         start_e = time.time()
-#         print("Train Epoch {}".format(epoch).center(50, "="))
         train_loss, train_rocauc = train_epoch(
             train_iter, program=train_program, exe=exe, loss=loss, score=score, 
             evaluator=evaluator, epoch=epoch
         )
-
-        print("Valid Epoch {}".format(epoch).center(50, "="))
         valid_loss, valid_rocauc = valid_epoch(
             val_iter, program=val_program, exe=exe, loss=loss, score=score,
             evaluator=evaluator, epoch=epoch)
@@ -184,32 +172,23 @@ if __name__ == "__main__":
         print("Epoch {}: train_loss={:.4},val_loss={:.4}, train_rocauc={:.4}, val_rocauc={:.4}, s/epoch={:.3}".format(
             epoch, train_loss, valid_loss, train_rocauc, valid_rocauc, end_e-start_e
         ))
-        log_text.add_record(epoch+1,
-            "Epoch {}: train_loss={:.4},val_loss={:.4}, train_rocauc={:.4}, val_rocauc={:.4}, s/epoch={:.3}".format(
-            epoch, train_loss, valid_loss, train_rocauc, valid_rocauc, end_e-start_e
-        ))
-        log_train_loss_epoch.add_record(epoch, train_loss)
-        log_valid_loss_epoch.add_record(epoch, valid_loss)
-        log_train_rocauc_epoch.add_record(epoch, train_rocauc)
-        log_valid_rocauc_epoch.add_record(epoch, valid_rocauc)
-        log_time.add_record(epoch, end_e-start_e)
-        
+
+        if valid_rocauc > best_valid:
+            print("Update: new {}, old {}".format(valid_rocauc, best_valid))
+            best_valid = valid_rocauc
+            
+            fluid.io.save_params(executor=exe, dirname='./params/'+str(args.exp_id), main_program=val_program)
+            
 
     print("Test Stage".center(50, "="))
-    log_text.add_record(args.epochs+1, "Test Stage".center(50, "="))
+    
+    fluid.io.load_params(executor=exe, dirname='./params/'+str(args.exp_id), main_program=val_program)
+    
     test_loss, test_rocauc = valid_epoch(
         test_iter, program=val_program, exe=exe, loss=loss, score=score,
         evaluator=evaluator, epoch=epoch)
-    log_test_loss.add_record(0, test_loss)
-    log_test_rocauc.add_record(0, test_rocauc)
     end = time.time()
     print("test_loss={:.4},test_rocauc={:.4}, Total Time={:.3}".format(
             test_loss, test_rocauc, end-start
     ))
     print("End".center(50, "="))
-    log_text.add_record(args.epochs+2, "test_loss={:.4},test_rocauc={:.4}, Total Time={:.3}".format(
-            test_loss, test_rocauc, end-start
-    ))
-    log_text.add_record(args.epochs+3, "End".center(50, "="))
-    
-    

@@ -1,7 +1,9 @@
 # data and log
-.examples/GaAN/datase/t
-.examples/GaAN/log/
-.examples/GaAN/__pycache__/
+/examples/GaAN/dataset/
+/examples/GaAN/log/
+/examples/GaAN/__pycache__/
+/examples/GaAN/params/
+/DoorGod
 # Virtualenv
 /.venv/
 /venv/
