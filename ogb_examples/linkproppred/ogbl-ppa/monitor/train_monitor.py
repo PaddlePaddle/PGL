@@ -18,7 +18,7 @@ import numpy as np
 import sys
 import os
 import paddle.fluid as F
-from tensorboardX import SummaryWriter
+from pgl.utils.log_writer import LogWriter
 from ogb.linkproppred import Evaluator
 from ogb.linkproppred import LinkPropPredDataset
 
@@ -115,7 +115,7 @@ def train_and_evaluate(exe,
     log_path = os.path.join(output_path, "log")
     _create_if_not_exist(log_path)
 
-    writer = SummaryWriter(log_path)
+    writer = LogWriter(log_path)
 
     best_model = 0
     for e in range(epoch):
@@ -134,7 +134,7 @@ def train_and_evaluate(exe,
             if global_step % train_log_step == 0:
                 for key, value in ret.items():
                     writer.add_scalar(
-                        'train_' + key, value, global_step=global_step)
+                        'train_' + key, value, global_step)
 
             global_step += 1
             if global_step % eval_step == 0:
@@ -149,7 +149,7 @@ def train_and_evaluate(exe,
                 sys.stderr.write(json.dumps(eval_ret, indent=4) + "\n")
 
                 for key, value in eval_ret.items():
-                    writer.add_scalar(key, value, global_step=global_step)
+                    writer.add_scalar(key, value, global_step)
 
                 if eval_ret["valid_hits@100"] > best_model:
                     F.io.save_persistables(
@@ -170,7 +170,7 @@ def train_and_evaluate(exe,
         sys.stderr.write(json.dumps(eval_ret, indent=4) + "\n")
 
         for key, value in eval_ret.items():
-            writer.add_scalar(key, value, global_step=global_step)
+            writer.add_scalar(key, value, global_step)
 
         if eval_ret["valid_hits@100"] > best_model:
             F.io.save_persistables(exe,
