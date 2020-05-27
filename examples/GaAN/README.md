@@ -6,14 +6,20 @@
 The ogbn-proteins dataset will be downloaded in directory ./dataset automatically.
 
 ## Dependencies
-- paddlepaddle
-- pgl
-- ogb
+- [paddlepaddle >= 1.6](https://github.com/paddlepaddle/paddle)
+- [pgl 1.1](https://github.com/PaddlePaddle/PGL)
+- [ogb 1.1.1](https://github.com/snap-stanford/ogb)
 
 ## How to run
 ```bash
 python train.py --lr 1e-2 --rc 0 --batch_size 1024 --epochs 100
-``` 
+```
+
+or
+```bash
+source main.sh
+```
+
 ### Hyperparameters
 - use_gpu: whether to use gpu or not
 - mini_data: use a small dataset to test code
@@ -32,4 +38,4 @@ python train.py --lr 1e-2 --rc 0 --batch_size 1024 --epochs 100
 We train our models for 100 epochs and report the **rocauc** on the test dataset.
 |dataset|mean|std|
 |-|-|-|
-|ogbn-proteins|0.7786|0.0048|
+|ogbn-proteins|0.7803|0.0073|
