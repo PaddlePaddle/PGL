@@ -36,6 +36,6 @@ source main.sh
 
 ## Performance
 We train our models for 100 epochs and report the **rocauc** on the test dataset.
-|dataset|mean|std|
-|-|-|-|
-|ogbn-proteins|0.7803|0.0073|
+|dataset|mean|std|#experiments|
+|-|-|-|-|
+|ogbn-proteins|0.7803|0.0073|10|
