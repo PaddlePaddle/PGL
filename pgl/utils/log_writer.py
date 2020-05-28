@@ -11,15 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" log writer setup
+""" Log writer setup: interface for training visualization.
 """
-import sys
+import six
 
 LogWriter = None
 
-if int(sys.version[0]) == 3:
+if six.PY3:
+    # We highly recommend using VisualDL (https://github.com/PaddlePaddle/VisualDL)
+    # for training visualization in Python 3.
     from visualdl import LogWriter
     LogWriter = LogWriter
-else:
+elif six.PY2:
     from tensorboardX import SummaryWriter
     LogWriter = SummaryWriter
+else:
+    raise ValueError("Not running on Python2 or Python3 ?")
