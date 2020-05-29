@@ -57,14 +57,16 @@ def graphsage_sum(gw, feature, hidden_size, act, initializer, learning_rate, nam
     self_feature = fluid.layers.fc(self_feature,
                                    hidden_size,
                                    act=act,
-                                   param_attr=fluid.ParamAttr(name=name + "_l", initializer=initializer,
+                                   param_attr=fluid.ParamAttr(name=name + "_l.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
+                                    bias_attr=name+"_l.b_0"
                                    )
     neigh_feature = fluid.layers.fc(neigh_feature,
                                     hidden_size,
                                     act=act,
-                                    param_attr=fluid.ParamAttr(name=name + "_r", initializer=initializer,
+                                    param_attr=fluid.ParamAttr(name=name + "_r.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
+                                    bias_attr=name+"_r.b_0"
                                     )
     output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
     output = fluid.layers.l2_normalize(output, axis=1)
@@ -79,14 +81,16 @@ def graphsage_mean(gw, feature, hidden_size, act, initializer, learning_rate, na
     self_feature = fluid.layers.fc(self_feature,
                                    hidden_size,
                                    act=act,
-                                   param_attr=fluid.ParamAttr(name=name + "_l", initializer=initializer,
+                                   param_attr=fluid.ParamAttr(name=name + "_l.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
+                                    bias_attr=name+"_l.b_0"
                                    )
     neigh_feature = fluid.layers.fc(neigh_feature,
                                     hidden_size,
                                     act=act,
-                                    param_attr=fluid.ParamAttr(name=name + "_r", initializer=initializer,
+                                    param_attr=fluid.ParamAttr(name=name + "_r.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
+                                    bias_attr=name+"_r.b_0"
                                     )
     output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
     output = fluid.layers.l2_normalize(output, axis=1)
@@ -101,14 +105,16 @@ def pinsage_mean(gw, feature, hidden_size, act, initializer, learning_rate, name
     self_feature = fluid.layers.fc(self_feature,
                                    hidden_size,
                                    act=act,
-                                   param_attr=fluid.ParamAttr(name=name + "_l", initializer=initializer,
+                                   param_attr=fluid.ParamAttr(name=name + "_l.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
+                                    bias_attr=name+"_l.b_0"
                                    )
     neigh_feature = fluid.layers.fc(neigh_feature,
                                     hidden_size,
                                     act=act,
-                                    param_attr=fluid.ParamAttr(name=name + "_r", initializer=initializer,
+                                    param_attr=fluid.ParamAttr(name=name + "_r.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
+                                    bias_attr=name+"_r.b_0"
                                     )
     output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
     output = fluid.layers.l2_normalize(output, axis=1)
@@ -123,14 +129,16 @@ def pinsage_sum(gw, feature, hidden_size, act, initializer, learning_rate, name)
     self_feature = fluid.layers.fc(self_feature,
                                    hidden_size,
                                    act=act,
-                                   param_attr=fluid.ParamAttr(name=name + "_l", initializer=initializer,
+                                   param_attr=fluid.ParamAttr(name=name + "_l.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
+                                    bias_attr=name+"_l.b_0"
                                    )
     neigh_feature = fluid.layers.fc(neigh_feature,
                                     hidden_size,
                                     act=act,
-                                    param_attr=fluid.ParamAttr(name=name + "_r", initializer=initializer,
+                                    param_attr=fluid.ParamAttr(name=name + "_r.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
+                                    bias_attr=name+"_r.b_0"
                                     )
     output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
     output = fluid.layers.l2_normalize(output, axis=1)

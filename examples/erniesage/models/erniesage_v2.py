@@ -81,14 +81,16 @@ class ErnieSageV2(BaseNet):
             self_feature = L.fc(self_feature,
                                            hidden_size,
                                            act=act,
-                                           param_attr=F.ParamAttr(name=name + "_l",
+                                           param_attr=F.ParamAttr(name=name + "_l.w_0",
                                            learning_rate=learning_rate),
+                                           bias_attr=name+"_l.b_0"
                                            )
             neigh_feature = L.fc(neigh_feature,
                                             hidden_size,
                                             act=act,
-                                            param_attr=F.ParamAttr(name=name + "_r",
-                                           learning_rate=learning_rate),
+                                            param_attr=F.ParamAttr(name=name + "_r.w_0",
+                                            learning_rate=learning_rate),
+                                            bias_attr=name+"_r.b_0"
                                             )
             output = L.concat([self_feature, neigh_feature], axis=1)
             output = L.l2_normalize(output, axis=1)
