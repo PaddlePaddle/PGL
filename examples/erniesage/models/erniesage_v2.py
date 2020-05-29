@@ -48,9 +48,6 @@ class ErnieSageV2(BaseNet):
             cls = L.fill_constant_batch_size_like(src_feat["term_ids"], [-1, 1, 1], "int64", 1)
             src_ids = L.concat([cls, src_feat["term_ids"]], 1)
             dst_ids = dst_feat["term_ids"]
-            # cls = L.fill_constant_batch_size_like(dst_feat["term_ids"], [-1, 1, 1], "int64", 1)
-            # src_ids = L.concat([cls, dst_feat["term_ids"]], 1)
-            # dst_ids = src_feat["term_ids"]
 
             # sent_ids
             sent_ids = L.concat([L.zeros_like(src_ids), L.ones_like(dst_ids)], 1)
