@@ -15,7 +15,6 @@
 import sys
 import os
 import random
-from torch_geometric.datasets import TUDataset
 import pgl
 from pgl.utils.logger import log
 from pgl.graph import Graph, MultiGraph

@@ -194,7 +194,3 @@ if __name__ == "__main__":
     args.num_classes = dataset.num_classes
     args.num_features = dataset.num_features
     random_seed_20(args, dataset)
-
-
-
-

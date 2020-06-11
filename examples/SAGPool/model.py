@@ -25,7 +25,6 @@ from pgl.utils.logger import log
 from layers import sag_pool
 from conv import norm_gcn
 
-
 class GlobalModel(object):
     """Implementation of global pooling architecture with SAGPool.
     """
