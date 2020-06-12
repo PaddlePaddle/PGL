@@ -22,6 +22,7 @@ import pgl
 from pgl.graph import Graph, MultiGraph
 from pgl.graph_wrapper import GraphWrapper
 from pgl.utils.logger import log
+from pgl.layers.conv import gcn
 from layers import sag_pool
 from conv import norm_gcn
 
@@ -72,27 +73,32 @@ class GlobalModel(object):
           shape=[None],
           dtype="int32",
           append_batch_size=False)
+
+        if self.args.dataset_name == "FRANKENSTEIN":
+            self.gcn = gcn
+        else:
+            self.gcn = norm_gcn
         
         self.build_model()
 
     def build_model(self):
         node_features = self.graph_wrapper.node_feat["feat"]
 
-        output = gcn(gw=self.graph_wrapper, 
+        output = self.gcn(gw=self.graph_wrapper, 
                      feature=node_features, 
                      hidden_size=self.hidden_size,
                      activation="relu", 
                      norm=self.graph_wrapper.node_feat["norm"],
                      name="gcn_layer_1")
         output1 = output
-        output = gcn(gw=self.graph_wrapper, 
+        output = self.gcn(gw=self.graph_wrapper, 
                      feature=output, 
                      hidden_size=self.hidden_size,
                      activation="relu", 
                      norm=self.graph_wrapper.node_feat["norm"],
                      name="gcn_layer_2")
         output2 = output
-        output = gcn(gw=self.graph_wrapper, 
+        output = self.gcn(gw=self.graph_wrapper, 
                      feature=output, 
                      hidden_size=self.hidden_size,
                      activation="relu", 
@@ -105,6 +111,7 @@ class GlobalModel(object):
                           feature=output, 
                           ratio=self.pooling_ratio,
                           graph_id=self.graph_id,
+                          dataset=self.args.dataset_name,
                           name="sag_pool_1")
         output = L.lod_reset(output, self.graph_wrapper.graph_lod)
         cat1 = L.sequence_pool(output, "sum")

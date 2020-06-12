@@ -20,6 +20,7 @@ import pgl
 from pgl.graph_wrapper import GraphWrapper
 from pgl.utils.logger import log
 from conv import norm_gcn
+from pgl.layers.conv import gcn
 
 def topk_pool(gw, score, graph_id, ratio):
     """Implementation of topk pooling, where k means pooling ratio.
@@ -53,6 +54,7 @@ def topk_pool(gw, score, graph_id, ratio):
     index = L.arange(0, gw.num_nodes, dtype="int64")
     temp = L.gather(graph_lod, graph_id, overwrite=False)
     index = (index - temp) + (graph_id * max_num_nodes)
+    index.stop_gradient = True
     
     # padding
     dense_score = L.fill_constant(shape=[num_graph * max_num_nodes],
@@ -86,7 +88,7 @@ def topk_pool(gw, score, graph_id, ratio):
     return perm, ratio_length 
 
 
-def sag_pool(gw, feature, ratio, graph_id, name, activation=L.tanh):
+def sag_pool(gw, feature, ratio, graph_id, dataset, name, activation=L.tanh):
     """Implementation of self-attention graph pooling (SAGPool)
 
     This is an implementation of the paper SELF-ATTENTION GRAPH POOLING
@@ -100,9 +102,11 @@ def sag_pool(gw, feature, ratio, graph_id, name, activation=L.tanh):
         ratio: The pooling ratio of nodes we want to select.
 
         graph_id: The graphs that the nodes belong to. 
-        
-        gcn: To use the official gcn or norm gcn.
 
+        dataset: To differentiate FRANKENSTEIN dataset and other datasets.
+
+        name: The name of SAGPool layer.
+        
         activation: The activation function.
 
     Return:
@@ -112,7 +116,12 @@ def sag_pool(gw, feature, ratio, graph_id, name, activation=L.tanh):
         ratio_length: The selected node numbers of each graph.
 
     """
-    score = norm_gcn(gw=gw,    
+    if dataset == "FRANKENSTEIN":
+        gcn_ = gcn
+    else:
+        gcn_ = norm_gcn
+
+    score = gcn_(gw=gw,    
                 feature=feature, 
                 hidden_size=1,
                 activation=None,

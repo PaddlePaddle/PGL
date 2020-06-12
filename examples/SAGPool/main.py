@@ -15,8 +15,6 @@
 import sys
 import os
 import argparse
-import torch
-from torch_geometric.datasets import TUDataset
 import pgl
 from pgl.utils.logger import log
 import paddle

@@ -57,6 +57,7 @@ class Dataset(BaseDataset):
         
         with open('data/%s.pkl' % args.dataset_name, 'rb') as f:
             graphs_info_list = pickle.load(f)
+
         self.pgl_graph_list = []
         self.graph_label_list = []
         for i in range(len(graphs_info_list) - 1):
@@ -64,10 +65,11 @@ class Dataset(BaseDataset):
             edges_l, edges_r = graph["edge_src"], graph["edge_dst"]
             
             # add self-loops
-            node_nums = graph["num_nodes"]
-            x = np.arange(0, node_nums)
-            edges_l = np.append(edges_l, x)
-            edges_r = np.append(edges_r, x)
+            if self.args.dataset_name != "FRANKENSTEIN":
+                num_nodes = graph["num_nodes"]
+                x = np.arange(0, num_nodes)
+                edges_l = np.append(edges_l, x)
+                edges_r = np.append(edges_r, x)
             
             edges = list(zip(edges_l, edges_r))
             g = pgl.graph.Graph(num_nodes=graph["num_nodes"], edges=edges)
