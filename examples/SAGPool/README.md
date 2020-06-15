@@ -44,10 +44,10 @@ python main.py --dataset_name FRANKENSTEIN --learning_rate 0.001 --weight_decay 
 
 We evaluate the implemented method for 20 random seeds using 10-fold cross validation, following the same training procedures as in the paper.
 
-| dataset      | mean accuracy | standard deviation |
-| ------------ | ------------- | ------------------ |
-| DD           | 74.4181       | 1.0244             |
-| PROTEINS     | 72.7858       | 0.6617             |
-| NCI1         | 75.781        | 1.2125             |
-| NCI109       | 74.3156       | 1.3                |
-| FRANKENSTEIN | 60.7826       | 0.629              |
+| dataset      | mean accuracy | standard deviation | mean accuracy(paper) | standard deviation(paper) |
+| ------------ | ------------- | ------------------ | -------------------- | ------------------------- |
+| DD           | 74.4181       | 1.0244             | 76.19                | 0.94                      |
+| PROTEINS     | 72.7858       | 0.6617             | 70.04                | 1.47                      |
+| NCI1         | 75.781        | 1.2125             | 74.18                | 1.2                       |
+| NCI109       | 74.3156       | 1.3                | 74.06                | 0.78                      |
+| FRANKENSTEIN | 60.7826       | 0.629              | 62.57                | 0.6                       |
