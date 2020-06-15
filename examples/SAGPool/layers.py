@@ -53,7 +53,7 @@ def topk_pool(gw, score, graph_id, ratio):
 
     index = L.arange(0, gw.num_nodes, dtype="int64")
     offset = L.gather(graph_lod, graph_id, overwrite=False)
-    index = (index - temp) + (graph_id * max_num_nodes)
+    index = (index - offset) + (graph_id * max_num_nodes)
     index.stop_gradient = True
     
     # padding
