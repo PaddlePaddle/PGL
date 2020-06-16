@@ -30,6 +30,11 @@ CUDA_VISIBLE_DEVICES=0 python train.py \
     --test_samples 20 20 20 \
     --hidden_size 256
 ```
+or 
+
+```
+sh run.sh
+```
 
 The best record will be saved in ./output/model_1/best.txt.
 
