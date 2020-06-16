@@ -31,18 +31,6 @@ from collections import namedtuple
 import pgl
 import numpy as np
 import copy
-"""
-dict_keys(['edge_index', 'edge_feat', 'node_feat', 'node_year', 'num_nodes'])
-edge_index shape: (2, 1166243)
-edge_index type: <class 'numpy.ndarray'>
-[[104447  15858 107156 ...  45118  45118  45118]
- [ 13091  47283  69161 ... 162473 162537  72717]]
-edge_feat: None
-node_feat shape: (169343, 128)
-node_year shape: (169343, 1)
-num_nodes: 169343
-label shape: (169343, 1)
-"""
 
 
 def traverse(item):
@@ -131,7 +119,6 @@ class ArxivDataGenerator(BaseDataGenerator):
             labels = label[nodes_idx]
         self.nodes_idx = nodes_idx
         self.labels = labels
-        #self.static_gw_based_line_example(nodes_idx, labels)
         self.sample_based_line_example(nodes_idx, labels)
 
     def sample_based_line_example(self, nodes_idx, labels):
@@ -141,11 +128,6 @@ class ArxivDataGenerator(BaseDataGenerator):
             self.line_examples.append(Example(node=node, label=label))
         print("Phase", self.phase)
         print("Len Examples", len(self.line_examples))
-
-    def batch_fn2(self, batch_ex):
-        feed_dict["batch_nodes"] = np.array(batch_ex[0]['node'], dtype="int64")
-        feed_dict["labels"] = np.array(batch_ex[0]['label'], dtype="int64")
-        return feed_dict
 
     def batch_fn(self, batch_ex):
         batch_nodes = []
