@@ -1,6 +1,6 @@
 # Graph Node Prediction for Open Graph Benchmark (OGB) Arxiv dataset
 
-[The Open Graph Benchmark (OGB)](https://ogb.stanford.edu/) is a collection of benchmark datasets, data loaders, and evaluators for graph machine learning. Here we complete the Graph Link Prediction task based on PGL.
+[The Open Graph Benchmark (OGB)](https://ogb.stanford.edu/) is a collection of benchmark datasets, data loaders, and evaluators for graph machine learning. Here we complete the Graph Node Prediction task based on PGL.
 
 
 ### Requirements
@@ -30,7 +30,7 @@ CUDA_VISIBLE_DEVICES=0 python train.py \
     --test_samples 20 20 20 \
     --hidden_size 256
 ```
-or 
+or
 
 ```
 sh run.sh
