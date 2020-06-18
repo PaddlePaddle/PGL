@@ -35,7 +35,7 @@ if __name__ == "__main__":
                        help="use a small dataset to test the code")
     parser.add_argument("--use_gpu", type=bool, choices=[True, False], default=True,
                        help="use gpu")
-    parser.add_argument("--gpu_id", type=int, default=4,
+    parser.add_argument("--gpu_id", type=int, default=0,
                        help="the id of gpu")
     parser.add_argument("--exp_id", type=int, default=0,
                        help="the id of experiment")
