@@ -82,7 +82,7 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     sample_workers = 1
                         
-    place = fluid.CUDAPlace(args.gpu_id) if args.use_gpu else fluid.CPUPlace()           
+    place = fluid.CUDAPlace(0) if args.use_gpu else fluid.CPUPlace()           
     train_program = fluid.Program()
     startup_program = fluid.Program()
 
