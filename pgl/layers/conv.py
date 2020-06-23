@@ -15,10 +15,10 @@
 graph neural networks.
 """
 import paddle.fluid as fluid
-from pgl import graph_wrapper
 from pgl.utils import paddle_helper
+from pgl import message_passing
 
-__all__ = ['gcn', 'gat', 'gin', 'gaan']
+__all__ = ['gcn', 'gat', 'gin', 'gaan', 'gen_conv']
 
 
 def gcn(gw, feature, hidden_size, activation, name, norm=None):
@@ -352,3 +352,55 @@ def gaan(gw, feature, hidden_size_a, hidden_size_v, hidden_size_m, hidden_size_o
     output = fluid.layers.dropout(output, dropout_prob=0.1)
 
     return output
+
+
+def gen_conv(gw,
+        feature,
+        name,
+        beta=None):
+    """Implementation of GENeralized Graph Convolution (GENConv), see the paper
+    "DeeperGCN: All You Need to Train Deeper GCNs" in
+    https://arxiv.org/pdf/2006.07739.pdf
+
+    Args:
+        gw: Graph wrapper object (:code:`StaticGraphWrapper` or :code:`GraphWrapper`)
+
+        feature: A tensor with shape (num_nodes, feature_size).
+
+        beta: [0, +infinity] or "dynamic" or None
+
+        name: deeper gcn layer names.
+
+    Return:
+        A tensor with shape (num_nodes, feature_size)
+    """
+   
+    if beta == "dynamic":
+        beta = fluid.layers.create_parameter(
+                shape=[1],
+                dtype='float32',
+                default_initializer=
+                    fluid.initializer.ConstantInitializer(value=1.0),
+                name=name + '_beta')
+    
+    # message passing
+    msg = gw.send(message_passing.copy_send, nfeat_list=[("h", feature)])
+    output = gw.recv(msg, message_passing.softmax_agg(beta))
+    
+    # msg norm
+    output = message_passing.msg_norm(feature, output, name)
+    output = feature + output
+    
+    output = fluid.layers.fc(output,
+                     feature.shape[-1],
+                     bias_attr=False,
+                     act="relu",
+                     param_attr=fluid.ParamAttr(name=name + '_weight1'))
+    
+    output = fluid.layers.fc(output,
+                     feature.shape[-1],
+                     bias_attr=False,
+                     param_attr=fluid.ParamAttr(name=name + '_weight2'))
+
+    return output
+
