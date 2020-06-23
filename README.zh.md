@@ -1,6 +1,23 @@
 <img src="./docs/source/_static/logo.png" alt="The logo of Paddle Graph Learning (PGL)" width="320">
 
+[![PyPi Latest Release](https://img.shields.io/pypi/v/pgl.svg)](https://pypi.org/project/pgl/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
+
 [文档](https://pgl.readthedocs.io/en/latest/) | [快速开始](https://pgl.readthedocs.io/en/latest/quick_start/instruction.html) | [English](./README.md)
+
+## 最新消息
+
+PGL v1.1 2020.4.29
+
+- **ERNIESage**是PGL团队最新提出的模型，可以用于建模文本以及图结构信息。你可以在[这里](./examples/erniesage)看到详细的介绍。
+
+- PGL现在提供[Open Graph Benchmark](https://github.com/snap-stanford/ogb)的一些例子，你可以在[这里](./ogb_examples)找到。
+
+- 新增了图级别的算子包括**GraphPooling**以及[**GraphNormalization**](https://arxiv.org/abs/2003.00982)，这样你就能实现更多复杂的图级别分类模型。
+
+- 新增PGL-KE工具包，里面包含许多经典知识图谱图嵌入算法，包括TransE, TransR, RotatE，详情可见[这里](./examples/pgl-ke)
+
+------
 
 Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/PaddlePaddle/Paddle)的高效易用的图学习框架
 
@@ -12,11 +29,11 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 # 特色：高效性——支持Scatter-Gather及LodTensor消息传递
 
 
-对比于一般的模型，图神经网络模型最大的优势在于它利用了节点与节点之间连接的信息。但是，如何通过代码来实现建模这些节点连接十分的麻烦。PGL采用与[DGL](https://github.com/dmlc/dgl)相似的**消息传递范式**用于作为构建图神经网络的接口。用于只需要简单的编写```send```还有```recv```函数就能够轻松的实现一个简单的GCN网络。如下图所示，首先，send函数被定义在节点之间的边上，用户自定义send函数![](http://latex.codecogs.com/gif.latex?\\phi^e})会把消息从源点发送到目标节点。然后，recv函数![](http://latex.codecogs.com/gif.latex?\\phi^v})负责将这些消息用汇聚函数 ![](http://latex.codecogs.com/gif.latex?\\oplus}) 汇聚起来。
+对比于一般的模型，图神经网络模型最大的优势在于它利用了节点与节点之间连接的信息。但是，如何通过代码来实现建模这些节点连接十分的麻烦。PGL采用与[DGL](https://github.com/dmlc/dgl)相似的**消息传递范式**用于作为构建图神经网络的接口。用于只需要简单的编写```send```还有```recv```函数就能够轻松的实现一个简单的GCN网络。如下图所示，首先，send函数被定义在节点之间的边上，用户自定义send函数![](http://latex.codecogs.com/gif.latex?\\phi^e)会把消息从源点发送到目标节点。然后，recv函数![](http://latex.codecogs.com/gif.latex?\\phi^v)负责将这些消息用汇聚函数 ![](http://latex.codecogs.com/gif.latex?\\oplus) 汇聚起来。
 
 <img src="./docs/source/_static/message_passing_paradigm.png" alt="The basic idea of message passing paradigm" width="800">
 
-如下面左图所示，为了去适配用户定义的汇聚函数，DGL使用了Degree Bucketing来将相同度的节点组合在一个块，然后将汇聚函数![](http://latex.codecogs.com/gif.latex?\\oplus})作用在每个块之上。而对于PGL的用户定义汇聚函数，我们则将消息以PaddlePaddle的[LodTensor](http://www.paddlepaddle.org/documentation/docs/en/1.4/user_guides/howto/basic_concept/lod_tensor_en.html)的形式处理，将若干消息看作一组变长的序列，然后利用**LodTensor在PaddlePaddle的特性进行快速平行的消息聚合**。
+如下面左图所示，为了去适配用户定义的汇聚函数，DGL使用了Degree Bucketing来将相同度的节点组合在一个块，然后将汇聚函数![](http://latex.codecogs.com/gif.latex?\\oplus)作用在每个块之上。而对于PGL的用户定义汇聚函数，我们则将消息以PaddlePaddle的[LodTensor](http://www.paddlepaddle.org/documentation/docs/en/1.4/user_guides/howto/basic_concept/lod_tensor_en.html)的形式处理，将若干消息看作一组变长的序列，然后利用**LodTensor在PaddlePaddle的特性进行快速平行的消息聚合**。
 
 <img src="./docs/source/_static/parallel_degree_bucketing.png" alt="The parallel degree bucketing of PGL" width="800">
 
@@ -77,10 +94,11 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 
 ## 丰富性——覆盖业界大部分图学习网络
 
-下列是框架中已经自带实现的十三种图网络学习模型。详情请参考[这里](https://pgl.readthedocs.io/en/latest/introduction.html#highlight-tons-of-models)
+下列是框架中部分已经实现的图网络模型，更多的模型在[这里](./examples)可以找到。详情请参考[这里](https://pgl.readthedocs.io/en/latest/introduction.html#highlight-tons-of-models)
 
 | 模型 | 特点 |
 |---|---|
+| [**ERNIESage**](./examples/erniesage/) | 能同时建模文本以及图结构的ERNIE SAmple aggreGatE |
 | GCN | 图卷积网络 |
 | GAT | 基于Attention的图卷积网络 |
 | GraphSage | 基于邻居采样的大规模图卷积网络 |

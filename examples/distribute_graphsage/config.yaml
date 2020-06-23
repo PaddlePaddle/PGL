@@ -1,0 +1,19 @@
+# model config
+hidden_size: 128
+num_class: 41
+samples: [25, 10]
+graphsage_type: "graphsage_mean"
+
+# trainging config
+num_epoch: 10
+batch_size: 128
+num_sample_workers: 10
+optimizer: "adam"
+lr: 0.01
+warm_start_from_dir: null
+steps_per_save: 1000
+log_per_step: 1
+save_path: "./checkpoints"
+log_dir: "./logs"
+CPU_NUM: 1
+

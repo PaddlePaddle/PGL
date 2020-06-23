@@ -49,7 +49,6 @@ def main(args):
     with fluid.program_guard(train_program, startup_program):
         gw = pgl.graph_wrapper.GraphWrapper(
             "gw",
-            place,
             node_feat=[('norm', [None, 1], "float32")],
             edge_feat=[('weights', [None, 1], "float32")])
 

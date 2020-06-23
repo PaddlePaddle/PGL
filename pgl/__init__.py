@@ -13,7 +13,7 @@
 # limitations under the License.
 """Generate pgl apis
 """
-__version__ = "1.0.2"
+__version__ = "1.1.0"
 from pgl import layers
 from pgl import graph_wrapper
 from pgl import graph

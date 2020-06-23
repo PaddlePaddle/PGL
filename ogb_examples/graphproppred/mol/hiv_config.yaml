@@ -1,0 +1,53 @@
+task_name: hiv
+seed: 15391
+dataset_name: ogbg-molhiv
+eval_metrics: null 
+task_type: null
+num_class: null
+pool_type: average
+train_eps: True
+norm_type: layer_norm
+
+model_type: GNNModel
+embed_dim: 128
+num_layers: 5
+hidden_size: 256
+save_dir: ./checkpoints
+
+
+# finetune model config
+init_checkpoint: null
+init_pretraining_params: null
+
+# data config
+data_dir: ./dataset/
+symmetry: True
+batch_size: 32
+buf_size: 1000
+metrics: True
+shuffle: True
+num_workers: 12
+output_dir: ./outputs/
+
+# trainging config
+epoch: 50
+learning_rate: 0.0001
+lr_scheduler: linear_warmup_decay
+weight_decay: 0.01
+warmup_proportion: 0.1
+save_steps: 10000
+validation_steps: 1000
+use_dynamic_loss_scaling: True
+init_loss_scaling: 102400
+metric: simple_accuracy
+incr_every_n_steps: 100
+decr_every_n_nan_or_inf: 2
+incr_ratio: 2.0
+decr_ratio: 0.8
+log_dir: ./logs
+eval_step: 400
+train_log_step: 20
+
+# log config
+skip_steps: 10
+verbose: False

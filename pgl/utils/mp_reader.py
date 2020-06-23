@@ -25,7 +25,7 @@ except:
 import numpy as np
 import time
 import paddle.fluid as fluid
-from queue import Queue
+from multiprocessing import Queue
 import threading
 
 

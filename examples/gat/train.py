@@ -44,7 +44,6 @@ def main(args):
     with fluid.program_guard(train_program, startup_program):
         gw = pgl.graph_wrapper.GraphWrapper(
             name="graph",
-            place=place,
             node_feat=dataset.graph.node_feat_info())
 
         output = pgl.layers.gat(gw,

@@ -18,7 +18,7 @@ import paddle.fluid as fluid
 from pgl import graph_wrapper
 from pgl.utils import paddle_helper
 
-__all__ = ['gcn', 'gat', 'gin']
+__all__ = ['gcn', 'gat', 'gin', 'gaan']
 
 
 def gcn(gw, feature, hidden_size, activation, name, norm=None):
@@ -238,13 +238,117 @@ def gin(gw,
                              param_attr=fluid.ParamAttr(name="%s_w_0" % name),
                              bias_attr=fluid.ParamAttr(name="%s_b_0" % name))
 
-    output = fluid.layers.batch_norm(output)
-    output = getattr(fluid.layers, activation)(output)
+    output = fluid.layers.layer_norm(
+        output,
+        begin_norm_axis=1,
+        param_attr=fluid.ParamAttr(
+            name="norm_scale_%s" % (name),
+            initializer=fluid.initializer.Constant(1.0)),
+        bias_attr=fluid.ParamAttr(
+            name="norm_bias_%s" % (name),
+            initializer=fluid.initializer.Constant(0.0)), )
+
+    if activation is not None:
+        output = getattr(fluid.layers, activation)(output)
 
     output = fluid.layers.fc(output,
                              size=hidden_size,
                              act=activation,
                              param_attr=fluid.ParamAttr(name="%s_w_1" % name),
                              bias_attr=fluid.ParamAttr(name="%s_b_1" % name))
+
+    return output
+
+
+def gaan(gw, feature, hidden_size_a, hidden_size_v, hidden_size_m, hidden_size_o, heads, name):
+    """Implementation of GaAN"""
+
+    def send_func(src_feat, dst_feat, edge_feat):
+        # 计算每条边上的注意力分数
+        # E * (M * D1), 每个 dst 点都查询它的全部邻边的 src 点
+        feat_query, feat_key = dst_feat['feat_query'], src_feat['feat_key']
+        # E * M * D1
+        old = feat_query
+        feat_query = fluid.layers.reshape(feat_query, [-1, heads, hidden_size_a])
+        feat_key = fluid.layers.reshape(feat_key, [-1, heads, hidden_size_a])
+        # E * M
+        alpha = fluid.layers.reduce_sum(feat_key * feat_query, dim=-1)
+
+        return {'dst_node_feat': dst_feat['node_feat'],
+                'src_node_feat': src_feat['node_feat'],
+                'feat_value': src_feat['feat_value'],
+                'alpha': alpha,
+                'feat_gate': src_feat['feat_gate']}
+
+    def recv_func(message):
+        # 每条边的终点的特征
+        dst_feat = message['dst_node_feat']
+        # 每条边的出发点的特征
+        src_feat = message['src_node_feat']
+        # 每个中心点自己的特征
+        x = fluid.layers.sequence_pool(dst_feat, 'average')
+        # 每个中心点的邻居的特征的平均值
+        z = fluid.layers.sequence_pool(src_feat, 'average')
+
+        # 计算 gate
+        feat_gate = message['feat_gate']
+        g_max = fluid.layers.sequence_pool(feat_gate, 'max')
+        g = fluid.layers.concat([x, g_max, z], axis=1)
+        g = fluid.layers.fc(g, heads, bias_attr=False, act="sigmoid")
+
+        # softmax
+        alpha = message['alpha']
+        alpha = paddle_helper.sequence_softmax(alpha) # E * M
+
+        feat_value = message['feat_value'] # E * (M * D2)
+        old = feat_value
+        feat_value = fluid.layers.reshape(feat_value, [-1, heads, hidden_size_v]) # E * M * D2
+        feat_value = fluid.layers.elementwise_mul(feat_value, alpha, axis=0)
+        feat_value = fluid.layers.reshape(feat_value, [-1, heads*hidden_size_v]) # E * (M * D2)
+        feat_value = fluid.layers.lod_reset(feat_value, old)
+
+        feat_value = fluid.layers.sequence_pool(feat_value, 'sum') # N * (M * D2)
+
+        feat_value = fluid.layers.reshape(feat_value, [-1, heads, hidden_size_v]) # N * M * D2
+
+        output = fluid.layers.elementwise_mul(feat_value, g, axis=0)
+        output = fluid.layers.reshape(output, [-1, heads * hidden_size_v]) # N * (M * D2)
+
+        output = fluid.layers.concat([x, output], axis=1)
+
+        return output
+
+    # feature N * D
+
+    # 计算每个点自己需要发送出去的内容
+    # 投影后的特征向量
+    # N * (D1 * M)
+    feat_key = fluid.layers.fc(feature, hidden_size_a * heads, bias_attr=False,
+                     param_attr=fluid.ParamAttr(name=name + '_project_key'))
+    # N * (D2 * M)
+    feat_value = fluid.layers.fc(feature, hidden_size_v * heads, bias_attr=False,
+                     param_attr=fluid.ParamAttr(name=name + '_project_value'))
+    # N * (D1 * M)
+    feat_query = fluid.layers.fc(feature, hidden_size_a * heads, bias_attr=False,
+                     param_attr=fluid.ParamAttr(name=name + '_project_query'))
+    # N * Dm
+    feat_gate = fluid.layers.fc(feature, hidden_size_m, bias_attr=False, 
+                                param_attr=fluid.ParamAttr(name=name + '_project_gate'))
+
+    # send 阶段
+
+    message = gw.send(
+        send_func,
+        nfeat_list=[('node_feat', feature), ('feat_key', feat_key), ('feat_value', feat_value),
+                    ('feat_query', feat_query), ('feat_gate', feat_gate)],
+        efeat_list=None,
+    )
+
+    # 聚合邻居特征
+    output = gw.recv(message, recv_func)
+    output = fluid.layers.fc(output, hidden_size_o, bias_attr=False,
+                            param_attr=fluid.ParamAttr(name=name + '_project_output'))
+    output = fluid.layers.leaky_relu(output, alpha=0.1)
+    output = fluid.layers.dropout(output, dropout_prob=0.1)
 
     return output
