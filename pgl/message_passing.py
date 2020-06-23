@@ -50,13 +50,14 @@ def max_recv(feat):
     return fluid.layers.sequence_pool(feat, pool_type="max")
 
 
-def lstm_recv(feat):
+def lstm_recv(hidden_dim):
     """doc"""
-    hidden_dim = 128
-    forward, _ = fluid.layers.dynamic_lstm(
-        input=feat, size=hidden_dim * 4, use_peepholes=False)
-    output = fluid.layers.sequence_last_step(forward)
-    return output
+    def lstm_recv_inside(feat):
+        forward, _ = fluid.layers.dynamic_lstm(
+            input=feat, size=hidden_dim * 4, use_peepholes=False)
+        output = fluid.layers.sequence_last_step(forward)
+        return output
+    return lstm_recv_inside
 
 
 def graphsage_sum(gw, feature, hidden_size, act, initializer, learning_rate, name):

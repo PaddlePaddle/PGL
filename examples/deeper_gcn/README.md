@@ -12,6 +12,14 @@ The datasets contain three citation networks: CORA, PUBMED, CITESEER. The detail
 - paddlepaddle>=1.6
 - pgl
 
+### Performance
+
+We train our models for 200 epochs and report the accuracy on the test dataset.
+
+| Dataset | Accuracy |
+| --- | --- |
+| Cora | ~77% | 
+
 ### How to run
 
 For examples, use gpu to train gat on cora dataset.

@@ -44,7 +44,7 @@ def main(args):
     startup_program = fluid.Program()
     test_program = fluid.Program()
     hidden_size = 64
-    num_layers = 50
+    num_layers = 7
 
     with fluid.program_guard(train_program, startup_program):
         gw = pgl.graph_wrapper.GraphWrapper(
@@ -103,7 +103,7 @@ def main(args):
     
     # get beta param
     beta_param_list = []
-    for param in train_program.global_block().all_parameters():
+    for param in fluid.io.get_program_parameter(train_program):
         if param.name.endswith("_beta"):
             beta_param_list.append(param)
 
@@ -119,7 +119,7 @@ def main(args):
                                         return_numpy=True)
         for param in beta_param_list:
             beta = np.array(fluid.global_scope().find_var(param.name).get_tensor())
-            writer.add_scalar(param.name, beta, epoch)
+            writer.add_scalar("beta/"+param.name, beta, epoch)
 
         if epoch >= 3:
             time_per_epoch = 1.0 * (time.time() - t0)
