@@ -12,7 +12,7 @@ The ogbn-proteins dataset will be downloaded in directory ./dataset automaticall
 
 ## How to run
 ```bash
-python train.py --lr 1e-2 --rc 0 --batch_size 1024 --epochs 100 --gpu_id 0
+python train.py --lr 1e-2 --rc 0 --batch_size 1024 --epochs 100
 ```
 
 or
@@ -23,7 +23,6 @@ source main.sh
 ### Hyperparameters
 - use_gpu: whether to use gpu or not
 - mini_data: use a small dataset to test code
-- gpu_id: the id of gpu
 - epochs: number of training epochs
 - lr: learning rate
 - rc: regularization coefficient
