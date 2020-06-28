@@ -124,7 +124,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n_route', type=int, default=74)
+    parser.add_argument('--n_route', type=int, default=5)
     parser.add_argument('--n_his', type=int, default=23)
     parser.add_argument('--n_pred', type=int, default=3)
     parser.add_argument('--batch_size', type=int, default=10)
