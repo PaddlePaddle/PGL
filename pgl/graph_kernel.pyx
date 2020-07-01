@@ -322,12 +322,12 @@ def alias_sample_build_table(np.ndarray[np.float64_t, ndim=1] probs):
                 smaller_num.push_back(l_i)
     return alias, events
 
-
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def extract_edges_from_nodes(
     np.ndarray[np.int64_t, ndim=1] adj_indptr,
     np.ndarray[np.int64_t, ndim=1] sorted_v,
+    np.ndarray[np.int64_t, ndim=1] sorted_eid,
     vector[long long] sampled_nodes,
 ):
     """
@@ -357,7 +357,7 @@ def extract_edges_from_nodes(
             j = start_neigh
             while j < end_neigh:
                 if _arr_bit[sorted_v[j]] > -1:
-                    ret_edge_index.push_back(j)
+                    ret_edge_index.push_back(sorted_eid[j])
                 j = j + 1
             i = i + 1
     return ret_edge_index

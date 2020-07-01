@@ -480,8 +480,8 @@ def pinsage_sample(graph,
 
 def extract_edges_from_nodes(graph, sample_nodes):
     eids = graph_kernel.extract_edges_from_nodes(
-        graph._adj_dst_index._indptr, graph._adj_dst_index._sorted_v,
-        sample_nodes)
+        graph.adj_src_index._indptr, graph.adj_src_index._sorted_v,
+        graph.adj_src_index._sorted_eid, sample_nodes)
     return eids
 
 
@@ -505,7 +505,7 @@ def graph_saint_random_walk_sample(graph,
     Return:
         a subgraph of sampled nodes.
     """
-    graph.indegree()
+    graph.outdegree()
     walks = deepwalk_sample(graph, nodes, max_depth, alias_name, events_name)
     sample_nodes = []
     for walk in walks:
