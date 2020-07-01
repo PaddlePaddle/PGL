@@ -321,3 +321,43 @@ def alias_sample_build_table(np.ndarray[np.float64_t, ndim=1] probs):
             if alias[l_i] < 1:
                 smaller_num.push_back(l_i)
     return alias, events
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def adj_extract(
+    np.ndarray[np.int64_t, ndim=1] adj_indptr,
+    np.ndarray[np.int64_t, ndim=1] sorted_v,
+    vector[long long] sampled_nodes,
+):
+    """
+    Extract all eids of given sampled_nodes for the origin graph.
+    ret_edge_index: edge ids between sampled_nodes.
+
+    Refers: https://github.com/GraphSAINT/GraphSAINT
+    """
+    cdef long long i, v, j
+    cdef long long num_v_orig, num_v_sub
+    cdef long long start_neigh, end_neigh
+    cdef vector[int] _arr_bit
+    cdef vector[long long] ret_edge_index
+    num_v_orig = adj_indptr.size-1
+    _arr_bit = vector[int](num_v_orig,-1)
+    num_v_sub = sampled_nodes.size()
+    i = 0
+    with nogil:
+        while i < num_v_sub:
+            _arr_bit[sampled_nodes[i]] = i
+            i = i + 1
+        i = 0
+        while i < num_v_sub:
+            v = sampled_nodes[i]
+            start_neigh = adj_indptr[v]
+            end_neigh = adj_indptr[v+1]
+            j = start_neigh
+            while j < end_neigh:
+                if _arr_bit[sorted_v[j]] > -1:
+                    ret_edge_index.push_back(j)
+                j = j + 1
+            i = i + 1
+    return ret_edge_index
