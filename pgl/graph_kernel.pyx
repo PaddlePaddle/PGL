@@ -325,7 +325,7 @@ def alias_sample_build_table(np.ndarray[np.float64_t, ndim=1] probs):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def adj_extract(
+def extract_edges_from_nodes(
     np.ndarray[np.int64_t, ndim=1] adj_indptr,
     np.ndarray[np.int64_t, ndim=1] sorted_v,
     vector[long long] sampled_nodes,

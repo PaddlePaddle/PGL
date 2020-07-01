@@ -24,7 +24,7 @@ from pgl import graph_kernel
 
 __all__ = [
     'graphsage_sample', 'node2vec_sample', 'deepwalk_sample',
-    'metapath_randomwalk', 'pinsage_sample'
+    'metapath_randomwalk', 'pinsage_sample', 'graph_saint_random_walk_sample'
 ]
 
 
@@ -478,6 +478,13 @@ def pinsage_sample(graph,
     return subgraphs
 
 
+def extract_edges_from_nodes(graph, sample_nodes):
+    eids = graph_kernel.extract_edges_from_nodes(
+        graph._adj_dst_index._indptr, graph._adj_dst_index._sorted_v,
+        sample_nodes)
+    return eids
+
+
 def graph_saint_random_walk_sample(graph,
                                    nodes,
                                    max_depth,
@@ -504,9 +511,7 @@ def graph_saint_random_walk_sample(graph,
     for walk in walks:
         sample_nodes.extend(walk)
     sample_nodes = np.unique(sample_nodes)
-    eids = graph_kernel.adj_extract(graph._adj_dst_index._indptr,
-                                    graph._adj_dst_index._sorted_v,
-                                    sample_nodes)
+    eids = extract_edges_from_nodes(graph, sample_nodes)
     subgraph = graph.subgraph(
         nodes=sample_nodes, eid=eids, with_node_feat=True, with_edge_feat=True)
     subgraph.node_feat["index"] = np.array(sample_nodes, dtype="int64")
