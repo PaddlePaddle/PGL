@@ -24,7 +24,7 @@ import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
 from pgl.contrib.ogb.nodeproppred.dataset_pgl import PglNodePropPredDataset
-#from pgl.sample import graph_saint_random_walk_sample
+from pgl.sample import graph_saint_random_walk_sample
 from ogb.nodeproppred import Evaluator
 import tqdm
 from collections import namedtuple
@@ -78,10 +78,10 @@ def k_hop_sampler(graph, samples, batch_nodes):
     return subgraph, sub_node_index
 
 
-#def graph_saint_randomwalk_sampler(graph, batch_nodes, max_depth=3):
-#    subgraph = graph_saint_random_walk_sample(graph, batch_nodes, max_depth)
-#    sub_node_index = subgraph.reindex_from_parrent_nodes(batch_nodes)
-#    return subgraph, sub_node_index
+def graph_saint_randomwalk_sampler(graph, batch_nodes, max_depth=3):
+    subgraph = graph_saint_random_walk_sample(graph, batch_nodes, max_depth)
+    sub_node_index = subgraph.reindex_from_parrent_nodes(batch_nodes)
+    return subgraph, sub_node_index
 
 
 class ArxivDataGenerator(BaseDataGenerator):

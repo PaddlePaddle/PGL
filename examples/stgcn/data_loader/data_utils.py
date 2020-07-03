@@ -167,9 +167,6 @@ def data_gen_mydata(input_file, label_file, n, n_his, n_pred, n_config):
     x = x.drop(columns=['date'])
     y = y.drop(columns=['date'])
 
-    x = x.drop(columns=['武汉'])
-    y = y.drop(columns=['武汉'])
-
     # param
     n_val, n_test = n_config
     n_train = len(y) - n_val - n_test - 2
