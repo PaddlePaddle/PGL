@@ -167,7 +167,7 @@ class HeterGraph(object):
         """Return the number of nodes with the specified node type.
         """
         if n_type not in self._nodes_type_dict:
-            raise ("%s is not in valid node type" % n_type)
+            raise ValueError("%s is not in valid node type" % n_type)
         else:
             return len(self._nodes_type_dict[n_type])
 
@@ -250,9 +250,9 @@ class HeterGraph(object):
         Return:
 
             Return a list of numpy.ndarray and each numpy.ndarray represent a list
-            of sampled successor ids for given nodes with specified edge type. 
-            If :code:`return_eids=True`, there will be an additional list of 
-            numpy.ndarray and each numpy.ndarray represent a list of eids that 
+            of sampled successor ids for given nodes with specified edge type.
+            If :code:`return_eids=True`, there will be an additional list of
+            numpy.ndarray and each numpy.ndarray represent a list of eids that
             connected nodes to their successors.
         """
         return self._multi_graph[edge_type].sample_successor(
@@ -294,9 +294,9 @@ class HeterGraph(object):
         Return:
 
             Return a list of numpy.ndarray and each numpy.ndarray represent a list
-            of sampled predecessor ids for given nodes with specified edge type. 
-            If :code:`return_eids=True`, there will be an additional list of 
-            numpy.ndarray and each numpy.ndarray represent a list of eids that 
+            of sampled predecessor ids for given nodes with specified edge type.
+            If :code:`return_eids=True`, there will be an additional list of
+            numpy.ndarray and each numpy.ndarray represent a list of eids that
             connected nodes to their predecessors.
         """
         return self._multi_graph[edge_type].sample_predecessor(
@@ -314,8 +314,8 @@ class HeterGraph(object):
             batch_size: The batch size of each batch of nodes.
 
             shuffle: Whether shuffle the nodes.
-            
-            n_type: Iterate the nodes with the specified node type. If n_type is None, 
+
+            n_type: Iterate the nodes with the specified node type. If n_type is None,
                     iterate all nodes by batch.
 
         Return:
@@ -353,6 +353,68 @@ class HeterGraph(object):
         else:
             return np.random.randint(
                 low=0, high=self._num_nodes, size=sample_num)
+
+    def subgraph(self,
+                 nodes,
+                 eid=None,
+                 edges=None,
+                 edge_feats=None,
+                 with_node_feat=True,
+                 with_edge_feat=True):
+        """Generate subgraph of hetergraph with nodes and edges ids.
+
+        Note that the eid or edges should be a dict for different types of graph.
+        """
+        if eid is None and edges is None:
+            raise ValueError("Eid and edges can't be None at the same time.")
+
+        reindex = {}
+        for ind, node in enumerate(nodes):
+            reindex[node] = ind
+
+        if edges is None:
+            edges = {}
+            for edge_type, v in eid.items():
+                edges[edge_type] = self._multi_graph[edge_type].edges[np.array(
+                    v, dtype="int64")]
+        else:
+            for edge_type, v in edges.items():
+                edges[edge_type] = np.array(v, dtype="int64")
+
+        sub_edges = {}
+        for edge_type, value in edges.items():
+            sub_edges[edge_type] = graph_kernel.map_edges(
+                np.arange(
+                    len(value), dtype="int64"),
+                edges[edge_type],
+                reindex)
+
+        sub_edge_feat = {}
+        if edges is None:
+            if with_edge_feat:
+                for edge_type in sub_edges.keys():
+                    value = self._edge_feat[edge_type]
+                    sub_edge_feat[edges_type] = {}
+                    for k, v in value.items():
+                        sub_edge_feat[edges_type][k] = value[eid[edge_type]]
+        else:
+            sub_edge_feat = edge_feats
+
+        sub_node_feat = {}
+        if with_node_feat:
+            for key, value in self._node_feat.items():
+                sub_node_feat[key] = value[nodes]
+
+        sub_node_types = self.node_types[nodes]
+        subgraph = SubHeterGraph(
+            num_nodes=len(nodes),
+            edges=sub_edges,
+            node_types=sub_node_types,
+            node_feat=sub_node_feat,
+            edge_feat=sub_edge_feat,
+            reindex=reindex)
+
+        return subgraph
 
     def node_feat_info(self):
         """Return the information of node feature for HeterGraphWrapper.
@@ -393,10 +455,10 @@ class HeterGraph(object):
 
     def edge_types_info(self):
         """Return the information of all edge types.
-        
+
         Return:
             A list of all edge types.
-        
+
         """
         edge_types_info = []
         for key, _ in self._edges_dict.items():
@@ -408,7 +470,7 @@ class HeterGraph(object):
 class SubHeterGraph(HeterGraph):
     """Implementation of SubHeterGraph in pgl.
 
-    SubHeterGraph is inherit from :code:`HeterGraph`. 
+    SubHeterGraph is inherit from :code:`HeterGraph`.
 
     Args:
         num_nodes: number of nodes in a heterogeneous graph

@@ -136,6 +136,35 @@ class HeterGraphTest(unittest.TestCase):
         for n in nodes:
             self.assertIn(n, ground)
 
+    def test_subgraph(self):
+        print()
+        eids = {}
+        edges = {}
+        eids['c2p'] = [0, 1, 5, 8]
+        eids['p2c'] = eids['c2p']
+        eids['p2a'] = [1, 2, 3, 4]
+        eids['a2p'] = eids['p2a']
+
+        edges['c2p'] = [(1, 4), (0, 5), (2, 5), (3, 4)]
+        edges['p2c'] = [(v, u) for u, v in edges['c2p']]
+        edges['p2a'] = [(4, 11), (4, 12), (4, 14), (4, 13)]
+        edges['a2p'] = [(v, u) for u, v in edges['p2a']]
+        nodes = set()
+        for edge in edges.values():
+            for tup in edge:
+                nodes.add(tup[0])
+                nodes.add(tup[1])
+        g = self.graph.subgraph(
+            nodes=sorted(list(nodes)),
+            #edges=edges
+            eid=eids)
+        print(g._from_reindex)
+        print('subgraph', g['c2p'].edges)
+        print(g['p2c'].edges)
+        print('subgraph', g['p2a'].edges)
+        print(g['a2p'].edges)
+        pass
+
 
 if __name__ == "__main__":
     unittest.main()
