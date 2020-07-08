@@ -81,7 +81,7 @@ def read_csv_heterograph_pgl(raw_dir,
             inverse_v = np.array(v)
             inverse_v[0, :] = v[1, :]
             inverse_v[1, :] = v[0, :]
-            if k[0] != k[1]:
+            if k[0] != k[2]:
                 edges_by_types["{}2{}".format(k[0][0], k[2][0])] = v.T
                 edges_by_types["{}2{}".format(k[2][0], k[0][0])] = inverse_v.T
             else:

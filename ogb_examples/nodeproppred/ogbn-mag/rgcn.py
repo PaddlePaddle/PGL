@@ -42,14 +42,14 @@ def rgcn_conv(graph_wrapper,
     output = None
     for i in range(len(edge_types)):
         assert feature is not None
-        feature = fluid.layers.fc(
+        tmp_feat = fluid.layers.fc(
             feature,
             size=hidden_size,
-            param_attr=fluid.ParamAttr(name='%s_edge_fc_%s' %
-                                       (name, edge_types[i])),
+            param_attr=fluid.ParamAttr(name='%s_node_fc_%s' %
+                                       (name, edge_types[i].split("2")[0])),
             act=None)
         if output is None:
-            output = fluid.layers.zeros_like(feature)
+            output = fluid.layers.zeros_like(tmp_feat)
         msg = gw[edge_types[i]].send(__message, nfeat_list=[('h', feature)])
         neigh_feat = gw[edge_types[i]].recv(msg, __reduce)
         # The weight of FC should be the same for the same type of node
@@ -57,10 +57,10 @@ def rgcn_conv(graph_wrapper,
         neigh_feat = fluid.layers.fc(
             neigh_feat,
             size=hidden_size,
-            param_attr=fluid.ParamAttr(name='%s_node_fc_%s' %
-                                       (name, edge_types[i].split("2")[-1])),
+            param_attr=fluid.ParamAttr(name='%s_edge_fc_%s' %
+                                       (name, edge_types[i])),
             act=None)
-        output = output + neigh_feat
+        output = output + neigh_feat * tmp_feat
     #output = fluid.layers.relu(out)
     return output
 

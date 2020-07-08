@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 os.environ['CPU_NUM'] = str(20)
 import numpy as np
 import copy
@@ -32,9 +32,13 @@ from pgl.utils.share_numpy import ToShareMemGraph
 def hetero2homo(heterograph):
     edge = []
     for edge_type in heterograph.edge_types_info():
+        print('edge_type: ', edge_type, ' shape of edges : ',
+              heterograph[edge_type].edges.shape)
         edge.append(heterograph[edge_type].edges)
     edges = np.vstack(edge)
     g = pgl.graph.Graph(num_nodes=heterograph.num_nodes, edges=edges)
+    print('homo graph nodes ', g.num_nodes)
+    print('homo graph edges ', g.num_edges)
     g.outdegree()
     ToShareMemGraph(g)
     return g
@@ -83,9 +87,9 @@ def graph_saint_random_walk_sample(graph,
     sample_nodes = []
     for walk in walks:
         sample_nodes.extend(walk)
-    print("length of sample_nodes ", len(sample_nodes))
+    #print("length of sample_nodes ", len(sample_nodes))
     sample_nodes = np.unique(sample_nodes)
-    print("length of unique sample_nodes ", len(sample_nodes))
+    #print("length of unique sample_nodes ", len(sample_nodes))
 
     eids = extract_edges_from_nodes(hetergraph, sample_nodes)
     subgraph = hetergraph.subgraph(
@@ -212,8 +216,8 @@ def run_epoch(exe, loss, acc, homograph, hetergraph, gw, train_program,
                     phase, homograph, hetergraph, gw,
                     split_real_idx[phase]['paper'],
                     all_label['paper'][split_idx[phase]['paper']]):
-                print("train_shape\t", feed_dict['train_index'].shape)
-                print("allnode_shape\t", feed_dict['sub_node_index'].shape)
+                #print("train_shape\t", feed_dict['train_index'].shape)
+                #print("allnode_shape\t", feed_dict['sub_node_index'].shape)
                 res = exe.run(
                     train_program if phase == 'train' else test_program,
                     # test_program,
@@ -265,8 +269,8 @@ def main():
     train_index = split_real_idx['train']['paper']
     homograph._node_feat['train_label'][train_index] = train_label
 
-    #place = fluid.CUDAPlace(0)
-    place = fluid.CPUPlace()
+    place = fluid.CUDAPlace(0)
+    #place = fluid.CPUPlace()
     train_program = fluid.Program()
     startup_program = fluid.Program()
     test_program = fluid.Program()
@@ -288,7 +292,7 @@ def main():
             default_initializer=fluid.initializer.NumpyArrayInitializer(
                 extact_index),
             name='paper_index')
-        #paper_feature.stop_gradient=True
+        paper_feature.stop_gradient = True
         paper_index.stop_gradient = True
 
         sub_node_index = fluid.layers.data(
@@ -314,7 +318,7 @@ def main():
         #feat = paper_mask(feat, gw, start_paper_index)
         feat = fluid.layers.gather(feat, train_index)
         loss, logit, acc = softmax_loss(feat, label, num_class)
-        opt = fluid.optimizer.AdamOptimizer(learning_rate=0.002)
+        opt = fluid.optimizer.AdamOptimizer(learning_rate=0.005)
         opt.minimize(loss)
 
     test_program = train_program.clone(for_test=True)
