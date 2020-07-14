@@ -13,6 +13,7 @@
 # limitations under the License.
 """NodePropPredDataset for pgl
 """
+import pgl
 import pandas as pd
 import shutil, os
 import os.path as osp
@@ -69,8 +70,19 @@ class PglNodePropPredDataset(object):
         pre_processed_file_path = osp.join(processed_dir, 'pgl_data_processed')
 
         if osp.exists(pre_processed_file_path):
-            # TODO: Reload Preprocess files
-            pass
+            # TODO: Reload Preprocess files. DONE @ZHUI
+            # TODO: add support for heterogenous graph.
+            self.graph = []
+            if os.path.isdir(pre_processed_file_path):
+                for i in range(len(os.listdir(pre_processed_file_path))):
+                    graph_path = os.path.join(pre_processed_file_path,
+                                              "graph_{}".format(i))
+                    if os.path.exists(graph_path):
+                        self.graph.append(pgl.graph.Graph().load(graph_path))
+            node_label = np.load(
+                os.path.join(pre_processed_file_path, "node_label.npy"))
+            label_dict = {"labels": node_label}
+            self.labels = label_dict['labels']
         else:
             ### check download
             if not osp.exists(osp.join(self.root, "raw")):
@@ -152,8 +164,15 @@ class PglNodePropPredDataset(object):
 
                 label_dict = {"labels": node_label}
 
-                # TODO: SAVE preprocess graph
                 self.labels = label_dict['labels']
+                # TODO: SAVE preprocess graph, DONE @ZHUI
+                for i in range(len(self.graph)):
+                    self.graph[i].dump(
+                        os.path.join(pre_processed_file_path,
+                                     "graph_{}".format(i)))
+                np.save(
+                    os.path.join(pre_processed_file_path, "node_label.npy"),
+                    node_label)
 
     def get_idx_split(self):
         """Train/Validation/Test split
