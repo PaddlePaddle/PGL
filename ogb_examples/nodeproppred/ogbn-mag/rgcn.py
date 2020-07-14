@@ -14,9 +14,9 @@
 
 import paddle
 import pgl
-import paddle.fluid as fluid
 import numpy as np
-from pgl.contrib.ogb.nodeproppred.dataset_pgl import PglNodePropPredDataset
+import paddle.fluid as fluid
+from paddle.fluid.contrib import summary
 
 
 def rgcn_conv(graph_wrapper,
@@ -34,14 +34,11 @@ def rgcn_conv(graph_wrapper,
         """
         return fluid.layers.sequence_pool(feat, pool_type='average')
 
-    gw = graph_wrapper
     if not isinstance(edge_types, list):
         edge_types = [edge_types]
 
-    #output = fluid.layers.zeros((feature.shape[0], hidden_size), dtype='float32')
     output = None
     for i in range(len(edge_types)):
-        assert feature is not None
         tmp_feat = fluid.layers.fc(
             feature,
             size=hidden_size,
@@ -50,8 +47,9 @@ def rgcn_conv(graph_wrapper,
             act=None)
         if output is None:
             output = fluid.layers.zeros_like(tmp_feat)
-        msg = gw[edge_types[i]].send(__message, nfeat_list=[('h', feature)])
-        neigh_feat = gw[edge_types[i]].recv(msg, __reduce)
+        msg = graph_wrapper[edge_types[i]].send(
+            __message, nfeat_list=[('h', tmp_feat)])
+        neigh_feat = graph_wrapper[edge_types[i]].recv(msg, __reduce)
         # The weight of FC should be the same for the same type of node
         # The edge type str should be `A2B`(from type A to type B)
         neigh_feat = fluid.layers.fc(
@@ -60,24 +58,25 @@ def rgcn_conv(graph_wrapper,
             param_attr=fluid.ParamAttr(name='%s_edge_fc_%s' %
                                        (name, edge_types[i])),
             act=None)
+        # TODO: the tmp_feat and neigh_feat should be add togather.
         output = output + neigh_feat * tmp_feat
-    #output = fluid.layers.relu(out)
+
     return output
 
 
 class RGCNModel:
-    def __init__(self, gw, layers, num_class, num_nodes, edge_types):
-        self.hidden_size = 64
-        self.layers = layers
-        self.num_nodes = num_nodes
-        self.edge_types = edge_types
-        self.gw = gw
+    def __init__(self, graph_wrapper, num_layers, hidden_size, num_class,
+                 edge_types):
+        self.graph_wrapper = graph_wrapper
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
         self.num_class = num_class
+        self.edge_types = edge_types
 
     def forward(self, feat):
-        for i in range(self.layers - 1):
+        for i in range(self.num_layers - 1):
             feat = rgcn_conv(
-                self.gw,
+                self.graph_wrapper,
                 feat,
                 self.hidden_size,
                 self.edge_types,
@@ -85,49 +84,44 @@ class RGCNModel:
             feat = fluid.layers.relu(feat)
             feat = fluid.layers.dropout(feat, dropout_prob=0.5)
         feat = rgcn_conv(
-            self.gw,
+            self.graph_wrapper,
             feat,
             self.num_class,
             self.edge_types,
-            name="rgcn_%d" % (self.layers - 1))
+            name="rgcn_%d" % (self.num_layers - 1))
         return feat
 
 
-def softmax_loss(feat, label, class_num):
-    #logit = fluid.layers.fc(feat, class_num)
-    logit = feat
+def cross_entropy_loss(logit, label):
     loss = fluid.layers.softmax_with_cross_entropy(logit, label)
     loss = fluid.layers.mean(loss)
     acc = fluid.layers.accuracy(fluid.layers.softmax(logit), label)
-    return loss, logit, acc
-
-
-def paper_mask(feat, gw, start_index):
-    mask = fluid.layers.cast(gw[0].node_feat['index'] > start_index)
-    feat = fluid.layers.mask_select(feat, mask)
-    return feat
+    return loss, acc
 
 
 if __name__ == "__main__":
-    #PglNodePropPredDataset('ogbn-mag')
     num_nodes = 4
     num_class = 2
+    feat_dim = 16
+    hidden_size = 16
+    num_layers = 2
+
     node_types = [(0, 'user'), (1, 'user'), (2, 'item'), (3, 'item')]
     edges = {
         'U2U': [(0, 1), (1, 0)],
         'U2I': [(1, 2), (0, 3), (1, 3)],
         'I2I': [(2, 3), (3, 2)],
     }
-    node_feat = {'feature': np.random.randn(4, 16)}
+    node_feat = {'feature': np.random.randn(4, feat_dim)}
     edges_feat = {
         'U2U': {
-            'h': np.random.randn(2, 16)
+            'h': np.random.randn(2, feat_dim)
         },
         'U2I': {
-            'h': np.random.randn(3, 16)
+            'h': np.random.randn(3, feat_dim)
         },
         'I2I': {
-            'h': np.random.randn(2, 16)
+            'h': np.random.randn(2, feat_dim)
         },
     }
     g = pgl.heter_graph.HeterGraph(
@@ -136,14 +130,13 @@ if __name__ == "__main__":
         node_types=node_types,
         node_feat=node_feat,
         edge_feat=edges_feat)
-    place = fluid.CPUPlace()
+
     train_program = fluid.Program()
     startup_program = fluid.Program()
     test_program = fluid.Program()
 
     with fluid.program_guard(train_program, startup_program):
         label = fluid.layers.data(shape=[-1], dtype="int64", name='label')
-        #label = fluid.layers.create_global_var(shape=[4], value=1, dtype="int64")
         label = fluid.layers.reshape(label, [-1, 1])
         label.stop_gradient = True
         gw = pgl.heter_graph_wrapper.HeterGraphWrapper(
@@ -153,23 +146,24 @@ if __name__ == "__main__":
             edge_feat=g.edge_feat_info())
 
         feat = fluid.layers.create_parameter(
-            shape=[num_nodes, 16], dtype='float32')
+            shape=[num_nodes, feat_dim], dtype='float32')
 
-        model = RGCNModel(gw, 3, num_class, num_nodes, g.edge_types_info())
-        feat = model.forward(feat)
-        loss, logit, acc = softmax_loss(feat, label, 2)
-        opt = fluid.optimizer.AdamOptimizer(learning_rate=0.001)
+        model = RGCNModel(gw, num_layers, num_class, hidden_size,
+                          g.edge_types_info())
+        logit = model.forward(feat)
+        loss, acc = cross_entropy_loss(logit, label)
+        opt = fluid.optimizer.SGD(learning_rate=0.1)
         opt.minimize(loss)
-    from paddle.fluid.contrib import summary
-    summary(train_program)
 
+    summary(train_program)
+    place = fluid.CPUPlace()
     exe = fluid.Executor(place)
     exe.run(startup_program)
+
     feed_dict = gw.to_feed(g)
     feed_dict['label'] = np.array([1, 0, 1, 1]).astype('int64')
     for i in range(100):
         res = exe.run(train_program,
                       feed=feed_dict,
-                      fetch_list=[loss.name, logit.name, acc.name])
-        print("%d %f %f" % (i, res[0], res[2]))
-        #print(res[1])
+                      fetch_list=[loss.name, acc.name])
+        print("STEP: %d  LOSS: %f  ACC: %f" % (i, res[0], res[1]))

@@ -479,10 +479,34 @@ def pinsage_sample(graph,
 
 
 def extract_edges_from_nodes(graph, sample_nodes):
-    eids = graph_kernel.extract_edges_from_nodes(
-        graph.adj_src_index._indptr, graph.adj_src_index._sorted_v,
-        graph.adj_src_index._sorted_eid, sample_nodes)
-    return eids
+    """ Tools for extract all edges of certrain nodes.
+
+    Note: Before calling this method, please build adj_src_index first.
+
+    Args:
+        graph: A pgl graph instance of hetergraph instance
+        sample_nodes: the given nodes
+
+    Return:
+        eids array for graph instance.
+        or a dict of eids array for hetergraph instance.
+    """
+    sample_nodes = np.array(sample_nodes, dtype='int64')
+    if isinstance(graph, pgl.graph.Graph):
+        eids = graph_kernel.extract_edges_from_nodes(
+            graph.adj_src_index._indptr, graph.adj_src_index._sorted_v,
+            graph.adj_src_index._sorted_eid, sample_nodes)
+        return eids
+    elif isinstance(graph, pgl.heter_graph.HeterGraph):
+        eids = {}
+        for key in graph.edge_types_info():
+            eids[key] = pgl.graph_kernel.extract_edges_from_nodes(
+                graph[key].adj_src_index._indptr,
+                graph[key].adj_src_index._sorted_v,
+                graph[key].adj_src_index._sorted_eid, sample_nodes)
+        return eids
+    else:
+        raise ValueError("Please pass a graph instance to this function!")
 
 
 def graph_saint_random_walk_sample(graph,
