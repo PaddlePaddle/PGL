@@ -56,7 +56,7 @@ class PglNodePropPredDataset(object):
         self.num_tasks = int(self.meta_info[self.name]["num tasks"])
         self.task_type = self.meta_info[self.name]["task type"]
         self.eval_metric = self.meta_info[self.name]["eval metric"]
-        self.__num_classes__ = int(self.meta_info[self.name]["num classes"])
+        self.num_classes = int(self.meta_info[self.name]["num classes"])
         self.is_hetero = self.meta_info[self.name]["is hetero"]
 
         super(PglNodePropPredDataset, self).__init__()

@@ -23,7 +23,7 @@ In this repo, we use RGCN to deal with the ogbn-mag dataset. ogbn-mag dataset is
 - test_batch_size: batch_size in the test phase
 
 ### Proformance
-We evaulate 8 times on the ogbn-mag dataset. Here is the result.
+We evaulate 10 times on the ogbn-mag dataset. Here is the result.
 Dataset| Accuracy| std|
 --|--|--|
-ogbn-mag | 0.4727 | 0.0031 |
+ogbn-mag | 0.4734 | 0.0030 |

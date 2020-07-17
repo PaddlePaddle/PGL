@@ -177,6 +177,8 @@ class Graph(object):
             os.makedirs(path)
         np.save(os.path.join(path, 'num_nodes.npy'), self._num_nodes)
         np.save(os.path.join(path, 'edges.npy'), self._edges)
+        np.save(os.path.join(path, 'num_graph.npy'), self._num_graph)
+        np.save(os.path.join(path, 'graph_lod.npy'), self._graph_lod)
 
         if self._adj_src_index:
             self._adj_src_index.dump(os.path.join(path, 'adj_src'))
@@ -201,11 +203,14 @@ class Graph(object):
         """ load graph from dumped files.
         """
         if not os.path.exists(path):
-            raise ValueError("Not find path {}, can't load graph".format(path))
+            raise ValueError("Can't find path {}, stop loading graph!".format(
+                path))
 
         self._num_nodes = np.load(os.path.join(path, 'num_nodes.npy'))
         self._edges = np.load(
             os.path.join(path, 'edges.npy'), mmap_mode=mmap_mode)
+        self._num_graph = np.load(os.path.join(path, 'num_graph.npy'))
+        self._graph_lod = np.load(os.path.join(path, 'graph_lod.npy'))
         if os.path.isdir(os.path.join(path, 'adj_src')):
             edge_index = EdgeIndex()
             edge_index.load(os.path.join(path, 'adj_src'), mmap_mode=mmap_mode)

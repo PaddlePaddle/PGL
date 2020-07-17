@@ -15,14 +15,16 @@
 import os
 import argparse
 import copy
-import numpy as np
 import pgl
-import paddle.fluid as fluid
 
+import numpy as np
+import paddle.fluid as fluid
+from collections import OrderedDict
 from paddle.fluid.contrib import summary
 from pgl.utils.logger import log
 from pgl.utils.share_numpy import ToShareMemGraph
-from pgl.contrib.ogb.nodeproppred.dataset_pgl import PglNodePropPredDataset
+#from pgl.contrib.ogb.nodeproppred.dataset_pgl import PglNodePropPredDataset
+from ogb.nodeproppred import NodePropPredDataset, Evaluator
 
 from rgcn import RGCNModel, cross_entropy_loss
 from dataloader import sample_loader
@@ -49,40 +51,87 @@ def run_epoch(args, exe, fetch_list, homograph, hetergraph, gw, train_program,
     for epoch in range(args.epoch):
         for phase in ['train', 'valid', 'test']:
             running_loss = []
-            running_acc = []
+            predict = []
+            label = []
             for feed_dict in sample_loader(
                     args, phase, homograph, hetergraph, gw,
                     split_real_idx[phase]['paper'],
                     all_label['paper'][split_idx[phase]['paper']]):
-                # print("train_shape\t", feed_dict['train_index'].shape)
-                # print("allnode_shape\t", feed_dict['sub_node_index'].shape)
                 res = exe.run(train_program
                               if phase == 'train' else test_program,
                               feed=feed_dict,
                               fetch_list=fetch_list,
                               use_prune=True)
                 running_loss.append(res[0])
-                running_acc.append(res[1])
                 if phase == 'train':
                     log.info("training_acc %f" % res[1])
+                predict.append(res[2].reshape(-1, 1))
+                label.append(feed_dict["label"])
             avg_loss = sum(running_loss) / len(running_loss)
-            avg_acc = sum(running_acc) / len(running_acc)
+            predict = np.vstack(predict)
+            label = np.vstack(label)
 
+            evaluator = Evaluator(name="ogbn-mag")
+            input_dict = {"y_true": label, "y_pred": predict}
+            result_dict = evaluator.eval(input_dict)
             if phase == 'valid':
-                if avg_acc > best_acc:
+                if result_dict['acc'] > best_acc:
                     fluid.io.save_persistables(exe, './output/checkpoint',
                                                test_program)
-                    best_acc = avg_acc
+                    best_acc = result_dict['acc']
                     log.info('new best_acc %f' % best_acc)
-            log.info("%d, %s  %f %f" % (epoch, phase, avg_loss, avg_acc))
+            log.info("%d, %s  %f %f" %
+                     (epoch, phase, avg_loss, result_dict['acc']))
+
+
+def ogb2pgl_hetergraph(graph):
+    node_index = OrderedDict()
+    node_types = []
+    num_nodes = 0
+    for k, v in graph["num_nodes_dict"].items():
+        node_types.append(
+            np.ones(
+                shape=[v, 1], dtype='int64') * len(node_index))
+        node_index[k] = (v, num_nodes)
+        num_nodes += v
+    # logger.info(node_index)
+    node_types = np.vstack(node_types)
+    edges_by_types = {}
+    for k, v in graph["edge_index_dict"].items():
+        v[0, :] += node_index[k[0]][1]
+        v[1, :] += node_index[k[2]][1]
+        inverse_v = np.array(v)
+        inverse_v[0, :] = v[1, :]
+        inverse_v[1, :] = v[0, :]
+        if k[0] != k[2]:
+            edges_by_types["{}2{}".format(k[0][0], k[2][0])] = v.T
+            edges_by_types["{}2{}".format(k[2][0], k[0][0])] = inverse_v.T
+        else:
+            edges = np.hstack((v, inverse_v))
+            edges_by_types["{}2{}".format(k[0][0], k[2][0])] = edges.T
+
+    node_features = {
+        'index':
+        np.array([i for i in range(num_nodes)]).reshape(-1, 1).astype(np.int64)
+    }
+    g = pgl.heter_graph.HeterGraph(
+        num_nodes=num_nodes,
+        edges=edges_by_types,
+        node_types=node_types,
+        node_feat=node_features)
+    g.edge_feat_dict = graph['edge_feat_dict']
+    g.node_feat_dict = graph['node_feat_dict']
+    g.num_node_dict = node_index
+    return g
 
 
 def main(args):
-    num_class = 349
     embedding_size = 128
-    dataset = PglNodePropPredDataset('ogbn-papers100M')
+    dataset = NodePropPredDataset('ogbn-mag')
     g, all_label = dataset[0]
+    g = ogb2pgl_hetergraph(g)
     num_nodes = g.num_nodes
+    num_class = dataset.num_classes
 
     homograph = hetero2homo(g)
     for key in g.edge_types_info():
@@ -169,6 +218,7 @@ def main(args):
         feat = model.forward(sub_node_feat)
         feat = fluid.layers.gather(feat, train_index)
         loss, acc = cross_entropy_loss(feat, label)
+        predict = fluid.layers.argmax(feat, -1)
 
         opt = fluid.optimizer.Adam(learning_rate=args.lr)
         opt.minimize(loss)
@@ -185,11 +235,9 @@ def main(args):
             dirname=os.path.join(args.output_path, 'checkpoint'),
             main_program=test_program)
 
-    fetch_list = [loss.name, acc.name]
+    fetch_list = [loss.name, acc.name, predict.name]
     run_epoch(args, exe, fetch_list, homograph, g, gw, train_program,
               test_program, all_label, split_idx, split_real_idx)
-
-    return None
 
 
 def full_batch(g, gw, all_label, split_idx, split_real_idx, exe, train_program,
