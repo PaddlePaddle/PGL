@@ -191,12 +191,12 @@ def all_gather(X):
     for i in range(trainer_num):
         copy_X = X * 1
         copy_X =  L.collective._broadcast(copy_X, i, True)
-        copy_X.stop_gradients=True
+        copy_X.stop_gradient=True
         Xs.append(copy_X)
 
     if len(Xs) > 1:
         Xs=L.concat(Xs, 0)
-        Xs.stop_gradients=True
+        Xs.stop_gradient=True
     else:
         Xs = Xs[0]
     return Xs

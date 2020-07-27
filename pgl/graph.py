@@ -593,7 +593,7 @@ class Graph(object):
             edges = self._edges[eid]
         else:
             edges = np.array(edges, dtype="int64")
-
+            
         sub_edges = graph_kernel.map_edges(
             np.arange(
                 len(edges), dtype="int64"), edges, reindex)

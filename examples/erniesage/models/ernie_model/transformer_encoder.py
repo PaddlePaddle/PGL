@@ -455,18 +455,6 @@ def graph_encoder(enc_input,
     attn_bias = build_graph_attn_bias(input_mask, n_head, enc_input.dtype, slot_seqlen)
     #attn_bias = build_attn_bias(input_mask, n_head, enc_input.dtype)
 
-    # d_batch = d_shape[0]
-    # d_seqlen = d_shape[1]
-    # pad_idx = L.where(
-    # L.cast(L.reshape(input_mask, [d_batch, d_seqlen]), 'bool'))
-
-    # attn_bias = L.matmul(
-    # input_mask, input_mask, transpose_y=True)  # [batch, seq, seq]
-    # attn_bias = (1. - attn_bias) * -10000.
-    # attn_bias = L.stack([attn_bias] * n_head, 1)
-    # if attn_bias.dtype != enc_input.dtype:
-    # attn_bias = L.cast(attn_bias, enc_input.dtype)
-
     def to_2d(t_3d):
         t_2d = L.gather_nd(t_3d, pad_idx)
         return t_2d

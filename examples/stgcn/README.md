@@ -23,7 +23,7 @@ You can make your customized dataset by the following format:
 
 For examples, use gpu to train STGCN on your dataset.
 ```
-python main.py --use_cuda --input_file dataset/input_csv --label_file dataset/output.csv --adj_mat_file dataset/W.csv --city_file dataset/city.csv 
+python main.py --use_cuda --input_file dataset/input.csv --label_file dataset/output.csv --adj_mat_file dataset/W.csv --city_file dataset/city.csv 
 ```
 
 #### Hyperparameters

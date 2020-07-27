@@ -185,7 +185,7 @@ def lod_constant(name, value, lod, dtype):
     return output, data_initializer
 
 
-def sequence_softmax(x):
+def sequence_softmax(x, beta=None):
     """Compute sequence softmax over paddle LodTensor
 
     This function compute softmax normalization along with the length of sequence.
@@ -194,10 +194,15 @@ def sequence_softmax(x):
 
     Args:
         x: The input variable which is a LodTensor.
+        beta: Inverse Temperature
 
     Return:
         Output of sequence_softmax
     """
+
+    if beta is not None:
+        x =  x * beta
+    
     x_max = fluid.layers.sequence_pool(x, "max")
     x_max = fluid.layers.sequence_expand_as(x_max, x)
     x = x - x_max

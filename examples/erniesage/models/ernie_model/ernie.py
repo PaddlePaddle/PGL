@@ -104,7 +104,7 @@ class ErnieModel(object):
         zero = L.fill_constant([1], dtype='int64', value=0)
         input_mask = L.logical_not(L.equal(src_ids,
                                            zero))  # assume pad id == 0
-        input_mask = L.cast(input_mask, 'float')
+        input_mask = L.cast(input_mask, 'float32')
         input_mask.stop_gradient = True
         return input_mask
 
@@ -342,7 +342,7 @@ class ErnieGraphModel(ErnieModel):
             L.range(
                 0, slot_seqlen, 1, dtype='int32'), [1, slot_seqlen, 1],
             inplace=True) # [1, slot_seqlen, 1]
-        a_position_ids = L.expand(a_position_ids, [src_batch, 1, 1]) # [B, slot_seqlen * num_b, 1]
+        a_position_ids = L.expand(a_position_ids, [src_batch, 1, 1]) # [B, slot_seqlen, 1]
 
         zero = L.fill_constant([1], dtype='int64', value=0)
         input_mask = L.cast(L.equal(src_ids[:, :slot_seqlen], zero), "int32")  # assume pad id == 0 [B, slot_seqlen, 1]
