@@ -14,6 +14,7 @@
 """This package implements common layers to help building
 graph neural networks.
 """
+import pgl
 import paddle.fluid as fluid
 from pgl.utils import paddle_helper
 from pgl import message_passing
@@ -404,7 +405,14 @@ def gen_conv(gw,
 
     return output
 
-def appnp(gw, feature, norm=None, alpha=0.2, k_hop=10):
+def get_norm(indegree):
+    """Get Laplacian Normalization"""
+    norm = fluid.layers.pow(fluid.layers.cast(indegree, dtype="float32") + 1e-6,
+                     factor=-0.5) 
+    norm = norm * fluid.layers.cast(indegree > 0, dtype="float32")
+    return norm
+
+def appnp(gw, feature, edge_dropout=0, alpha=0.2, k_hop=10):
     """Implementation of APPNP of "Predict then Propagate: Graph Neural Networks
     meet Personalized PageRank"  (ICLR 2019). 
 
@@ -413,8 +421,7 @@ def appnp(gw, feature, norm=None, alpha=0.2, k_hop=10):
 
         feature: A tensor with shape (num_nodes, feature_size).
 
-        norm: If :code:`norm` is not None, then the feature will be normalized. Norm must
-              be tensor with shape (num_nodes,) and dtype float32.
+        edge_dropout: Edge dropout rate.
 
         k_hop: K Steps for Propagation
 
@@ -427,17 +434,21 @@ def appnp(gw, feature, norm=None, alpha=0.2, k_hop=10):
        return feature
 
     h0 = feature
+    ngw = gw 
+    norm = get_norm(ngw.indegree())
     
     for i in range(k_hop):
-        if norm is not None:
-            feature = feature * norm
+        if edge_dropout > 1e-5:     
+            ngw = pgl.sample.edge_drop(gw, edge_dropout) 
+            norm = get_norm(ngw.indegree())
+            
+        feature = feature * norm
 
         msg = gw.send(send_src_copy, nfeat_list=[("h", feature)])
 
         feature = gw.recv(msg, "sum")
 
-        if norm is not None:
-            feature = feature * norm
+        feature = feature * norm
 
         feature = feature * (1 - alpha) + h0 * alpha
     return feature 

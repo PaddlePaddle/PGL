@@ -516,3 +516,10 @@ def graph_saint_random_walk_sample(graph,
         nodes=sample_nodes, eid=eids, with_node_feat=True, with_edge_feat=True)
     subgraph.node_feat["index"] = np.array(sample_nodes, dtype="int64")
     return subgraph
+
+
+def edge_drop(graph_wrapper, dropout_rate):
+    if dropout_rate < 1e-5:
+        return graph_wrapper
+    else:
+        return pgl.graph_wrapper.DropEdgeWrapper(graph_wrapper, dropout_rate)

@@ -19,6 +19,7 @@ for PaddlePaddle.
 import warnings
 import numpy as np
 import paddle.fluid as fluid
+import paddle.fluid.layers as L
 
 from pgl.utils import op
 from pgl.utils import paddle_helper
@@ -47,10 +48,10 @@ def recv(dst, uniq_dst, bucketing_index, msg, reduce_function, num_nodes,
 
         try:
             out_dim = msg.shape[-1]
-            init_output = fluid.layers.fill_constant(
+            init_output = L.fill_constant(
                 shape=[num_nodes, out_dim], value=0, dtype=msg.dtype)
             init_output.stop_gradient = False
-            empty_msg_flag = fluid.layers.cast(num_edges > 0, dtype=msg.dtype)
+            empty_msg_flag = L.cast(num_edges > 0, dtype=msg.dtype)
             msg = msg * empty_msg_flag
             output = paddle_helper.scatter_add(init_output, dst, msg)
             return output
@@ -59,7 +60,7 @@ def recv(dst, uniq_dst, bucketing_index, msg, reduce_function, num_nodes,
                 "scatter_add is not supported with paddle version <= 1.5")
 
             def sum_func(message):
-                return fluid.layers.sequence_pool(message, "sum")
+                return L.sequence_pool(message, "sum")
 
             reduce_function = sum_func
 
@@ -67,13 +68,13 @@ def recv(dst, uniq_dst, bucketing_index, msg, reduce_function, num_nodes,
     output = reduce_function(bucketed_msg)
     output_dim = output.shape[-1]
 
-    empty_msg_flag = fluid.layers.cast(num_edges > 0, dtype=output.dtype)
+    empty_msg_flag = L.cast(num_edges > 0, dtype=output.dtype)
     output = output * empty_msg_flag
 
-    init_output = fluid.layers.fill_constant(
+    init_output = L.fill_constant(
         shape=[num_nodes, output_dim], value=0, dtype=output.dtype)
     init_output.stop_gradient = True
-    final_output = fluid.layers.scatter(init_output, uniq_dst, output)
+    final_output = L.scatter(init_output, uniq_dst, output)
     return final_output
 
 
@@ -104,6 +105,7 @@ class BaseGraphWrapper(object):
         self._node_ids = None
         self._graph_lod = None
         self._num_graph = None
+        self._num_edges = None
         self._data_name_prefix = ""
 
     def __repr__(self):
@@ -470,7 +472,7 @@ class StaticGraphWrapper(BaseGraphWrapper):
 
 class GraphWrapper(BaseGraphWrapper):
     """Implement a graph wrapper that creates a graph data holders
-    that attributes and features in the graph are :code:`fluid.layers.data`.
+    that attributes and features in the graph are :code:`L.data`.
     And we provide interface :code:`to_feed` to help converting :code:`Graph`
     data into :code:`feed_dict`.
 
@@ -546,65 +548,65 @@ class GraphWrapper(BaseGraphWrapper):
     def __create_graph_attr_holders(self):
         """Create data holders for graph attributes.
         """
-        self._num_edges = fluid.layers.data(
+        self._num_edges = L.data(
             self._data_name_prefix + '/num_edges',
             shape=[1],
             append_batch_size=False,
             dtype="int64",
             stop_gradient=True)
-        self._num_graph = fluid.layers.data(
+        self._num_graph = L.data(
             self._data_name_prefix + '/num_graph',
             shape=[1],
             append_batch_size=False,
             dtype="int64",
             stop_gradient=True)
-        self._edges_src = fluid.layers.data(
+        self._edges_src = L.data(
             self._data_name_prefix + '/edges_src',
             shape=[None],
             append_batch_size=False,
             dtype="int64",
             stop_gradient=True)
-        self._edges_dst = fluid.layers.data(
+        self._edges_dst = L.data(
             self._data_name_prefix + '/edges_dst',
             shape=[None],
             append_batch_size=False,
             dtype="int64",
             stop_gradient=True)
-        self._num_nodes = fluid.layers.data(
+        self._num_nodes = L.data(
             self._data_name_prefix + '/num_nodes',
             shape=[1],
             append_batch_size=False,
             dtype='int64',
             stop_gradient=True)
 
-        self._edge_uniq_dst = fluid.layers.data(
+        self._edge_uniq_dst = L.data(
             self._data_name_prefix + "/uniq_dst",
             shape=[None],
             append_batch_size=False,
             dtype="int64",
             stop_gradient=True)
 
-        self._graph_lod = fluid.layers.data(
+        self._graph_lod = L.data(
             self._data_name_prefix + "/graph_lod",
             shape=[None],
             append_batch_size=False,
             dtype="int32",
             stop_gradient=True)
 
-        self._edge_uniq_dst_count = fluid.layers.data(
+        self._edge_uniq_dst_count = L.data(
             self._data_name_prefix + "/uniq_dst_count",
             shape=[None],
             append_batch_size=False,
             dtype="int32",
             stop_gradient=True)
 
-        self._node_ids = fluid.layers.data(
+        self._node_ids = L.data(
             self._data_name_prefix + "/node_ids",
             shape=[None],
             append_batch_size=False,
             dtype="int64",
             stop_gradient=True)
-        self._indegree = fluid.layers.data(
+        self._indegree = L.data(
             self._data_name_prefix + "/indegree",
             shape=[None],
             append_batch_size=False,
@@ -627,7 +629,7 @@ class GraphWrapper(BaseGraphWrapper):
                                          node_feat_dtype):
         """Create data holders for node features.
         """
-        feat_holder = fluid.layers.data(
+        feat_holder = L.data(
             self._data_name_prefix + '/node_feat/' + node_feat_name,
             shape=node_feat_shape,
             append_batch_size=False,
@@ -640,7 +642,7 @@ class GraphWrapper(BaseGraphWrapper):
                                          edge_feat_dtype):
         """Create edge holders for edge features.
         """
-        feat_holder = fluid.layers.data(
+        feat_holder = L.data(
             self._data_name_prefix + '/edge_feat/' + edge_feat_name,
             shape=edge_feat_shape,
             append_batch_size=False,
@@ -719,3 +721,56 @@ class GraphWrapper(BaseGraphWrapper):
         """Return the holder list.
         """
         return self._holder_list
+
+
+def get_degree(edge, num_nodes):
+    init_output = L.fill_constant(
+        shape=[num_nodes], value=0, dtype="float32")
+    init_output.stop_gradient = True
+    final_output = L.scatter(init_output,
+                       edge,
+                       L.full_like(edge, 1, dtype="float32"),
+                       overwrite=False)
+    return final_output
+
+class DropEdgeWrapper(BaseGraphWrapper):
+    """Implement of Edge Drop """
+    def __init__(self, graph_wrapper, dropout):
+        super(DropEdgeWrapper, self).__init__()
+
+        # Copy Node's information
+        for key, value in graph_wrapper.node_feat.items():
+            self.node_feat_tensor_dict[key] = value
+
+        self._num_nodes = graph_wrapper.num_nodes 
+        self._graph_lod = graph_wrapper.graph_lod
+        self._num_graph = graph_wrapper.num_graph
+        self._node_ids = L.range(0, self._num_nodes, step=1, dtype="int32") 
+     
+        # Dropout Edges
+        src, dst = graph_wrapper.edges
+        u = L.uniform_random(shape=L.cast(L.shape(src), 'int64'), min=0., max=1.)
+
+        # Avoid Empty Edges
+        keeped = L.cast(u > dropout, dtype="float32")
+        self._num_edges = L.reduce_sum(L.cast(keeped, "int32"))
+        keeped = keeped + L.cast(self._num_edges == 0, dtype="float32")
+
+        keeped = (keeped > 0.5)
+        src = paddle_helper.masked_select(src, keeped)
+        dst = paddle_helper.masked_select(dst, keeped)
+        src.stop_gradient=True
+        dst.stop_gradient=True
+        self._edges_src = src 
+        self._edges_dst = dst 
+
+        for key, value in graph_wrapper.edge_feat.items():
+            self.edge_feat_tensor_dict[key] = paddle_helper.masked_select(value, keeped)
+        
+        self._edge_uniq_dst, _, uniq_count = L.unique_with_counts(dst, dtype="int32")
+        self._edge_uniq_dst.stop_gradient=True
+        last = L.reduce_sum(uniq_count, keep_dim=True)
+        uniq_count = L.cumsum(uniq_count, exclusive=True)
+        self._edge_uniq_dst_count = L.concat([uniq_count, last])
+        self._edge_uniq_dst_count.stop_gradient=True
+        self._indegree = get_degree(self._edges_dst, self._num_nodes)

@@ -1,0 +1,4 @@
+model_name: SGC 
+num_layers: 2
+learning_rate: 0.2
+weight_decay: 0.000005 

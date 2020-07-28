@@ -63,6 +63,7 @@ def main(args, config):
                 config=config,
                 phase="test",
                 main_prog=test_program)
+
     test_program = test_program.clone(for_test=True)
 
     exe = fluid.Executor(place)
@@ -86,7 +87,7 @@ def main(args, config):
     cal_val_acc = []
     cal_test_acc = []
  
-    for epoch in range(300):
+    for epoch in range(args.epoch):
         if epoch >= 3:
             t0 = time.time()
         feed_dict = gw.to_feed(dataset.graph)
@@ -123,11 +124,10 @@ def main(args, config):
         test_loss = test_loss[0]
         test_acc = test_acc[0]
         cal_test_acc.append(test_acc)
-        if epoch % 10 == 0:
-            log.info("Epoch %d " % epoch +
+
+        log.info("Epoch %d " % epoch +
                  "Train Loss: %f " % train_loss + "Train Acc: %f " % train_acc
-                 + "Val Loss: %f " % val_loss + "Val Acc: %f " % val_acc
-                 +" Test Loss: %f " % test_loss + " Test Acc: %f " % test_acc)
+                 + "Val Loss: %f " % val_loss + "Val Acc: %f " % val_acc)
      
     cal_val_acc = np.array(cal_val_acc)
     log.info("Model: %s Best Test Accuracy: %f" % (config.model_name,
@@ -140,6 +140,7 @@ if __name__ == '__main__':
         "--dataset", type=str, default="cora", help="dataset (cora, pubmed)")
     parser.add_argument("--use_cuda", action='store_true', help="use_cuda")
     parser.add_argument("--conf", type=str, help="config file for models")
+    parser.add_argument("--epoch", type=int, default=200, help="Epoch")
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
     log.info(args)
