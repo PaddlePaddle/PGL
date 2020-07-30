@@ -40,10 +40,9 @@ python train.py --conf config/appnp.yaml --use_cuda --dataset pubmed
 python train.py --conf config/appnp.yaml --use_cuda --dataset citeseer
 
 # GCNII (The original code use 1500 epochs.)
-python train.py --conf config/appnp.yaml --use_cuda --dataset cora --epoch 1500
-python train.py --conf config/appnp.yaml --use_cuda --dataset pubmed --epoch 1500
-python train.py --conf config/appnp.yaml --use_cuda --dataset citeseer --epoch 1500
+python train.py --conf config/gcnii.yaml --use_cuda --dataset cora --epoch 1500
+python train.py --conf config/gcnii.yaml --use_cuda --dataset pubmed --epoch 1500
+python train.py --conf config/gcnii.yaml --use_cuda --dataset citeseer --epoch 1500
 ```
-
 
 
