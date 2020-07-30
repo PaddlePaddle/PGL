@@ -3,8 +3,9 @@ import paddle.fluid.layers as L
 import pgl.layers.conv as conv
 
 def get_norm(indegree):
-    norm = L.pow(L.cast(indegree, dtype="float32") + 1e-6, factor=-0.5) 
-    norm = norm * L.cast(indegree > 0, dtype="float32")
+    float_degree = L.cast(indegree, dtype="float32")
+    float_degree = L.clamp(float_degree, min=1.0)
+    norm = L.pow(float_degree, factor=-0.5) 
     return norm
     
 
@@ -29,10 +30,6 @@ class GCN(object):
                 ngw = graph_wrapper
                 norm = graph_wrapper.node_feat["norm"]
 
-            feature = L.dropout(
-                    feature,
-                    self.dropout,
-                    dropout_implementation='upscale_in_train')
 
             feature = pgl.layers.gcn(ngw,
                 feature,
@@ -41,7 +38,7 @@ class GCN(object):
                 norm=norm,
                 name="layer_%s" % i)
 
-        feature = L.dropout(
+            feature = L.dropout(
                     feature,
                     self.dropout,
                     dropout_implementation='upscale_in_train')
@@ -150,10 +147,10 @@ class SGC(object):
     def forward(self, graph_wrapper, feature, phase):
         feature = conv.appnp(graph_wrapper,
             feature=feature,
-            norm=graph_wrapper.node_feat["norm"],
+            edge_dropout=0,
             alpha=0,
             k_hop=self.num_layers)
         feature.stop_gradient=True
-        feature = L.fc(feature, self.num_class, act=None, name="output")
+        feature = L.fc(feature, self.num_class, act=None, bias_attr=False, name="output")
         return feature
 

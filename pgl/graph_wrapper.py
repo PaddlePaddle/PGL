@@ -735,7 +735,7 @@ def get_degree(edge, num_nodes):
 
 class DropEdgeWrapper(BaseGraphWrapper):
     """Implement of Edge Drop """
-    def __init__(self, graph_wrapper, dropout):
+    def __init__(self, graph_wrapper, dropout, keep_self_loop=True):
         super(DropEdgeWrapper, self).__init__()
 
         # Copy Node's information
@@ -750,11 +750,16 @@ class DropEdgeWrapper(BaseGraphWrapper):
         # Dropout Edges
         src, dst = graph_wrapper.edges
         u = L.uniform_random(shape=L.cast(L.shape(src), 'int64'), min=0., max=1.)
+        
 
         # Avoid Empty Edges
         keeped = L.cast(u > dropout, dtype="float32")
         self._num_edges = L.reduce_sum(L.cast(keeped, "int32"))
         keeped = keeped + L.cast(self._num_edges == 0, dtype="float32")
+
+        if keep_self_loop:
+            self_loop = L.cast(src == dst, dtype="float32")
+            keeped = keeped + self_loop
 
         keeped = (keeped > 0.5)
         src = paddle_helper.masked_select(src, keeped)

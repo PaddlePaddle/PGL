@@ -6,4 +6,4 @@ learning_rate: 0.01
 dropout: 0.5
 hidden_size: 64
 weight_decay: 0.0005 
-edge_dropout: 0.00
+edge_dropout: 0.0

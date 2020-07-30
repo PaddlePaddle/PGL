@@ -518,8 +518,10 @@ def graph_saint_random_walk_sample(graph,
     return subgraph
 
 
-def edge_drop(graph_wrapper, dropout_rate):
+def edge_drop(graph_wrapper, dropout_rate, keep_self_loop=True):
     if dropout_rate < 1e-5:
         return graph_wrapper
     else:
-        return pgl.graph_wrapper.DropEdgeWrapper(graph_wrapper, dropout_rate)
+        return pgl.graph_wrapper.DropEdgeWrapper(graph_wrapper,
+                   dropout_rate,
+                   keep_self_loop)
