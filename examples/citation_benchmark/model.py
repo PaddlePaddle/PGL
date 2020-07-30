@@ -154,3 +154,42 @@ class SGC(object):
         feature = L.fc(feature, self.num_class, act=None, bias_attr=False, name="output")
         return feature
 
+ 
+class GCNII(object):
+    """Implement of GCNII"""
+    def __init__(self, config, num_class):
+        self.num_class = num_class
+        self.num_layers = config.get("num_layers", 1)
+        self.hidden_size = config.get("hidden_size", 64)
+        self.dropout = config.get("dropout", 0.6)
+        self.alpha = config.get("alpha", 0.1)
+        self.lambda_l = config.get("lambda_l", 0.5)
+        self.k_hop = config.get("k_hop", 64)
+        self.edge_dropout = config.get("edge_dropout", 0.0)
+
+    def forward(self, graph_wrapper, feature, phase):
+        if phase == "train": 
+            edge_dropout = 0
+        else:
+            edge_dropout = self.edge_dropout
+
+        for i in range(self.num_layers):
+            feature = L.fc(feature, self.hidden_size, act="relu", name="lin%s" % i)
+            feature = L.dropout(
+                feature,
+                self.dropout,
+                dropout_implementation='upscale_in_train')
+
+        feature = conv.gcnii(graph_wrapper,
+            feature=feature,
+            name="gcnii",
+            activation="relu",
+            lambda_l=self.lambda_l,
+            alpha=self.alpha,
+            dropout=self.dropout,
+            k_hop=self.k_hop)
+
+        feature = L.fc(feature, self.num_class, act=None, name="output")
+        return feature
+
+

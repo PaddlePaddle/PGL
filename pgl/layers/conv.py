@@ -19,6 +19,7 @@ import paddle.fluid as fluid
 import paddle.fluid.layers as L
 from pgl.utils import paddle_helper
 from pgl import message_passing
+import numpy as np
 
 __all__ = ['gcn', 'gat', 'gin', 'gaan', 'gen_conv', 'appnp']
 
@@ -413,6 +414,7 @@ def get_norm(indegree):
     norm = L.pow(float_degree, factor=-0.5) 
     return norm
 
+
 def appnp(gw, feature, edge_dropout=0, alpha=0.2, k_hop=10):
     """Implementation of APPNP of "Predict then Propagate: Graph Neural Networks
     meet Personalized PageRank"  (ICLR 2019). 
@@ -452,4 +454,72 @@ def appnp(gw, feature, edge_dropout=0, alpha=0.2, k_hop=10):
         feature = feature * norm
 
         feature = feature * (1 - alpha) + h0 * alpha
+    return feature 
+
+
+def gcnii(gw,
+    feature,
+    name,
+    activation=None,
+    alpha=0.5,
+    lambda_l=0.5,
+    k_hop=1,
+    dropout=0.5,
+    is_test=False):
+    """Implementation of GCNII of "Simple and Deep Graph Convolutional Networks"  
+
+    paper: https://arxiv.org/pdf/2007.02133.pdf
+
+    Args:
+        gw: Graph wrapper object (:code:`StaticGraphWrapper` or :code:`GraphWrapper`)
+
+        feature: A tensor with shape (num_nodes, feature_size).
+
+        activation: The activation for the output.
+
+        k_hop: Number of layers for gcnii.
+   
+        lambda_l: The hyperparameter of lambda in the paper.
+       
+        alpha: The hyperparameter of alpha in the paper.
+
+        dropout: Feature dropout rate.
+
+        is_test: train / test phase.
+
+    Return:
+        A tensor with shape (num_nodes, hidden_size)
+    """
+
+    def send_src_copy(src_feat, dst_feat, edge_feat):
+       feature = src_feat["h"]
+       return feature
+
+    h0 = feature
+    ngw = gw 
+    norm = get_norm(ngw.indegree())
+    hidden_size = feature.shape[-1]
+    
+    for i in range(k_hop):
+        beta_i = np.log(1.0 * lambda_l / (i + 1) + 1)
+        feature = L.dropout(
+            feature,
+            dropout_prob=dropout,
+            is_test=is_test,
+            dropout_implementation='upscale_in_train')
+
+        feature = feature * norm
+        msg = gw.send(send_src_copy, nfeat_list=[("h", feature)])
+        feature = gw.recv(msg, "sum")
+        feature = feature * norm
+
+        # appnp
+        feature = feature * (1 - alpha) + h0 * alpha
+
+        feature_transed = L.fc(feature, hidden_size,
+                    act=None, bias_attr=False,
+                    name=name+"_%s_w1" % i) 
+        feature = feature_transed * beta_i + feature * (1 - beta_i)
+        if activation is not None:
+            feature = getattr(L, activation)(feature)
     return feature 
