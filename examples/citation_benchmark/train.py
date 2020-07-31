@@ -131,7 +131,9 @@ def main(args, config):
                   cal_test_acc[np.argmin(cal_val_loss)]))
 
         best_test.append(cal_test_acc[np.argmin(cal_val_loss)])
-    log.info("Best Test Accuracy: %f ( stddev: %f )" % (np.mean(best_test), np.std(best_test)))
+    log.info("Dataset: %s Best Test Accuracy: %f ( stddev: %f )" % (args.dataset, np.mean(best_test), np.std(best_test)))
+    print("Dataset: %s Best Test Accuracy: %f ( stddev: %f )" % (args.dataset, np.mean(best_test), np.std(best_test)))
+    
     
 
 
@@ -142,7 +144,7 @@ if __name__ == '__main__':
     parser.add_argument("--use_cuda", action='store_true', help="use_cuda")
     parser.add_argument("--conf", type=str, help="config file for models")
     parser.add_argument("--epoch", type=int, default=200, help="Epoch")
-    parser.add_argument("--runs", type=int, default=5, help="runs")
+    parser.add_argument("--runs", type=int, default=10, help="runs")
     parser.add_argument("--feature_pre_normalize", type=bool, default=True, help="pre_normalize feature")
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
