@@ -50,7 +50,7 @@ sh local_run.sh config/erniesage_v2_gpu.yaml
 sh local_run.sh config/erniesage_v2_cpu.yaml
 ```
 
-注：为了方便用户们学习使用ERNIESage，我们在百度AIStudio中提供了可以直接运行的ERNIESage实例，详情可见：https://aistudio.baidu.com/aistudio/projectdetail/667443.
+**NOTE**：为了方便用户们学习使用ERNIESage，我们在百度AIStudio中提供了可以直接运行的ERNIESage实例，详情可见：https://aistudio.baidu.com/aistudio/projectdetail/667443.
 
 ## Hyperparamters
 
