@@ -49,6 +49,8 @@ sh local_run.sh config/enriesage_v1_gpu.yaml
 sh local_run.sh config/enriesage_v1_cpu.yaml
 ```
 
+Note: To help users better understand the ERNIESage Model, we provide a running example in Baidu AIStudio. Please visit here: https://aistudio.baidu.com/aistudio/projectdetail/667443. 
+
 ## Hyperparamters
 
 - learner_type: `gpu` or `cpu`; gpu use fleet Collective mode, cpu use fleet Transpiler mode.
