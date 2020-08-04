@@ -21,7 +21,7 @@ from pgl.utils import paddle_helper
 from pgl import message_passing
 import numpy as np
 
-__all__ = ['gcn', 'gat', 'gin', 'gaan', 'gen_conv', 'appnp']
+__all__ = ['gcn', 'gat', 'gin', 'gaan', 'gen_conv', 'appnp', 'gcnii']
 
 
 def gcn(gw, feature, hidden_size, activation, name, norm=None):
