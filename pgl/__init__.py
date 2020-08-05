@@ -22,3 +22,4 @@ from pgl import heter_graph
 from pgl import heter_graph_wrapper
 from pgl import contrib
 from pgl import message_passing
+from pgl import sample 
