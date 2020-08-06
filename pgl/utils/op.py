@@ -68,3 +68,18 @@ def read_rows(data, index):
         return new_data
     else:
         return paddle_helper.gather(data, index)
+
+
+class RowReader(object):
+    """Memory Efficient RowReader 
+    """
+    def __init__(self, nfeat, index):
+        self.nfeat = nfeat
+        self.loaded_nfeat = {}
+        self.index = index
+ 
+    def __getitem__(self, key):
+        if key not in self.loaded_nfeat:
+            self.loaded_nfeat[key] = read_rows(self.nfeat[key], self.index)
+        return self.loaded_nfeat[key]
+
