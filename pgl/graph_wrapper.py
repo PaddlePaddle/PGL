@@ -27,12 +27,11 @@ from pgl.utils.logger import log
 
 __all__ = ["BaseGraphWrapper", "GraphWrapper", "StaticGraphWrapper"]
 
-
 def send(src, dst, nfeat, efeat, message_func):
     """Send message from src to dst.
     """
-    src_feat = op.read_rows(nfeat, src)
-    dst_feat = op.read_rows(nfeat, dst)
+    src_feat = op.RowReader(nfeat, src)
+    dst_feat = op.RowReader(nfeat, dst)
     msg = message_func(src_feat, dst_feat, efeat)
     return msg
 
@@ -144,11 +143,13 @@ class BaseGraphWrapper(object):
         """
         if efeat_list is None:
             efeat_list = {}
+
         if nfeat_list is None:
             nfeat_list = {}
 
         src, dst = self.edges
         nfeat = {}
+
         for feat in nfeat_list:
             if isinstance(feat, str):
                 nfeat[feat] = self.node_feat[feat]
