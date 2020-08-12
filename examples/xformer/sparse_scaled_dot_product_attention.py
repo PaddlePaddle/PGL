@@ -38,7 +38,7 @@ def masked_select(input, mask):
 
 
 class BigBirdWrapper(pgl.graph_wrapper.BaseGraphWrapper):
-    """Implement of Edge Drop """
+    """Implement of Big Bird by PGL graph wrapper """
     def __init__(self, input_mask):
         super(BigBirdWrapper, self).__init__()
         max_seqlen = L.shape(input_mask)[1]
