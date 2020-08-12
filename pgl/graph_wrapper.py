@@ -820,9 +820,11 @@ class BatchGraphWrapper(BaseGraphWrapper):
         sum_num_nodes = L.reduce_sum(num_nodes)
         sum_num_edges = L.reduce_sum(num_edges)
         edge_lod = L.concat([L.cumsum(num_edges, exclusive=True), sum_num_edges])
+        edge_lod = paddle_helper.lod_remove(edge_lod)
 
         node_shift = L.cumsum(num_nodes, exclusive=True)
         graph_lod = L.concat([node_shift, sum_num_nodes])
+        graph_lod = paddle_helper.lod_remove(graph_lod)
         self._num_nodes = sum_num_nodes
         self._num_edges = sum_num_edges
         self._num_graph = num_graph

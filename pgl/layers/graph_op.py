@@ -86,7 +86,7 @@ def graph_gather(gw, feature, index):
         A tensor with shape (num_graph, k1, k2, k3, ..., kn, hidden_size)
     """
     shape = L.shape(index)
-    output_dim = feature.shape[-1]
+    output_dim = int(feature.shape[-1])
     index = index + gw.graph_lod[:-1]
     index = L.reshape(index, [-1])
     feature = L.gather(feature, index, overwrite=False)

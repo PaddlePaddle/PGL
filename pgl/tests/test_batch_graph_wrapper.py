@@ -24,7 +24,7 @@ import numpy as np
 import paddle.fluid as F
 import paddle.fluid.layers as L
 
-from pgl.layers.conv import gin
+from pgl.layers.conv import gcn 
 from pgl import graph
 from pgl import graph_wrapper
 
@@ -33,13 +33,13 @@ class BatchedGraphWrapper(unittest.TestCase):
     """BatchedGraphWrapper
     """
     def test_batched_graph_wrapper(self):
-        """test_gin
+        """test_batch_graph_wrapper
         """
         np.random.seed(1)
 
         graph_list = []
       
-        num_graph = 10
+        num_graph = 5 
         feed_num_nodes = []
         feed_num_edges = []
         feed_edges = []
@@ -74,14 +74,12 @@ class BatchedGraphWrapper(unittest.TestCase):
                     place=place,
                     node_feat=[("feature", [-1, 4], "float32")])
 
-                output = gin(gw,
+                output = gcn(gw,
                     gw.node_feat['feature'],
                     hidden_size=hidden_size,
                     activation='relu',
-                    name='gin',
-                    init_eps=1,
-                    train_eps=True)
-    
+                    name='gcn')
+
                 # BatchGraphWrapper
                 num_nodes = L.data(name="num_nodes", shape=[-1], dtype="int32")
                 num_edges= L.data(name="num_edges", shape=[-1], dtype="int32")
@@ -92,13 +90,11 @@ class BatchedGraphWrapper(unittest.TestCase):
                                                  edges=edges,
                                                  node_feats={"feature": node_feat})
 
-                output2 = gin(batch_gw,
+                output2 = gcn(batch_gw,
                     batch_gw.node_feat['feature'],
                     hidden_size=hidden_size,
                     activation='relu',
-                    name='gin',
-                    init_eps=1,
-                    train_eps=True)
+                    name='gcn')
     
 
         exe = F.Executor(place)
@@ -110,11 +106,12 @@ class BatchedGraphWrapper(unittest.TestCase):
         feed_dict["node_feats"] = np.array(np.concatenate(feed_node_feats, 0), dtype="float32").reshape([-1, 4])
         
         # Run
-        o1, o2 = exe.run(prog, feed=feed_dict, fetch_list=[output, output2])
+        O1, O2 = exe.run(prog, feed=feed_dict, fetch_list=[output, output2])
 
         # The output from two kind of models should be same.
-        dist = np.sum((o1 - o2) ** 2)
-        self.assertLess(dist, 1e-15)
+        for o1, o2 in zip(O1, O2):
+            dist = np.sum((o1 - o2) ** 2)
+            self.assertLess(dist, 1e-15)
 
 
 if __name__ == "__main__":
