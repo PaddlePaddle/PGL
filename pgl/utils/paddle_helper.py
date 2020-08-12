@@ -269,7 +269,7 @@ def masked_select(input, mask):
 
 
 def ensure_dtype(input, dtype):
-    if input.dtype == dtype:
+    if str(input.dtype) == dtype:
         return input
     else:
         return fluid.layers.cast(input, dtype=dtype)
