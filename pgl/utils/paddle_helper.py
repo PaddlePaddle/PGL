@@ -267,3 +267,9 @@ def masked_select(input, mask):
     index = fluid.layers.where(mask)
     return fluid.layers.gather(input, index)
 
+
+def ensure_dtype(input, dtype):
+    if input.dtype == dtype:
+        return input
+    else:
+        return fluid.layers.cast(input, dtype=dtype)
