@@ -250,3 +250,20 @@ def scatter_max(input, index, updates):
 
     output = fluid.layers.scatter(input, index, updates, mode='max')
     return output
+
+def masked_select(input, mask):
+    """masked_select
+    
+    Slice the value from given Mask
+   
+    Args:
+        input: Input tensor to be selected
+         
+        mask: A bool tensor for sliced.
+  
+    Return:
+        Part of inputs where mask is True. 
+    """
+    index = fluid.layers.where(mask)
+    return fluid.layers.gather(input, index)
+
