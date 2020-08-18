@@ -774,7 +774,8 @@ class BatchGraphWrapper(BaseGraphWrapper):
 
         num_edges (int32 or int64): Shape [ num_graph ]. 
 
-        edges (int32 or int64): Shape [ total_num_edges_in_the_graphs, 2 ]
+        edges (int32 or int64): Shape [ total_num_edges_in_the_graphs, 2 ] 
+                                  or Tuple with (src, dst).
    
         node_feats: A dictionary for node features. Each value should be tensor
                     with shape [ total_num_nodes_in_the_graphs, feature_size]
@@ -835,8 +836,11 @@ class BatchGraphWrapper(BaseGraphWrapper):
     def __build_edges(self, edges, node_shift, edge_lod):
         """ Merge subgraph edges. 
         """
-        src = edges[:, 0]
-        dst = edges[:, 1]
+        if len(edges) == 2:
+            src, dst  = edges
+        else:
+            src = edges[:, 0]
+            dst = edges[:, 1]
         src = L.reshape(src, [-1])
         dst = L.reshape(dst, [-1])
         src = paddle_helper.ensure_dtype(src, dtype="int32")
