@@ -57,7 +57,7 @@ collective_local_train(){
 
 eval $(parse_yaml $config)
 
-python ./preprocessing/dump_graph.py -i $input_data -o $graph_path --encoding $encoding -l $max_seqlen --vocab_file $ernie_vocab_file
+python ./preprocessing/dump_graph.py -i $train_data -g $graph_data -o $graph_work_path --encoding $encoding -l $max_seqlen --vocab_file $ernie_vocab_file
 
 if [[ $learner_type == "cpu" ]];then
     transpiler_local_train

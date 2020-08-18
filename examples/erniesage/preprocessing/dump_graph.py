@@ -54,9 +54,32 @@ def dump_graph(args):
     terms = []
     count = 0
     item_distribution = []
+    edges = []
+    train_data = []
+
+    with io.open(args.graphpath, encoding=args.encoding) as f:
+        for idx, line in enumerate(f):
+            if idx % 100000 == 0:
+                log.info("%s readed %s lines" % (args.graphpath, idx))
+            slots = []
+            for col_idx, col in enumerate(line.strip("\n").split("\t")):
+                s = col[:args.max_seqlen]
+                if s not in str2id:
+                    str2id[s] = count
+                    count += 1
+                    term_file.write(str(col_idx) + "\t" + col + "\n")
+                    item_distribution.append(0)
+                slots.append(str2id[s])
+
+            src = slots[0]
+            dst = slots[1]
+            #neg_samples.append(slots[2:])
+            edges.append((src, dst))
+            edges.append((dst, src))
+            item_distribution[dst] += 1
+    edges = np.array(edges, dtype="int64")
 
     with io.open(args.inpath, encoding=args.encoding) as f:
-        edges = []
         for idx, line in enumerate(f):
             if idx % 100000 == 0:
                 log.info("%s readed %s lines" % (args.inpath, idx))
@@ -68,20 +91,18 @@ def dump_graph(args):
                     count += 1
                     term_file.write(str(col_idx) + "\t" + col + "\n")
                     item_distribution.append(0)
-                    
                 slots.append(str2id[s])
 
             src = slots[0]
             dst = slots[1]
             neg_samples.append(slots[2:])
-            edges.append((src, dst))
-            edges.append((dst, src))
-            item_distribution[dst] += 1
+            train_data.append((src, dst))
+    train_data = np.array(train_data, dtype="int64")
 
-        term_file.close()
-        edges = np.array(edges, dtype="int64")
-        num_nodes = len(str2id)
-        str2id.clear()
+    term_file.close()
+    num_nodes = len(str2id)
+    str2id.clear()
+
     log.info("building graph...")
     graph = pgl.graph.Graph(num_nodes=num_nodes, edges=edges)
     indegree = graph.indegree()
@@ -94,6 +115,7 @@ def dump_graph(args):
     item_distribution = np.sqrt(item_distribution)
     distribution = 1. * item_distribution / item_distribution.sum()
     alias, events = alias_sample_build_table(distribution)
+    np.save(os.path.join(args.outpath, "train_data.npy"), train_data)
     np.save(os.path.join(args.outpath, "alias.npy"), alias)
     np.save(os.path.join(args.outpath, "events.npy"), events)
     np.save(os.path.join(args.outpath, "neg_samples.npy"), np.array(neg_samples))
@@ -112,6 +134,7 @@ def dump_node_feat(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='main')
     parser.add_argument("-i", "--inpath", type=str, default=None)
+    parser.add_argument("-g", "--graphpath", type=str, default=None)
     parser.add_argument("-l", "--max_seqlen", type=int, default=30)
     parser.add_argument("--vocab_file", type=str, default="./vocab.txt")
     parser.add_argument("--encoding", type=str, default="utf8")

@@ -22,17 +22,17 @@ from pgl.utils.logger import log
 from pgl.utils import paddle_helper
 
 from learner import Learner
-from models.model_factory import Model
+from models.model import LinkPredictModel
 from dataset.graph_reader import GraphGenerator 
 
 
 class TrainData(object):
-    def __init__(self, graph_path):
+    def __init__(self, graph_work_path):
         trainer_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
         trainer_count = int(os.getenv("PADDLE_TRAINERS_NUM", "1"))
         log.info("trainer_id: %s, trainer_count: %s." % (trainer_id, trainer_count))
 
-        bidirectional_edges = np.load(os.path.join(graph_path, "edges.npy"), allow_pickle=True)
+        bidirectional_edges = np.load(os.path.join(graph_work_path, "train_data.npy"), allow_pickle=True)
         # edges is bidirectional.
         edges = bidirectional_edges[0::2]
         train_usr = edges[trainer_id::trainer_count, 0]
@@ -41,8 +41,8 @@ class TrainData(object):
             "train_data": [train_usr, train_ad]
         }
 
-        if os.path.exists(os.path.join(graph_path, "neg_samples.npy")):
-            neg_samples = np.load(os.path.join(graph_path, "neg_samples.npy"), allow_pickle=True)
+        if os.path.exists(os.path.join(graph_work_path, "neg_samples.npy")):
+            neg_samples = np.load(os.path.join(graph_work_path, "neg_samples.npy"), allow_pickle=True)
             if neg_samples.size != 0:
                 train_negs = neg_samples[trainer_id::trainer_count]
                 returns["train_data"].append(train_negs)
@@ -50,7 +50,7 @@ class TrainData(object):
         self.data = returns
 
     def __getitem__(self, index):
-        return [ data[index] for data in self.data["train_data"]]
+        return [data[index] for data in self.data["train_data"]]
 
     def __len__(self):
         return len(self.data["train_data"][0])
@@ -58,10 +58,10 @@ class TrainData(object):
 
 def main(config):
     # Select Model
-    model = Model.factory(config)
+    model = LinkPredictModel(config)
 
     # Build Train Edges
-    data = TrainData(config.graph_path)
+    data = TrainData(config.graph_work_path)
 
     # Build Train Data
     train_iter = GraphGenerator(
@@ -73,7 +73,7 @@ def main(config):
         feed_name_list=[var.name for var in model.feed_list],
         use_pyreader=config.use_pyreader,
         phase="train",
-        graph_data_path=config.graph_path,
+        graph_data_path=config.graph_work_path,
         shuffle=True,
         neg_type=config.neg_type)
 
