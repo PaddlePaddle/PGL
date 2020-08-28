@@ -105,9 +105,8 @@ class GraphGenerator(BaseDataGenerator):
         feed_dict["pos_item_index"] = np.array(sub_dst_idx, dtype="int64")
         feed_dict["neg_item_index"] = np.array(sub_neg_idx, dtype="int64")
 
-        feed_dict["user_real_index"] = np.array(sub_src_idx, dtype="int64")
-        feed_dict["pos_item_real_index"] = np.array(sub_dst_idx, dtype="int64")
-        feed_dict["neg_item_real_index"] = np.array(sub_neg_idx, dtype="int64")
+        feed_dict["user_real_index"] = np.array(batch_src, dtype="int64")
+        feed_dict["pos_item_real_index"] = np.array(batch_dst, dtype="int64")
         return feed_dict
 
     def __call__(self):
@@ -126,3 +125,37 @@ class GraphGenerator(BaseDataGenerator):
  
 
     
+class NodeClassificationGenerator(GraphGenerator):
+    def batch_fn(self, batch_ex):
+        # batch_ex = [
+        #     (node, label),
+        #     (node, label),
+        #     ]
+        #
+        batch_node = []
+        batch_label = []
+        for batch in batch_ex:
+            batch_node.append(batch[0])
+            batch_label.append(batch[1])
+
+        if len(batch_node) != self.batch_size:
+            if self.phase == "train":
+                return None  #Skip
+
+        batch_node = np.array(batch_node, dtype="int64")
+        batch_label = np.array(batch_label, dtype="int64")
+
+        subgraphs = graphsage_sample(self.graph, batch_node, self.samples)
+        subgraphs[0].node_feat["index"] = subgraphs[0].reindex_to_parrent_nodes(subgraphs[0].nodes).astype(np.int64)
+        subgraphs[0].node_feat["term_ids"] = self.term_ids[subgraphs[0].node_feat["index"]].astype(np.int64)
+        feed_dict = {}
+        for i in range(self.num_layers):
+            feed_dict.update(self.graph_wrappers[i].to_feed(subgraphs[i]))
+
+        # only reindex from first subgraph
+        sub_node_idx = subgraphs[0].reindex_from_parrent_nodes(batch_node)
+
+        feed_dict["node_index"] = np.array(sub_node_idx, dtype="int64")
+        feed_dict["node_real_index"] = np.array(batch_node, dtype="int64")
+        feed_dict["label"] = np.array(batch_label, dtype="int64")
+        return feed_dict

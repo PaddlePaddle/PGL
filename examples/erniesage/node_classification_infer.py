@@ -34,8 +34,8 @@ from pgl.utils import paddle_helper
 import paddle
 import paddle.fluid as F
 
-from models.model import LinkPredictModel
-from dataset.graph_reader import GraphGenerator 
+from models.model import NodeClassificationModel
+from dataset.graph_reader import NodeClassificationGenerator 
 
 
 class PredictData(object):
@@ -71,7 +71,7 @@ def run_predict(py_reader,
         
     for batch_feed_dict in py_reader():
         batch += 1
-        batch_usr_feat, _, _, batch_src_real_index, _, _ = exe.run(
+        _, batch_node_real_index, batch_logits = exe.run(
             program,
             feed=batch_feed_dict,
             fetch_list=model_dict.outputs)
@@ -79,10 +79,12 @@ def run_predict(py_reader,
         if batch % log_per_step == 0:
             log.info("Predict %s finished" % batch)
 
-        for ufs, sri in zip(batch_usr_feat, batch_src_real_index):
+        for idx, logits in zip(batch_node_real_index, batch_logits):
             if args.input_type == "text":
-                sri = id2str[int(sri)].strip("\n")
-            line = "{}\t{}\n".format(sri, tostr(ufs))
+                text = id2str[int(idx)].strip("\n").split("\t")[-1]
+            #prediction = np.argmax(logits)
+            prediction = logits[1]
+            line = "{}\t{}\n".format(text, prediction)
             fout.write(line)
 
     fout.close()
@@ -108,7 +110,7 @@ def _warmstart(exe, program, path='params'):
     )
 
 def main(config):
-    model = LinkPredictModel(config)
+    model = NodeClassificationModel(config)
 
     if config.learner_type == "cpu":
         place = F.CPUPlace()
@@ -147,7 +149,7 @@ def main(config):
 
     predict_data = PredictData(num_nodes)
 
-    predict_iter = GraphGenerator(
+    predict_iter = NodeClassificationGenerator(
         graph_wrappers=model.graph_wrappers,
         batch_size=config.infer_batch_size,
         data=predict_data,
@@ -182,6 +184,5 @@ if __name__ == "__main__":
     parser.add_argument("--conf", type=str, default="./config.yaml")
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
-    config.loss_type = "hinge"
     print(config)
     main(config)

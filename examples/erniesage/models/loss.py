@@ -34,6 +34,8 @@ class Loss(object):
             return HingeLoss(config)
         elif loss_type == "global_hinge":
             return GlobalHingeLoss(config)
+        elif loss_type == "softmax_with_cross_entropy":
+            return lambda logits, label: L.reduce_mean(L.softmax_with_cross_entropy(logits, label))
         else:
             raise ValueError
 

@@ -1,20 +1,21 @@
 # Global Enviroment Settings 
 #
 # trainer config ------
+task: "node_classification"
 learner_type: "gpu"
 optimizer_type: "adam"
 lr: 0.00005
 batch_size: 32
 CPU_NUM: 10
-epoch: 20
+epoch: 3
 log_per_step: 1
 save_per_step: 1000
 output_path: "./output"
 ckpt_path: "./ernie_base_ckpt"
 
 # data config ------
-train_data: "./data.txt"
-graph_data: "./data.txt"
+graph_data: "./example_data/node_classification/graph_data.txt"
+train_data: "./example_data/node_classification/train_data.txt"
 
 graph_work_path: "./workdir"
 sample_workers: 1
@@ -22,8 +23,9 @@ use_pyreader: true
 input_type: "text"
 
 # model config ------
+num_label: 10
 samples: [10]
-model_type: "ERNIESageV3"
+model_type: "ERNIESageV2"
 layer_type: "graphsage_sum"
 
 max_seqlen: 40
@@ -32,7 +34,7 @@ num_layers: 1
 hidden_size: 128
 final_fc: true
 final_l2_norm: true
-loss_type: "hinge"
+loss_type: "softmax_with_cross_entropy"
 margin: 0.1
 neg_type: "batch_neg"
 
@@ -47,11 +49,11 @@ ernie_config:
     attention_probs_dropout_prob: 0.1
     hidden_act: "relu"
     hidden_dropout_prob: 0.1
-    hidden_size: 128
+    hidden_size: 768
     initializer_range: 0.02
     max_position_embeddings: 513
-    num_attention_heads: 2
-    num_hidden_layers: 2
+    num_attention_heads: 12
+    num_hidden_layers: 12
     sent_type_vocab_size: 4
     task_type_vocab_size: 3
     vocab_size: 18000
