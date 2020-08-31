@@ -1,0 +1,82 @@
+# Global Enviroment Settings 
+#
+# trainer config ------
+task: "link_predict"
+learner_type: "gpu"
+optimizer_type: "adam"
+lr: 0.00005
+batch_size: 32
+CPU_NUM: 10
+epoch: 3
+log_per_step: 1
+save_per_step: 1000
+output_path: "./output"
+ckpt_path: "./ernie_base_ckpt"
+
+# data config ------
+train_data: "./example_data/link_predict/graph_data.txt"
+graph_data: "./example_data/link_predict/train_data.txt"
+
+graph_work_path: "./workdir"
+sample_workers: 1
+use_pyreader: true
+input_type: "text"
+
+# model config ------
+samples: [10]
+model_type: "ERNIESageV2"
+layer_type: "graphsage_sum"
+
+max_seqlen: 40
+
+num_layers: 1
+hidden_size: 128
+final_fc: true
+final_l2_norm: true
+loss_type: "hinge"
+margin: 0.1
+neg_type: "batch_neg"
+
+# infer config ------
+infer_model: "./output/last"
+infer_batch_size: 128
+
+# ernie config ------
+encoding: "utf8"
+ernie_vocab_file: "./vocab.txt"
+ernie_config:
+    attention_probs_dropout_prob: 0.1
+    hidden_act: "relu"
+    hidden_dropout_prob: 0.1
+    hidden_size: 128
+    initializer_range: 0.02
+    max_position_embeddings: 513
+    num_attention_heads: 2
+    num_hidden_layers: 3
+    sent_type_vocab_size: 4
+    task_type_vocab_size: 3
+    vocab_size: 18000
+    use_task_id: false
+    use_fp16: false
+
+
+# runconfig 
+model_dir: "./output"
+max_steps: 238766
+save_steps: 10
+log_steps: 1
+max_ckpt: 2
+skip_steps: 0
+eval_steps: 10000
+run_steps: 0
+
+
+# hparam
+warmup_proportion:  0.1
+weight_decay: 0.01
+use_fp16: 0
+learning_rate: 0.00005
+num_label: 2
+batch_size: 24
+warm_start_from: "ernie_base_ckpt"
+
