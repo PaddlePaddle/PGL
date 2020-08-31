@@ -589,25 +589,24 @@ class Graph(object):
         if eid is None and edges is None:
             raise ValueError("Eid and edges can't be None at the same time.")
 
+        sub_edge_feat = {}
         if edges is None:
             edges = self._edges[eid]
         else:
             edges = np.array(edges, dtype="int64")
+
+        if with_edge_feat:
+            for key, value in self._edge_feat.items():
+                if eid is None:
+                    raise ValueError(
+                        "Eid can not be None with edge features.")
+                sub_edge_feat[key] = value[eid]
+        else:
+            sub_edge_feat = edge_feats
             
         sub_edges = graph_kernel.map_edges(
             np.arange(
                 len(edges), dtype="int64"), edges, reindex)
-
-        sub_edge_feat = {}
-        if edges is None:
-            if with_edge_feat:
-                for key, value in self._edge_feat.items():
-                    if eid is None:
-                        raise ValueError(
-                            "Eid can not be None with edge features.")
-                    sub_edge_feat[key] = value[eid]
-        else:
-            sub_edge_feat = edge_feats
 
         sub_node_feat = {}
         if with_node_feat:
