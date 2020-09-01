@@ -1,0 +1,9 @@
+model_name: GCNII 
+k_hop: 64 
+alpha: 0.1
+num_layer: 1
+learning_rate: 0.01
+dropout: 0.6
+hidden_size: 64
+weight_decay: 0.0005 
+edge_dropout: 0.0

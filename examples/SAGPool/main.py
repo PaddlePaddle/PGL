@@ -124,8 +124,7 @@ def main(args, train_dataset, val_dataset, test_dataset):
             break
 
     correct = 0.
-    new_test_program = fluid.Program()
-    fluid.load(new_test_program, "./save/%s/%s" \
+    fluid.load(test_program, "./save/%s/%s" \
                % (args.dataset_name, args.save_model), exe)
     for feed_dict in test_loader:
         correct_ = exe.run(test_program,
