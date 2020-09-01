@@ -24,7 +24,7 @@ from pgl import graph_kernel
 
 __all__ = [
     'graphsage_sample', 'node2vec_sample', 'deepwalk_sample',
-    'metapath_randomwalk', 'pinsage_sample'
+    'metapath_randomwalk', 'pinsage_sample', 'graph_saint_random_walk_sample'
 ]
 
 
@@ -55,7 +55,7 @@ def edge_hash(src, dst):
 
 def graphsage_sample(graph, nodes, samples, ignore_edges=[]):
     """Implement of graphsage sample.
-    
+
     Reference paper: https://cs.stanford.edu/people/jure/pubs/graphsage-nips17.pdf.
 
     Args:
@@ -63,7 +63,7 @@ def graphsage_sample(graph, nodes, samples, ignore_edges=[]):
         nodes: Sample starting from nodes
         samples: A list, number of neighbors in each layer
         ignore_edges: list of edge(src, dst) will be ignored.
-    
+
     Return:
         A list of subgraphs
     """
@@ -129,7 +129,7 @@ def alias_sample(size, alias, events):
         size: Output shape.
         alias: The alias table build by `alias_sample_build_table`.
         events: The events table build by `alias_sample_build_table`.
-    
+
     Return:
         samples: The generated random samples.
     """
@@ -283,13 +283,13 @@ def metapath_randomwalk(graph,
     Args:
         graph: instance of pgl heterogeneous graph
         start_nodes: start nodes to generate walk
-        metapath: meta path for sample nodes. 
+        metapath: meta path for sample nodes.
             e.g: "c2p-p2a-a2p-p2c"
         walk_length: the walk length
 
     Return:
-        a list of metapath walks. 
-        
+        a list of metapath walks.
+
     """
 
     edge_types = metapath.split('-')
@@ -390,18 +390,18 @@ def pinsage_sample(graph,
                    norm_bais=1.0,
                    ignore_edges=set()):
     """Implement of graphsage sample.
-    
+
     Reference paper: .
 
     Args:
         graph: A pgl graph instance
         nodes: Sample starting from nodes
         samples: A list, number of neighbors in each layer
-        top_k: select the top_k visit count nodes to construct the edges 
-        proba: the probability to return the origin node 
+        top_k: select the top_k visit count nodes to construct the edges
+        proba: the probability to return the origin node
         norm_bais: the normlization for the visit count
         ignore_edges: list of edge(src, dst) will be ignored.
-    
+
     Return:
         A list of subgraphs
     """
@@ -476,3 +476,52 @@ def pinsage_sample(graph,
             layer_nodes[0], dtype="int64")
 
     return subgraphs
+
+
+def extract_edges_from_nodes(graph, sample_nodes):
+    eids = graph_kernel.extract_edges_from_nodes(
+        graph.adj_src_index._indptr, graph.adj_src_index._sorted_v,
+        graph.adj_src_index._sorted_eid, sample_nodes)
+    return eids
+
+
+def graph_saint_random_walk_sample(graph,
+                                   nodes,
+                                   max_depth,
+                                   alias_name=None,
+                                   events_name=None):
+    """Implement of graph saint random walk sample.
+
+    First, this function will get random walks path for given nodes and depth.
+    Then, it will create subgraph from all sampled nodes.
+
+    Reference Paper: https://arxiv.org/abs/1907.04931
+
+    Args:
+        graph: A pgl graph instance
+        nodes: Walk starting from nodes
+        max_depth: Max walking depth
+
+    Return:
+        a subgraph of sampled nodes.
+    """
+    graph.outdegree()
+    walks = deepwalk_sample(graph, nodes, max_depth, alias_name, events_name)
+    sample_nodes = []
+    for walk in walks:
+        sample_nodes.extend(walk)
+    sample_nodes = np.unique(sample_nodes)
+    eids = extract_edges_from_nodes(graph, sample_nodes)
+    subgraph = graph.subgraph(
+        nodes=sample_nodes, eid=eids, with_node_feat=True, with_edge_feat=True)
+    subgraph.node_feat["index"] = np.array(sample_nodes, dtype="int64")
+    return subgraph
+
+
+def edge_drop(graph_wrapper, dropout_rate, keep_self_loop=True):
+    if dropout_rate < 1e-5:
+        return graph_wrapper
+    else:
+        return pgl.graph_wrapper.DropEdgeWrapper(graph_wrapper,
+                   dropout_rate,
+                   keep_self_loop)

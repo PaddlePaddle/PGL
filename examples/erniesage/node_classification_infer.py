@@ -34,8 +34,8 @@ from pgl.utils import paddle_helper
 import paddle
 import paddle.fluid as F
 
-from models.model_factory import Model
-from dataset.graph_reader import GraphGenerator 
+from models.model import NodeClassificationModel
+from dataset.graph_reader import NodeClassificationGenerator 
 
 
 class PredictData(object):
@@ -59,7 +59,7 @@ def run_predict(py_reader,
               log_per_step=1,
               args=None):
 
-    id2str = io.open(os.path.join(args.graph_path, "terms.txt"), encoding=args.encoding).readlines()
+    id2str = io.open(os.path.join(args.graph_work_path, "terms.txt"), encoding=args.encoding).readlines()
 
     trainer_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
     trainer_count = int(os.getenv("PADDLE_TRAINERS_NUM", "1"))
@@ -71,7 +71,7 @@ def run_predict(py_reader,
         
     for batch_feed_dict in py_reader():
         batch += 1
-        batch_usr_feat, batch_ad_feat, _, batch_src_real_index = exe.run(
+        _, batch_node_real_index, batch_logits = exe.run(
             program,
             feed=batch_feed_dict,
             fetch_list=model_dict.outputs)
@@ -79,10 +79,12 @@ def run_predict(py_reader,
         if batch % log_per_step == 0:
             log.info("Predict %s finished" % batch)
 
-        for ufs, _, sri in zip(batch_usr_feat, batch_ad_feat, batch_src_real_index):
+        for idx, logits in zip(batch_node_real_index, batch_logits):
             if args.input_type == "text":
-                sri = id2str[int(sri)].strip("\n")
-            line = "{}\t{}\n".format(sri, tostr(ufs))
+                text = id2str[int(idx)].strip("\n").split("\t")[-1]
+            #prediction = np.argmax(logits)
+            prediction = logits[1]
+            line = "{}\t{}\n".format(text, prediction)
             fout.write(line)
 
     fout.close()
@@ -108,7 +110,7 @@ def _warmstart(exe, program, path='params'):
     )
 
 def main(config):
-    model = Model.factory(config)
+    model = NodeClassificationModel(config)
 
     if config.learner_type == "cpu":
         place = F.CPUPlace()
@@ -143,11 +145,11 @@ def main(config):
             build_strategy=build_strategy,
             exec_strategy=exec_strategy)
 
-    num_nodes = int(np.load(os.path.join(config.graph_path, "num_nodes.npy")))
+    num_nodes = int(np.load(os.path.join(config.graph_work_path, "num_nodes.npy")))
 
     predict_data = PredictData(num_nodes)
 
-    predict_iter = GraphGenerator(
+    predict_iter = NodeClassificationGenerator(
         graph_wrappers=model.graph_wrappers,
         batch_size=config.infer_batch_size,
         data=predict_data,
@@ -156,7 +158,7 @@ def main(config):
         feed_name_list=[var.name for var in model.feed_list],
         use_pyreader=config.use_pyreader,
         phase="predict",
-        graph_data_path=config.graph_path,
+        graph_data_path=config.graph_work_path,
         shuffle=False)
 
     if config.learner_type == "cpu":
@@ -182,6 +184,5 @@ if __name__ == "__main__":
     parser.add_argument("--conf", type=str, default="./config.yaml")
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
-    config.loss_type = "hinge"
     print(config)
     main(config)

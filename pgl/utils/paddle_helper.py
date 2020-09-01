@@ -22,13 +22,14 @@ import paddle
 from paddle.fluid import core
 import paddle.fluid as fluid
 import paddle.fluid.layer_helper as layer_helper
+import paddle.fluid.layers as L
 from pgl.utils.logger import log
 
 
 def gather(input, index):
     """Gather input from given index.
 
-    Slicing input data with given index. This function rewrite paddle.fluid.layers.gather
+    Slicing input data with given index. This function rewrite paddle.L.gather
     to fix issue: https://github.com/PaddlePaddle/Paddle/issues/17509 when paddlepaddle's
     version is less than 1.5.
 
@@ -42,16 +43,16 @@ def gather(input, index):
     """
     try:
         # PaddlePaddle 1.5
-        output = fluid.layers.gather(input, index, overwrite=False)
+        output = L.gather(input, index, overwrite=False)
         return output
     except TypeError as e:
         warnings.warn("Your paddle version is less than 1.5"
                       " gather may be slower.")
 
         if index.dtype == core.VarDesc.VarType.INT32:
-            index = fluid.layers.cast(index, "int64")
+            index = L.cast(index, "int64")
             if index.shape[-1] != 1:
-                index = fluid.layers.reshape(index, shape=[-1, 1])
+                index = L.reshape(index, shape=[-1, 1])
             index.stop_gradient = True
 
         helper = layer_helper.LayerHelper("gather", **locals())  #**locals())
@@ -112,7 +113,7 @@ def constant(name, value, dtype, hide_batch_size=True):
         raise TypeError("value should be Numpy array.")
 
     value = value.astype(dtype)
-    data = fluid.layers.create_global_var(
+    data = L.create_global_var(
         shape=value.shape,
         value=0,
         dtype=value.dtype,
@@ -181,7 +182,7 @@ def lod_constant(name, value, lod, dtype):
     _lod = [0]
     for l in lod:
         _lod.append(_lod[-1] + l)
-    output = fluid.layers.lod_reset(data, target_lod=_lod)
+    output = L.lod_reset(data, target_lod=_lod)
     return output, data_initializer
 
 
@@ -189,7 +190,7 @@ def sequence_softmax(x, beta=None):
     """Compute sequence softmax over paddle LodTensor
 
     This function compute softmax normalization along with the length of sequence.
-    This function is an extention of :code:`fluid.layers.sequence_softmax` which can only
+    This function is an extention of :code:`L.sequence_softmax` which can only
     deal with LodTensor whose last dimension is 1.
 
     Args:
@@ -203,12 +204,12 @@ def sequence_softmax(x, beta=None):
     if beta is not None:
         x =  x * beta
     
-    x_max = fluid.layers.sequence_pool(x, "max")
-    x_max = fluid.layers.sequence_expand_as(x_max, x)
+    x_max = L.sequence_pool(x, "max")
+    x_max = L.sequence_expand_as(x_max, x)
     x = x - x_max
-    exp_x = fluid.layers.exp(x)
-    sum_exp_x = fluid.layers.sequence_pool(exp_x, "sum")
-    sum_exp_x = fluid.layers.sequence_expand_as(sum_exp_x, exp_x)
+    exp_x = L.exp(x)
+    sum_exp_x = L.sequence_pool(exp_x, "sum")
+    sum_exp_x = L.sequence_expand_as(sum_exp_x, exp_x)
     return exp_x / sum_exp_x
 
 
@@ -228,7 +229,7 @@ def scatter_add(input, index, updates):
         Same type and shape as input.
     """
 
-    output = fluid.layers.scatter(input, index, updates, overwrite=False)
+    output = L.scatter(input, index, updates, overwrite=False)
     return output
 
 
@@ -248,5 +249,57 @@ def scatter_max(input, index, updates):
         Same type and shape as input.
     """
 
-    output = fluid.layers.scatter(input, index, updates, mode='max')
+    output = L.scatter(input, index, updates, mode='max')
     return output
+
+def masked_select(input, mask):
+    """masked_select
+    
+    Slice the value from given Mask
+   
+    Args:
+        input: Input tensor to be selected
+         
+        mask: A bool tensor for sliced.
+  
+    Return:
+        Part of inputs where mask is True. 
+    """
+    index = L.where(mask)
+    return L.gather(input, index)
+
+
+def ensure_dtype(input, dtype):
+    """ensure_dtype
+
+    If input is dtype, return input
+
+    else cast input into dtype
+
+    Args:
+        input: Input tensor  
+
+        dtype: a string of type
+ 
+    Return:
+        If input is dtype, return input, else cast input into dtype
+    """
+    if str(input.dtype) == dtype:
+        return input
+    else:
+        return L.cast(input, dtype=dtype)
+
+def lod_remove(input):
+    """Lod Remove
+    
+    Remove the lod for LodTensor and Flatten the data into 1D-Tensor.
+
+    Args:
+        input: A tensor to be flattend
+
+    Return:
+        A 1D input
+    """
+    return L.reshape(L.reshape(input, [1, -1]), [-1])
+    
+    
