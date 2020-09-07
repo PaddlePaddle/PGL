@@ -1,4 +1,4 @@
-## OGB_Benchmark
+## Masked Label Prediction: Unified Massage Passing Model for Semi-Supervised Classification
 
 This experiment is based on stanford OGB (1.2.1) benchmark. The description of 《Masked Label Prediction: Unified Massage Passing Model for Semi-Supervised Classification》 is [avaiable here](). The steps are:
 
