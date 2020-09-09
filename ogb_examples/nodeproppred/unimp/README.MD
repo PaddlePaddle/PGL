@@ -44,5 +44,5 @@ Arxiv_dataset(Full Batch):          Products_dataset(NeighborSampler):          
 | Products_baseline  | 0.8023  ± 0.0026 | 0.9286  ± 0.0017 | 1,470,905  | Tesla V100 (32GB) |
 | Products_UniPM     | 0.8256  ± 0.0031 | 0.9308  ± 0.0017 | 1,475,605  | Tesla V100 (32GB) |
 | Proteins_baseline  | 0.8611  ± 0.0017 | 0.9128  ± 0.0007 | 1,879,664  | Tesla V100 (32GB) |
-| Proteins_UniPM     | 0.8643  ± 0.0016 | 0.9175  ± 0.0007 | 1,909,104  | Tesla V100 (32GB) |
+| Proteins_UniPM     | 0.8642  ± 0.0008 | 0.9175  ± 0.0007 | 1,909,104  | Tesla V100 (32GB) |
    
