@@ -2,6 +2,9 @@
 
 This experiment is based on stanford OGB (1.2.1) benchmark. The description of 《Masked Label Prediction: Unified Massage Passing Model for Semi-Supervised Classification》 is [avaiable here](). The steps are:
 
+### Note:
+    The result of Arxiv dataset have been updated, which is slight different from the paper.
+
 ### Install environment:
 ``` 
     git clone https://github.com/PaddlePaddle/PGL.git
