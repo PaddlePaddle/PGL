@@ -72,9 +72,9 @@ class GAT(object):
 
     def forward(self, graph_wrapper, feature, phase):
         if phase == "train": 
-            edge_dropout = 0
-        else:
             edge_dropout = self.edge_dropout
+        else:
+            edge_dropout = 0
 
         for i in range(self.num_layers):
             ngw = pgl.sample.edge_drop(graph_wrapper, edge_dropout) 
@@ -113,9 +113,9 @@ class APPNP(object):
 
     def forward(self, graph_wrapper, feature, phase):
         if phase == "train": 
-            edge_dropout = 0
-        else:
             edge_dropout = self.edge_dropout
+        else:
+            edge_dropout = 0
 
         for i in range(self.num_layers):
             feature = L.dropout(
@@ -169,9 +169,9 @@ class GCNII(object):
 
     def forward(self, graph_wrapper, feature, phase):
         if phase == "train": 
-            edge_dropout = 0
-        else:
             edge_dropout = self.edge_dropout
+        else:
+            edge_dropout = 0
 
         for i in range(self.num_layers):
             feature = L.fc(feature, self.hidden_size, act="relu", name="lin%s" % i)
@@ -191,5 +191,3 @@ class GCNII(object):
 
         feature = L.fc(feature, self.num_class, act=None, name="output")
         return feature
-
-
