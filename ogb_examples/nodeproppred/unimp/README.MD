@@ -2,9 +2,6 @@
 
 This experiment is based on stanford OGB (1.2.1) benchmark. The description of 《Masked Label Prediction: Unified Massage Passing Model for Semi-Supervised Classification》 is [avaiable here](). The steps are:
 
-### Note:
-    The result of Arxiv dataset have been updated, which is slight different from the paper.
-
 ### Install environment:
 ``` 
     git clone https://github.com/PaddlePaddle/PGL.git
@@ -43,7 +40,7 @@ Arxiv_dataset(Full Batch):          Products_dataset(NeighborSampler):          
 | Model              |Test Accuracy    |Valid Accuracy   | Parameters    | Hardware |
 | ------------------ |--------------   | --------------- | -------------- |----------|
 | Arxiv_baseline     | 0.7225  ± 0.0015 | 0.7367  ± 0.0012 | 468,369  | Tesla V100 (32GB) |
-| Arxiv_UniPM        | 0.7317  ± 0.0021 | 0.7456  ± 0.0011 | 473,489 | Tesla V100 (32GB) |
+| Arxiv_UniPM        | 0.7311  ± 0.0021 | 0.7450  ± 0.0005 | 473,489 | Tesla V100 (32GB) |
 | Products_baseline  | 0.8023  ± 0.0026 | 0.9286  ± 0.0017 | 1,470,905  | Tesla V100 (32GB) |
 | Products_UniPM     | 0.8256  ± 0.0031 | 0.9308  ± 0.0017 | 1,475,605  | Tesla V100 (32GB) |
 | Proteins_baseline  | 0.8611  ± 0.0017 | 0.9128  ± 0.0007 | 1,879,664  | Tesla V100 (32GB) |
