@@ -268,7 +268,7 @@ class Arxiv_label_embedding_model():
                                              hidden_size=self.hidden_size,
                                              num_heads=self.num_heads, 
                                              concat=True, 
-                                             layer_norm=True, relu=True)
+                                             layer_norm=True, relu=True, gate=True)
             if self.dropout > 0:
                 feature_batch = L.dropout(feature_batch, dropout_prob=self.dropout, 
                                      dropout_implementation='upscale_in_train') 
