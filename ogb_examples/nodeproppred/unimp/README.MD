@@ -1,4 +1,4 @@
-## Masked Label Prediction: Unified Massage Passing Model for Semi-Supervised Classification (UniMP)
+## Masked Label Prediction: Unified Massage Passing Model for Semi-Supervised Classification
 
 This experiment is based on stanford OGB (1.2.1) benchmark. The description of 《Masked Label Prediction: Unified Massage Passing Model for Semi-Supervised Classification》 is [avaiable here](https://arxiv.org/pdf/2009.03509.pdf). The steps are:
 
