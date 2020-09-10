@@ -117,11 +117,11 @@ def train_loop(parser, start_program, main_program, test_p_list,
     exe.run(start_program)
     feat_init(place)
     
-    max_acc=0  # 最佳test_acc
-    max_step=0 # 最佳test_acc 对应step
-    max_val_acc=0 # 最佳val_acc
-    max_cor_acc=0 # 最佳val_acc对应test_acc
-    max_cor_step=0 # 最佳val_acc对应step
+    max_acc=0  # best test_acc
+    max_step=0 # step for best test_acc 
+    max_val_acc=0 # best val_acc
+    max_cor_acc=0 # test_acc for best val_acc
+    max_cor_step=0 # step for best val_acc
     #training loop
 
     for epoch_id in range(parser.epochs):
