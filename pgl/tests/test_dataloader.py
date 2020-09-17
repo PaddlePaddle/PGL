@@ -35,15 +35,21 @@ class ListDataset(Dataset):
         return len(self.dataset)
 
     def _transform(self, example):
+        time.sleep(0.1)
         return example
 
 
 class IterDataset(StreamDataset):
     def __init__(self):
         self.dataset = list(range(0, DATA_SIZE))
+        self.count = 0
 
     def __iter__(self):
         for data in self.dataset:
+            self.count += 1
+            if self.count % self._worker_info.num_workers != self._worker_info.fid:
+                continue
+            time.sleep(0.1)
             yield data
 
 
@@ -89,6 +95,7 @@ class DataloaderTest(unittest.TestCase):
             ds,
             batch_size=3,
             drop_last=False,
+            shuffle=True,
             num_workers=1,
             collate_fn=collate_fn)
 

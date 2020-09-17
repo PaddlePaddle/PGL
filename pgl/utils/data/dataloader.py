@@ -16,6 +16,7 @@
 """
 
 import numpy as np
+from collections import namedtuple
 
 import paddle
 import paddle.fluid as F
@@ -25,9 +26,42 @@ from pgl.utils import mp_reader
 from pgl.utils.data.dataset import Dataset, StreamDataset
 from pgl.utils.data.sampler import Sampler, StreamSampler
 
+WorkerInfo = namedtuple("WorkerInfo", ["num_workers", "fid"])
+
 
 class Dataloader(object):
-    """Dataloader
+    """Dataloader for loading batch data
+
+    Example:
+        .. code-block:: python
+            from pgl.utils.data import Dataset
+            from pgl.utils.data.dataloader import Dataloader
+
+            class MyDataset(Dataset):
+                def __init__(self):
+                    self.data = list(range(0, 40))
+
+                def __getitem__(self, idx):
+                    return self.data[idx]
+
+                def __len__(self):
+                    return len(self.data)
+
+            def collate_fn(batch_examples):
+                feed_dict = {}
+                feed_dict['data'] = batch_examples
+                return feed_dict
+
+            dataset = MyDataset()
+            loader = Dataloader(dataset, 
+                                batch_size=3,
+                                drop_last=False,
+                                shuffle=True,
+                                num_workers=4,
+                                collate_fn=collate_fn)
+
+            for batch_data in loader:
+                print(batch_data)
     """
 
     def __init__(
@@ -86,6 +120,9 @@ class Dataloader(object):
 
 
 class _DataLoaderIter(object):
+    """Iterable DataLoader Object
+    """
+
     def __init__(self, dataloader, fid=0):
         self.dataset = dataloader.dataset
         self.sampler = dataloader.sampler
@@ -110,6 +147,10 @@ class _DataLoaderIter(object):
                 yield batch_data
 
     def _streamdata_generator(self):
+        self._worker_info = WorkerInfo(
+            num_workers=self.num_workers, fid=self.fid)
+        self.dataset._set_worker_info(self._worker_info)
+
         dataset = iter(self.dataset)
         for indices in self.sampler:
             batch_data = []
@@ -126,8 +167,8 @@ class _DataLoaderIter(object):
 
             # make sure do not repeat in multiprocessing 
             self.count += 1
-            if self.count % self.num_workers != self.fid:
-                continue
+            #  if self.count % self.num_workers != self.fid:
+            #  continue
 
             if self.collate_fn is not None:
                 yield self.collate_fn(batch_data)
