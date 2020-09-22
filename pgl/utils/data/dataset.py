@@ -19,10 +19,13 @@ import os
 import sys
 import numpy as np
 import json
+import io
+from subprocess import Popen, PIPE
 
 
 class HadoopUtil(object):
     """Implementation of some common hadoop operations.
+
     """
 
     def __init__(self, hadoop_bin, fs_name, fs_ugi):
@@ -40,12 +43,14 @@ class HadoopUtil(object):
             filelist = reader.read().split()
         return filelist
 
-    def open(self, filename):
+    def open(self, filename, encoding='utf-8'):
         """ hdfs_file_open """
         cmd = self.hadoop_bin + " fs -D fs.default.name=" + self.fs_name
         cmd += " -D hadoop.job.ugi=" + self.fs_ugi
         cmd += " -cat " + filename
-        p = os.popen(cmd)
+
+        p = Popen(cmd, shell=True, stdout=PIPE)
+        p = io.TextIOWrapper(p.stdout, encoding=encoding, errors='ignore')
         return p
 
 
