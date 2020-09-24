@@ -14,12 +14,13 @@
 """
     This package implement Heterogeneous Graph structure for handling Heterogeneous graph data.
 """
+import os
 import time
 import numpy as np
 import pickle as pkl
 import time
 import pgl.graph_kernel as graph_kernel
-from pgl.graph import Graph
+from pgl.graph import Graph, MemmapGraph
 
 __all__ = ['HeterGraph', 'SubHeterGraph']
 
@@ -112,6 +113,30 @@ class HeterGraph(object):
                 edge_feat=edge_feat)
 
         self._edge_types = self.edge_types_info()
+
+    def dump(self, path, indegree=False, outdegree=False):
+
+        if indegree:
+            for e_type, g in self._multi_graph.items():
+                g.indegree()
+
+        if outdegree:
+            for e_type, g in self._multi_graph.items():
+                g.outdegree()
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        np.save(os.path.join(path, "num_nodes.npy"), self._num_nodes)
+        np.save(os.path.join(path, "node_types.npy"), self._node_types)
+        with open(os.path.join(path, "edge_types.pkl"), 'wb') as f:
+            pkl.dump(self._edge_types, f)
+        with open(os.path.join(path, "nodes_type_dict.pkl"), 'wb') as f:
+            pkl.dump(self._nodes_type_dict, f)
+
+        for e_type, g in self._multi_graph.items():
+            sub_path = os.path.join(path, e_type)
+            g.dump(sub_path)
 
     @property
     def edge_types(self):
@@ -399,7 +424,7 @@ class HeterGraph(object):
         
         """
         edge_types_info = []
-        for key, _ in self._edges_dict.items():
+        for key, _ in self._multi_graph.items():
             edge_types_info.append(key)
 
         return edge_types_info
@@ -460,3 +485,21 @@ class SubHeterGraph(HeterGraph):
             A list of node ids in parent graph.
         """
         return graph_kernel.map_nodes(nodes, self._to_reindex)
+
+
+class MemmapHeterGraph(HeterGraph):
+    def __init__(self, path):
+        self._num_nodes = np.load(os.path.join(path, 'num_nodes.npy'))
+        self._node_types = np.load(
+            os.path.join(path, 'node_types.npy'), allow_pickle=True)
+
+        with open(os.path.join(path, 'edge_types.pkl'), 'rb') as f:
+            self._edge_types = pkl.load(f)
+
+        with open(os.path.join(path, "nodes_type_dict.pkl"), 'rb') as f:
+            self._nodes_type_dict = pkl.load(f)
+
+        self._multi_graph = {}
+        for e_type in self._edge_types:
+            sub_path = os.path.join(path, e_type)
+            self._multi_graph[e_type] = MemmapGraph(sub_path)
