@@ -1,27 +1,31 @@
 # Global Enviroment Settings 
 #
 # trainer config ------
-learner_type: "cpu"
+task: "node_classification"
+learner_type: "gpu"
 optimizer_type: "adam"
 lr: 0.00005
-batch_size: 2
+batch_size: 32
 CPU_NUM: 10
-epoch: 20
+epoch: 3
 log_per_step: 1
-save_per_step: 100
+save_per_step: 1000
 output_path: "./output"
 ckpt_path: "./ernie_base_ckpt"
 
 # data config ------
-input_data: "./data.txt"
-graph_path: "./workdir"
+graph_data: "./example_data/node_classification/graph_data.txt"
+train_data: "./example_data/node_classification/train_data.txt"
+
+graph_work_path: "./workdir"
 sample_workers: 1
 use_pyreader: true
 input_type: "text"
 
 # model config ------
+num_label: 10
 samples: [10]
-model_type: "ErnieSageModelV1"
+model_type: "ERNIESageV2"
 layer_type: "graphsage_sum"
 
 max_seqlen: 40
@@ -30,8 +34,9 @@ num_layers: 1
 hidden_size: 128
 final_fc: true
 final_l2_norm: true
-loss_type: "hinge"
-margin: 0.3
+loss_type: "softmax_with_cross_entropy"
+margin: 0.1
+neg_type: "batch_neg"
 
 # infer config ------
 infer_model: "./output/last"

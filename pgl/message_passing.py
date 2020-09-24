@@ -37,25 +37,25 @@ def weighted_copy_send(src_feat, dst_feat, edge_feat):
 
 def mean_recv(feat):
     """doc"""
-    return fluid.layers.sequence_pool(feat, pool_type="average")
+    return L.sequence_pool(feat, pool_type="average")
 
 
 def sum_recv(feat):
     """doc"""
-    return fluid.layers.sequence_pool(feat, pool_type="sum")
+    return L.sequence_pool(feat, pool_type="sum")
 
 
 def max_recv(feat):
     """doc"""
-    return fluid.layers.sequence_pool(feat, pool_type="max")
+    return L.sequence_pool(feat, pool_type="max")
 
 
 def lstm_recv(hidden_dim):
     """doc"""
     def lstm_recv_inside(feat):
-        forward, _ = fluid.layers.dynamic_lstm(
+        forward, _ = L.dynamic_lstm(
             input=feat, size=hidden_dim * 4, use_peepholes=False)
-        output = fluid.layers.sequence_last_step(forward)
+        output = L.sequence_last_step(forward)
         return output
     return lstm_recv_inside
 
@@ -65,22 +65,22 @@ def graphsage_sum(gw, feature, hidden_size, act, initializer, learning_rate, nam
     msg = gw.send(copy_send, nfeat_list=[("h", feature)])
     neigh_feature = gw.recv(msg, sum_recv)
     self_feature = feature
-    self_feature = fluid.layers.fc(self_feature,
+    self_feature = L.fc(self_feature,
                                    hidden_size,
                                    act=act,
                                    param_attr=fluid.ParamAttr(name=name + "_l.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
                                     bias_attr=name+"_l.b_0"
                                    )
-    neigh_feature = fluid.layers.fc(neigh_feature,
+    neigh_feature = L.fc(neigh_feature,
                                     hidden_size,
                                     act=act,
                                     param_attr=fluid.ParamAttr(name=name + "_r.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
                                     bias_attr=name+"_r.b_0"
                                     )
-    output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
-    output = fluid.layers.l2_normalize(output, axis=1)
+    output = L.concat([self_feature, neigh_feature], axis=1)
+    output = L.l2_normalize(output, axis=1)
     return output
 
 
@@ -89,22 +89,22 @@ def graphsage_mean(gw, feature, hidden_size, act, initializer, learning_rate, na
     msg = gw.send(copy_send, nfeat_list=[("h", feature)])
     neigh_feature = gw.recv(msg, mean_recv)
     self_feature = feature
-    self_feature = fluid.layers.fc(self_feature,
+    self_feature = L.fc(self_feature,
                                    hidden_size,
                                    act=act,
                                    param_attr=fluid.ParamAttr(name=name + "_l.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
                                     bias_attr=name+"_l.b_0"
                                    )
-    neigh_feature = fluid.layers.fc(neigh_feature,
+    neigh_feature = L.fc(neigh_feature,
                                     hidden_size,
                                     act=act,
                                     param_attr=fluid.ParamAttr(name=name + "_r.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
                                     bias_attr=name+"_r.b_0"
                                     )
-    output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
-    output = fluid.layers.l2_normalize(output, axis=1)
+    output = L.concat([self_feature, neigh_feature], axis=1)
+    output = L.l2_normalize(output, axis=1)
     return output
 
 
@@ -113,22 +113,22 @@ def pinsage_mean(gw, feature, hidden_size, act, initializer, learning_rate, name
     msg = gw.send(weighted_copy_send, nfeat_list=[("h", feature)], efeat_list=["weight"])
     neigh_feature = gw.recv(msg, mean_recv)
     self_feature = feature
-    self_feature = fluid.layers.fc(self_feature,
+    self_feature = L.fc(self_feature,
                                    hidden_size,
                                    act=act,
                                    param_attr=fluid.ParamAttr(name=name + "_l.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
                                     bias_attr=name+"_l.b_0"
                                    )
-    neigh_feature = fluid.layers.fc(neigh_feature,
+    neigh_feature = L.fc(neigh_feature,
                                     hidden_size,
                                     act=act,
                                     param_attr=fluid.ParamAttr(name=name + "_r.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
                                     bias_attr=name+"_r.b_0"
                                     )
-    output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
-    output = fluid.layers.l2_normalize(output, axis=1)
+    output = L.concat([self_feature, neigh_feature], axis=1)
+    output = L.l2_normalize(output, axis=1)
     return output
 
 
@@ -137,22 +137,22 @@ def pinsage_sum(gw, feature, hidden_size, act, initializer, learning_rate, name)
     msg = gw.send(weighted_copy_send, nfeat_list=[("h", feature)], efeat_list=["weight"])
     neigh_feature = gw.recv(msg, sum_recv)
     self_feature = feature
-    self_feature = fluid.layers.fc(self_feature,
+    self_feature = L.fc(self_feature,
                                    hidden_size,
                                    act=act,
                                    param_attr=fluid.ParamAttr(name=name + "_l.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
                                     bias_attr=name+"_l.b_0"
                                    )
-    neigh_feature = fluid.layers.fc(neigh_feature,
+    neigh_feature = L.fc(neigh_feature,
                                     hidden_size,
                                     act=act,
                                     param_attr=fluid.ParamAttr(name=name + "_r.w_0", initializer=initializer,
                                    learning_rate=learning_rate),
                                     bias_attr=name+"_r.b_0"
                                     )
-    output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
-    output = fluid.layers.l2_normalize(output, axis=1)
+    output = L.concat([self_feature, neigh_feature], axis=1)
+    output = L.l2_normalize(output, axis=1)
     return output
     
     
@@ -172,7 +172,7 @@ def softmax_agg(beta):
     def softmax_agg_inside(msg):
         alpha = paddle_helper.sequence_softmax(msg, beta)
         msg = msg * alpha
-        return fluid.layers.sequence_pool(msg, "sum")
+        return L.sequence_pool(msg, "sum")
     
     return softmax_agg_inside
 
@@ -190,15 +190,16 @@ def msg_norm(x, msg, name):
     Return:
         An output tensor with shape (num_nodes, feature_size)
     """
-    s = fluid.layers.create_parameter(
+    s = L.create_parameter(
             shape=[1],
             dtype='float32',
             default_initializer=
                 fluid.initializer.ConstantInitializer(value=1.0),
             name=name + '_s_msg_norm')
 
-    msg = fluid.layers.l2_normalize(msg, axis=1)
-    x_norm = fluid.layers.reduce_sum(x * x, dim=1, keep_dim=True)
+    msg = L.l2_normalize(msg, axis=1)
+    x_norm = L.reduce_sum(x * x, dim=1, keep_dim=True)
+    x_norm = L.sqrt(x_norm)
     msg = msg * x_norm * s
     return msg
 
