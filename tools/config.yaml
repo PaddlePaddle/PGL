@@ -1,0 +1,30 @@
+# configure for common and custom mode
+jobname: test
+plugins_type: common
+
+# The custom mode configure as follows
+case_data: 
+data_type: news
+
+# user vector info(support for ftp or hdfs)
+base_user_data:
+new_user_data:
+
+# item vector info(support for ftp or hdfs)
+base_item_data: 
+new_item_data:
+
+# vector afs info(if possible)
+ugi: 
+afs_conf: 
+
+# specify the maximum numbers of vectors
+max_records: 2000000
+
+# for custom mode
+user_time: 1598760000
+item_time: "2020-08-30 00:00:00"
+plan_type: ucf
+dim: 100
+n_trees: 30
+search_n: 100
