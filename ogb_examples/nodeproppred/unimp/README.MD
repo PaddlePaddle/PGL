@@ -1,6 +1,6 @@
-## Masked Label Prediction: Unified Massage Passing Model for Semi-Supervised Classification
+## Masked Label Prediction: Unified Message Passing Model for Semi-Supervised Classification
 
-This experiment is based on stanford OGB (1.2.1) benchmark. The description of 《Masked Label Prediction: Unified Massage Passing Model for Semi-Supervised Classification》 is [avaiable here](https://arxiv.org/pdf/2009.03509.pdf). The steps are:
+This experiment is based on stanford OGB (1.2.1) benchmark. The description of 《Masked Label Prediction: Unified Message Passing Model for Semi-Supervised Classification》 is [avaiable here](https://arxiv.org/pdf/2009.03509.pdf). The steps are:
 
 ### Note!
 We propose **UniMP_large**, where we extend our base model's width by increasing ```head_num```, and make it deeper by incorporating [APPNP](https://www.in.tum.de/daml/ppnp/) . Moreover, we firstly propose a new **Attention based APPNP** to further improve our model's performance.
