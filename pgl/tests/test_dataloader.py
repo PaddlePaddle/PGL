@@ -17,6 +17,7 @@ import time
 import unittest
 import json
 import os
+import random
 
 from pgl.utils.data.dataset import Dataset, StreamDataset
 from pgl.utils.data.dataloader import Dataloader
@@ -35,7 +36,7 @@ class ListDataset(Dataset):
         return len(self.dataset)
 
     def _transform(self, example):
-        time.sleep(0.1)
+        time.sleep(0.05 + random.random() * 0.1)
         return example
 
 
@@ -105,6 +106,7 @@ class DataloaderTest(unittest.TestCase):
                 res.extend(batch_data['data'])
             self.assertEqual(set([i for i in range(DATA_SIZE)]), set(res))
 
+
     def test_IterDataset(self):
         config = {
             'batch_size': 3,
@@ -141,6 +143,31 @@ class DataloaderTest(unittest.TestCase):
                 res.extend(batch_data['data'])
             self.assertEqual(set([i for i in range(DATA_SIZE)]), set(res))
 
+    def test_Order(self):
+        config = {
+            'batch_size': 2,
+            'drop_last': False,
+            'shuffle': False,
+            'num_workers': 4,
+        }
+        collate_fn = Collate_fn(config)
+        ds = ListDataset()
+
+        # test batch_size
+        loader = Dataloader(
+            ds,
+            batch_size=config['batch_size'],
+            drop_last=config['drop_last'],
+            num_workers=config['num_workers'],
+            collate_fn=collate_fn)
+
+        epochs = 1
+        for e in range(epochs):
+            old_value = -1
+            for batch_data in loader:
+                value = batch_data["data"][0]
+                self.assertGreater(value, old_value)
+                old_value = value
 
 if __name__ == "__main__":
     unittest.main()
