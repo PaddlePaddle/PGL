@@ -13,9 +13,9 @@ class MainEntry(object):
     """main entrance"""
     def __init__(self, config, args):
         self._case_data = config.case_data
-        self._item_data = config.item_data
+        self._new_item_data = config.new_item_data
         self._base_item_data = config.base_item_data
-        self._user_data = config.user_data
+        self._new_user_data = config.new_user_data
         self._base_user_data = config.base_user_data
         self._data_type = config.data_type
         self._user_time = config.user_time
@@ -38,9 +38,9 @@ class MainEntry(object):
         processor = PRProcessor()
         params = {}
         params["case_data"] = self._case_data
-        params["item_data"] = self._item_data
+        params["new_item_data"] = self._new_item_data
         params["base_item_data"] = self._base_item_data
-        params["user_data"] = self._user_data
+        params["new_user_data"] = self._new_user_data
         params["base_user_data"] = self._base_user_data
         params["data_type"] = self._data_type
         params["user_time"] = self._user_time

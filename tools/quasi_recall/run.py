@@ -13,15 +13,15 @@ if __name__ == "__main__":
     from app.main import MainEntry
     import logging; log = logging.getLogger()
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--recall", required=False)
     parser.add_argument("--truth", required=False)
     args = parser.parse_args()
 
     if not os.path.exists("log"): os.mkdir("log")
-    logging.basicConfig(
-        level=logging.DEBUG, datefmt="%Y-%m-%d %H:%M:%S",
-        filename=f"log/{config.jobname}", filemode='w',
+    logging.basicConfig(level=logging.DEBUG, datefmt="%Y-%m-%d %H:%M:%S",
+        filename=f"log/{config.jobname}", filemode="w",
         format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)s] %(message)s")
 
     tmp_dir = os.path.join("tmp", config.jobname)

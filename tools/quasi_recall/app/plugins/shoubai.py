@@ -122,7 +122,7 @@ class QuasiRecallContext(object):
                 """need to compare two vector keys"""
                 log.info(f"case load success: {key}")
 
-            set1 = set(self.info['case_dict']['user_data'])
+            set1 = set(self.info['case_dict']['new_user_data'])
             set2 = set(self.info['case_dict']['base_user_data'])
             iset = set1.intersection(set2)
             self.info['case_data_list'] = [item for item in iset][:5000]
