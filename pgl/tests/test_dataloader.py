@@ -48,7 +48,7 @@ class IterDataset(StreamDataset):
     def __iter__(self):
         for data in self.dataset:
             self.count += 1
-            if self.count % self._worker_info.num_workers != self._worker_info.fid:
+            if (self.count - 1) % self._worker_info.num_workers != self._worker_info.fid:
                 continue
             time.sleep(0.1)
             yield data
@@ -143,7 +143,7 @@ class DataloaderTest(unittest.TestCase):
                 res.extend(batch_data['data'])
             self.assertEqual(set([i for i in range(DATA_SIZE)]), set(res))
 
-    def test_Order(self):
+    def test_ListDataset_Order(self):
         config = {
             'batch_size': 2,
             'drop_last': False,
@@ -163,11 +163,11 @@ class DataloaderTest(unittest.TestCase):
 
         epochs = 1
         for e in range(epochs):
-            old_value = -1
+            res = []
             for batch_data in loader:
-                value = batch_data["data"][0]
-                self.assertGreater(value, old_value)
-                old_value = value
+                res.extend(batch_data['data'])
+            self.assertEqual([i for i in range(DATA_SIZE)], res)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -148,13 +148,13 @@ class _DataLoaderIter(object):
         self.batch_size = dataloader.batch_size
         self.stream_shuffle_size = dataloader.stream_shuffle_size
         self.fid = fid
-        self.count = -1
+        self.count = 0
 
     def _data_generator(self):
         for indices in self.sampler:
 
             self.count += 1
-            if self.count % self.num_workers != self.fid:
+            if (self.count - 1) % self.num_workers != self.fid:
                 continue
 
             batch_data = [self.dataset[i] for i in indices]
