@@ -107,20 +107,24 @@ def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
 
     def queue_reader():
         """queue_reader"""
-        queue = multiprocessing.Queue(queue_size)
+        queues = []
         for reader in readers:
+            queue = multiprocessing.Queue(queue_size)
+            queues.append(queue)
             p = multiprocessing.Process(
                 target=_read_into_queue, args=(reader, queue))
             p.start()
 
         reader_num = len(readers)
-        finish_num = 0
-        while finish_num < reader_num:
-            sample = deserialize_data(queue.get())
-            if sample is None:
-                finish_num += 1
-            else:
-                yield sample
+        alive_queue_indices = [i for i in range(reader_num)]
+        while len(alive_queue_indices) > 0:
+            for alive_queue_index in [i for i in alive_queue_indices]:
+                sample = deserialize_data(queues[alive_queue_index].get())
+                if sample is None:
+                    alive_queue_indices.remove(alive_queue_index)
+                else:
+                    yield sample
+
 
     def _read_into_pipe(reader, conn, max_pipe_size):
         """read_into_pipe"""
@@ -144,38 +148,17 @@ def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
         reader_num = len(readers)
         conn_to_remove = []
         finish_flag = np.zeros(len(conns), dtype="int32")
-        start = time.time()
 
-        def queue_worker(sub_conn, que):
-            while True:
-                buff = sub_conn.recv()
-                sample = deserialize_data(buff)
+        alive_conn_indices = [i for i in range(reader_num)]
+        while len(alive_conn_indices) > 0:
+            for alive_conn_index in [i for i in alive_conn_indices]:
+                sample = deserialize_data(conns[alive_conn_index].recv())
                 if sample is None:
-                    que.put(None)
-                    sub_conn.close()
-                    break
-                que.put(sample)
-
-        thread_pool = []
-        output_queue = Queue(maxsize=reader_num)
-        for i in range(reader_num):
-            t = threading.Thread(
-                target=queue_worker, args=(conns[i], output_queue))
-            t.daemon = True
-            t.start()
-            thread_pool.append(t)
-
-        finish_num = 0
-        while finish_num < reader_num:
-            sample = output_queue.get()
-            if sample is None:
-                finish_num += 1
-            else:
-                yield sample
-
-        for thread in thread_pool:
-            thread.join()
-
+                    conns[alive_conn_index].close()
+                    alive_conn_indices.remove(alive_conn_index)
+                else:
+                    yield sample
+                    
     if use_pipe:
         return pipe_reader
     else:

@@ -148,13 +148,11 @@ class _DataLoaderIter(object):
         self.batch_size = dataloader.batch_size
         self.stream_shuffle_size = dataloader.stream_shuffle_size
         self.fid = fid
-        self.count = 0
 
     def _data_generator(self):
-        for indices in self.sampler:
+        for count, indices in enumerate(self.sampler):
 
-            self.count += 1
-            if self.count % self.num_workers != self.fid:
+            if count % self.num_workers != self.fid:
                 continue
 
             batch_data = [self.dataset[i] for i in indices]
@@ -182,9 +180,6 @@ class _DataLoaderIter(object):
                                         len(batch_data) < len(indices)):
                 break
                 #  raise StopIteration
-
-            # make sure do not repeat in multiprocessing 
-            self.count += 1
 
             if self.collate_fn is not None:
                 yield self.collate_fn(batch_data)
