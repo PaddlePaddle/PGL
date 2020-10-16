@@ -43,12 +43,10 @@ class ListDataset(Dataset):
 class IterDataset(StreamDataset):
     def __init__(self):
         self.dataset = list(range(0, DATA_SIZE))
-        self.count = 0
 
     def __iter__(self):
-        for data in self.dataset:
-            self.count += 1
-            if (self.count - 1) % self._worker_info.num_workers != self._worker_info.fid:
+        for count, data in enumerate(self.dataset):
+            if count % self._worker_info.num_workers != self._worker_info.fid:
                 continue
             time.sleep(0.1)
             yield data
