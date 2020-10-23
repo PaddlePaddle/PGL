@@ -16,7 +16,7 @@ Demo可选择两个模式执行:\ :raw-html-m2r:`<br>`
 1、ugi:  模型产出向量存放afs的ugi账号信息（格式：用户名, 密码）\ :raw-html-m2r:`<br>`
 2、afs_conf:  指定本地执行hadoop对应的hadoop-site.xml文件 （前提需安装hadoop)\ :raw-html-m2r:`<br>`
 3、base_user_data/new_user_data:  (用户向量地址，可支持afs或者ftp)\ :raw-html-m2r:`<br>`
-   1) 如果有两组实验对比（只支持最多两组实验的对比): 分别填写对应向量地址;\ :raw-html-m2r:`<br>`
+   1) 如果有两组实验对比(只支持最多两组实验的对比); 分别填写对应向量地址;\ :raw-html-m2r:`<br>`
    2) 如果只需评估一组实验: 只需在new_user_data填写\ :raw-html-m2r:`<br>`
 4、data_type: 评估资源类型(图文 or 视频)\ :raw-html-m2r:`<br>`
 5、case_data: 评估用例地址(可选填，如果不填写，则从向量中获取评估用例)\ :raw-html-m2r:`<br>`
