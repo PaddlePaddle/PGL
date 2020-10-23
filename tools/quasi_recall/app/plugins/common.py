@@ -43,7 +43,8 @@ class QuasiRecallContext(object):
         truth_ratios, recall_ratios = list(), list()
 
         for (key, recall_list) in self.info['recall'].items():
-            if truth_list := self.info['truth'].get(key):
+            if self.info['truth'].get(key):
+                truth_list = self.info['truth'].get(key)
                 recall_truth_list = [i for i in truth_list if i in set(recall_list)]
                 truth_ratios.append(len(recall_truth_list) / len(recall_list))
                 recall_ratios.append(len(recall_truth_list) / len(truth_list))

@@ -63,25 +63,32 @@ class QuasiRecallContext(object):
         data = ""
         plan_type = self.info.get('plan_type')
 
-        if data := self.info.get('case_data'):
+        if self.info.get('case_data'):
+            data = self.info.get("case_data")
             if 'ftp' in data: self.ftp_download_task('case_data')
             elif 'hdfs' in data: self.hdfs_single_download_task('case_data')
 
         if plan_type != "icf":
-            if data := self.info.get('new_user_data'):  
+            if self.info.get('new_user_data'):  
+               data = self.info.get("new_user_data") 
                if 'ftp' in data: self.ftp_download_task('new_user_data')
                elif 'hdfs' in data: self.hdfs_single_download_task('new_user_data')
 
-            if data := self.info.get('base_user_data'):  
+            if self.info.get('base_user_data'):  
+               data = self.info.get('base_user_data')  
+              
                if 'ftp' in data: self.ftp_download_task('base_user_data')
                elif 'hdfs' in data: self.hdfs_single_download_task('base_user_data')
             
         elif plan_type != "ucf":
-            if data := self.info.get('new_item_data'):
+            if self.info.get('new_item_data'):
+                data = self.info.get('new_item_data')
+               
                 if 'ftp' in data: self.ftp_download_task('new_item_data')
                 elif 'hdfs' in data: self.hdfs_single_download_task('new_item_data')
 
-            if data := self.info.get('base_item_data'):  
+            if self.info.get('base_item_data'):  
+               data = self.info.get('base_item_data')  
                if 'ftp' in data: self.ftp_download_task('base_item_data')
                elif 'hdfs' in data: self.hdfs_single_download_task('base_item_data')
 
@@ -149,7 +156,8 @@ class QuasiRecallContext(object):
         """using ftp to download"""
         tmp_dir = self.info.get('tmp_dir') 
         data = os.path.join(tmp_dir, data_key)
-        if data_ftp := self.info.get(data_key):
+        if self.info.get(data_key):
+            data_ftp = self.info.get(data_key)
             cmd = ["wget", "-q", "-O", data, data_ftp]
             log.info(f"{cmd}")
             if Popen(cmd, stdout=DEVNULL, stderr=DEVNULL).wait():
@@ -174,7 +182,8 @@ class QuasiRecallContext(object):
 
     def hdfs_single_download_task(self, data_key):
         """using hdfs to single-download"""
-        if data_hdfs := self.info.get(data_key):
+        if self.info.get(data_key):
+            data_hdfs = self.info.get(data_key)
             ugi = self.info.get('ugi')
             afs_conf = self.info.get('afs_conf')
             cmd = ["hadoop", "fs", "-conf", f"{afs_conf}",
@@ -300,7 +309,8 @@ class QuasiRecallContext(object):
         case_data_list = self.info["case_data_list"]
 
         for key in case_data_list:
-            if idx := self.info['keyIdx'][vector_type].get(key):
+            if self.info['keyIdx'][vector_type].get(key):
+                idx = self.info['keyIdx'][vector_type].get(key)
                 recall_keys = [sign(i) for i in self.info[vector_type].get_nns_by_item(idx, self.info['search_n'])[1:]]
                 (status, result) = self.info['cli'].batch_get(table_name, recall_keys)
                 if SUCC != status: continue
@@ -328,7 +338,8 @@ class QuasiRecallContext(object):
         truth_ratios, recall_ratios = list(), list()
 
         for (key, recall_list) in self.info['recall'].items():
-            if truth_list := self.info['truth'].get(key):
+            if self.info['truth'].get(key):
+                truth_list = self.info['truth'].get(key)
                 recall_truth_list = [i for i in truth_list if i in set(recall_list)]
                 truth_ratios.append(len(recall_truth_list) / len(recall_list))
                 recall_ratios.append(len(recall_truth_list) / len(truth_list))
