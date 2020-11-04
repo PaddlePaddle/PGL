@@ -11,97 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import paddle
-import paddle.fluid as fluid
-
+import warnings
 import numpy as np
 
+import paddle
+import paddle.fluid as fluid
+import paddle.fluid.layers as L
+
 import pgl
+from pgl.graph_wrapper import send, recv
 from pgl.utils import op
 from pgl.utils import paddle_helper
-from pgl.math import segment_sum, segment_mean, segment_sum, segment_max
-
-import warnings
-
-
-class MessagePassing(object):
-    def __init__(self, graph_tensor, messages):
-        self._segment_ids = graph_tensor.dst
-        self._messages = messages
-
-    def reduce_sum(self, msg):
-        return segment_sum(msg, self._segment_ids)
-
-    def reduce_mean(self, msg):
-        return segment_mean(msg, self._segment_ids)
-
-    def reduce_max(self, msg):
-        return segment_max(msg, self._segment_ids)
-
-    def reduce_min(self, msg):
-        return segment_max(msg, self._segment_ids)
-
-    def sequence_expand(self, msg):
-        return paddle.gather(msg, dst, axis=0)
-
-    def reduce_sofmax(self, msg, beta=None):
-        if beta is not None:
-            msg = msg * beta
-        msg_max = self.reduce_max(msg)
-        msg_max = self.sequence_expand(msg_max)
-        msg = msg - msg_max
-        exp_msg = paddle.fluid.layers.exp(msg)
-
-        sum_exp_x = self.reduce_sum(exp_msg)
-        sum_exp_x = self.sequence_expand(sum_exp_x)
-
-        return exp_x / sum_exp_x
-
-    def __getitem__(self, key):
-        return self._messages[key]
-
-
-def send(src, dst, nfeat, efeat, message_func):
-    """Send message from src to dst.
-    """
-    src_feat = op.RowReader(nfeat, src)
-    dst_feat = op.RowReader(nfeat, dst)
-    msg = message_func(src_feat, dst_feat, efeat)
-    return msg
-
-
-def recv(dst, uniq_dst, msg, reduce_function, num_nodes, num_edges):
-    """Recv message from given msg to dst nodes.
-    """
-    if type(reduce_function) is str:
-        if isinstance(msg, dict):
-            raise TypeError("The message for build-in function"
-                            " should be Tensor not dict.")
-
-        if reduce_function == "sum":
-            # out_dim = msg.shape[-1]
-            # init_output = fluid.layers.fill_constant(
-            #     shape=[num_nodes, out_dim], value=0, dtype=msg.dtype)
-            # init_output.stop_gradient = True
-            # # empty_msg_flag = fluid.layers.cast(num_edges > 0, dtype=msg.dtype)
-            # # msg = msg * empty_msg_flag
-            # output = paddle_helper.scatter_add(init_output, dst, msg)
-            output = segment_sum(msg, dst)
-        elif reduce_function == "mean":
-            output = segment_mean(msg, dst)
-        elif reduce_function == "max":
-            output = segment_max(msg, dst)
-        elif reduce_function == "min":
-            output = segment_min(msg, dst)
-        else:
-            raise TypeError("Unsuport reduce function!")
-    else:
-        # output = reduce_function(dst, msg)
-        output = reduce_function(msg)
-
-    # TODO(@ZHUI) fix when last node do not have coresponding source node.
-    # final_output = fluid.layers.scatter(init_output, uniq_dst, output)
-    return output
 
 
 class GraphTensor(pgl.graph_wrapper.BaseGraphWrapper):
@@ -111,16 +31,6 @@ class GraphTensor(pgl.graph_wrapper.BaseGraphWrapper):
     def __init__(self, graph):
         super(GraphTensor, self).__init__()
         self.__create_graph_attr(graph)
-
-    def recv(self, msg, reduce_function):
-        output = recv(
-            dst=self._edges_dst,
-            uniq_dst=self._edge_uniq_dst,
-            msg=msg,
-            reduce_function=reduce_function,
-            num_edges=self._num_edges,
-            num_nodes=self._num_nodes)
-        return output
 
     def __create_graph_attr(self, graph):
         """Create graph attributes for paddlepaddle.
