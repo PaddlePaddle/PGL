@@ -25,7 +25,7 @@ import argparse
 
 from pgl.math import segment_sum
 
-# Proposal 0: Build in function. "sum, mean, max, min" 
+# Proposal 0: Build in function. "sum, mean, max, min"
 
 
 # Proposal 1: User write segment_ids as args in the reduce_function。
@@ -67,7 +67,7 @@ class GCNConv(paddle.nn.Layer):
 
     # Proposal 3: Pass segment_ids by the Conv layers self.
     def custom_reduce_sum(self, message):
-        return segment_sum(message, self.graph.dst)
+        return segment_sum(message, self.graph._edges_dst)
 
     def forward(self, gw, feature, norm=None, activation=None):
         self.graph = gw
@@ -104,6 +104,9 @@ class Cora(paddle.nn.Layer):
     def forward(self, pgraph, node_index, node_label):
         output = self.conv_1(pgraph, pgraph.node_feat['words'],
                              pgraph.node_feat['norm'])
+        output = paddle.nn.functional.dropout(
+            output, 0.5, mode='upscale_in_train')
+
         output = self.conv_2(pgraph, output, pgraph.node_feat['norm'])
 
         pred = paddle.gather(output, node_index)
@@ -158,7 +161,7 @@ def dymain(args):
     test_index = to_tensor(np.expand_dims(test_index, -1))
 
     dur = []
-    for epoch in range(2001):
+    for epoch in range(501):
         if epoch >= 10:
             t0 = time.time()
         train_loss, train_acc = cora(pgraph, train_index, train_label)
@@ -169,7 +172,7 @@ def dymain(args):
             time_per_epoch = 1.0 * (time.time() - t0)
             dur.append(time_per_epoch)
         val_loss, val_acc = cora(pgraph, val_index, val_label)
-        if epoch % 100 == 0:
+        if epoch % 10 == 0:
             log.info("Epoch %d " % epoch + "(%.5lf sec) " % np.mean(
                 dur) + "Train Loss: %f " % train_loss + "Train Acc: %f " %
                      train_acc + "Val Loss: %f " % val_loss + "Val Acc: %f " %
