@@ -20,6 +20,7 @@ import numpy as np
 
 import paddle
 from paddle.fluid import core
+from paddle.fluid.framework import in_dygraph_mode
 import paddle.fluid as fluid
 import paddle.fluid.layer_helper as layer_helper
 import paddle.fluid.layers as L
@@ -43,7 +44,10 @@ def gather(input, index):
     """
     try:
         # PaddlePaddle 1.5
-        output = L.gather(input, index, overwrite=False)
+        if in_dygraph_mode():
+            output = paddle.gather(input, index)
+        else:
+            output = L.gather(input, index, overwrite=False)
         return output
     except TypeError as e:
         warnings.warn("Your paddle version is less than 1.5"

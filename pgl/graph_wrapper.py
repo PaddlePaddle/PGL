@@ -58,11 +58,9 @@ class Message(object):
         return segment_max(msg, self._segment_ids)
 
     def sequence_expand(self, msg):
-        return paddle.gather(msg, dst, axis=0)
+        return paddle.gather(msg, self._segment_ids, axis=0)
 
-    def reduce_sofmax(self, msg, beta=None):
-        if beta is not None:
-            msg = msg * beta
+    def reduce_sofmax(self, msg):
         msg_max = self.reduce_max(msg)
         msg_max = self.sequence_expand(msg_max)
         msg = msg - msg_max
