@@ -202,8 +202,8 @@ def sequence_softmax(x, beta=None):
     """
 
     if beta is not None:
-        x =  x * beta
-    
+        x = x * beta
+
     x_max = L.sequence_pool(x, "max")
     x_max = L.sequence_expand_as(x_max, x)
     x = x - x_max
@@ -252,6 +252,7 @@ def scatter_max(input, index, updates):
     output = L.scatter(input, index, updates, mode='max')
     return output
 
+
 def masked_select(input, mask):
     """masked_select
     
@@ -289,6 +290,7 @@ def ensure_dtype(input, dtype):
     else:
         return L.cast(input, dtype=dtype)
 
+
 def lod_remove(input):
     """Lod Remove
     
@@ -301,5 +303,42 @@ def lod_remove(input):
         A 1D input
     """
     return L.reshape(L.reshape(input, [1, -1]), [-1])
-    
-    
+
+
+def lod2segment_ids(lod_index):
+    """lod2segment_ids
+
+    Convert lod index to segment index for segment operators.
+
+    Args:
+        lod_index: A tensor records the lod information.
+
+    Return:
+        A tnesor of segment index.
+    """
+    #assume lod_index: [0, 1, 4, 5, 6] --> [1, 4, 5, 6]
+    lod_index = lod_index[1:]
+
+    # rang: [0, 1, 2, 3, 4, 5]
+    rang = paddle.reshape(
+        paddle.arange(
+            start=0, end=lod_index[-1]), shape=[1, -1])
+    """
+    rang: [[0, 1, 2, 3, 4, 5], 
+           [0, 1, 2, 3, 4, 5], 
+           [0, 1, 2, 3, 4, 5], 
+           [0, 1, 2, 3, 4, 5]]
+    """
+    rang = paddle.expand(rang, [lod_index.shape[0], -1])
+    """
+    res: [[0, 1, 1, 1, 1, 1], 
+          [0, 0, 0, 0, 1, 1], 
+          [0, 0, 0, 0, 0, 1], 
+          [0, 0, 0, 0, 0, 0]]
+    """
+    lod_index = paddle.reshape(lod_index, [-1, 1])
+    res = paddle.cast(rang >= lod_index, dtype="int64")
+
+    seg_ids = paddle.sum(res, axis=0)
+
+    return seg_ids
