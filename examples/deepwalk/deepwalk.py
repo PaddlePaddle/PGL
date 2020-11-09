@@ -29,8 +29,6 @@ from pgl.utils import op
 from pgl.utils.logger import log
 import paddle.fluid as fluid
 import paddle.fluid.layers as l
-import paddle
-paddle.enable_static()
 
 
 def load(name):
