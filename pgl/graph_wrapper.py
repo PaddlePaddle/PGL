@@ -25,7 +25,11 @@ from pgl.utils import op
 from pgl.utils import paddle_helper
 from pgl.utils.logger import log
 
-__all__ = ["BaseGraphWrapper", "GraphWrapper", "StaticGraphWrapper", "BatchGraphWrapper"]
+__all__ = [
+    "BaseGraphWrapper", "GraphWrapper", "StaticGraphWrapper",
+    "BatchGraphWrapper"
+]
+
 
 def send(src, dst, nfeat, efeat, message_func):
     """Send message from src to dst.
@@ -709,17 +713,20 @@ class GraphWrapper(BaseGraphWrapper):
 
 
 def get_degree(edge, num_nodes):
-    init_output = L.fill_constant(
-        shape=[num_nodes], value=0, dtype="float32")
+    init_output = L.fill_constant(shape=[num_nodes], value=0, dtype="float32")
     init_output.stop_gradient = True
-    final_output = L.scatter(init_output,
-                       edge,
-                       L.full_like(edge, 1, dtype="float32"),
-                       overwrite=False)
+    final_output = L.scatter(
+        init_output,
+        edge,
+        L.full_like(
+            edge, 1, dtype="float32"),
+        overwrite=False)
     return final_output
+
 
 class DropEdgeWrapper(BaseGraphWrapper):
     """Implement of Edge Drop """
+
     def __init__(self, graph_wrapper, dropout, keep_self_loop=True):
         super(DropEdgeWrapper, self).__init__()
 
@@ -727,14 +734,14 @@ class DropEdgeWrapper(BaseGraphWrapper):
         for key, value in graph_wrapper.node_feat.items():
             self.node_feat_tensor_dict[key] = value
 
-        self._num_nodes = graph_wrapper.num_nodes 
+        self._num_nodes = graph_wrapper.num_nodes
         self._graph_lod = graph_wrapper.graph_lod
         self._num_graph = graph_wrapper.num_graph
-     
+
         # Dropout Edges
         src, dst = graph_wrapper.edges
-        u = L.uniform_random(shape=L.cast(L.shape(src), 'int64'), min=0., max=1.)
-        
+        u = L.uniform_random(
+            shape=L.cast(L.shape(src), 'int64'), min=0., max=1.)
 
         # Avoid Empty Edges
         keeped = L.cast(u > dropout, dtype="float32")
@@ -748,20 +755,22 @@ class DropEdgeWrapper(BaseGraphWrapper):
         keeped = (keeped > 0.5)
         src = paddle_helper.masked_select(src, keeped)
         dst = paddle_helper.masked_select(dst, keeped)
-        src.stop_gradient=True
-        dst.stop_gradient=True
-        self._edges_src = src 
-        self._edges_dst = dst 
+        src.stop_gradient = True
+        dst.stop_gradient = True
+        self._edges_src = src
+        self._edges_dst = dst
 
         for key, value in graph_wrapper.edge_feat.items():
-            self.edge_feat_tensor_dict[key] = paddle_helper.masked_select(value, keeped)
-        
-        self._edge_uniq_dst, _, uniq_count = L.unique_with_counts(dst, dtype="int32")
-        self._edge_uniq_dst.stop_gradient=True
+            self.edge_feat_tensor_dict[key] = paddle_helper.masked_select(
+                value, keeped)
+
+        self._edge_uniq_dst, _, uniq_count = L.unique_with_counts(
+            dst, dtype="int32")
+        self._edge_uniq_dst.stop_gradient = True
         last = L.reduce_sum(uniq_count, keep_dim=True)
         uniq_count = L.cumsum(uniq_count, exclusive=True)
         self._edge_uniq_dst_count = L.concat([uniq_count, last])
-        self._edge_uniq_dst_count.stop_gradient=True
+        self._edge_uniq_dst_count.stop_gradient = True
         self._indegree = get_degree(self._edges_dst, self._num_nodes)
 
 
@@ -784,7 +793,13 @@ class BatchGraphWrapper(BaseGraphWrapper):
                     with shape [ total_num_edges_in_the_graphs, feature_size]
 
     """
-    def __init__(self, num_nodes, num_edges, edges, node_feats=None, edge_feats=None):
+
+    def __init__(self,
+                 num_nodes,
+                 num_edges,
+                 edges,
+                 node_feats=None,
+                 edge_feats=None):
         super(BatchGraphWrapper, self).__init__()
 
         node_shift, edge_lod = self.__build_meta_data(num_nodes, num_edges)
@@ -793,20 +808,16 @@ class BatchGraphWrapper(BaseGraphWrapper):
         # assign node features
         if node_feats is not None:
             for key, value in node_feats.items():
-                self.node_feat_tensor_dict[key] = value 
- 
-        # assign edge features
-        if edge_feats is not None:
-            for key, value in edge_feats.items():
-                self.edge_feat_tensor_dict[key] = value
+                self.node_feat_tensor_dict[key] = value
 
         # other meta-data 
-        self._edge_uniq_dst, _, uniq_count = L.unique_with_counts(self._edges_dst, dtype="int32")
-        self._edge_uniq_dst.stop_gradient=True
+        self._edge_uniq_dst, _, uniq_count = L.unique_with_counts(
+            self._edges_dst, dtype="int32")
+        self._edge_uniq_dst.stop_gradient = True
         last = L.reduce_sum(uniq_count, keep_dim=True)
         uniq_count = L.cumsum(uniq_count, exclusive=True)
         self._edge_uniq_dst_count = L.concat([uniq_count, last])
-        self._edge_uniq_dst_count.stop_gradient=True
+        self._edge_uniq_dst_count.stop_gradient = True
         self._indegree = get_degree(self._edges_dst, self._num_nodes)
 
     def __build_meta_data(self, num_nodes, num_edges):
@@ -820,7 +831,9 @@ class BatchGraphWrapper(BaseGraphWrapper):
         num_graph = L.shape(num_nodes)[0]
         sum_num_nodes = L.reduce_sum(num_nodes)
         sum_num_edges = L.reduce_sum(num_edges)
-        edge_lod = L.concat([L.cumsum(num_edges, exclusive=True), sum_num_edges])
+        edge_lod = L.concat(
+            [L.cumsum(
+                num_edges, exclusive=True), sum_num_edges])
         edge_lod = paddle_helper.lod_remove(edge_lod)
 
         node_shift = L.cumsum(num_nodes, exclusive=True)
@@ -832,12 +845,11 @@ class BatchGraphWrapper(BaseGraphWrapper):
         self._graph_lod = graph_lod
         return node_shift, edge_lod
 
-
     def __build_edges(self, edges, node_shift, edge_lod):
         """ Merge subgraph edges. 
         """
         if isinstance(edges, tuple):
-            src, dst  = edges
+            src, dst = edges
         else:
             src = edges[:, 0]
             dst = edges[:, 1]
@@ -854,5 +866,11 @@ class BatchGraphWrapper(BaseGraphWrapper):
         src = src + node_shift
         dst = dst + node_shift
         # sort edges
-        self._edges_dst, index  = L.argsort(dst)
+        self._edges_dst, index = L.argsort(dst)
         self._edges_src = L.gather(src, index, overwrite=False)
+
+        # assign edge features
+        if edge_feats is not None:
+            for key, efeat in edge_feats.items():
+                self.edge_feat_tensor_dict[key] = L.gather(
+                    efeat, index, overwrite=False)

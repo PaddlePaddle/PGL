@@ -53,7 +53,8 @@ place = fluid.CUDAPlace(0) if use_cuda else fluid.CPUPlace()
 
 # use GraphWrapper as a container for graph data to construct a graph neural network
 gw = pgl.graph_wrapper.GraphWrapper(name='graph',
-                        node_feat=g.node_feat_info())
+                        node_feat=g.node_feat_info(), 
+                        edge_feat=g.edge_feat_info())
 ```
 
 ## Step 2: create a simple Graph Convolutional Network(GCN)
