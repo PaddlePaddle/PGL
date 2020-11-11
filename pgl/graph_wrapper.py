@@ -146,6 +146,16 @@ class BaseGraphWrapper(object):
         """
         if efeat_list is None:
             efeat_list = {}
+        else:
+            warnings.warn(
+                "The edge features in argument `efeat_list` should be fetched "
+                "from a instance of `pgl.graph_wrapper.GraphWrapper`, "
+                "because we have sorted the edges and the order of edges is changed.\n"
+                "Therefore, if you use external edge features, "
+                "the order of features of each edge may not match its edge, "
+                "which can cause serious errors.\n"
+                "If you use the `efeat_list` correctly, please ignore this warning."
+            )
 
         if nfeat_list is None:
             nfeat_list = {}
