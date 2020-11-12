@@ -63,11 +63,12 @@ class GCNConv(paddle.nn.Layer):
             shape=[hidden_size], dtype='float32', is_bias=True)
 
     def send_src_copy(self, src_feat, dst_feat, edge_feat):
-        return src_feat["h"]
+        return {'msg': src_feat["h"]}
 
     # Proposal 3: Pass segment_ids by the Conv layers self.
     def custom_reduce_sum(self, message):
-        return segment_sum(message, self.graph._edges_dst)
+        #  return segment_sum(message, self.graph._edges_dst)
+        return message.reduce_sum(message['msg'])
 
     def forward(self, gw, feature, norm=None, activation=None):
         self.graph = gw
