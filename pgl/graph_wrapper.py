@@ -813,7 +813,7 @@ class BatchGraphWrapper(BaseGraphWrapper):
         super(BatchGraphWrapper, self).__init__()
 
         node_shift, edge_lod = self.__build_meta_data(num_nodes, num_edges)
-        self.__build_edges(edges, node_shift, edge_lod)
+        self.__build_edges(edges, node_shift, edge_lod, edge_feats)
 
         # assign node features
         if node_feats is not None:
@@ -855,7 +855,7 @@ class BatchGraphWrapper(BaseGraphWrapper):
         self._graph_lod = graph_lod
         return node_shift, edge_lod
 
-    def __build_edges(self, edges, node_shift, edge_lod):
+    def __build_edges(self, edges, node_shift, edge_lod, edge_feats):
         """ Merge subgraph edges. 
         """
         if isinstance(edges, tuple):
