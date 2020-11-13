@@ -216,7 +216,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='node2vec')
+    parser = argparse.ArgumentParser(description='deepwalk')
     parser.add_argument(
         "--dataset",
         type=str,
@@ -227,9 +227,7 @@ if __name__ == '__main__':
     parser.add_argument("--epoch", type=int, default=400)
     parser.add_argument("--batch_size", type=int, default=None)
     parser.add_argument(
-        "--ckpt_path",
-        type=str,
-        default="./tmp/deepwalk_arxiv_e10/paddle_model")
+        "--ckpt_path", type=str, default="./tmp/deepwalk_arxiv/paddle_model")
     args = parser.parse_args()
     log.info(args)
     main(args)
