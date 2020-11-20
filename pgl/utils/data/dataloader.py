@@ -84,7 +84,7 @@ class Dataloader(object):
         self.stream_shuffle_size = stream_shuffle_size
 
         if self.shuffle and isinstance(self.dataset, StreamDataset):
-            warn_msg = "[shuffle] should not be True with StreamDataset. " \
+            warn_msg = "The argument [shuffle] should not be True with StreamDataset. " \
                     "It will be ignored. " \
                     "You might want to set [stream_shuffle_size] with StreamDataset."
             warnings.warn(warn_msg)
@@ -93,6 +93,12 @@ class Dataloader(object):
             raise ValueError("stream_shuffle_size must be larger than batch_size," \
                     "but got [stream_shuffle_size=%s] smaller than [batch_size=%s]" \
                     % (self.stream_shuffle_size, self.batch_size))
+
+        if self.stream_shuffle_size > 0 and isinstance(self.dataset, Dataset):
+            warn_msg = "[stream_shuffle_size] should not be set with Dataset. " \
+                    "It will be ignored. " \
+                    "You might want to set [shuffle] with Dataset."
+            warnings.warn(warn_msg)
 
         if self.num_workers < 1:
             raise ValueError("num_workers(default: 1) should be larger than 0, " \
@@ -148,13 +154,11 @@ class _DataLoaderIter(object):
         self.batch_size = dataloader.batch_size
         self.stream_shuffle_size = dataloader.stream_shuffle_size
         self.fid = fid
-        self.count = 0
 
     def _data_generator(self):
-        for indices in self.sampler:
+        for count, indices in enumerate(self.sampler):
 
-            self.count += 1
-            if self.count % self.num_workers != self.fid:
+            if count % self.num_workers != self.fid:
                 continue
 
             batch_data = [self.dataset[i] for i in indices]
@@ -182,9 +186,6 @@ class _DataLoaderIter(object):
                                         len(batch_data) < len(indices)):
                 break
                 #  raise StopIteration
-
-            # make sure do not repeat in multiprocessing 
-            self.count += 1
 
             if self.collate_fn is not None:
                 yield self.collate_fn(batch_data)
