@@ -84,7 +84,7 @@ class Dataloader(object):
         self.stream_shuffle_size = stream_shuffle_size
 
         if self.shuffle and isinstance(self.dataset, StreamDataset):
-            warn_msg = "[shuffle] should not be True with StreamDataset. " \
+            warn_msg = "The argument [shuffle] should not be True with StreamDataset. " \
                     "It will be ignored. " \
                     "You might want to set [stream_shuffle_size] with StreamDataset."
             warnings.warn(warn_msg)
@@ -93,6 +93,12 @@ class Dataloader(object):
             raise ValueError("stream_shuffle_size must be larger than batch_size," \
                     "but got [stream_shuffle_size=%s] smaller than [batch_size=%s]" \
                     % (self.stream_shuffle_size, self.batch_size))
+
+        if self.stream_shuffle_size > 0 and isinstance(self.dataset, Dataset):
+            warn_msg = "[stream_shuffle_size] should not be set with Dataset. " \
+                    "It will be ignored. " \
+                    "You might want to set [shuffle] with Dataset."
+            warnings.warn(warn_msg)
 
         if self.num_workers < 1:
             raise ValueError("num_workers(default: 1) should be larger than 0, " \
