@@ -22,6 +22,7 @@ import paddle.fluid.layers as L
 from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler import fleet
 from paddle.fluid.transpiler.distribute_transpiler import DistributeTranspilerConfig
 import paddle.fluid.incubate.fleet.base.role_maker as role_maker
+from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler import StrategyFactory
 from pgl.utils.logger import log
 
 from model import Metapath2vecModel
@@ -29,8 +30,11 @@ from graph import m2vGraph
 from utils import load_config
 from walker import multiprocess_data_generator
 
-
 def init_role():
+    role = role_maker.PaddleCloudRoleMaker()
+    fleet.init(role)
+
+def init_role2():
     # reset the place according to role of parameter server
     training_role = os.getenv("TRAINING_ROLE", "TRAINER")
     paddle_role = role_maker.Role.WORKER
@@ -78,13 +82,16 @@ def optimization(base_lr, loss, train_steps, optimizer='sgd'):
 
     log.info('learning rate:%f' % (base_lr))
     #create the DistributeTranspiler configure
-    config = DistributeTranspilerConfig()
-    config.sync_mode = False
-    #config.runtime_split_send_recv = False
+    # config = DistributeTranspilerConfig()
+    # config.sync_mode = False
+    # #config.runtime_split_send_recv = False
 
-    config.slice_var_up = False
-    #create the distributed optimizer
-    optimizer = fleet.distributed_optimizer(optimizer, config)
+    # config.slice_var_up = False
+    # #create the distributed optimizer
+    # optimizer = fleet.distributed_optimizer(optimizer, config)
+    # optimizer.minimize(loss)
+    strategy = StrategyFactory.create_async_strategy()
+    optimizer = fleet.distributed_optimizer(optimizer, strategy)
     optimizer.minimize(loss)
 
 
@@ -96,7 +103,6 @@ def build_complied_prog(train_program, model_loss):
     #exec_strategy.use_experimental_executor = True
     build_strategy = F.BuildStrategy()
     build_strategy.enable_inplace = True
-    #build_strategy.memory_optimize = True
     build_strategy.memory_optimize = False
     build_strategy.remove_unnecessary_lock = False
     if num_threads > 1:
@@ -185,6 +191,7 @@ def main(args):
         pyreader.start()
 
         compiled_prog = build_complied_prog(fleet.main_program, loss)
+        #compiled_prog = fleet.main_program
         train_prog(exe, compiled_prog, loss, pyreader, args, train_steps)
 
 
