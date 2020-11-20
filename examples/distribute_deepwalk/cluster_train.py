@@ -22,7 +22,9 @@ import paddle.fluid as F
 import paddle.fluid.layers as L
 from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler import fleet
 from paddle.fluid.transpiler.distribute_transpiler import DistributeTranspilerConfig
+from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler import StrategyFactory
 import paddle.fluid.incubate.fleet.base.role_maker as role_maker
+import pgl
 from pgl.utils.logger import log
 from pgl import data_loader
 
@@ -32,37 +34,20 @@ from utils import get_file_list
 from utils import build_graph
 from utils import build_fake_graph
 from utils import build_gen_func
+from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler.distributed_strategy import TrainerRuntimeConfig
+
+# hack it!
+# base_get_communicator_flags = TrainerRuntimeConfig.get_communicator_flags
+# def get_communicator_flags(self):
+    # flag_dict = base_get_communicator_flags(self)
+    # flag_dict['communicator_max_merge_var_num'] = str(1)
+    # flag_dict['communicator_send_queue_size'] = str(1)
+    # return flag_dict
+# TrainerRuntimeConfig.get_communicator_flags = get_communicator_flags
 
 
 def init_role():
-    # reset the place according to role of parameter server
-    training_role = os.getenv("TRAINING_ROLE", "TRAINER")
-    paddle_role = role_maker.Role.WORKER
-    place = F.CPUPlace()
-    if training_role == "PSERVER":
-        paddle_role = role_maker.Role.SERVER
-
-    # set the fleet runtime environment according to configure
-    ports = os.getenv("PADDLE_PORT", "6174").split(",")
-    pserver_ips = os.getenv("PADDLE_PSERVERS").split(",")  # ip,ip...
-    eplist = []
-    if len(ports) > 1:
-        # local debug mode, multi port
-        for port in ports:
-            eplist.append(':'.join([pserver_ips[0], port]))
-    else:
-        # distributed mode, multi ip
-        for ip in pserver_ips:
-            eplist.append(':'.join([ip, ports[0]]))
-
-    pserver_endpoints = eplist  # ip:port,ip:port...
-    worker_num = int(os.getenv("PADDLE_TRAINERS_NUM", "0"))
-    trainer_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
-    role = role_maker.UserDefinedRoleMaker(
-        current_id=trainer_id,
-        role=paddle_role,
-        worker_num=worker_num,
-        server_endpoints=pserver_endpoints)
+    role = role_maker.PaddleCloudRoleMaker()
     fleet.init(role)
 
 
@@ -84,11 +69,15 @@ def optimization(base_lr, loss, train_steps, optimizer='sgd'):
     #create the DistributeTranspiler configure
     config = DistributeTranspilerConfig()
     config.sync_mode = False
-    #config.runtime_split_send_recv = False
 
     config.slice_var_up = False
     #create the distributed optimizer
-    optimizer = fleet.distributed_optimizer(optimizer, config)
+
+    #strategy = StrategyFactory.create_sync_strategy()
+    strategy = StrategyFactory.create_async_strategy()
+    #strategy = StrategyFactory.create_half_async_strategy()
+    #strategy = StrategyFactory.create_geo_strategy()
+    optimizer = fleet.distributed_optimizer(optimizer, strategy)
     optimizer.minimize(loss)
 
 
@@ -97,10 +86,8 @@ def build_complied_prog(train_program, model_loss):
     trainer_id = int(os.getenv("PADDLE_TRAINER_ID", 0))
     exec_strategy = F.ExecutionStrategy()
     exec_strategy.num_threads = num_threads
-    #exec_strategy.use_experimental_executor = True
     build_strategy = F.BuildStrategy()
     build_strategy.enable_inplace = True
-    #build_strategy.memory_optimize = True
     build_strategy.memory_optimize = False
     build_strategy.remove_unnecessary_lock = False
     if num_threads > 1:
@@ -197,6 +184,18 @@ def walk(args):
         ps[i].join()
 
 
+def build_tmp_graph(num_nodes):
+    edges = np.random.randint(0, num_nodes, [4*num_nodes, 2])
+    graph = pgl.graph.Graph(num_nodes, edges)
+    graph.indegree()
+    graph.outdegree()
+    tmp_path = "./tmp"
+    #graph.dump(tmp_path)
+    #graph = pgl.graph.MemmapGraph(tmp_path)
+    return graph
+
+
+
 def train(args):
     import logging
     log.setLevel(logging.DEBUG)
@@ -236,29 +235,27 @@ def train(args):
         exe.run(fleet.startup_program)
         log.info("Startup done")
 
-        if args.dataset is not None:
-            if args.dataset == "BlogCatalog":
-                graph = data_loader.BlogCatalogDataset().graph
-            elif args.dataset == "ArXiv":
-                graph = data_loader.ArXivDataset().graph
-            else:
-                raise ValueError(args.dataset + " dataset doesn't exists")
-            log.info("Load buildin BlogCatalog dataset done.")
-        elif args.walkpath_files is None or args.walkpath_files == "None":
-            graph = build_graph(args.num_nodes, args.edge_path)
-            log.info("Load graph from '%s' done." % args.edge_path)
-        else:
-            graph = build_fake_graph(args.num_nodes)
-            log.info("Load fake graph done.")
+        graph = build_tmp_graph(args.num_nodes)
 
         # bind gen
         gen_func = build_gen_func(args, graph)
+
+        import time
+        tmp = time.time()
+        for idx, data in enumerate(gen_func()):
+            print(time.time() - tmp)
+            tmp = time.time()
+            if idx == 100:
+                break
 
         pyreader.decorate_tensor_provider(gen_func)
         pyreader.start()
 
         compiled_prog = build_complied_prog(fleet.main_program, loss)
+        #compiled_prog = fleet.main_program
         train_prog(exe, compiled_prog, loss, pyreader, args, train_steps)
+        fleet.stop_worker()
+
 
 
 if __name__ == '__main__':
@@ -284,7 +281,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--neg_num", type=int, default=5, help="Number of negative samples.")
     parser.add_argument(
-        "--epoch", type=int, default=1, help="Number of training epoch.")
+        "--epoch", type=int, default=1000, help="Number of training epoch.")
     parser.add_argument(
         "--batch_size",
         type=int,
@@ -307,12 +304,12 @@ if __name__ == '__main__':
     parser.add_argument(
         "--steps_per_save",
         type=int,
-        default=3000,
+        default=100,
         help="Steps for model saveing.")
     parser.add_argument(
         "--num_nodes",
         type=int,
-        default=10000,
+        default=100000,
         help="Number of nodes in graph.")
     parser.add_argument("--edge_path", type=str, default="./graph_data")
     parser.add_argument("--train_files", type=str, default=None)
@@ -320,7 +317,7 @@ if __name__ == '__main__':
     parser.add_argument("--is_distributed", type=str2bool, default=False)
     parser.add_argument("--is_sparse", type=str2bool, default=True)
     parser.add_argument("--warm_start_from_dir", type=str, default=None)
-    parser.add_argument("--dataset", type=str, default=None)
+    parser.add_argument("--dataset", type=str, default="BlogCatalog")
     parser.add_argument(
         "--neg_sample_type",
         type=str,
@@ -337,7 +334,7 @@ if __name__ == '__main__':
         type=str,
         required=False,
         choices=['adam', 'sgd'],
-        default="sgd")
+        default="adam")
     args = parser.parse_args()
     log.info(args)
     if args.mode == "train":
