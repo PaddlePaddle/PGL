@@ -11,7 +11,7 @@ PGL v1.2 2020.11.20
 
 - PGL团队提出统一的消息传递模型**UniMP**，刷新OGB**三**项榜单SOTA。你可以在[这里](./ogb_examples/nodeproppred/unimp)看到详细的代码。
 
-- PGL团队提出基于**ERNIEsage**的二阶段召回与排序模型, 在COLING协办的TextGraphs2020比赛中取得**第一名**。
+- PGL团队提出基于**ERNIEsage**的二阶段召回与排序模型, 在COLING协办的[TextGraphs2020](https://competitions.codalab.org/competitions/23615)比赛中取得**第一名**。
 
 - PGL团队倾力开发了**图神经网络公开课**,带你七天高效入门图神经网络。课程详情请参考[这里](https://aistudio.baidu.com/aistudio/course/introduce/1956)。
 
