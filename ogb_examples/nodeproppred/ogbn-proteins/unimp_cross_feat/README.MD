@@ -90,9 +90,13 @@ Proteins_dataset(Random Partition):
 
 ### Reference performance for OGB:
 
-| Model                 | Test Accuracy | Valid Accuracy | Parameters | Hardware          |
-| --------------------- | ------------- | -------------- | ---------- | ----------------- |
-| UniMP + CrossEdgeFeat |               |                |            | Tesla V100 (32GB) |
+| Model                 | Test Accuracy   | Valid Accuracy  | Parameters | Hardware          |
+| --------------------- | --------------- | --------------- | ---------- | ----------------- |
+| Proteins_baseline     | 0.8611 ± 0.0017 | 0.9128 ± 0.0007 | 1,879,664  | Tesla V100 (32GB) |
+| Proteins_UniMP        | 0.8642 ± 0.0008 | 0.9175 ± 0.0007 | 1,909,104  | Tesla V100 (32GB) |
+| UniMP + CrossEdgeFeat |                 |                 | 1,959,984  | Tesla V100 (32GB) |
+
+
 
 
 
