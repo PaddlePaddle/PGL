@@ -39,6 +39,10 @@ python train.py --place 0 --use_label_e --log_file without_cross_edge_feat  --cr
 
 ```
 
+The training curves follows:
+
+<img src="./img/cross_edge_feat.png"  width="480">
+
 
 
 
