@@ -30,11 +30,14 @@ import paddle.fluid as F
 import paddle.fluid.layers as L
 import logging
 from propeller import log
+from ernie.tokenizing_ernie import ErnieTokenizer
+from ernie.tokenizing_ernie import ErnieTinyTokenizer
 log.setLevel(logging.DEBUG)
 
 from models.model import LinkPredictModel
 from dataset.graph_reader import BatchGraphGenerator 
 from models.encoder import Encoder
+from models.encoder import PretrainedModelLoader
 from models.loss import Loss
 from optimization import optimization
 
@@ -144,6 +147,14 @@ class PredictData(object):
         return [self.data[index], self.data[index]]
 
 
+def load_tokenizer(ernie_name):
+    if "tiny" in config.ernie_name:
+        tokenizer = ErnieTinyTokenizer.from_pretrained(ernie_name)
+    else:
+        tokenizer = ErnieTokenizer.from_pretrained(ernie_name)
+    return tokenizer
+
+
 def train(config):
     # Build Train Data
     data = TrainData(config.graph_work_path)
@@ -160,25 +171,34 @@ def train(config):
         shuffle=True,
         neg_type=config.neg_type)
     train_ds = Dataset.from_generator_func(train_iter)
+    dev_ds = Dataset.from_generator_func(train_iter)
+
+    ernie_cfg_dict, ernie_param_path = PretrainedModelLoader.from_pretrained(config.ernie_name)
+    config.ernie_config = ernie_cfg_dict
+    log.info(ernie_cfg_dict)
 
     varname_to_warmstart = re.compile(
         r'^encoder.*[wb]_0$|^.*embedding$|^.*bias$|^.*scale$|^pooled_fc.[wb]_0$'
     )
-    warm_start_dir = config.warm_start_from
-    if config.warm_start_from is not None:
-        ws = propeller.WarmStartSetting(
-                predicate_fn=lambda v: varname_to_warmstart.match(v.name) and os.path.exists(os.path.join(warm_start_dir, v.name)),
-                from_dir=warm_start_dir
-            )
-    else:
-        ws = None
+    ws = propeller.WarmStartSetting(
+            predicate_fn=lambda v: varname_to_warmstart.match(v.name) and os.path.exists(os.path.join(ernie_param_path, v.name)),
+            from_dir=ernie_param_path
+        )
+
+    train_ds.name = "train"
+    train_ds.data_shapes = [[-1]+list(shape[1:]) for shape in train_ds.data_shapes]
+    dev_ds.name = "dev"
+    dev_ds.data_shapes = [[-1]+list(shape[1:]) for shape in dev_ds.data_shapes]
+
+    tokenizer = load_tokenizer(config.ernie_name)
+    config.cls_id = tokenizer.cls_id
 
     propeller.train.train_and_eval(
         model_class_or_model_fn=ERNIESageLinkPredictModel,
         params=config,
         run_config=config,
         train_dataset=train_ds,
-        eval_dataset={"eval": train_ds},
+        eval_dataset={"eval": dev_ds},
         warm_start_setting=ws,
         )
 
@@ -204,6 +224,15 @@ def predict(config):
         shuffle=False,
         neg_type=config.neg_type)
     predict_ds = Dataset.from_generator_func(predict_iter)
+    
+    predict_ds.name = "predict"
+    predict_ds.data_shapes = [[-1]+list(shape[1:]) for shape in predict_ds.data_shapes]
+
+    tokenizer = load_tokenizer(config.ernie_name)
+    config.cls_id = tokenizer.cls_id
+
+    ernie_cfg_dict, ernie_param_path = PretrainedModelLoader.from_pretrained(config.ernie_name)
+    config.ernie_config = ernie_cfg_dict
 
     est = propeller.Learner(ERNIESageLinkPredictModel, config, config)
 

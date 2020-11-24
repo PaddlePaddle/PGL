@@ -22,7 +22,6 @@ from __future__ import absolute_import
 import numpy as np
 import re
 import paddle.fluid as fluid
-from utils.fp16 import create_master_params_grads, master_param_to_train_param, apply_dynamic_loss_scaling
 
 from propeller import log
 
@@ -153,6 +152,7 @@ def optimization(loss,
         persistable=True)
 
     if use_fp16:
+        from utils.fp16 import create_master_params_grads, master_param_to_train_param, apply_dynamic_loss_scaling
         loss *= loss_scaling
         param_grads = optimizer.backward(loss)
 

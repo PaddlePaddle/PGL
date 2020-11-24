@@ -1,16 +1,56 @@
+import os
+import json
+
 import numpy as np
 import pgl
 import paddle.fluid as F
 import paddle.fluid.layers as L
-from models.ernie_model.ernie import ErnieModel
-from models.ernie_model.ernie import ErnieGraphModel
-from models.ernie_model.ernie import ErnieConfig
+from ernie import ErnieModel
+from ernie.file_utils import _fetch_from_remote
+from pgl.utils.logger import log
+
+#from models.ernie_model.ernie import ErnieGraphModel
+#from models.ernie_model.ernie import ErnieConfig
 from models import message_passing
 from models.message_passing import copy_send
 
 
 def get_layer(layer_type, gw, feature, hidden_size, act, initializer, learning_rate, name, is_test=False):
     return getattr(message_passing, layer_type)(gw, feature, hidden_size, act, initializer, learning_rate, name)
+
+
+class PretrainedModelLoader(object):
+    bce = 'https://ernie-github.cdn.bcebos.com/'
+    resource_map = {
+        'ernie-1.0': bce + 'model-ernie1.0.1.tar.gz',
+        'ernie-2.0-en': bce + 'model-ernie2.0-en.1.tar.gz',
+        'ernie-2.0-large-en':  bce + 'model-ernie2.0-large-en.1.tar.gz',
+        'ernie-tiny': bce + 'model-ernie_tiny.1.tar.gz',
+    }
+    @classmethod
+    def from_pretrained(cls, pretrain_dir_or_url, force_download=False, **kwargs):
+        if pretrain_dir_or_url in cls.resource_map:
+            url = cls.resource_map[pretrain_dir_or_url]
+            log.info('get pretrain dir from %s' % url)
+            pretrain_dir = _fetch_from_remote(url, force_download)
+        else:
+            log.info('pretrain dir %s not in %s, read from local' % (pretrain_dir_or_url, repr(cls.resource_map)))
+            pretrain_dir = pretrain_dir_or_url
+
+        if not os.path.exists(pretrain_dir):
+            raise ValueError('pretrain dir not found: %s' % pretrain_dir)
+        param_path = os.path.join(pretrain_dir, 'params')
+        state_dict_path = os.path.join(pretrain_dir, 'saved_weights')
+        config_path = os.path.join(pretrain_dir, 'ernie_config.json')
+
+        if not os.path.exists(config_path):
+            raise ValueError('config path not found: %s' % config_path)
+        name_prefix=kwargs.pop('name', None)
+        cfg_dict = dict(json.loads(open(config_path).read()), **kwargs)
+        #model = cls(cfg_dict, name=name_prefix)
+        log.info('loading pretrained model from %s' % pretrain_dir)
+        return cfg_dict, param_path
+    
 
 
 class Encoder(object):
@@ -27,8 +67,6 @@ class Encoder(object):
             return ERNIESageV2Encoder(config)
         elif model_type == "ERNIESageV3":
             return ERNIESageV3Encoder(config)
-        elif model_type == "ERNIESageV4":
-            return ERNIESageV4Encoder(config)
         else:
             raise ValueError
 
@@ -61,16 +99,10 @@ class ERNIESageV1Encoder(Encoder):
         return final_feats
 
     def build_embedding(self, term_ids):
-        term_ids = L.unsqueeze(term_ids, [-1])
-        ernie_config = self.config.ernie_config
-        ernie = ErnieModel(
-            src_ids=term_ids,
-            sentence_ids=L.zeros_like(term_ids),
-            task_ids=None,
-            config=ernie_config,
-            use_fp16=False,
-            name="")
-        feature = ernie.get_pooled_output()
+        cls = L.fill_constant_batch_size_like(term_ids, [-1, 1], "int64", self.config.cls_id)
+        term_ids = L.concat([cls, term_ids], 1)
+        ernie_model = ErnieModel(self.config.ernie_config)
+        feature, _ = ernie_model(term_ids)
         return feature
 
     def take_final_feature(self, feature, index, name):
@@ -159,7 +191,7 @@ class ERNIESageV2Encoder(Encoder):
         def ernie_send(src_feat, dst_feat, edge_feat):
             """doc"""
             # input_ids
-            cls = L.fill_constant_batch_size_like(src_feat["term_ids"], [-1, 1, 1], "int64", 1)
+            cls = L.fill_constant_batch_size_like(src_feat["term_ids"], [-1, 1, 1], "int64", self.config.cls_id)
             src_ids = L.concat([cls, src_feat["term_ids"]], 1)
             dst_ids = dst_feat["term_ids"]
 
@@ -172,10 +204,9 @@ class ERNIESageV2Encoder(Encoder):
 
             term_ids.stop_gradient = True
             sent_ids.stop_gradient = True
-            ernie = ErnieModel(
-                term_ids, sent_ids, position_ids,
-                config=self.config.ernie_config)
-            feature = ernie.get_pooled_output()
+            ernie_model = ErnieModel(self.config.ernie_config)
+            feature, _ = ernie_model(L.squeeze(term_ids, [-1]), L.squeeze(sent_ids, [-1]),
+                    L.squeeze(position_ids, [-1]))
             return feature
 
         def erniesage_v2_aggregator(gw, feature, hidden_size, act, initializer, learning_rate, name):
@@ -184,13 +215,11 @@ class ERNIESageV2Encoder(Encoder):
             neigh_feature = gw.recv(msg, lambda feat: F.layers.sequence_pool(feat, pool_type="sum"))
 
             term_ids = feature
-            cls = L.fill_constant_batch_size_like(term_ids, [-1, 1, 1], "int64", 1)
+            cls = L.fill_constant_batch_size_like(term_ids, [-1, 1, 1], "int64", self.config.cls_id)
             term_ids = L.concat([cls, term_ids], 1)
             term_ids.stop_gradient = True
-            ernie = ErnieModel(
-                term_ids, L.zeros_like(term_ids),
-                config=self.config.ernie_config)
-            self_feature = ernie.get_pooled_output()
+            ernie_model = ErnieModel(self.config.ernie_config)
+            self_feature, _ = ernie_model(L.squeeze(term_ids, [-1]))
 
             self_feature = L.fc(self_feature,
                                            hidden_size,
@@ -235,7 +264,7 @@ class ERNIESageV3Encoder(Encoder):
             neigh_feature = L.cast(L.unsqueeze(neigh_feature, [-1]), "int64")
 
             feature = L.unsqueeze(feature, [-1])
-            cls = L.fill_constant_batch_size_like(feature, [-1, 1, 1], "int64", 1)
+            cls = L.fill_constant_batch_size_like(feature, [-1, 1, 1], "int64", self.config.cls_id)
             term_ids = L.concat([cls, feature[:, :-1], neigh_feature], 1)
             term_ids.stop_gradient = True
             return term_ids
@@ -264,24 +293,70 @@ class ERNIESageV3Encoder(Encoder):
             features.append(feature)
         return features
 
+    def _build_position_ids(self, src_ids):
+        src_shape = L.shape(src_ids)
+        src_seqlen = src_shape[1]
+        src_batch = src_shape[0]
+
+        slot_seqlen = self.slot_seqlen
+
+        num_b = (src_seqlen / slot_seqlen) - 1
+        a_position_ids = L.reshape(
+            L.range(
+                0, slot_seqlen, 1, dtype='int32'), [1, slot_seqlen, 1],
+            inplace=True) # [1, slot_seqlen, 1]
+        a_position_ids = L.expand(a_position_ids, [src_batch, 1, 1]) # [B, slot_seqlen, 1]
+
+        zero = L.fill_constant([1], dtype='int64', value=0)
+        input_mask = L.cast(L.equal(src_ids[:, :slot_seqlen], zero), "int32")  # assume pad id == 0 [B, slot_seqlen, 1]
+        a_pad_len = L.reduce_sum(input_mask, 1) # [B, 1, 1]
+
+        b_position_ids = L.reshape(
+            L.range(
+                slot_seqlen, 2*slot_seqlen, 1, dtype='int32'), [1, slot_seqlen, 1],
+            inplace=True) # [1, slot_seqlen, 1]
+        b_position_ids = L.expand(b_position_ids, [src_batch, num_b, 1]) # [B, slot_seqlen * num_b, 1]
+        b_position_ids = b_position_ids - a_pad_len # [B, slot_seqlen * num_b, 1]
+
+        position_ids = L.concat([a_position_ids, b_position_ids], 1)
+        position_ids = L.cast(position_ids, 'int64')
+        position_ids.stop_gradient = True
+        return position_ids
+
+    def _build_sentence_ids(self, src_ids):
+        src_shape = L.shape(src_ids)
+        src_seqlen = src_shape[1]
+        src_batch = src_shape[0]
+
+        slot_seqlen = self.slot_seqlen
+
+        zeros = L.zeros([src_batch, slot_seqlen, 1], "int64")
+        ones = L.ones([src_batch, src_seqlen-slot_seqlen, 1], "int64")
+
+        sentence_ids = L.concat([zeros, ones], 1)
+        sentence_ids.stop_gradient = True
+        return sentence_ids
+
     def take_final_feature(self, feature, index, name):
         """take final feature"""
-        feat = L.gather(feature, index, overwrite=False)
+        term_ids = L.gather(feature, index, overwrite=False)
 
         ernie_config = self.config.ernie_config
-        ernie = ErnieGraphModel(
-            src_ids=feat,
-            config=ernie_config,
-            slot_seqlen=self.config.max_seqlen)
-        feat = ernie.get_pooled_output()
+        self.slot_seqlen = self.config.max_seqlen
+        position_ids = self._build_position_ids(term_ids)
+        sent_ids = self._build_sentence_ids(term_ids)
+
+        ernie_model = ErnieModel(self.config.ernie_config)
+        feature, _ = ernie_model(L.squeeze(term_ids, [-1]), L.squeeze(sent_ids, [-1]),
+                L.squeeze(position_ids, [-1]))
         fc_lr = self.config.lr / 0.001
 
         if self.config.final_fc:
-            feat = L.fc(feat,
+            feature = L.fc(feature,
                            self.config.hidden_size,
                            param_attr=F.ParamAttr(name=name + '_w'),
                            bias_attr=F.ParamAttr(name=name + '_b'))
 
         if self.config.final_l2_norm:
-            feat = L.l2_normalize(feat, axis=1)
-        return feat
+            feature = L.l2_normalize(feature, axis=1)
+        return feature
