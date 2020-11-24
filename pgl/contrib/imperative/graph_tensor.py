@@ -28,13 +28,66 @@ class GraphTensor(pgl.graph_wrapper.BaseGraphWrapper):
     """Copy the graph object to anonymous shared memory.
     """
 
-    def __init__(self, graph):
+    def __init__(self, graph=None, name=None):
         super(GraphTensor, self).__init__()
-        self.__create_graph_attr(graph)
+        self._name = name
+        self._graph_attr_holder = [
+            "_edges_dst",
+            "_edges_src",
+            "_edge_uniq_dst",
+            "_edge_uniq_dst_count",
+            "_graph_lod",
+            "_indegree",
+            "_num_edges",
+            "_num_graph",
+            "_num_nodes",
+        ]
 
-    def __create_graph_attr(self, graph):
+        if graph is not None:
+            self.to_tensor(graph)
+        else:
+            for attr in self._graph_attr_holder:
+                setattr(self, attr, None)
+
+    def __set_attrs(self, tensors):
+        assert len(self._graph_attr_holder) == len(
+            tensors), "Value errors, the tensors mismatch the graph."
+        for attr, value in zip(self._graph_attr_holder, tensors):
+            setattr(self, attr, value)
+            prefix = "_edge_feat_"
+            if attr.startswith(prefix):
+                self.edge_feat_tensor_dict[attr[len(prefix):]] = value
+            prefix = "_node_feat_"
+            if attr.startswith("_node_feat_"):
+                self.node_feat_tensor_dict[attr[len(prefix):]] = value
+
+    def to_tensor(self, graph):
+        def map_func(var):
+            return paddle.to_tensor(var)
+
+        attrs = self.__create_graph_attr(graph, map_func)
+        self._graph_attr_holder = list(attrs.keys())
+        self.__set_attrs(attrs.values())
+        return list(attrs.values())
+
+    def to_numpy(self, graph):
+        def map_func(var):
+            return np.array(var)
+
+        attrs = self.__create_graph_attr(graph, map_func)
+        self._graph_attr_holder = list(attrs.keys())
+        return list(attrs.values())
+
+    def from_tensor(self, tensors):
+        self.__set_attrs(tensors)
+        return self
+
+    def __create_graph_attr(self, graph, map_func=None):
         """Create graph attributes for paddlepaddle.
         """
+        assert isinstance(
+            graph, pgl.graph.
+            Graph), "The input graph should be pgl.graph.Graph instance."
         src, dst, eid = graph.sorted_edges(sort_by="dst")
         indegree = graph.indegree()
         nodes = graph.nodes
@@ -60,33 +113,24 @@ class GraphTensor(pgl.graph_wrapper.BaseGraphWrapper):
             edge_feat[key] = value[eid]
         node_feat = graph.node_feat
 
-        self.__create_graph_node_feat(node_feat)
-        self.__create_graph_edge_feat(edge_feat)
+        attrs = dict()
+        attrs["_edges_src"] = map_func(src)
+        attrs["_edges_dst"] = map_func(dst)
+        attrs["_edge_uniq_dst"] = map_func(uniq_dst)
+        attrs["_edge_uniq_dst_count"] = map_func(uniq_dst_count)
+        attrs["_indegree"] = map_func(indegree)
+        attrs["_graph_lod"] = map_func(graph_lod)
+        attrs["_num_edges"] = map_func(np.array([num_edges], dtype="int64"))
+        attrs["_num_graph"] = map_func(np.array([num_graph], dtype="int64"))
+        attrs["_num_nodes"] = map_func(np.array([graph.num_nodes]))
 
-        self._num_edges = paddle.to_tensor(
-            np.array(
-                [num_edges], dtype="int64"))
-        self._num_graph = paddle.to_tensor(
-            np.array(
-                [num_graph], dtype="int64"))
-        self._edges_src = paddle.to_tensor(src)
-        self._edges_dst = paddle.to_tensor(dst)
-        self._num_nodes = paddle.to_tensor(np.array([graph.num_nodes]))
-        self._edge_uniq_dst = paddle.to_tensor(uniq_dst)
-        self._edge_uniq_dst_count = paddle.to_tensor(uniq_dst_count)
-        self._graph_lod = paddle.to_tensor(graph_lod)
-        self._indegree = paddle.to_tensor(indegree)
-
-    def __create_graph_node_feat(self, node_feat):
-        """Convert node features into paddlepaddle tensor.
-        """
         for node_feat_name, node_feat_value in node_feat.items():
-            self.node_feat_tensor_dict[node_feat_name] = paddle.to_tensor(
-                node_feat_value)
+            setattr(self, "_node_feat_" + node_feat_name, None)
+            attrs["_node_feat_" + node_feat_name] = map_func(node_feat_value)
 
-    def __create_graph_edge_feat(self, edge_feat):
-        """Convert edge features into paddlepaddle tensor.
-        """
         for edge_feat_name, edge_feat_value in edge_feat.items():
-            self.edge_feat_tensor_dict[edge_feat_name] = paddle.to_tensor(
+            setattr(self, "_edge_feat_" + edge_feat_name, None)
+            attrs[self, "_edge_feat_" + edge_feat_name] = map_func(
                 edge_feat_value)
+
+        return attrs

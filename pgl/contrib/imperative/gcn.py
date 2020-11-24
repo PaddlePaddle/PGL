@@ -25,26 +25,8 @@ import argparse
 
 from pgl.math import segment_sum
 
-# Proposal 0: Build in function. "sum, mean, max, min"
-
-
-# Proposal 1: User write segment_ids as args in the reduce_function。
-def custom_reduce_sum(dst, message):
-    return segment_sum(message, dst)
-
-
-# Proposal 2: Pass segment_ids by the message object.
-def custom_reduce_sum_message(message):
-    return segment_sum(message.dst, message.msg)
-
-
-# Proposal 3: Pass segment_ids by the Conv layers self.
-
 
 class GCNConv(paddle.nn.Layer):
-    def reduce_func(self, msg):
-        out = self.linear_1(msg)
-
     def __init__(self, input_size, hidden_size, name):
         super(GCNConv, self).__init__()
         self.name = name
@@ -65,29 +47,28 @@ class GCNConv(paddle.nn.Layer):
     def send_src_copy(self, src_feat, dst_feat, edge_feat):
         return {'msg': src_feat["h"]}
 
-    # Proposal 3: Pass segment_ids by the Conv layers self.
     def custom_reduce_sum(self, message):
         #  return segment_sum(message, self.graph._edges_dst)
         return message.reduce_sum(message['msg'])
 
-    def forward(self, gw, feature, norm=None, activation=None):
-        self.graph = gw
+    def forward(self, pgraph, feature, norm=None, activation=None):
+        self.graph = pgraph
         size = feature.shape[-1]
         if size > self.hidden_size:
             feature = self.linear_1(feature)
         if norm is not None:
             feature = feature * norm
 
-        msg = gw.send(self.send_src_copy, nfeat_list=[("h", feature)])
+        msg = pgraph.send(self.send_src_copy, nfeat_list=[("h", feature)])
 
         if size > self.hidden_size:
-            # output = gw.recv(msg, "sum")
-            # output = gw.recv(msg, custom_reduce_sum)
-            output = gw.recv(msg, self.custom_reduce_sum)
+            # output = pgraph.recv(msg, "sum")
+            # output = pgraph.recv(msg, custom_reduce_sum)
+            output = pgraph.recv(msg, self.custom_reduce_sum)
         else:
-            # output = gw.recv(msg, "sum")
-            # output = gw.recv(msg, custom_reduce_sum)
-            output = gw.recv(msg, self.custom_reduce_sum)
+            # output = pgraph.recv(msg, "sum")
+            # output = pgraph.recv(msg, custom_reduce_sum)
+            output = pgraph.recv(msg, self.custom_reduce_sum)
             output = self.linear_2(output)
         if norm is not None:
             output = output * norm
@@ -144,7 +125,11 @@ def dymain(args):
 
     hidden_size = 16
 
-    pgraph = GraphTensor(dataset.graph)
+    #pgraph = GraphTensor(dataset.graph)
+    pgraph = GraphTensor()
+    data_numpy = pgraph.to_numpy(dataset.graph)
+    data_tensor = [paddle.to_tensor(x) for x in data_numpy]
+    pgraph.from_tensor(data_tensor)
 
     cora = Cora(input_size=1433)
     adam = Adam(learning_rate=1e-2, parameters=cora.parameters())
