@@ -95,7 +95,7 @@ def get_config():
     ## train_arg
     train_group = parser.add_argument_group('train_arg')
     train_group.add_argument('--runs', default=10, type=int)
-    train_group.add_argument('--epochs', default=3000, type=int)
+    train_group.add_argument('--epochs', default=5000, type=int)
     train_group.add_argument('--lr', default=0.001, type=float)
     train_group.add_argument('--place', default=-1, type=int)
     train_group.add_argument(
