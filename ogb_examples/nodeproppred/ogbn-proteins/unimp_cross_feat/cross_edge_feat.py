@@ -33,6 +33,9 @@ def cross_edge_feat(graph_wrapper,
                     hidden_size,
                     num_layers=3,
                     num_heads=5):
+    if num_layers == 0:
+        return None
+
     def send_func(src, dst, efeat):
         return efeat["h"]
 
