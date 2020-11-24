@@ -90,7 +90,7 @@ def get_config():
     ## label_embed_arg
     embed_group = parser.add_argument_group('embed_arg')
     embed_group.add_argument('--use_label_e', action='store_true')
-    embed_group.add_argument('--label_rate', default=0.2, type=float)
+    embed_group.add_argument('--label_rate', default=0.5, type=float)
 
     ## train_arg
     train_group = parser.add_argument_group('train_arg')
