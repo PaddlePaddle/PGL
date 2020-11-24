@@ -61,6 +61,16 @@ def sample_subgraph(subgraph, max_neigh=64):
     return subgraph
 
 
+def load_species():
+    spid = pd.read_csv(
+        "./dataset/ogbn_proteins_pgl/raw/species.csv.gz",
+        header=None,
+        names=["sid"])
+    spids = pd.get_dummies(spid["sid"]).values
+    spids = np.argmax(spids, 1)
+    return spids
+
+
 def get_config():
     parser = argparse.ArgumentParser()
 
@@ -151,10 +161,10 @@ def train_loop(parser,
     def train_batch_func(subgraph):
         if parser.use_label_e:
             train_idx = copy.deepcopy(split_idx['train'])
-            np.random.shuffle(train_idx)
+            np.random.shuffle(train_idx[:int(50125)])
 
-            label_idx = train_idx[:int(len(train_idx) * parser.label_rate)]
-            unlabel_idx = train_idx[int(len(train_idx) * parser.label_rate):]
+            label_idx = train_idx[:int(50125 * parser.label_rate)]
+            unlabel_idx = train_idx[int(50125 * parser.label_rate):]
 
             label_idx_total = set(label_idx)
             unlabel_idx_total = set(unlabel_idx)
@@ -287,15 +297,6 @@ if __name__ == '__main__':
 
     graph, label = dataset[0]
     aggregate_node_features(graph)
-    #graph.dump("pgl_protein")
-    #np.save("label.npy", label)
-    #with open("split_idx.pkl", "wb") as f:
-    #    pkl.dump(split_idx, f)
-
-    #graph = pgl.graph.MemmapGraph("pgl_protein")
-    #with open("split_idx.pkl", "rb") as f:
-    #    split_idx = pkl.load(f)
-    #label = np.load("label.npy")
 
     place = F.CPUPlace() if parser.place < 0 else F.CUDAPlace(parser.place)
 

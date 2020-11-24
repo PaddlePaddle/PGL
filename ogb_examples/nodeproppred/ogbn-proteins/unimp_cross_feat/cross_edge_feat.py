@@ -25,8 +25,6 @@ def self_attention_and_residual(feature, size, input_mask, name, maxlen):
     output = L.fc(output, size, name=name + "_model", num_flatten_dims=2)
     output = L.relu(output + feature)
     output = L.layer_norm(output, begin_norm_axis=2, name=name + '_ln')
-    #output = L.layer_norm(output, name=name + '_ln')
-    # output = L.reshape(output, [-1, maxlen, size])
     return output
 
 
