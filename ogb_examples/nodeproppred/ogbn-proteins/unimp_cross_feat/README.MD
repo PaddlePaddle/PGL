@@ -66,7 +66,7 @@ python train.py --place 0 --use_label_e --log_file without_cross_edge_feat  --cr
 
 ### To Reproduce the results for proteins dataset:
 
-    1. ```python train.py --place 0 --use_label_e --log_file proteins.log``` 
+  1. ```python train.py --place 0 --use_label_e --log_file proteins.log --eval_partition 3 --epoch 5000 --cross_edge_feat 3``` 
 
 
 
