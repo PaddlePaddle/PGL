@@ -36,11 +36,6 @@ from utils import build_fake_graph
 from utils import build_gen_func
 
 
-def init_role():
-    role = role_maker.PaddleCloudRoleMaker()
-    fleet.init(role)
-
-
 def optimization(base_lr, loss, train_steps, optimizer='sgd'):
     decayed_lr = L.learning_rate_scheduler.polynomial_decay(
         learning_rate=base_lr,
@@ -193,7 +188,8 @@ def train(args):
     loss = model.forward()
 
     # init fleet
-    init_role()
+    role = role_maker.PaddleCloudRoleMaker()
+    fleet.init(role)
 
     train_steps = math.ceil(1. * args.num_nodes * args.epoch /
                             args.batch_size / num_devices / worker_num)
