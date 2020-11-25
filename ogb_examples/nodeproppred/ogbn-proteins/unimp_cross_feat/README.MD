@@ -10,7 +10,7 @@ This experiment is based on stanford OGB (1.2.1) benchmark. The original descrip
 
 - **Random Partition Size in Evaluation**
   - Random Partition durning training performs like **DropEdge** and we find our model can benefit from this strategy.
-  - But in evaluation, we are finding that **Smaller Partition Size ** can improve the scores.
+  - But in evaluation, we are finding that **Smaller Partition Size** can improve the scores.
 
 ```bash
 # To compare 
