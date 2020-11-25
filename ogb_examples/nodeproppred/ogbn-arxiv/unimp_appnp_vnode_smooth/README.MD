@@ -31,8 +31,8 @@ This experiment is based on stanford OGB (1.2.1) benchmark. The description of ã
 ```
 Arxiv_dataset(Full Batch):              
 --num_layers        3                                       
---hidden_size       128                                  
---num_heads         2                        
+--hidden_size       100                                  
+--num_heads         3                        
 --dropout           0.3                      
 --attn_dropout      0.1
 --lr                0.001                    
