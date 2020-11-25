@@ -30,11 +30,6 @@ from utils import load_config
 from walker import multiprocess_data_generator
 
 
-def init_role():
-    role = role_maker.PaddleCloudRoleMaker()
-    fleet.init(role)
-
-
 def optimization(base_lr, loss, train_steps, optimizer='sgd'):
     decayed_lr = L.learning_rate_scheduler.polynomial_decay(
         learning_rate=base_lr,
@@ -108,7 +103,8 @@ def main(args):
     loss = model.forward()
 
     # init fleet
-    init_role()
+    role = role_maker.PaddleCloudRoleMaker()
+    fleet.init(role)
 
     train_steps = math.ceil(args.num_nodes * args.epochs / args.batch_size /
                             num_devices / worker_num)
