@@ -192,6 +192,7 @@ class ERNIESageV3Encoder(Encoder):
                                               self.config.cls_id)
         # insert cls, pop last
         term_ids = L.concat([cls, feature[:, :-1], neigh_feature], 1)
+        term_ids.stop_gradient = True
         return term_ids
 
     def take_final_feature(self, feature, index, name):
@@ -224,23 +225,22 @@ class ERNIESageV3Encoder(Encoder):
         a_position_ids = L.reshape(
             L.range(
                 0, slot_seqlen, 1, dtype='int32'), [1, slot_seqlen],
-            inplace=True)  # [1, slot_seqlen, 1]
+            inplace=True)  # [1, slot_seqlen]
         a_position_ids = L.expand(a_position_ids,
                                   [src_batch, 1])  # [B, slot_seqlen]
 
-        zero = L.fill_constant([1], dtype='int64', value=0)
-        input_mask = L.cast(src_ids == 0, "int32")  # assume pad id == 0 [B, slot_seqlen, 1]
-        a_pad_len = L.reduce_sum(input_mask, 1)  # [B, 1, 1]
+        input_mask = L.cast(src_ids[:,:slot_seqlen] == 0, "int32")  # assume pad id == 0 [B, slot_seqlen, 1]
+        a_pad_len = L.reduce_sum(input_mask, 1)  # [B, 1]
 
         b_position_ids = L.reshape(
             L.range(
                 slot_seqlen, 2 * slot_seqlen, 1, dtype='int32'),
             [1, slot_seqlen],
-            inplace=True)  # [1, slot_seqlen, 1]
+            inplace=True)  # [1, slot_seqlen]
         b_position_ids = L.expand(
             b_position_ids,
-            [src_batch, num_b])  # [B, slot_seqlen * num_b, 1]
-        b_position_ids = b_position_ids - a_pad_len  # [B, slot_seqlen * num_b, 1]
+            [src_batch, num_b])  # [B, slot_seqlen * num_b]
+        b_position_ids = b_position_ids - a_pad_len  # [B, slot_seqlen * num_b]
 
         position_ids = L.concat([a_position_ids, b_position_ids], 1)
         position_ids = L.cast(position_ids, 'int64')

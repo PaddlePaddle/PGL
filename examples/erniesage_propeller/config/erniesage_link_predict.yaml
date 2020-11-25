@@ -41,14 +41,13 @@ ernie_name: "ernie-tiny" #tiny is 4x faster than ernie1.0
 # runconfig 
 model_dir: "./output"
 max_steps: 238766
-save_steps: 1000
+save_steps: 100
 log_steps: 1
-max_ckpt: 2
+max_ckpt: 1
 skip_steps: 0
 eval_steps: 100
 eval_max_steps: 1000000
 run_steps: 0
-
 
 # hparam
 warmup_proportion:  0.1
