@@ -9,7 +9,7 @@ import paddle.fluid as F
 import paddle.fluid.layers as L
 from pgl.contrib.ogb.nodeproppred.dataset_pgl import PglNodePropPredDataset
 from utils import to_undirected, add_self_loop, linear_warmup_decay, add_vnode
-from model_large import Arxiv_baseline_model, Arxiv_label_embedding_model
+from model import Arxiv_baseline_model, Arxiv_label_embedding_model
 import argparse
 from tqdm import tqdm
 evaluator = Evaluator(name='ogbn-arxiv')

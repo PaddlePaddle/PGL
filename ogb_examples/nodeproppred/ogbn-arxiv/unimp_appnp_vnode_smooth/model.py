@@ -5,7 +5,7 @@ import pgl
 import paddle.fluid as F
 import paddle.fluid.layers as L
 from pgl.utils import paddle_helper
-from module.model_unimp_large import graph_transformer, linear, attn_appnp
+from module.model_unimp import graph_transformer, linear, attn_appnp
 
 class Arxiv_baseline_model():
     def __init__(self, gw, hidden_size, num_heads, dropout, num_layers):
