@@ -50,5 +50,5 @@ Arxiv_dataset(Full Batch):
 | Arxiv_baseline     | 0.7225  ± 0.0015 | 0.7367  ± 0.0012 | 468,369  | Tesla V100 (32GB) |
 | Arxiv_UniMP        | 0.7311  ± 0.0021 | 0.7450  ± 0.0005 | 473,489 | Tesla V100 (32GB) |
 | Arxiv_UniMP_large        | 0.7379  ± 0.0014 | 0.7475  ± 0.0008 | 1,162,515 | Tesla V100 (32GB) |
-| Arxiv_UniMP_appnp_vnode_smooth        | 0.7397  ± 0.1543 | 0.7505  ± 0.0924 | 687,377 | Tesla V100 (32GB) |
+| Arxiv_UniMP_appnp_vnode_smooth        | 0.7397  ± 0.0015 | 0.7505  ± 0.0009 | 687,377 | Tesla V100 (32GB) |
    
