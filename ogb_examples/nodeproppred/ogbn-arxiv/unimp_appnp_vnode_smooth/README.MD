@@ -23,7 +23,7 @@ This experiment is based on stanford OGB (1.2.1) benchmark. The description of ã
     
 ```
 ### Arxiv dataset:
-  ```python main_arxiv_large.py --place 0 --use_label_e --log_file arxiv_unimp_large.txt``` to get the UniMP_large result of arxiv dataset.
+  ```python main_arxiv_appnp_vnode_smooth.py --place 0 --use_label_e --log_file arxiv_unimp.txt``` to get the UniMP result with above tricks of arxiv dataset.
   
   
 ### The **detailed hyperparameter** is:
