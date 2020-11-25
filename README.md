@@ -13,7 +13,7 @@ PGL v1.2 2020.11.20
 
 - The PGL team proposed a two-stage recall and ranking model based on **ERNIEsage**, and won the **first place** in the [TextGraphs-2020](https://competitions.codalab.org/competitions/23615) competition co-organized by COLING.
 
-- The PGL team worked hard to develop an **open course of Graph Neural Network (GNN)**, which will help you getting started with Graph Neural Network in seven days. Details can be found [course](https://github.com/PaddlePaddle/PGL/tree/main/course).
+- The PGL team worked hard to develop an **open course of Graph Neural Network (GNN)**, which will help you getting started with Graph Neural Network in seven days. Details can be found in [course](https://github.com/PaddlePaddle/PGL/tree/main/course).
 
 PGL v1.1 2020.4.29
 
