@@ -60,11 +60,11 @@ sh run_link_predict.sh ./config/erniesage_link_predict.yaml
 - sample_workers: 采样进程数。
 - samples: 采样邻居数
 - model_type: 模型类型，包括ERNIESageV1、ERNIESageV2、ERNIESageV3。
-- ernie_name: 热启模型类型，支持“ernie-1.0”和"ernie-tiny"，后者速度更快。
-- num_layers: 层数
-- hidden_size: 隐藏层大小
-- batch_size: 训练时的batchsize
-- infer_batch_size: 预测时batchsize
+- ernie_name: 热启模型类型，支持“ernie-1.0”和"ernie-tiny"，后者速度更快，指定该参数后会自动从服务器下载预训练模型文件。
+- num_layers: 层数。
+- hidden_size: 隐藏层大小。
+- batch_size: 训练时的batchsize。
+- infer_batch_size: 预测时batchsize。
 
 
 ## Citation
