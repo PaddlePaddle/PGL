@@ -21,7 +21,6 @@ import numpy as np
 import paddle.fluid as F
 import paddle.fluid.layers as L
 from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler import fleet
-from paddle.fluid.transpiler.distribute_transpiler import DistributeTranspilerConfig
 from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler import StrategyFactory
 import paddle.fluid.incubate.fleet.base.role_maker as role_maker
 import pgl
@@ -32,18 +31,9 @@ from reader import DeepwalkReader
 from model import DeepwalkModel
 from utils import get_file_list
 from utils import build_graph
+from utils import build_random_graph
 from utils import build_fake_graph
 from utils import build_gen_func
-from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler.distributed_strategy import TrainerRuntimeConfig
-
-# hack it!
-# base_get_communicator_flags = TrainerRuntimeConfig.get_communicator_flags
-# def get_communicator_flags(self):
-    # flag_dict = base_get_communicator_flags(self)
-    # flag_dict['communicator_max_merge_var_num'] = str(1)
-    # flag_dict['communicator_send_queue_size'] = str(1)
-    # return flag_dict
-# TrainerRuntimeConfig.get_communicator_flags = get_communicator_flags
 
 
 def init_role():
@@ -66,11 +56,6 @@ def optimization(base_lr, loss, train_steps, optimizer='sgd'):
         raise ValueError
 
     log.info('learning rate:%f' % (base_lr))
-    #create the DistributeTranspiler configure
-    config = DistributeTranspilerConfig()
-    config.sync_mode = False
-
-    config.slice_var_up = False
     #create the distributed optimizer
 
     #strategy = StrategyFactory.create_sync_strategy()
@@ -99,7 +84,7 @@ def build_complied_prog(train_program, model_loss):
     return compiled_prog
 
 
-def train_prog(exe, program, loss, node2vec_pyreader, args, train_steps):
+def train_prog(exe, program, loss, pyreader, args, train_steps):
     trainer_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
     step = 0
     while True:
@@ -110,7 +95,7 @@ def train_prog(exe, program, loss, node2vec_pyreader, args, train_steps):
                      (step, np.mean(loss_val), time.time() - begin_time))
             step += 1
         except F.core.EOFException:
-            node2vec_pyreader.reset()
+            pyreader.reset()
 
         if step % args.steps_per_save == 0 or step == train_steps:
             if trainer_id == 0 or args.is_distributed:
@@ -184,16 +169,14 @@ def walk(args):
         ps[i].join()
 
 
-def build_tmp_graph(num_nodes):
-    edges = np.random.randint(0, num_nodes, [4*num_nodes, 2])
-    graph = pgl.graph.Graph(num_nodes, edges)
-    graph.indegree()
-    graph.outdegree()
-    tmp_path = "./tmp"
-    #graph.dump(tmp_path)
-    #graph = pgl.graph.MemmapGraph(tmp_path)
-    return graph
-
+def test_data_pipeline(gen_func):
+    import time
+    tmp = time.time()
+    for idx, data in enumerate(gen_func()):
+        print(time.time() - tmp)
+        tmp = time.time()
+        if idx == 100:
+            break
 
 
 def train(args):
@@ -235,24 +218,31 @@ def train(args):
         exe.run(fleet.startup_program)
         log.info("Startup done")
 
-        graph = build_tmp_graph(args.num_nodes)
+        if args.dataset is not None:
+            # load graph from built-in dataset
+            if args.dataset == "BlogCatalog":    
+                graph = data_loader.BlogCatalogDataset().graph    
+            elif args.dataset == "ArXiv":    
+                graph = data_loader.ArXivDataset().graph    
+            else:    
+                raise ValueError(args.dataset + " dataset doesn't exists")    
+            log.info("Load buildin BlogCatalog dataset done.")    
+        elif args.walkpath_files is None or args.walkpath_files == "None":    
+            # build graph from edges file.
+            graph = build_graph(args.num_nodes, args.edge_path)    
+            log.info("Load graph from '%s' done." % args.edge_path)    
+        else:
+            # build a random graph for test
+            graph = build_random_graph(args.num_nodes)
 
         # bind gen
         gen_func = build_gen_func(args, graph)
-
-        import time
-        tmp = time.time()
-        for idx, data in enumerate(gen_func()):
-            print(time.time() - tmp)
-            tmp = time.time()
-            if idx == 100:
-                break
+        test_data_pipeline(gen_func)
 
         pyreader.decorate_tensor_provider(gen_func)
         pyreader.start()
 
         compiled_prog = build_complied_prog(fleet.main_program, loss)
-        #compiled_prog = fleet.main_program
         train_prog(exe, compiled_prog, loss, pyreader, args, train_steps)
         fleet.stop_worker()
 
