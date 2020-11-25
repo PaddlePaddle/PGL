@@ -73,6 +73,24 @@ The training curves follows:
   1. ```python train.py --place 0 --use_label_e --log_file proteins.log --eval_partition 3 --epoch 5000 --cross_edge_feat 3``` 
 
 
+Results for each run, you can find the details in ```result.log```
+
+```
+Best Validation Test for each Runs
+
+Run0:  Epoch 4888 Valid: 92.58   Test: 86.77
+Run1:  Epoch 4500 Valid: 92.49   Test: 86.60
+Run2:  Epoch 4666 Valid: 92.58   Test: 86.96
+Run3:  Epoch 4555 Valid: 92.53   Test: 87.10
+Run4:  Epoch 4611 Valid: 92.49   Test: 87.12
+Run5:  Epoch 4888 Valid: 92.76   Test: 87.07
+Run6:  Epoch 4333 Valid: 92.47   Test: 87.04
+Run7:  Epoch 4333 Valid: 92.69   Test: 86.82
+Run8:  Epoch 4944 Valid: 92.64   Test: 86.73
+Run9:  Epoch 4944 Valid: 92.61   Test: 86.86
+
+```
+
 
 ### The **detailed hyperparameter** is:
 
@@ -98,7 +116,7 @@ Proteins_dataset(Random Partition):
 | --------------------- | --------------- | --------------- | ---------- | ----------------- |
 | Proteins_baseline     | 0.8611 ± 0.0017 | 0.9128 ± 0.0007 | 1,879,664  | Tesla V100 (32GB) |
 | Proteins_UniMP        | 0.8642 ± 0.0008 | 0.9175 ± 0.0007 | 1,909,104  | Tesla V100 (32GB) |
-| UniMP + CrossEdgeFeat |                 |                 | 1,959,984  | Tesla V100 (32GB) |
+| UniMP + CrossEdgeFeat | 0.8691 ± 0.0018 | 0.9258 ± 0.0009 | 1,959,984  | Tesla V100 (32GB) |
 
 
 
