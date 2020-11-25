@@ -31,11 +31,10 @@ import numpy as np
 import tqdm
 import pgl
 from pgl.graph_kernel import alias_sample_build_table
-#from pgl.utils.logger import log
+from pgl.utils.logger import log
 import paddle.fluid.dygraph as D
 from easydict import EasyDict as edict
 import yaml
-from propeller import log
 
 from ernie.tokenizing_ernie import ErnieTokenizer
 from ernie.tokenizing_ernie import ErnieTinyTokenizer
@@ -47,10 +46,11 @@ log.setLevel(logging.DEBUG)
 def term2id(string, tokenizer, max_seqlen):
     tokens = tokenizer.tokenize(string)
     ids = tokenizer.convert_tokens_to_ids(tokens)
-    ids = ids[:max_seqlen-1]
-    ids = ids + [tokenizer.sep_id] # ids + [sep]
+    ids = ids[:max_seqlen - 1]
+    ids = ids + [tokenizer.sep_id]  # ids + [sep]
     ids = ids + [tokenizer.pad_id] * (max_seqlen - len(ids))
     return ids
+
 
 def load_graph(config, str2id, term_file, terms, item_distribution):
     edges = []
@@ -75,7 +75,9 @@ def load_graph(config, str2id, term_file, terms, item_distribution):
     edges = np.array(edges, dtype="int64")
     return edges
 
-def load_link_predict_train_data(config, str2id, term_file, terms, item_distribution):
+
+def load_link_predict_train_data(config, str2id, term_file, terms,
+                                 item_distribution):
     train_data = []
     neg_samples = []
     with io.open(config.train_data, encoding=config.encoding) as f:
@@ -98,9 +100,13 @@ def load_link_predict_train_data(config, str2id, term_file, terms, item_distribu
     train_data = np.array(train_data, dtype="int64")
     np.save(os.path.join(config.graph_work_path, "train_data.npy"), train_data)
     if len(neg_samples) != 0:
-        np.save(os.path.join(config.graph_work_path, "neg_samples.npy"), np.array(neg_samples))
+        np.save(
+            os.path.join(config.graph_work_path, "neg_samples.npy"),
+            np.array(neg_samples))
 
-def load_node_classification_train_data(config, str2id, term_file, terms, item_distribution):
+
+def load_node_classification_train_data(config, str2id, term_file, terms,
+                                        item_distribution):
     train_data = []
     neg_samples = []
     with io.open(config.train_data, encoding=config.encoding) as f:
@@ -122,20 +128,26 @@ def load_node_classification_train_data(config, str2id, term_file, terms, item_d
     train_data = np.array(train_data, dtype="int64")
     np.save(os.path.join(config.graph_work_path, "train_data.npy"), train_data)
 
+
 def dump_graph(config):
     if not os.path.exists(config.graph_work_path):
         os.makedirs(config.graph_work_path)
     str2id = dict()
-    term_file = io.open(os.path.join(config.graph_work_path, "terms.txt"), "w", encoding=config.encoding)
+    term_file = io.open(
+        os.path.join(config.graph_work_path, "terms.txt"),
+        "w",
+        encoding=config.encoding)
     terms = []
     item_distribution = []
 
     edges = load_graph(config, str2id, term_file, terms, item_distribution)
     #load_train_data(config, str2id, term_file, terms, item_distribution)
     if config.task == "link_predict":
-        load_link_predict_train_data(config, str2id, term_file, terms, item_distribution)
+        load_link_predict_train_data(config, str2id, term_file, terms,
+                                     item_distribution)
     elif config.task == "node_classification":
-        load_node_classification_train_data(config, str2id, term_file, terms, item_distribution)
+        load_node_classification_train_data(config, str2id, term_file, terms,
+                                            item_distribution)
     else:
         raise ValueError
 
@@ -149,7 +161,7 @@ def dump_graph(config):
     graph.indegree()
     graph.outdegree()
     graph.dump(config.graph_work_path)
-    
+
     # dump alias sample table
     item_distribution = np.array(item_distribution)
     item_distribution = np.sqrt(item_distribution)
@@ -159,24 +171,40 @@ def dump_graph(config):
     np.save(os.path.join(config.graph_work_path, "events.npy"), events)
     log.info("End Build Graph")
 
+
 def dump_node_feat(config):
     log.info("Dump node feat starting...")
-    id2str = [line.strip("\n").split("\t")[-1] for line in io.open(os.path.join(config.graph_work_path, "terms.txt"), encoding=config.encoding)]
+    id2str = [
+        line.strip("\n").split("\t")[-1]
+        for line in io.open(
+            os.path.join(config.graph_work_path, "terms.txt"),
+            encoding=config.encoding)
+    ]
     if "tiny" in config.ernie_name:
         tokenizer = ErnieTinyTokenizer.from_pretrained(config.ernie_name)
         #tokenizer.vocab = tokenizer.sp_model.vocab
-        term_ids = [partial(term2id, tokenizer=tokenizer, max_seqlen=config.max_seqlen)(s) for s in id2str]
+        term_ids = [
+            partial(
+                term2id, tokenizer=tokenizer, max_seqlen=config.max_seqlen)(s)
+            for s in id2str
+        ]
     else:
         tokenizer = ErnieTokenizer.from_pretrained(config.ernie_name)
         pool = multiprocessing.Pool()
-        term_ids = pool.map(partial(term2id, tokenizer=tokenizer, max_seqlen=config.max_seqlen), id2str)
+        term_ids = pool.map(partial(
+            term2id, tokenizer=tokenizer, max_seqlen=config.max_seqlen),
+                            id2str)
         pool.terminate()
-    np.save(os.path.join(config.graph_work_path, "term_ids.npy"), np.array(term_ids, np.uint16))
+    np.save(
+        os.path.join(config.graph_work_path, "term_ids.npy"),
+        np.array(term_ids, np.uint16))
     log.info("Dump node feat done.")
+
 
 def download_ernie_model(config):
     D.guard().__enter__()
     model = ErnieModel.from_pretrained(config.ernie_name)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='main')

@@ -2,16 +2,9 @@
 #
 # trainer config ------
 task: "link_predict"
-learner_type: "gpu"
-optimizer_type: "adam"
-lr: 0.00005
 batch_size: 32
-CPU_NUM: 10
-epoch: 3
-log_per_step: 1
-save_per_step: 1000
-output_path: "./output"
-ckpt_path: "./ernie_base_ckpt"
+epochs: 3
+#warm_start_from: "ernie_base_ckpt"
 
 # data config ------
 graph_data: "./example_data/link_predict/graph_data.txt"
@@ -24,8 +17,7 @@ input_type: "text"
 
 # model config ------
 samples: [10]
-model_type: "ERNIESageV2"
-layer_type: "graphsage_sum"
+model_type: "ERNIESageV3"
 
 max_seqlen: 40
 
@@ -38,7 +30,7 @@ margin: 0.1
 neg_type: "batch_neg"
 
 # infer config ------
-infer_model: "./output/last"
+#infer_model: "./output/last"
 infer_batch_size: 128
 
 # ernie config ------
@@ -49,20 +41,16 @@ ernie_name: "ernie-tiny" #tiny is 4x faster than ernie1.0
 # runconfig 
 model_dir: "./output"
 max_steps: 238766
-save_steps: 10
+save_steps: 1000
 log_steps: 1
 max_ckpt: 2
 skip_steps: 0
-eval_steps: 10000
+eval_steps: 100
+eval_max_steps: 1000000
 run_steps: 0
 
 
 # hparam
 warmup_proportion:  0.1
 weight_decay: 0.01
-use_fp16: 0
 learning_rate: 0.00005
-num_label: 2
-batch_size: 24
-warm_start_from: "ernie_base_ckpt"
-
