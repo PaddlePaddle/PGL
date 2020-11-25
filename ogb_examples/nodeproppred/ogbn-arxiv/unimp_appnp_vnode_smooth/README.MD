@@ -8,7 +8,7 @@ This experiment is based on stanford OGB (1.2.1) benchmark. The description of �
 - **Attention & Smooth Aggregate**
     - The attention mechanism can capture important information, but the expression is too extreme. 
     - We use an additional average aggregate and then add the two results together proportionally, to smooth the output of the aggregater.
-- **Attention based APPNP **
+- **Attention based APPNP**
     - We firstly propose a new attention based APPNP. Instead of the graph structure in [APPNP](https://www.in.tum.de/daml/ppnp/), the attention mastrix in used for message passing in the last layer.
 - **Gated based APPNP**
     - The original APPNP use a fix teleport probability alpha. Get inspired from LSTM gate, we use a gate to learn the teleport probability in every appnp layer.
@@ -23,7 +23,7 @@ This experiment is based on stanford OGB (1.2.1) benchmark. The description of �
     
 ```
 ### Arxiv dataset:
-  3. ```python main_arxiv_large.py --place 0 --use_label_e --log_file arxiv_unimp_large.txt``` to get the UniMP_large result of arxiv dataset.
+  ```python main_arxiv_large.py --place 0 --use_label_e --log_file arxiv_unimp_large.txt``` to get the UniMP_large result of arxiv dataset.
   
   
 ### The **detailed hyperparameter** is:
@@ -50,5 +50,5 @@ Arxiv_dataset(Full Batch):
 | Arxiv_baseline     | 0.7225  ± 0.0015 | 0.7367  ± 0.0012 | 468,369  | Tesla V100 (32GB) |
 | Arxiv_UniMP        | 0.7311  ± 0.0021 | 0.7450  ± 0.0005 | 473,489 | Tesla V100 (32GB) |
 | Arxiv_UniMP_large        | 0.7379  ± 0.0014 | 0.7475  ± 0.0008 | 1,162,515 | Tesla V100 (32GB) |
-| Arxiv_UniMP_appnp_vnode_smooth        | 0.7397  ± 0.1543 | 75.0599  ± 0.092412 | 687,377 | Tesla V100 (32GB) |
+| Arxiv_UniMP_appnp_vnode_smooth        | 0.7397  ± 0.1543 | 0.7505  ± 0.0924 | 687,377 | Tesla V100 (32GB) |
    
