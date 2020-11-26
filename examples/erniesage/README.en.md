@@ -43,10 +43,7 @@ We adopt [PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet) as our dist
 
 ```sh
 # train ERNIESage in distributed gpu mode.
-sh local_run.sh config/enriesage_v1_gpu.yaml
-
-# train ERNIESage in distributed cpu mode.
-sh local_run.sh config/enriesage_v1_cpu.yaml
+sh run_link_predict.sh ./config/erniesage_link_predict.yaml
 ```
 
 **NOTE**: To help users better understand the ERNIESage Model, we provide a running example in Baidu AIStudio. Please visit here: https://aistudio.baidu.com/aistudio/projectdetail/667443. 

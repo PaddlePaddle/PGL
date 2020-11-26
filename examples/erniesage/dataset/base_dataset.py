@@ -129,8 +129,6 @@ class BaseDataGenerator(object):
                         continue
                     yield batch_dict
 
-
-
             return func_run
 
         # consume a seed
@@ -143,7 +141,8 @@ class BaseDataGenerator(object):
             perm = None
 
         if self.num_workers == 1:
-            r = paddle.reader.buffered(worker(0, perm), self.buf_size)
+            #r = paddle.reader.buffered(worker(0, perm), self.buf_size)
+            r = worker(0, perm)
         else:
             worker_pool = [worker(wid, perm) for wid in range(self.num_workers)]
             worker = mp_reader.multiprocess_reader(

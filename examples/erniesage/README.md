@@ -30,6 +30,8 @@
 ## 环境依赖
 - paddlepaddle>=1.7
 - pgl>=1.1
+- paddle-propeller>=0.4.1
+- paddle-ernie>=0.0.4
 
 ## Dataformat
 示例数据```data.txt```中使用了NLPCC2016-DBQA的部分数据，格式为每行"query \t answer"。
@@ -39,22 +41,31 @@ NLPCC2016-DBQA 是由国际自然语言处理和中文计算会议 NLPCC 于 201
 
 ## How to run
 
-我们采用了[PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet)作为我们的分布式训练框架，在```config/*.yaml```中，有部分用于训练ERNIESage的配置, 其中ERNIE模型```ckpt_path```以及词表```ernie_vocab_file```在[ERNIE](https://github.com/PaddlePaddle/ERNIE)下载。
+我们采用了[PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet)作为我们的分布式训练框架，在```config/*.yaml```中，目前支持的[ERNIE](https://github.com/PaddlePaddle/ERNIE)预训练语义模型包括**ernie-1.0**以及**ernie-tiny**，通过config/erniesage_link_predict.yaml中的ernie_name指定。
 
 
 ```sh
 # 分布式GPU模式或单机模式ERNIESage
-sh local_run.sh config/erniesage_v2_gpu.yaml
-
-# 分布式CPU模式训练ERNIESage
-sh local_run.sh config/erniesage_v2_cpu.yaml
+sh run_link_predict.sh ./config/erniesage_link_predict.yaml
 ```
 
 **NOTE**：为了方便用户们学习使用ERNIESage，我们在百度AIStudio中提供了可以直接运行的ERNIESage实例，详情可见：https://aistudio.baidu.com/aistudio/projectdetail/667443.
 
 ## Hyperparamters
 
-- learner_type: `gpu` or `cpu`; gpu 使用fleet Collective 模式, cpu 使用fleet Transpiler 模式.
+- epochs: 训练的轮数
+- graph_data: 训练模型时用到的图结构数据，使用“text1 \t text"格式。
+- train_data: 训练时的边，与graph_data格式相同，一般可以直接用graph_data。
+- graph_work_path: 临时存储graph数据中间文件的目录。
+- sample_workers: 采样进程数。
+- samples: 采样邻居数
+- model_type: 模型类型，包括ERNIESageV1、ERNIESageV2、ERNIESageV3。
+- ernie_name: 热启模型类型，支持“ernie-1.0”和"ernie-tiny"，后者速度更快，指定该参数后会自动从服务器下载预训练模型文件。
+- num_layers: 层数。
+- hidden_size: 隐藏层大小。
+- batch_size: 训练时的batchsize。
+- infer_batch_size: 预测时batchsize。
+
 
 ## Citation
 ```
