@@ -1,9 +1,10 @@
 ## 最新消息
 
+- 已更新第三课直播视频，[直播回放](https://www.bilibili.com/video/BV1rf4y1v7cU)。
+- 已更新第三课PPT材料，[课件地址](https://baidu-pgl.gz.bcebos.com/pgl-course/lesson_3.pdf)。
 - 已更新第二课PPT材料，[课件地址](https://baidu-pgl.gz.bcebos.com/pgl-course/lesson_2.pdf)。
 - 公开课第一课常见问题整理汇总，[汇总地址](https://aistudio.baidu.com/aistudio/projectdetail/1259681)。
 - 已更新第一课PPT材料，[课件地址](https://baidu-pgl.gz.bcebos.com/pgl-course/lesson_1.pdf)。
-- 已更新第一课直播视频，[直播回放](https://www.bilibili.com/video/BV1rf4y1v7cU)。
 
 PGL团队倾力开发了**图神经网络公开课**，带你七天高效入门图神经网络。快来[这里](https://aistudio.baidu.com/aistudio/course/introduce/1956)加入我们的课程吧！
 
