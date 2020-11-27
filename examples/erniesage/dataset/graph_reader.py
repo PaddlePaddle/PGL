@@ -46,7 +46,8 @@ class GraphGenerator(BaseDataGenerator):
         self.graph = pgl.graph.MemmapGraph(graph_data_path)
         self.alias = np.load(os.path.join(graph_data_path, "alias.npy"), mmap_mode="r")
         self.events = np.load(os.path.join(graph_data_path, "events.npy"), mmap_mode="r")
-        self.term_ids = np.load(os.path.join(graph_data_path, "term_ids.npy"), mmap_mode="r")
+        #self.term_ids = np.load(os.path.join(graph_data_path, "term_ids.npy"), mmap_mode="r")
+        self.term_ids = self.graph.node_feat["term_ids"]
  
     def batch_fn(self, batch_ex):
         # batch_ex = [
