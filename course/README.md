@@ -1,6 +1,7 @@
 ## 最新消息
 
-- 已更新第三课直播视频，[直播回放](https://www.bilibili.com/video/BV1rf4y1v7cU)。
+- 已更新第四课直播视频，[直播回放](https://www.bilibili.com/video/BV1rf4y1v7cU)。
+- 已更新第四课PPT材料，[课件地址](https://baidu-pgl.gz.bcebos.com/pgl-course/lesson_4.pdf)。
 - 已更新第三课PPT材料，[课件地址](https://baidu-pgl.gz.bcebos.com/pgl-course/lesson_3.pdf)。
 - 已更新第二课PPT材料，[课件地址](https://baidu-pgl.gz.bcebos.com/pgl-course/lesson_2.pdf)。
 - 公开课第一课常见问题整理汇总，[汇总地址](https://aistudio.baidu.com/aistudio/projectdetail/1259681)。
