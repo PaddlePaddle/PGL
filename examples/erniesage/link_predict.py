@@ -20,10 +20,8 @@ import io
 import yaml
 import numpy as np
 from easydict import EasyDict as edict
-from pgl.utils.logger import log
 from pgl.utils import paddle_helper
 from pgl.graph_wrapper import BatchGraphWrapper
-from propeller import log
 import propeller.paddle as propeller
 from propeller.paddle.data import Dataset
 import paddle.fluid as F

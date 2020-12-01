@@ -3,7 +3,7 @@
 # trainer config ------
 task: "link_predict"
 batch_size: 32
-epochs: 3
+epochs: 30
 #warm_start_from: "ernie_base_ckpt"
 
 # data config ------
@@ -17,7 +17,7 @@ input_type: "text"
 
 # model config ------
 samples: [10]
-model_type: "ERNIESageV3"
+model_type: "ERNIESageV1"
 
 max_seqlen: 40
 
@@ -25,7 +25,7 @@ num_layers: 1
 hidden_size: 128
 final_fc: true
 final_l2_norm: true
-loss_type: "hinge"
+loss_type: "global_hinge"
 margin: 0.1
 neg_type: "batch_neg"
 
@@ -40,12 +40,12 @@ ernie_name: "ernie-tiny" #tiny is 4x faster than ernie1.0
 
 # runconfig 
 model_dir: "./output"
-max_steps: 238766
+max_steps: 10000
 save_steps: 100
 log_steps: 1
 max_ckpt: 1
 skip_steps: 0
-eval_steps: 100
+eval_steps: 10000
 eval_max_steps: 1000000
 run_steps: 0
 
@@ -53,3 +53,4 @@ run_steps: 0
 warmup_proportion:  0.1
 weight_decay: 0.01
 learning_rate: 0.00005
+log_prefix: "training"

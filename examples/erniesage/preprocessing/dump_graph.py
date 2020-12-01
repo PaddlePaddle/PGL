@@ -33,6 +33,7 @@ import pgl
 from pgl.graph_kernel import alias_sample_build_table
 from pgl.utils.logger import log
 import paddle.fluid.dygraph as D
+import paddle.fluid as F
 from easydict import EasyDict as edict
 import yaml
 
@@ -195,15 +196,19 @@ def dump_node_feat(config):
             term2id, tokenizer=tokenizer, max_seqlen=config.max_seqlen),
                             id2str)
         pool.terminate()
+    node_feat_path = os.path.join(config.graph_work_path, "node_feat")
+    if not os.path.exists(node_feat_path):
+        os.makedirs(node_feat_path)
     np.save(
-        os.path.join(config.graph_work_path, "term_ids.npy"),
+        os.path.join(config.graph_work_path, "node_feat", "term_ids.npy"),
         np.array(term_ids, np.uint16))
     log.info("Dump node feat done.")
 
 
 def download_ernie_model(config):
-    D.guard().__enter__()
-    model = ErnieModel.from_pretrained(config.ernie_name)
+    place = F.CUDAPlace(0)
+    with D.guard(place):
+        model = ErnieModel.from_pretrained(config.ernie_name)
 
 
 if __name__ == "__main__":
