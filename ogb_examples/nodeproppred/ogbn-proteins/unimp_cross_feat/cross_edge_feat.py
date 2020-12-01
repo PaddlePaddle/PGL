@@ -32,7 +32,7 @@ def cross_edge_feat(graph_wrapper,
                     feat,
                     hidden_size,
                     num_layers=3,
-                    num_heads=5):
+                    max_neigh=64):
     if num_layers == 0:
         return None
 
@@ -42,8 +42,8 @@ def cross_edge_feat(graph_wrapper,
     def recv_func(msg):
         pad_value = L.assign(input=np.array([0.0], dtype=np.float32))
 
-        output, length = L.sequence_pad(msg, pad_value, maxlen=64)
-        mask = L.sequence_mask(length, dtype="float32", maxlen=64)
+        output, length = L.sequence_pad(msg, pad_value, maxlen=max_neigh)
+        mask = L.sequence_mask(length, dtype="float32", maxlen=max_neigh)
         mask = L.unsqueeze(mask, [2])
         input_mask = (L.matmul(mask, mask, transpose_y=True) - 1) * -10000
         for layer in range(num_layers):
@@ -52,7 +52,7 @@ def cross_edge_feat(graph_wrapper,
                 hidden_size,
                 input_mask,
                 name="cross_feat_%s" % layer,
-                maxlen=64)
+                maxlen=max_neigh)
         return L.reduce_sum(output * mask, 1) / L.reduce_sum(mask, 1)
 
     feat = L.fc(feat, size=hidden_size, name="init_edge_feat")
