@@ -68,7 +68,7 @@ class ERNIESageV1Encoder(Encoder):
         feature = self.ernie_pool(graph_wrappers[0].node_feat["term_ids"])
 
         for i in range(self.config.num_layers):
-            feature = graphsage_sum(feature, graph_wrappers[i], self.config.hidden_size, "graphsage_sum_%s"%i, "leaky_relu")
+            feature = graphsage_sum(feature, graph_wrappers[i], self.config.hidden_size, "graphsage_sum_%s"%i, None)
 
         final_feats = [
             self.take_final_feature(feature, i, "final_fc") for i in inputs
@@ -103,7 +103,7 @@ class ERNIESageV2Encoder(Encoder):
 
         for i in range(1, self.config.num_layers):
             feature = graphsage_sum(feature, graph_wrappers[i], self.config.hidden_size, 
-                    "graphsage_sum_%s"%i, "leaky_relu")
+                    "graphsage_sum_%s"%i, None)
 
         final_feats = [
             self.take_final_feature(feature, i, "final_fc") for i in inputs
