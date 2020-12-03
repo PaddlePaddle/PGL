@@ -282,7 +282,7 @@ def aggregate_node_features(graph):
     nfeat = np.zeros((graph.num_nodes, efeat.shape[-1]), dtype="float32")
     edges_dst = graph.edges[:, 1]
     np_scatter(edges_dst, efeat, nfeat)
-    nfeat = nfeat / np.sqrt(graph.indegree())
+    nfeat = nfeat / np.sqrt(graph.indegree()).reshape(-1, 1)
     graph.node_feat["feat"] = nfeat
 
 
