@@ -38,7 +38,7 @@ class HadoopUtil(object):
         cmd = self.hadoop_bin + " fs -D fs.default.name=" + self.fs_name
         cmd += " -D hadoop.job.ugi=" + self.fs_ugi
         cmd += " -ls " + path
-        cmd += " | grep part | awk '{print $8}'"
+        cmd += " | awk '{print $8}'"
         with os.popen(cmd) as reader:
             filelist = reader.read().split()
         return filelist

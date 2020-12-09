@@ -26,18 +26,13 @@ class Sampler(object):
         self.drop_last = drop_last
         self.shuffle = shuffle
 
-        length = len(self.dataset)
-        self.perm = np.arange(0, length)
-
-        # shuffle one time whne Sampler is created
-        if self.shuffle:
-            seed = int(float(time.time()) * 1000) % 10000007
-            np.random.seed(seed)
-            np.random.shuffle(self.perm)
-
     def __iter__(self):
+        perm = np.arange(0, len(self.dataset))
+        if self.shuffle:
+            np.random.shuffle(perm)
+
         batch = []
-        for idx in self.perm:
+        for idx in perm:
             batch.append(idx)
             if len(batch) == self.batch_size:
                 yield batch

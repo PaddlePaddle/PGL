@@ -15,6 +15,7 @@
 """dataloader
 """
 import warnings
+import time
 import numpy as np
 from collections import namedtuple
 
@@ -104,15 +105,8 @@ class Dataloader(object):
             raise ValueError("num_workers(default: 1) should be larger than 0, " \
                         "but got [num_workers=%s] < 1." % self.num_workers)
 
-    def __len__(self):
-        if not isinstance(self.dataset, StreamDataset):
-            return len(self.sampler)
-        else:
-            raise "StreamDataset has no length"
-
-    def __iter__(self):
-        # generating a iterable sequence for produce batch data without repetition
         if isinstance(self.dataset, StreamDataset):  # for stream data
+            # generating a iterable sequence for produce batch data without repetition
             self.sampler = StreamSampler(
                 self.dataset,
                 batch_size=self.batch_size,
@@ -124,6 +118,16 @@ class Dataloader(object):
                 drop_last=self.drop_last,
                 shuffle=self.shuffle)
 
+    def __len__(self):
+        if not isinstance(self.dataset, StreamDataset):
+            return len(self.sampler)
+        else:
+            raise "StreamDataset has no length"
+
+    def __iter__(self):
+        # random seed will be fixed when using multiprocess, 
+        # so set seed explicitly every time
+        np.random.seed()
         if self.num_workers == 1:
             r = paddle.reader.buffered(_DataLoaderIter(self, 0), self.buf_size)
         else:
