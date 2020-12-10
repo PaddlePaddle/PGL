@@ -79,7 +79,7 @@ class ERNIESageV1Encoder(Encoder):
         cls = L.fill_constant_batch_size_like(term_ids, [-1, 1], "int64",
                                               self.config.cls_id)
         term_ids = L.concat([cls, term_ids], 1)
-        ernie_model = ErnieModel(self.config.ernie_config)
+        ernie_model = ErnieModel(self.config.ernie_config, "")
         feature, _ = ernie_model(term_ids)
         return feature
 
@@ -142,7 +142,7 @@ class ERNIESageV2Encoder(Encoder):
 
             # position_ids
             position_ids = build_position_ids(term_ids)
-            ernie_model = ErnieModel(self.config.ernie_config)
+            ernie_model = ErnieModel(self.config.ernie_config, "")
             feature, _ = ernie_model(term_ids, sent_ids, position_ids)
             return feature
 
@@ -153,7 +153,7 @@ class ERNIESageV2Encoder(Encoder):
         cls = L.fill_constant_batch_size_like(term_ids, [-1, 1],
                                               "int64", self.config.cls_id)
         term_ids = L.concat([cls, term_ids], 1)
-        ernie_model = ErnieModel(self.config.ernie_config)
+        ernie_model = ErnieModel(self.config.ernie_config, "")
         self_feature, _ = ernie_model(term_ids)
 
         hidden_size = self.config.hidden_size
@@ -204,7 +204,7 @@ class ERNIESageV3Encoder(Encoder):
         position_ids = self._build_position_ids(term_ids)
         sent_ids = self._build_sentence_ids(term_ids)
 
-        ernie_model = ErnieModel(self.config.ernie_config)
+        ernie_model = ErnieModel(self.config.ernie_config, "")
         feature, _ = ernie_model(term_ids, sent_ids, position_ids)
 
         if self.config.final_fc:

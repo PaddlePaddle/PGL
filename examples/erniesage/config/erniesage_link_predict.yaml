@@ -4,7 +4,6 @@
 task: "link_predict"
 batch_size: 32
 epochs: 30
-#warm_start_from: "ernie_base_ckpt"
 
 # data config ------
 graph_data: "./example_data/link_predict/graph_data.txt"
@@ -37,6 +36,7 @@ infer_batch_size: 128
 encoding: "utf8"
 #ernie_name: "ernie-1.0"
 ernie_name: "ernie-tiny" #tiny is 4x faster than ernie1.0
+#ernie_name: "./ernie1.0_model" # 不可连外网时，也可以把ERNIE github上的模型拉取到本地来热启
 
 # runconfig 
 model_dir: "./output"
