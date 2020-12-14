@@ -51,7 +51,7 @@ class HingeLoss(Loss):
 
 def all_gather(X):
     trainer_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
-    trainer_num = int(os.getenv("PADDLE_TRAINERS_NUM", "0"))
+    trainer_num = int(os.getenv("PADDLE_TRAINERS_NUM", "1"))
     if trainer_num == 1:
         copy_X = X * 1
         copy_X.stop_gradient=True
