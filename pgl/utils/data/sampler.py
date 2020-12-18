@@ -20,6 +20,9 @@ import numpy as np
 
 
 class Sampler(object):
+    """Sampler
+    """
+
     def __init__(self, dataset, batch_size=1, drop_last=False, shuffle=False):
         self.dataset = dataset
         self.batch_size = batch_size
@@ -51,6 +54,9 @@ class Sampler(object):
 
 
 class StreamSampler(object):
+    """StreamSampler
+    """
+
     def __init__(self, dataset, batch_size=1, drop_last=None):
         self.dataset = dataset
         self.batch_size = batch_size

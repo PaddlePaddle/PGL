@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,295 +11,179 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import os
 import argparse
 import time
+from functools import partial
 
 import numpy as np
-import scipy.sparse as sp
-from sklearn.preprocessing import StandardScaler
-
+import tqdm
 import pgl
-from pgl.utils.logger import log
-from pgl.utils import paddle_helper
 import paddle
-import paddle.fluid as fluid
-import reader
-from model import graphsage_mean, graphsage_meanpool,\
-        graphsage_maxpool, graphsage_lstm
+from pgl.utils.logger import log
+from pgl.utils.data import Dataloader
+
+from model import GraphSage
+from dataset import ShardedDataset, batch_fn
 
 
-def load_data(normalize=True, symmetry=True):
-    """
-        data from https://github.com/matenure/FastGCN/issues/8
-        reddit_adj.npz: https://drive.google.com/open?id=174vb0Ws7Vxk_QTUtxqTgDHSQ4El4qDHt
-        reddit.npz: https://drive.google.com/open?id=19SphVl_Oe8SJ1r87Hr5a6znx3nJu1F2J
-    """
-    data_dir = os.path.dirname(os.path.abspath(__file__))
-    data = np.load(os.path.join(data_dir, "data/reddit.npz"))
-    adj = sp.load_npz(os.path.join(data_dir, "data/reddit_adj.npz"))
-    if symmetry:
-        adj = adj + adj.T
-    adj = adj.tocoo()
-    src = adj.row
-    dst = adj.col
+def train(dataloader, model, feature, criterion, optim, log_per_step=100):
+    model.train()
 
-    num_class = 41
-
-    train_label = data['y_train']
-    val_label = data['y_val']
-    test_label = data['y_test']
-
-    train_index = data['train_index']
-    val_index = data['val_index']
-    test_index = data['test_index']
-
-    feature = data["feats"].astype("float32")
-
-    if normalize:
-        scaler = StandardScaler()
-        scaler.fit(feature[train_index])
-        feature = scaler.transform(feature)
-
-    log.info("Feature shape %s" % (repr(feature.shape)))
-    graph = pgl.graph.Graph(
-        num_nodes=feature.shape[0], edges=list(zip(src, dst)))
-
-    return {
-        "graph": graph,
-        "train_index": train_index,
-        "train_label": train_label,
-        "val_label": val_label,
-        "val_index": val_index,
-        "test_index": test_index,
-        "test_label": test_label,
-        "feature": feature,
-        "num_class": 41
-    }
-
-
-def build_graph_model(graph_wrapper, num_class, k_hop, graphsage_type,
-                      hidden_size, feature):
-    node_index = fluid.layers.data(
-        "node_index", shape=[None], dtype="int64", append_batch_size=False)
-
-    node_label = fluid.layers.data(
-        "node_label", shape=[None, 1], dtype="int64", append_batch_size=False)
-
-    parent_node_index = fluid.layers.data(
-        "parent_node_index",
-        shape=[None],
-        dtype="int64",
-        append_batch_size=False)
-
-    feature = fluid.layers.gather(feature, parent_node_index)
-    feature.stop_gradient = True
-
-    for i in range(k_hop):
-        if graphsage_type == 'graphsage_mean':
-            feature = graphsage_mean(
-                graph_wrapper,
-                feature,
-                hidden_size,
-                act="relu",
-                name="graphsage_mean_%s" % i)
-        elif graphsage_type == 'graphsage_meanpool':
-            feature = graphsage_meanpool(
-                graph_wrapper,
-                feature,
-                hidden_size,
-                act="relu",
-                name="graphsage_meanpool_%s" % i)
-        elif graphsage_type == 'graphsage_maxpool':
-            feature = graphsage_maxpool(
-                graph_wrapper,
-                feature,
-                hidden_size,
-                act="relu",
-                name="graphsage_maxpool_%s" % i)
-        elif graphsage_type == 'graphsage_lstm':
-            feature = graphsage_lstm(
-                graph_wrapper,
-                feature,
-                hidden_size,
-                act="relu",
-                name="graphsage_maxpool_%s" % i)
-        else:
-            raise ValueError("graphsage type %s is not"
-                             " implemented" % graphsage_type)
-
-    feature = fluid.layers.gather(feature, node_index)
-    logits = fluid.layers.fc(feature,
-                             num_class,
-                             act=None,
-                             name='classification_layer')
-    proba = fluid.layers.softmax(logits)
-
-    loss = fluid.layers.softmax_with_cross_entropy(
-        logits=logits, label=node_label)
-    loss = fluid.layers.mean(loss)
-    acc = fluid.layers.accuracy(input=proba, label=node_label, k=1)
-    return loss, acc
-
-
-def run_epoch(batch_iter,
-              exe,
-              program,
-              prefix,
-              model_loss,
-              model_acc,
-              epoch,
-              log_per_step=100):
     batch = 0
     total_loss = 0.
     total_acc = 0.
     total_sample = 0
-    start = time.time()
-    for batch_feed_dict in batch_iter():
+
+    for g, sample_index, index, label in dataloader:
         batch += 1
-        batch_loss, batch_acc = exe.run(program,
-                                        fetch_list=[model_loss, model_acc],
-                                        feed=batch_feed_dict)
+        num_samples = len(index)
+
+        g.tensor()
+        sample_index = paddle.to_tensor(sample_index)
+        index = paddle.to_tensor(index)
+        label = paddle.to_tensor(label)
+
+        feat = paddle.gather(feature, sample_index)
+        pred = model(g, feat)
+        pred = paddle.gather(pred, index)
+        loss = criterion(pred, label)
+        loss.backward()
+        acc = paddle.metric.accuracy(input=pred, label=label, k=1)
+        optim.step()
+        optim.clear_grad()
+
+        total_loss += loss.numpy() * num_samples
+        total_acc += acc.numpy() * num_samples
+        total_sample += num_samples
 
         if batch % log_per_step == 0:
             log.info("Batch %s %s-Loss %s %s-Acc %s" %
-                     (batch, prefix, batch_loss, prefix, batch_acc))
+                     (batch, "train", loss.numpy(), "train", acc.numpy()))
 
-        num_samples = len(batch_feed_dict["node_index"])
-        total_loss += batch_loss * num_samples
-        total_acc += batch_acc * num_samples
-        total_sample += num_samples
-    end = time.time()
+    return total_loss / total_sample, total_acc / total_sample
 
-    log.info("%s Epoch %s Loss %.5lf Acc %.5lf Speed(per batch) %.5lf sec" %
-             (prefix, epoch, total_loss / total_sample,
-              total_acc / total_sample, (end - start) / batch))
+
+@paddle.no_grad()
+def eval(dataloader, model, feature, criterion):
+    model.eval()
+    loss_all, acc_all = [], []
+    for g, sample_index, index, label in dataloader:
+        g.tensor()
+        sample_index = paddle.to_tensor(sample_index)
+        index = paddle.to_tensor(index)
+        label = paddle.to_tensor(label)
+
+        feat = paddle.gather(feature, sample_index)
+        pred = model(g, feat)
+        pred = paddle.gather(pred, index)
+        loss = criterion(pred, label)
+        acc = paddle.metric.accuracy(input=pred, label=label, k=1)
+        loss_all.append(loss.numpy())
+        acc_all.append(acc.numpy())
+
+    return np.mean(loss_all), np.mean(acc_all)
 
 
 def main(args):
-    data = load_data(args.normalize, args.symmetry)
-    log.info("preprocess finish")
-    log.info("Train Examples: %s" % len(data["train_index"]))
-    log.info("Val Examples: %s" % len(data["val_index"]))
-    log.info("Test Examples: %s" % len(data["test_index"]))
-    log.info("Num nodes %s" % data["graph"].num_nodes)
-    log.info("Num edges %s" % data["graph"].num_edges)
-    log.info("Average Degree %s" % np.mean(data["graph"].indegree()))
+    if paddle.distributed.get_world_size() > 1:
+        paddle.distributed.init_parallel_env()
 
-    place = fluid.CUDAPlace(0) if args.use_cuda else fluid.CPUPlace()
-    train_program = fluid.Program()
-    startup_program = fluid.Program()
-    samples = []
-    if args.samples_1 > 0:
-        samples.append(args.samples_1)
-    if args.samples_2 > 0:
-        samples.append(args.samples_2)
+    data = pgl.dataset.RedditDataset(args.normalize, args.symmetry)
+    log.info("Preprocess finish")
+    log.info("Train Examples: %s" % len(data.train_index))
+    log.info("Val Examples: %s" % len(data.val_index))
+    log.info("Test Examples: %s" % len(data.test_index))
+    log.info("Num nodes %s" % data.graph.num_nodes)
+    log.info("Num edges %s" % data.graph.num_edges)
+    log.info("Average Degree %s" % np.mean(data.graph.indegree()))
 
-    with fluid.program_guard(train_program, startup_program):
-        feature, feature_init = paddle_helper.constant(
-            "feat",
-            dtype=data['feature'].dtype,
-            value=data['feature'],
-            hide_batch_size=False)
+    graph = data.graph
+    train_index = data.train_index
+    val_index = data.val_index
+    test_index = data.test_index
 
-        graph_wrapper = pgl.graph_wrapper.GraphWrapper(
-            "sub_graph",
-            node_feat=data['graph'].node_feat_info())
+    train_label = data.train_label
+    val_label = data.val_label
+    test_label = data.test_label
 
-        model_loss, model_acc = build_graph_model(
-            graph_wrapper,
-            num_class=data["num_class"],
-            feature=feature,
-            hidden_size=args.hidden_size,
-            graphsage_type=args.graphsage_type,
-            k_hop=len(samples))
+    model = GraphSage(
+        input_size=data.feature.shape[-1],
+        num_class=data.num_classes,
+        hidden_size=args.hidden_size,
+        num_layers=len(args.samples))
 
-    test_program = train_program.clone(for_test=True)
+    model = paddle.DataParallel(model)
 
-    with fluid.program_guard(train_program, startup_program):
-        adam = fluid.optimizer.Adam(learning_rate=args.lr)
-        adam.minimize(model_loss)
+    criterion = paddle.nn.loss.CrossEntropyLoss()
 
-    exe = fluid.Executor(place)
-    exe.run(startup_program)
-    feature_init(place)
+    optim = paddle.optimizer.Adam(
+        learning_rate=args.lr,
+        parameters=model.parameters(),
+        weight_decay=0.001)
 
-    train_iter = reader.multiprocess_graph_reader(
-        data['graph'],
-        graph_wrapper,
-        samples=samples,
-        num_workers=args.sample_workers,
+    feature = paddle.to_tensor(data.feature)
+
+    train_ds = ShardedDataset(train_index, train_label)
+    val_ds = ShardedDataset(val_index, val_label)
+    test_ds = ShardedDataset(test_index, test_label)
+
+    collate_fn = partial(batch_fn, graph=graph, samples=args.samples)
+
+    train_loader = Dataloader(
+        train_ds,
         batch_size=args.batch_size,
-        with_parent_node_index=True,
-        node_index=data['train_index'],
-        node_label=data["train_label"])
-
-    val_iter = reader.multiprocess_graph_reader(
-        data['graph'],
-        graph_wrapper,
-        samples=samples,
+        shuffle=True,
         num_workers=args.sample_workers,
+        collate_fn=collate_fn)
+    val_loader = Dataloader(
+        test_ds,
         batch_size=args.batch_size,
-        with_parent_node_index=True,
-        node_index=data['val_index'],
-        node_label=data["val_label"])
-
-    test_iter = reader.multiprocess_graph_reader(
-        data['graph'],
-        graph_wrapper,
-        samples=samples,
+        shuffle=False,
         num_workers=args.sample_workers,
+        collate_fn=collate_fn)
+    test_loader = Dataloader(
+        test_ds,
         batch_size=args.batch_size,
-        with_parent_node_index=True,
-        node_index=data['test_index'],
-        node_label=data["test_label"])
+        shuffle=False,
+        num_workers=args.sample_workers,
+        collate_fn=collate_fn)
 
-    for epoch in range(args.epoch):
-        run_epoch(
-            train_iter,
-            program=train_program,
-            exe=exe,
-            prefix="train",
-            model_loss=model_loss,
-            model_acc=model_acc,
-            epoch=epoch)
+    cal_val_acc = []
+    cal_test_acc = []
+    cal_val_loss = []
+    for epoch in tqdm.tqdm(range(args.epoch)):
+        train_loss, train_acc = train(train_loader, model, feature, criterion,
+                                      optim)
+        log.info("Runing epoch:%s\t train_loss:%s\t train_acc:%s", epoch,
+                 train_loss, train_acc)
+        val_loss, val_acc = eval(val_loader, model, feature, criterion)
+        cal_val_acc.append(val_acc)
+        cal_val_loss.append(val_loss)
+        log.info("Runing epoch:%s\t val_loss:%s\t val_acc:%s", epoch, val_loss,
+                 val_acc)
+        test_loss, test_acc = eval(test_loader, model, feature, criterion)
+        cal_test_acc.append(test_acc)
+        log.info("Runing epoch:%s\t test_loss:%s\t test_acc:%s", epoch,
+                 test_loss, test_acc)
 
-        run_epoch(
-            val_iter,
-            program=test_program,
-            exe=exe,
-            prefix="val",
-            model_loss=model_loss,
-            model_acc=model_acc,
-            log_per_step=10000,
-            epoch=epoch)
-
-    run_epoch(
-        test_iter,
-        program=test_program,
-        prefix="test",
-        exe=exe,
-        model_loss=model_loss,
-        model_acc=model_acc,
-        log_per_step=10000,
-        epoch=epoch)
+    log.info("Runs %s: Model: %s Best Test Accuracy: %f" %
+             (0, "graphsage", cal_test_acc[np.argmax(cal_val_acc)]))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='graphsage')
-    parser.add_argument("--use_cuda", action='store_true', help="use_cuda")
     parser.add_argument(
         "--normalize", action='store_true', help="normalize features")
     parser.add_argument(
         "--symmetry", action='store_true', help="undirect graph")
-    parser.add_argument("--graphsage_type", type=str, default="graphsage_mean")
     parser.add_argument("--sample_workers", type=int, default=5)
     parser.add_argument("--epoch", type=int, default=10)
     parser.add_argument("--hidden_size", type=int, default=128)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=0.01)
-    parser.add_argument("--samples_1", type=int, default=25)
-    parser.add_argument("--samples_2", type=int, default=10)
+    parser.add_argument('--samples', nargs='+', type=int, default=[25, 10])
     args = parser.parse_args()
     log.info(args)
     main(args)

@@ -1,0 +1,7 @@
+sphinx==2.1.0
+mistune
+sphinx_rtd_theme
+numpy >= 1.16.4
+cython >= 0.25.2
+paddlepaddle
+pgl

@@ -9,13 +9,14 @@ After downloading the data，uncompress them, then a directory named `./dataset/
 
 ### Dependencies
 
-- paddlepaddle >= 1.6
-- pgl 1.0.2
+- paddlepaddle >= 2.0.0
+- pgl >= 2.0
 
 ### How to run
 
 For examples, use GPU to train GIN model on MUTAG dataset.
 ```
+export CUDA_VISIBLE_DEVICES=0
 python main.py --use_cuda --dataset_name MUTAG  --data_path ./dataset
 ```
 

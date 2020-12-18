@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,101 +16,81 @@
 """
 
 import os
+import json
+import paddle
+import copy
 import numpy as np
-import pickle as pkl
-import time
+
+from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
+
+from pgl.message import Message
 from collections import defaultdict
-
-__all__ = ['Graph', 'SubGraph', 'MultiGraph']
-
-
-def _hide_num_nodes(shape):
-    """Set the first dimension as unknown
-    """
-    shape = list(shape)
-    shape[0] = None
-    return shape
-
-
-class EdgeIndex(object):
-    """Indexing edges for fast graph queries
-
-    Sorted edges and represent edges in compressed style like csc_matrix or csr_matrix.
-
-    Args:
-        u: A list of node id to be compressed.
-        v: A list of node id that are connected with u.
-        num_nodes: The exactive number of nodes.
-    """
-
-    def __init__(self, u, v, num_nodes):
-        self._degree, self._sorted_v, self._sorted_u, \
-             self._sorted_eid, self._indptr = graph_kernel.build_index(u, v, num_nodes)
-
-    @property
-    def degree(self):
-        """Return the degree of nodes.
-        """
-        return self._degree
-
-    def view_v(self, u=None):
-        """Return the compressed v for given u.
-        """
-        if u is None:
-            return np.split(self._sorted_v, self._indptr[1:])
-        else:
-            u = np.array(u, dtype="int64")
-            return graph_kernel.slice_by_index(
-                self._sorted_v, self._indptr, index=u)
-
-    def view_eid(self, u=None):
-        """Return the compressed edge id for given u.
-        """
-        if u is None:
-            return np.split(self._sorted_eid, self._indptr[1:])
-        else:
-            u = np.array(u, dtype="int64")
-            return graph_kernel.slice_by_index(
-                self._sorted_eid, self._indptr, index=u)
-
-    def triples(self):
-        """Return the sorted (u, v, eid) tuples.
-        """
-        return self._sorted_u, self._sorted_v, self._sorted_eid
-
-    def dump(self, path):
-        if not os.path.exists(path):
-            os.makedirs(path)
-        np.save(os.path.join(path, 'degree.npy'), self._degree)
-        np.save(os.path.join(path, 'sorted_u.npy'), self._sorted_u)
-        np.save(os.path.join(path, 'sorted_v.npy'), self._sorted_v)
-        np.save(os.path.join(path, 'sorted_eid.npy'), self._sorted_eid)
-        np.save(os.path.join(path, 'indptr.npy'), self._indptr)
+from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes
+from pgl.utils.edge_index import EdgeIndex
 
 
 class Graph(object):
-    """Implementation of graph structure in pgl.
+    """Implementation of graph interface in pgl.
 
-    This is a simple implementation of graph structure in pgl.
+    This is a simple implementation of graph structure in pgl. `pgl.Graph` is alias on `pgl.graph.Graph` 
 
     Args:
-        num_nodes: number of nodes in a graph
-        edges: list of (u, v) tuples
+
+        edges: list of (u, v) tuples, 2D numpy.ndarry or 2D paddle.Tensor 
+
+        num_nodes (optional: int, numpy or paddle.Tensor): Number of nodes in a graph. 
+                           If not provided, the number of nodes will be infered from edges. 
+
         node_feat (optional): a dict of numpy array as node features
+
         edge_feat (optional): a dict of numpy array as edge features (should
                                 have consistent order with edges)
 
-    Examples:
+    Examples 1:
+
+        - Create a graph with numpy.
+        - Convert it into paddle.Tensor .
+        - Do send recv for graph neural network.
 
         .. code-block:: python
 
             import numpy as np
+            import pgl
+
             num_nodes = 5
             edges = [ (0, 1), (1, 2), (3, 4)]
             feature = np.random.randn(5, 100)
             edge_feature = np.random.randn(3, 100)
-            graph = Graph(num_nodes=num_nodes,
+            graph = pgl.Graph(num_nodes=num_nodes,
+                        edges=edges,
+                        node_feat={
+                            "feature": feature
+                        },
+                        edge_feat={
+                            "edge_feature": edge_feature
+                        })
+            graph.tensor() 
+
+            model = pgl.nn.GCNConv(100, 100)
+            out = model(graph, graph.node_feat["feature"])
+          
+
+    Examples 2: 
+
+        - Create a graph with paddle.Tensor.
+        - Do send recv for graph neural network.
+
+        .. code-block:: python
+
+            import paddle 
+            import pgl
+
+            num_nodes = 5
+            edges = paddle.to_tensor([ (0, 1), (1, 2), (3, 4)])
+            feature = paddle.randn(shape=[5, 100])
+            edge_feature = paddle.randn(shape=[3, 100])
+            graph = pgl.Graph(num_nodes=num_nodes,
                         edges=edges,
                         node_feat={
                             "feature": feature
@@ -119,9 +99,17 @@ class Graph(object):
                             "edge_feature": edge_feature
                         })
 
+            model = pgl.nn.GCNConv(100, 100)
+            out = model(graph, graph.node_feat["feature"])
+
     """
 
-    def __init__(self, num_nodes, edges=None, node_feat=None, edge_feat=None):
+    def __init__(self,
+                 edges,
+                 num_nodes=None,
+                 node_feat=None,
+                 edge_feat=None,
+                 **kwargs):
         if node_feat is not None:
             self._node_feat = node_feat
         else:
@@ -132,61 +120,404 @@ class Graph(object):
         else:
             self._edge_feat = {}
 
-        if isinstance(edges, np.ndarray):
-            if edges.dtype != "int64":
-                edges = edges.astype("int64")
-        else:
+        if not check_is_tensor(edges):
+            if isinstance(edges, np.ndarray):
+                if edges.dtype != "int64":
+                    edges = edges.astype("int64")
             edges = np.array(edges, dtype="int64")
 
         self._edges = edges
-        self._num_nodes = num_nodes
 
-        self._adj_src_index = None
-        self._adj_dst_index = None
-        self.indegree()
-        self._num_graph = 1
-        self._graph_lod = np.array([0, self.num_nodes], dtype="int32")
+        if num_nodes is None:
+            self._num_nodes = maybe_num_nodes(self._edges)
+        else:
+            # TODO: check num_nodes is valid
+            self._num_nodes = num_nodes
+
+        self._adj_src_index = kwargs.get("adj_src_index", None)
+        self._adj_dst_index = kwargs.get("adj_dst_index", None)
+
+        if check_is_tensor(self._num_nodes, self._edges,
+                           *list(self._node_feat.values()),
+                           *list(self._edge_feat.values())):
+            self._is_tensor = True
+        elif self._adj_src_index is not None and self._adj_src_index.is_tensor(
+        ):
+            self._is_tensor = True
+        elif self._adj_dst_index is not None and self._adj_dst_index.is_tensor(
+        ):
+            self._is_tensor = True
+        else:
+            self._is_tensor = False
+
+        if self._is_tensor:
+            # ensure all variable is tenosr
+            if not check_is_tensor(self._num_nodes):
+                self._num_nodes = paddle.to_tensor(self._num_nodes)
+
+            if not check_is_tensor(self._edges):
+                self._edges = paddle.to_tensor(self._edges)
+
+            for key in self._node_feat:
+                if not check_is_tensor(self._node_feat[key]):
+                    self._node_feat[key] = paddle.to_tensor(self._node_feat[
+                        key])
+
+            for key in self._edge_feat:
+                if not check_is_tensor(self._edge_feat[key]):
+                    self._edge_feat[key] = paddle.to_tensor(self._edge_feat[
+                        key])
+
+            if self._adj_src_index is not None:
+                if not self._adj_src_index.is_tensor():
+                    self._adj_src_index.tensor(inplace=True)
+
+            if self._adj_dst_index is not None:
+                if not self._adj_dst_idnex.is_tensor():
+                    self._adj_dst_index.tensor(inplace=True)
+
+        # preprocess graph level informations
+        self._process_graph_info(**kwargs)
+        self._nodes = None
+
+    def recv(self, reduce_func, msg, recv_mode="dst"):
+        """Recv message and aggregate the message by reduce_func
+
+        The UDF reduce_func function should has the following format.
+
+        .. code-block:: python
+
+            def reduce_func(msg):
+                '''
+                    Args:
+
+                        msg: A LodTensor or a dictionary of LodTensor whose batch_size
+                             is equals to the number of unique dst nodes.
+
+                    Return:
+
+                        It should return a tensor with shape (batch_size, out_dims). The
+                        batch size should be the same as msg.
+                '''
+                pass
+
+        Args:
+
+            msg: A tensor or a dictionary of tensor created by send function..
+
+            reduce_func: A callable UDF reduce function.
+
+        Return:
+
+            A tensor with shape (num_nodes, out_dims). The output for nodes with 
+            no message will be zeros.
+        """
+        if not self._is_tensor:
+            raise ValueError("You must call Graph.tensor()")
+
+        if not isinstance(msg, dict):
+            raise TypeError(
+                "The input of msg should be a dict, but receives a %s" %
+                (type(msg)))
+
+        if not callable(reduce_func):
+            raise TypeError("reduce_func should be callable")
+
+        src, dst, eid = self.sorted_edges(sort_by=recv_mode)
+
+        msg = op.RowReader(msg, eid)
+
+        if recv_mode == "dst":
+            uniq_ind, segment_ids = paddle.unique(dst, return_inverse=True)
+        elif recv_mode == "src":
+            uniq_ind, segment_ids = paddle.unique(src, return_inverse=True)
+
+        bucketed_msg = Message(msg, segment_ids)
+        output = reduce_func(bucketed_msg)
+        output_dim = output.shape[-1]
+        init_output = paddle.zeros(
+            shape=[self._num_nodes, output_dim], dtype=output.dtype)
+        final_output = scatter(init_output, uniq_ind, output)
+
+        return final_output
+
+    def __repr__(self):
+        """Pretty Print the Graph
+        """
+        repr_dict = {"class": self.__class__.__name__}
+        if self._is_tensor:
+            num_nodes = self.num_nodes.numpy()
+        else:
+            num_nodes = self.num_nodes
+        repr_dict["num_nodes"] = int(num_nodes)
+        repr_dict["edges_shape"] = self.edges.shape
+        repr_dict["node_feat"] = []
+        for key, value in self.node_feat.items():
+            repr_dict["node_feat"].append({
+                "name": key,
+                "shape": list(value.shape),
+                "dtype": str(value.dtype)
+            })
+
+        repr_dict["edge_feat"] = []
+        for key, value in self.edge_feat.items():
+            repr_dict["edge_feat"].append({
+                "name": key,
+                "shape": list(value.shape),
+                "dtype": str(value.dtype)
+            })
+
+        return json.dumps(repr_dict, ensure_ascii=False)
+
+    @classmethod
+    def load(cls, path, mmap_mode="r"):
+        """Load Graph from path and return a Graph in numpy. 
+
+        Args:
+
+            path: The directory path of the stored Graph.
+
+            mmap_mode: Default :code:`mmap_mode="r"`. If not None, memory-map the graph.  
+        """
+
+        num_nodes = np.load(
+            os.path.join(path, 'num_nodes.npy'), mmap_mode=mmap_mode)
+        edges = np.load(os.path.join(path, 'edges.npy'), mmap_mode=mmap_mode)
+        num_graph = np.load(
+            os.path.join(path, 'num_graph.npy'), mmap_mode=mmap_mode)
+        if os.path.isdir(os.path.join(path, 'graph_node_index.npy')):
+            graph_node_index = np.load(
+                os.path.join(path, 'graph_node_index.npy'),
+                mmap_mode=mmap_mode)
+        else:
+            graph_node_index = None
+
+        if os.path.isdir(os.path.join(path, 'graph_edge_index.npy')):
+            graph_edge_index = np.load(
+                os.path.join(path, 'graph_edge_index.npy'),
+                mmap_mode=mmap_mode)
+        else:
+            graph_edge_index = None
+
+        if os.path.isdir(os.path.join(path, 'adj_src')):
+            adj_src_index = EdgeIndex.load(
+                os.path.join(path, 'adj_src'), mmap_mode=mmap_mode)
+        else:
+            adj_src_index = None
+
+        if os.path.isdir(os.path.join(path, 'adj_dst')):
+            adj_dst_index = EdgeIndex.load(
+                os.path.join(path, 'adj_dst'), mmap_mode=mmap_mode)
+        else:
+            adj_dst_index = None
+
+        def _load_feat(feat_path):
+            """Load features from .npy file.
+            """
+            feat = {}
+            if os.path.isdir(feat_path):
+                for feat_name in os.listdir(feat_path):
+                    feat[os.path.splitext(feat_name)[0]] = np.load(
+                        os.path.join(feat_path, feat_name),
+                        mmap_mode=mmap_mode)
+            return feat
+
+        node_feat = _load_feat(os.path.join(path, 'node_feat'))
+        edge_feat = _load_feat(os.path.join(path, 'edge_feat'))
+        return cls(edges=edges,
+                   num_nodes=num_nodes,
+                   node_feat=node_feat,
+                   edge_feat=edge_feat,
+                   adj_src_index=adj_src_index,
+                   adj_dst_index=adj_dst_index,
+                   _num_graph=num_graph,
+                   _graph_node_index=graph_node_index,
+                   _graph_edge_index=graph_edge_index)
+
+    def is_tensor(self):
+        """Return whether the Graph is in paddle.Tensor or numpy format.
+        """
+        return self._is_tensor
+
+    def _apply_to_tensor(self, key, value, inplace=True):
+        if value is None:
+            return value
+
+        if key == '_is_tensor':
+            # set is_tensor to True
+            return True
+
+        if isinstance(value, EdgeIndex):
+            value = value.tensor(inplace=inplace)
+
+        elif isinstance(value, dict):
+            if inplace:
+                for k, v in value.items():
+                    value[k] = paddle.to_tensor(v)
+            else:
+                new_value = {}
+                for k, v in value.items():
+                    new_value[k] = paddle.to_tensor(v)
+                value = new_value
+        else:
+            value = paddle.to_tensor(value)
+        return value
+
+    def tensor(self, inplace=True):
+        """Convert the Graph into paddle.Tensor format.
+
+        In paddle.Tensor format, the graph edges and node features are in paddle.Tensor format.
+        You can use send and recv in paddle.Tensor graph.
+        
+        Args:
+
+            inplace: (Default True) Whether to convert the graph into tensor inplace. 
+        
+        """
+        if self._is_tensor:
+            return self
+
+        if inplace:
+            for key in self.__dict__:
+                self.__dict__[key] = self._apply_to_tensor(
+                    key, self.__dict__[key], inplace)
+            return self
+        else:
+            new_dict = {}
+            for key in self.__dict__:
+                new_dict[key] = self._apply_to_tensor(key, self.__dict__[key],
+                                                      inplace)
+
+            graph = self.__class__(
+                num_nodes=new_dict["_num_nodes"],
+                edges=new_dict["_edges"],
+                node_feat=new_dict["_node_feat"],
+                edge_feat=new_dict["_edge_feat"],
+                adj_src_index=new_dict["_adj_src_index"],
+                adj_dst_index=new_dict["_adj_dst_index"],
+                **new_dict)
+            return graph
+
+    def _apply_to_numpy(self, key, value, inplace=True):
+        if value is None:
+            return value
+
+        if key == '_is_tensor':
+            # set is_tensor to True
+            return False
+
+        if isinstance(value, EdgeIndex):
+            value = value.numpy(inplace=inplace)
+        elif isinstance(value, dict):
+            if inplace:
+                for k, v in value.items():
+                    value[k] = v.numpy()
+            else:
+                new_value = {}
+                for k, v in value.items():
+                    new_value[k] = v.numpy()
+                value = new_value
+        else:
+            value = value.numpy()
+        return value
+
+    def numpy(self, inplace=True):
+        """Convert the Graph into numpy format.
+
+        In numpy format, the graph edges and node features are in numpy.ndarray format.
+        But you can't use send and recv in numpy graph.
+        
+        Args:
+
+            inplace: (Default True) Whether to convert the graph into numpy inplace. 
+        
+        """
+        if not self._is_tensor:
+            return self
+
+        if inplace:
+            for key in self.__dict__:
+                self.__dict__[key] = self._apply_to_numpy(
+                    key, self.__dict__[key], inplace)
+            return self
+        else:
+            new_dict = {}
+            for key in self.__dict__:
+                new_dict[key] = self._apply_to_numpy(key, self.__dict__[key],
+                                                     inplace)
+
+            graph = self.__class__(
+                num_nodes=new_dict["_num_nodes"],
+                edges=new_dict["_edges"],
+                node_feat=new_dict["_node_feat"],
+                edge_feat=new_dict["_edge_feat"],
+                adj_src_index=new_dict["_adj_src_index"],
+                adj_dst_index=new_dict["_adj_dst_index"],
+                **new_dict)
+            return graph
 
     def dump(self, path):
-        if not os.path.exists(path):
-            os.makedirs(path)
-        np.save(os.path.join(path, 'num_nodes.npy'), self._num_nodes)
-        np.save(os.path.join(path, 'edges.npy'), self._edges)
-        np.save(os.path.join(path, 'num_graph.npy'), self._num_graph)
-        np.save(os.path.join(path, 'graph_lod.npy'), self._graph_lod)
+        """Dump the graph into a directory.
 
-        if self._adj_src_index:
-            self._adj_src_index.dump(os.path.join(path, 'adj_src'))
+        This function will dump the graph information into the given directory path. 
+        The graph can be read back with :code:`pgl.Graph.load`
 
-        if self._adj_dst_index:
-            self._adj_dst_index.dump(os.path.join(path, 'adj_dst'))
+        Args:
+            path: The directory for the storage of the graph.
 
-        def dump_feat(feat_path, feat):
-            """Dump all features to .npy file.
-            """
-            if len(feat) == 0:
-                return
-            if not os.path.exists(feat_path):
-                os.makedirs(feat_path)
-            for key in feat:
-                np.save(os.path.join(feat_path, key + ".npy"), feat[key])
+        """
+        if self._is_tensor:
+            # Convert back into numpy and dump.
+            graph = self.numpy(inplace=False)
+            graph.dump(path)
+        else:
+            if not os.path.exists(path):
+                os.makedirs(path)
 
-        dump_feat(os.path.join(path, "node_feat"), self.node_feat)
-        dump_feat(os.path.join(path, "edge_feat"), self.edge_feat)
+            np.save(os.path.join(path, 'num_nodes.npy'), self._num_nodes)
+            np.save(os.path.join(path, 'edges.npy'), self._edges)
+            np.save(os.path.join(path, 'num_graph.npy'), self._num_graph)
+
+            if self._adj_src_index is not None:
+                self._adj_src_index.dump(os.path.join(path, 'adj_src'))
+
+            if self._adj_dst_index is not None:
+                self._adj_dst_index.dump(os.path.join(path, 'adj_dst'))
+
+            if self._graph_node_index is not None:
+                np.save(
+                    os.path.join(path, 'graph_node_index.npy'),
+                    self._graph_node_index)
+
+            if self._graph_edge_index is not None:
+                np.save(
+                    os.path.join(path, 'graph_edge_index.npy'),
+                    self._graph_edge_index)
+
+            def _dump_feat(feat_path, feat):
+                """Dump all features to .npy file.
+                """
+                if len(feat) == 0:
+                    return
+
+                if not os.path.exists(feat_path):
+                    os.makedirs(feat_path)
+
+                for key in feat:
+                    value = feat[key]
+                    np.save(os.path.join(feat_path, key + ".npy"), value)
+
+            _dump_feat(os.path.join(path, "node_feat"), self.node_feat)
+            _dump_feat(os.path.join(path, "edge_feat"), self.edge_feat)
 
     @property
     def adj_src_index(self):
         """Return an EdgeIndex object for src.
         """
         if self._adj_src_index is None:
-            if len(self._edges) == 0:
-                u = np.array([], dtype="int64")
-                v = np.array([], dtype="int64")
-            else:
-                u = self._edges[:, 0]
-                v = self._edges[:, 1]
-
-            self._adj_src_index = EdgeIndex(
+            u = self._edges[:, 0]
+            v = self._edges[:, 1]
+            self._adj_src_index = EdgeIndex.from_edges(
                 u=u, v=v, num_nodes=self._num_nodes)
         return self._adj_src_index
 
@@ -195,14 +526,9 @@ class Graph(object):
         """Return an EdgeIndex object for dst.
         """
         if self._adj_dst_index is None:
-            if len(self._edges) == 0:
-                v = np.array([], dtype="int64")
-                u = np.array([], dtype="int64")
-            else:
-                v = self._edges[:, 0]
-                u = self._edges[:, 1]
-
-            self._adj_dst_index = EdgeIndex(
+            v = self._edges[:, 0]
+            u = self._edges[:, 1]
+            self._adj_dst_index = EdgeIndex.from_edges(
                 u=u, v=v, num_nodes=self._num_nodes)
         return self._adj_dst_index
 
@@ -222,7 +548,10 @@ class Graph(object):
     def num_edges(self):
         """Return the number of edges.
         """
-        return len(self._edges)
+        if self._is_tensor:
+            return paddle.shape(self._edges)[0]
+        else:
+            return self._edges.shape[0]
 
     @property
     def num_nodes(self):
@@ -232,7 +561,7 @@ class Graph(object):
 
     @property
     def edges(self):
-        """Return all edges in numpy.ndarray with shape (num_edges, 2).
+        """Return all edges in numpy.ndarray or paddle.Tensor with shape (num_edges, 2).
         """
         return self._edges
 
@@ -244,9 +573,11 @@ class Graph(object):
         nodes and otherwise :code:`dst`.
 
         Args:
+
             sort_by: The type for sorted edges. ("src" or "dst")
 
         Return:
+
             A tuple of (sorted_src, sorted_dst, sorted_eid).
         """
         if sort_by not in ["src", "dst"]:
@@ -261,7 +592,12 @@ class Graph(object):
     def nodes(self):
         """Return all nodes id from 0 to :code:`num_nodes - 1`
         """
-        return np.arange(self._num_nodes, dtype="int64")
+        if self._nodes is None:
+            if self.is_tensor():
+                self._nodes = paddle.arange(self.num_nodes)
+            else:
+                self._nodes = np.arange(self.num_nodes)
+        return self._nodes
 
     def indegree(self, nodes=None):
         """Return the indegree of the given nodes
@@ -269,16 +605,21 @@ class Graph(object):
         This function will return indegree of given nodes.
 
         Args:
+
             nodes: Return the indegree of given nodes,
                    if nodes is None, return indegree for all nodes
 
         Return:
-            A numpy.ndarray as the given nodes' indegree.
+
+            A numpy.ndarray or paddle.Tensor as the given nodes' indegree.
         """
         if nodes is None:
             return self.adj_dst_index.degree
         else:
-            return self.adj_dst_index.degree[nodes]
+            if self._is_tensor:
+                return paddle.gather(self.adj_dst_index.degree, nodes)
+            else:
+                return self.adj_dst_index.degree[nodes]
 
     def outdegree(self, nodes=None):
         """Return the outdegree of the given nodes.
@@ -286,16 +627,21 @@ class Graph(object):
         This function will return outdegree of given nodes.
 
         Args:
+
             nodes: Return the outdegree of given nodes,
                    if nodes is None, return outdegree for all nodes
 
         Return:
-            A numpy.array as the given nodes' outdegree.
+
+            A numpy.array or paddle.Tensor as the given nodes' outdegree.
         """
         if nodes is None:
             return self.adj_src_index.degree
         else:
-            return self.adj_src_index.degree[nodes]
+            if self._is_tensor:
+                return paddle.gather(self.adj_src_index.degree, nodes)
+            else:
+                return self.adj_src_index.degree[nodes]
 
     def successor(self, nodes=None, return_eids=False):
         """Find successor of given nodes.
@@ -303,12 +649,14 @@ class Graph(object):
         This function will return the successor of given nodes.
 
         Args:
+
             nodes: Return the successor of given nodes,
                    if nodes is None, return successor for all nodes.
 
             return_eids: If True return nodes together with corresponding eid
 
         Return:
+
             Return a list of numpy.ndarray and each numpy.ndarray represent a list
             of successor ids for given nodes. If :code:`return_eids=True`, there will
             be an additional list of numpy.ndarray and each numpy.ndarray represent
@@ -318,9 +666,11 @@ class Graph(object):
             .. code-block:: python
 
                 import numpy as np
+                import pgl
+
                 num_nodes = 5
                 edges = [ (0, 1), (1, 2), (3, 4)]
-                graph = Graph(num_nodes=num_nodes,
+                graph = pgl.Graph(num_nodes=num_nodes,
                         edges=edges)
                 succ, succ_eid = graph.successor(return_eids=True)
 
@@ -343,11 +693,16 @@ class Graph(object):
                        []]
 
         """
-        if return_eids:
-            return self.adj_src_index.view_v(
-                nodes), self.adj_src_index.view_eid(nodes)
+        if self.is_tensor():
+            raise ValueError(
+                "You must call Graph.numpy() first. Tensor object don't supprt successor now."
+            )
         else:
-            return self.adj_src_index.view_v(nodes)
+            if return_eids:
+                return self.adj_src_index.view_v(
+                    nodes), self.adj_src_index.view_eid(nodes)
+            else:
+                return self.adj_src_index.view_v(nodes)
 
     def sample_successor(self,
                          nodes,
@@ -357,6 +712,7 @@ class Graph(object):
         """Sample successors of given nodes.
 
         Args:
+
             nodes: Given nodes whose successors will be sampled.
 
             max_degree: The max sampled successors for each nodes.
@@ -370,24 +726,29 @@ class Graph(object):
             be an additional list of numpy.ndarray and each numpy.ndarray represent
             a list of eids that connected nodes to their successors.
         """
-
-        node_succ = self.successor(nodes, return_eids=return_eids)
-        if return_eids:
-            node_succ, node_succ_eid = node_succ
-
-        if nodes is None:
-            nodes = self.nodes
-
-        node_succ = node_succ.tolist()
-
-        if return_eids:
-            node_succ_eid = node_succ_eid.tolist()
-
-        if return_eids:
-            return graph_kernel.sample_subset_with_eid(
-                node_succ, node_succ_eid, max_degree, shuffle)
+        if self.is_tensor():
+            raise ValueError(
+                "You must call Graph.numpy() first. Tensor object don't supprt sample_successor now."
+            )
         else:
-            return graph_kernel.sample_subset(node_succ, max_degree, shuffle)
+            node_succ = self.successor(nodes, return_eids=return_eids)
+            if return_eids:
+                node_succ, node_succ_eid = node_succ
+
+            if nodes is None:
+                nodes = self.nodes
+
+            node_succ = node_succ.tolist()
+
+            if return_eids:
+                node_succ_eid = node_succ_eid.tolist()
+
+            if return_eids:
+                return graph_kernel.sample_subset_with_eid(
+                    node_succ, node_succ_eid, max_degree, shuffle)
+            else:
+                return graph_kernel.sample_subset(node_succ, max_degree,
+                                                  shuffle)
 
     def predecessor(self, nodes=None, return_eids=False):
         """Find predecessor of given nodes.
@@ -395,24 +756,29 @@ class Graph(object):
         This function will return the predecessor of given nodes.
 
         Args:
+
             nodes: Return the predecessor of given nodes,
                    if nodes is None, return predecessor for all nodes.
 
             return_eids: If True return nodes together with corresponding eid
 
         Return:
+
             Return a list of numpy.ndarray and each numpy.ndarray represent a list
             of predecessor ids for given nodes. If :code:`return_eids=True`, there will
             be an additional list of numpy.ndarray and each numpy.ndarray represent
             a list of eids that connected nodes to their predecessors.
 
         Example:
+
             .. code-block:: python
 
                 import numpy as np
+                import pgl
+ 
                 num_nodes = 5
                 edges = [ (0, 1), (1, 2), (3, 4)]
-                graph = Graph(num_nodes=num_nodes,
+                graph = pgl.Graph(num_nodes=num_nodes,
                         edges=edges)
                 pred, pred_eid = graph.predecessor(return_eids=True)
 
@@ -435,11 +801,16 @@ class Graph(object):
                        [2]]
 
         """
-        if return_eids:
-            return self.adj_dst_index.view_v(
-                nodes), self.adj_dst_index.view_eid(nodes)
+        if self.is_tensor():
+            raise ValueError(
+                "You must call Graph.numpy() first. Tensor object don't supprt predecessor now."
+            )
         else:
-            return self.adj_dst_index.view_v(nodes)
+            if return_eids:
+                return self.adj_dst_index.view_v(
+                    nodes), self.adj_dst_index.view_eid(nodes)
+            else:
+                return self.adj_dst_index.view_v(nodes)
 
     def sample_predecessor(self,
                            nodes,
@@ -449,6 +820,7 @@ class Graph(object):
         """Sample predecessor of given nodes.
 
         Args:
+
             nodes: Given nodes whose predecessor will be sampled.
 
             max_degree: The max sampled predecessor for each nodes.
@@ -462,166 +834,389 @@ class Graph(object):
             be an additional list of numpy.ndarray and each numpy.ndarray represent
             a list of eids that connected nodes to their predecessors.
         """
-        node_pred = self.predecessor(nodes, return_eids=return_eids)
-        if return_eids:
-            node_pred, node_pred_eid = node_pred
-
-        if nodes is None:
-            nodes = self.nodes
-
-        node_pred = node_pred.tolist()
-
-        if return_eids:
-            node_pred_eid = node_pred_eid.tolist()
-
-        if return_eids:
-            return graph_kernel.sample_subset_with_eid(
-                node_pred, node_pred_eid, max_degree, shuffle)
+        if self.is_tensor():
+            raise ValueError(
+                "You must call Graph.numpy() first. Tensor object don't supprt sample_predecessor now."
+            )
         else:
-            return graph_kernel.sample_subset(node_pred, max_degree, shuffle)
+            node_pred = self.predecessor(nodes, return_eids=return_eids)
+            if return_eids:
+                node_pred, node_pred_eid = node_pred
 
-    def node_feat_info(self):
-        """Return the information of node feature for GraphWrapper.
+            if nodes is None:
+                nodes = self.nodes
 
-        This function return the information of node features. And this
-        function is used to help constructing GraphWrapper
+            node_pred = node_pred.tolist()
 
-        Return:
-            A list of tuple (name, shape, dtype) for all given node feature.
+            if return_eids:
+                node_pred_eid = node_pred_eid.tolist()
 
-        Examples:
+            if return_eids:
+                return graph_kernel.sample_subset_with_eid(
+                    node_pred, node_pred_eid, max_degree, shuffle)
+            else:
+                return graph_kernel.sample_subset(node_pred, max_degree,
+                                                  shuffle)
 
-            .. code-block:: python
+    @property
+    def num_graph(self):
+        """ Return Number of Graphs"""
+        return self._num_graph
 
-                import numpy as np
-                num_nodes = 5
-                edges = [ (0, 1), (1, 2), (3, 4)]
-                feature = np.random.randn(5, 100)
-                graph = Graph(num_nodes=num_nodes,
-                        edges=edges,
-                        node_feat={
-                            "feature": feature
-                        })
-                print(graph.node_feat_info())
-
-            The output will be:
-
-            .. code-block:: python
-
-                [("feature", [None, 100], "float32")]
-
-        """
-        node_feat_info = []
-        for key, value in self._node_feat.items():
-            node_feat_info.append(
-                (key, _hide_num_nodes(value.shape), value.dtype))
-        return node_feat_info
-
-    def edge_feat_info(self):
-        """Return the information of edge feature for GraphWrapper.
-
-        This function return the information of edge features. And this
-        function is used to help constructing GraphWrapper
-
-        Return:
-            A list of tuple (name, shape, dtype) for all given edge feature.
+    @property
+    def graph_node_id(self):
+        """ Return a numpy.ndarray or paddle.Tensor with shape [num_nodes] 
+        that indicates which graph the nodes belongs to.
 
         Examples:
 
-            .. code-block:: python
+        .. code-block:: python
+       
+            import numpy as np
+            import pgl
 
-                import numpy as np
-                num_nodes = 5
-                edges = [ (0, 1), (1, 2), (3, 4)]
-                feature = np.random.randn(3, 100)
-                graph = Graph(num_nodes=num_nodes,
-                        edges=edges,
-                        edge_feat={
-                            "feature": feature
-                        })
-                print(graph.edge_feat_info())
+            num_nodes = 5
+            edges = [ (0, 1), (1, 2), (3, 4)]
+            graph = pgl.Graph(num_nodes=num_nodes,
+                        edges=edges)
+            joint_graph = pgl.Graph.batch([graph, graph])
+            print(joint_graph.graph_node_id)
 
-            The output will be:
-
-            .. code-block:: python
-
-                [("feature", [None, 100], "float32")]
+            >>> [0, 0, 0, 0, 0, 1, 1, 1, 1 ,1]
+ 
 
         """
-        edge_feat_info = []
-        for key, value in self._edge_feat.items():
-            edge_feat_info.append(
-                (key, _hide_num_nodes(value.shape), value.dtype))
-        return edge_feat_info
+        return generate_segment_id_from_index(self._graph_node_index)
 
-    def subgraph(self,
-                 nodes,
-                 eid=None,
-                 edges=None,
-                 edge_feats=None,
-                 with_node_feat=True,
-                 with_edge_feat=True):
-        """Generate subgraph with nodes and edge ids.
+    @property
+    def graph_edge_id(self):
+        """ Return a numpy.ndarray or paddle.Tensor with shape [num_edges] 
+        that indicates which graph the edges belongs to.
 
-        This function will generate a :code:`pgl.graph.Subgraph` object and
-        copy all corresponding node and edge features. Nodes and edges will
-        be reindex from 0. Eid and edges can't both be None.
+        Examples:
 
-        WARNING: ALL NODES IN EID MUST BE INCLUDED BY NODES
+        .. code-block:: python
+       
+            import numpy as np
+            import pgl
+
+            num_nodes = 5
+            edges = [ (0, 1), (1, 2), (3, 4)]
+            graph = pgl.Graph(num_nodes=num_nodes,
+                        edges=edges)
+            joint_graph = pgl.Graph.batch([graph, graph])
+            print(joint_graph.graph_edge_id)
+
+            >>> [0, 0, 0, 1, 1, 1]
+ 
+
+        """
+
+        return generate_segment_id_from_index(self._graph_edge_index)
+
+    def send_recv(self, feature, reduce_func="sum"):
+        """This method combines the send and recv function.
+
+        Now, this method only supports default copy send function, 
+        and built-in receive function ('sum', 'mean', 'max', 'min').
 
         Args:
-            nodes: Node ids which will be included in the subgraph.
 
-            eid (optional): Edge ids which will be included in the subgraph.
+            feature (Tensor | Tensor List): the node feature of a graph.
 
-            edges (optional): Edge(src, dst) list which will be included in the subgraph.
-    
-            with_node_feat: Whether to inherit node features from parent graph.
+            reduce_func (str): 'sum', 'mean', 'max', 'min' built-in receive function.
+        """
+        # TODO:@ZHUI add support for 'mean', 'max', 'min' function.
+        assert reduce_func in ['sum', 'mean', 'max', 'min'], \
+                "Only support 'sum', 'mean', 'max', 'min' built-in receive function."
 
-            with_edge_feat: Whether to inherit edge features from parent graph.
+        assert reduce_func == "sum", "Only implement 'sum' function right now"
+
+        assert isinstance(feature, paddle.Tensor), \
+                "The input of send_recv method should be tensor."
+
+        src, dst, eid = self.sorted_edges(sort_by="dst")
+
+        msg = self.send(
+            lambda sf, df, ef: {"msg": sf["h"]}, src_feat={"h": feature})
+
+        def _sum_recv(feat):
+            feat = paddle.gather(feat, eid)
+            output_dim = feat.shape[-1]
+            init_output = paddle.zeros(
+                shape=[self._num_nodes, output_dim], dtype=feat.dtype)
+            final_output = scatter(init_output, dst, feat, overwrite=False)
+
+            return final_output
+
+        return eval("_%s_recv" % reduce_func)(msg["msg"])
+
+    def send(
+            self,
+            message_func,
+            src_feat=None,
+            dst_feat=None,
+            edge_feat=None,
+            node_feat=None, ):
+        """Send message from all src nodes to dst nodes.
+
+        The UDF message function should has the following format.
+
+        .. code-block:: python
+
+            def message_func(src_feat, dst_feat, edge_feat):
+                '''
+                    Args:
+                        src_feat: the node feat dict attached to the src nodes.
+                        dst_feat: the node feat dict attached to the dst nodes.
+                        edge_feat: the edge feat dict attached to the
+                                   corresponding (src, dst) edges.
+
+                    Return:
+                        It should return a tensor or a dictionary of tensor. And each tensor
+                        should have a shape of (num_edges, dims).
+                '''
+                return {'msg': src_feat['h']}
+
+        Args:
+            message_func: UDF function.
+            src_feat: a dict {name: tensor,} to build src node feat
+            dst_feat: a dict {name: tensor,} to build dst node feat
+            node_feat: a dict {name: tensor,} to build both src and dst node feat
+            edge_feat: a dict {name: tensor,} to build edge feat
 
         Return:
-            A :code:`pgl.graph.Subgraph` object.
+            A dictionary of tensor representing the message. Each of the values
+            in the dictionary has a shape (num_edges, dim) which should be collected
+            by :code:`recv` function.
         """
-        reindex = {}
+        if self._is_tensor:
+            if node_feat is None:
+                node_feat = {}
 
-        for ind, node in enumerate(nodes):
-            reindex[node] = ind
+            if edge_feat is None:
+                edge_feat = {}
 
-        if eid is None and edges is None:
-            raise ValueError("Eid and edges can't be None at the same time.")
+            src = self.edges[:, 0]
+            dst = self.edges[:, 1]
+            assert isinstance(node_feat,
+                              dict), "The input node_feat must be a dict"
+            assert isinstance(edge_feat,
+                              dict), "The input edge_feat must be a dict"
 
-        sub_edge_feat = {}
-        if edges is None:
-            edges = self._edges[eid]
+            src_feat_temp = {}
+            src_feat_temp.update(node_feat)
+            if src_feat is not None:
+                assert isinstance(src_feat,
+                                  dict), "The input src_feat must be a dict"
+                if set(src_feat.keys()) & set(node_feat.keys()):
+                    raise ValueError(
+                        "There are redundant keys between src_feat and node_feat"
+                    )
+                else:
+                    src_feat_temp.update(src_feat)
+
+            dst_feat_temp = {}
+            dst_feat_temp.update(node_feat)
+            if dst_feat is not None:
+                assert isinstance(dst_feat,
+                                  dict), "The input dst_feat must be a dict"
+                if set(dst_feat.keys()) & set(node_feat.keys()):
+                    raise ValueError(
+                        "There are redundant keys between dst_feat and node_feat"
+                    )
+                else:
+                    dst_feat_temp.update(dst_feat)
+
+            src_feat = op.RowReader(src_feat_temp, src)
+            dst_feat = op.RowReader(dst_feat_temp, dst)
+            msg = message_func(src_feat, dst_feat, edge_feat)
+
+            if not isinstance(msg, dict):
+                raise TypeError(
+                    "The outputs of the %s function is expected to be a dict, but got %s" \
+                            % (message_func.__name__, type(msg)))
+            return msg
         else:
-            edges = np.array(edges, dtype="int64")
+            raise ValueError("You must call Graph.tensor() first")
 
-        if with_edge_feat:
-            for key, value in self._edge_feat.items():
-                if eid is None:
-                    raise ValueError("Eid can not be None with edge features.")
-                sub_edge_feat[key] = value[eid]
+    def _process_graph_info(self, **kwargs):
+        if ("_graph_node_index" in kwargs) and (
+                kwargs["_graph_node_index"] is not None):
+            self._graph_node_index = kwargs["_graph_node_index"]
+        else:
+            self._graph_node_index = None
 
-        if edge_feats is not None:
-            sub_edge_feat.update(edge_feats)
+        if ("_graph_edge_index" in kwargs) and (
+                kwargs["_graph_edge_index"] is not None):
+            self._graph_edge_index = kwargs["_graph_edge_index"]
+        else:
+            self._graph_edge_index = None
 
-        sub_edges = graph_kernel.map_edges(
-            np.arange(
-                len(edges), dtype="int64"), edges, reindex)
+        if ("_num_graph" in kwargs) and (kwargs["_num_graph"] is not None):
+            self._num_graph = kwargs["_num_graph"]
+        else:
+            if self._is_tensor:
+                self._num_graph = paddle.ones(shape=[1], dtype="int32")
+                self._graph_node_index = paddle.concat([
+                    paddle.zeros(
+                        shape=[1], dtype="int32"), paddle.full(
+                            shape=[1],
+                            fill_value=self.num_nodes,
+                            dtype="int32")
+                ])
+                self._graph_edge_index = paddle.concat([
+                    paddle.zeros(
+                        shape=[1], dtype="int32"), paddle.full(
+                            shape=[1],
+                            fill_value=self.num_edges,
+                            dtype="int32")
+                ])
+            else:
+                self._num_graph = 1
+                self._graph_node_index = np.array(
+                    [0, self._num_nodes], dtype="int64")
+                self._graph_edge_index = np.array(
+                    [0, self.num_edges], dtype="int64")
 
-        sub_node_feat = {}
-        if with_node_feat:
-            for key, value in self._node_feat.items():
-                sub_node_feat[key] = value[nodes]
+    @classmethod
+    def disjoint(cls, graph_list, merged_graph_index=False):
+        """This method disjoint list of graph into a big graph.
 
-        subgraph = SubGraph(
-            num_nodes=len(nodes),
-            edges=sub_edges,
-            node_feat=sub_node_feat,
-            edge_feat=sub_edge_feat,
-            reindex=reindex)
-        return subgraph
+        Args:
+
+            graph_list (Graph List): A list of Graphs.
+
+            merged_graph_index: whether to keeped the graph_id that the nodes belongs to.
+
+       
+        .. code-block:: python
+       
+            import numpy as np
+            import pgl
+
+            num_nodes = 5
+            edges = [ (0, 1), (1, 2), (3, 4)]
+            graph = pgl.Graph(num_nodes=num_nodes,
+                        edges=edges)
+            joint_graph = pgl.Graph.disjoint([graph, graph], merged_graph_index=False)
+            print(joint_graph.graph_node_id)
+            >>> [0, 0, 0, 0, 0, 1, 1, 1, 1 ,1]
+            print(joint_graph.num_graph)
+            >>> 2
+
+            joint_graph = pgl.Graph.disjoint([graph, graph], merged_graph_index=True)
+            print(joint_graph.graph_node_id)
+            >>> [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            print(joint_graph.num_graph)
+            >>> 1 
+        """
+        # TODO:@Yelrose supporting disjoint a disjointed graph_list.
+        assert len(
+            graph_list
+        ) > 0, "The input graph_list of Graph.disjoint has length $s. It should be greater than 0. " % len(
+            graph_list)
+
+        edges = cls._join_edges(graph_list)
+        num_nodes = cls._join_nodes(graph_list)
+        node_feat = cls._join_feature(graph_list, mode="node")
+        edge_feat = cls._join_feature(graph_list, mode="edge")
+
+        if merged_graph_index is True:
+            num_graph = None
+            graph_node_index = None
+            graph_edge_index = None
+        else:
+            num_graph = len(graph_list)
+            graph_node_index = cls._join_graph_index(graph_list, mode="node")
+            graph_edge_index = cls._join_graph_index(graph_list, mode="edge")
+
+        graph = cls(num_nodes=num_nodes,
+                    edges=edges,
+                    node_feat=node_feat,
+                    edge_feat=edge_feat,
+                    _num_graph=num_graph,
+                    _graph_node_index=graph_node_index,
+                    _graph_edge_index=graph_edge_index)
+        return graph
+
+    @staticmethod
+    def batch(graph_list):
+        """This is alias on `pgl.Graph.disjoint` with merged_graph_index=False"""
+        return Graph.disjoint(graph_list, merged_graph_index=False)
+
+    @staticmethod
+    def _join_graph_index(graph_list, mode="node"):
+        is_tensor = graph_list[0].is_tensor()
+        if mode == "node":
+            counts = [g.num_nodes for g in graph_list]
+        elif mode == "edge":
+            counts = [g.num_edges for g in graph_list]
+        else:
+            raise ValueError(
+                "mode must be in ['node', 'edge']. But recieved model=%s" %
+                mode)
+
+        if is_tensor:
+            counts = paddle.concat(counts)
+        return op.get_index_from_counts(counts)
+
+    @staticmethod
+    def _join_nodes(graph_list):
+        num_nodes = 0
+        for g in graph_list:
+            num_nodes = g.num_nodes + num_nodes
+        return num_nodes
+
+    @staticmethod
+    def _join_feature(graph_list, mode="node"):
+        """join node features for multiple graph"""
+        is_tensor = graph_list[0].is_tensor()
+        feat = defaultdict(lambda: [])
+        if mode == "node":
+            for graph in graph_list:
+                for key in graph.node_feat:
+                    feat[key].append(graph.node_feat[key])
+        elif mode == "edge":
+            for graph in graph_list:
+                for key in graph.edge_feat:
+                    feat[key].append(graph.edge_feat[key])
+        else:
+            raise ValueError(
+                "mode must be in ['node', 'edge']. But recieved model=%s" %
+                mode)
+
+        ret_feat = {}
+        for key in feat:
+            if len(feat[key]) == 1:
+                ret_feat[key] = feat[key]
+            else:
+                if is_tensor:
+                    ret_feat[key] = paddle.concat(feat[key], 0)
+                else:
+                    ret_feat[key] = np.vstack(feat[key])
+        return ret_feat
+
+    @staticmethod
+    def _join_edges(graph_list):
+        """join edges for multiple graph"""
+        is_tensor = graph_list[0].is_tensor()
+        list_edges = []
+        start_offset = 0
+        for graph in graph_list:
+            edges = graph.edges
+            if len(edges) > 0:
+                edges = edges + start_offset
+                list_edges.append(edges)
+            start_offset += graph.num_nodes
+        if len(list_edges) == 1:
+            return list_edges[0]
+
+        if is_tensor:
+            edges = paddle.concat(list_edges, 0)
+        else:
+            edges = np.vstack(list_edges)
+        return edges
 
     def node_batch_iter(self, batch_size, shuffle=True):
         """Node batch iterator
@@ -636,339 +1231,24 @@ class Graph(object):
         Return:
             Batch iterator
         """
-        perm = np.arange(self._num_nodes, dtype="int64")
-        if shuffle:
-            np.random.shuffle(perm)
+        if self.is_tensor():
+            if shuffle:
+                perm = paddle.randperm(self.num_nodes)
+            else:
+                perm = paddle.arange(self.num_nodes)
+        else:
+            perm = np.arange(self.num_nodes)
+            if shuffle:
+                np.random.shuffle(perm)
+
         start = 0
-        while start < self._num_nodes:
+        while start < self.num_nodes:
             yield perm[start:start + batch_size]
             start += batch_size
 
-    def sample_nodes(self, sample_num):
-        """Sample nodes from the graph
-
-        This function helps to sample nodes from all nodes.
-        Nodes might be duplicated.
-
-        Args:
-            sample_num: The number of samples
-
-        Return:
-            A list of nodes
+    def to_mmap(self, path="./tmp"):
+        """Turn the Graph into Memmap mode which can share memory between processes.
         """
-        return np.random.randint(low=0, high=self._num_nodes, size=sample_num)
-
-    def sample_edges(self, sample_num, replace=False):
-        """Sample edges from the graph
-
-        This function helps to sample edges from all edges.
-
-        Args:
-            sample_num: The number of samples
-            replace: boolean, Whether the sample is with or without replacement.
-
-        Return:
-            (u, v), eid 
-            each is a numy.array with the same shape.
-        """
-
-        sampled_eid = np.random.choice(
-            np.arange(self._edges.shape[0]), sample_num, replace=replace)
-        return self._edges[sampled_eid], sampled_eid
-
-    def has_edges_between(self, u, v):
-        """Check whether some edges is in graph.
-
-        Args:
-            u: a numpy.array of src nodes ID.
-            v: a numpy.array of dst nodes ID.
-
-        Return:
-            exists: A numpy.array of bool, with the same shape with `u` and `v`,
-                exists[i] is True if (u[i], v[i]) is a edge in graph, Flase otherwise.
-        """
-        assert u.shape[0] == v.shape[0], "u and v must have the same shape"
-        exists = np.logical_and(u < self.num_nodes, v < self.num_nodes)
-        exists_idx = np.arange(u.shape[0])[exists]
-        for idx, succ in zip(exists_idx, self.successor(u[exists])):
-            exists[idx] = v[idx] in succ
-        return exists
-
-    def random_walk(self, nodes, max_depth):
-        """Implement of random walk.
-
-        This function get random walks path for given nodes and depth.
-
-        Args:
-            nodes: Walk starting from nodes
-            max_depth: Max walking depth
-
-        Return:
-            A list of walks.
-        """
-        walk = []
-        # init
-        for node in nodes:
-            walk.append([node])
-
-        cur_walk_ids = np.arange(0, len(nodes))
-        cur_nodes = np.array(nodes)
-        for l in range(max_depth):
-            # select the walks not end
-            outdegree = self.outdegree(cur_nodes)
-            mask = (outdegree != 0)
-            if np.any(mask):
-                cur_walk_ids = cur_walk_ids[mask]
-                cur_nodes = cur_nodes[mask]
-                outdegree = outdegree[mask]
-            else:
-                # stop when all nodes have no successor
-                break
-            succ = self.successor(cur_nodes)
-            sample_index = np.floor(
-                np.random.rand(outdegree.shape[0]) * outdegree).astype("int64")
-
-            nxt_cur_nodes = []
-            for s, ind, walk_id in zip(succ, sample_index, cur_walk_ids):
-                walk[walk_id].append(s[ind])
-                nxt_cur_nodes.append(s[ind])
-            cur_nodes = np.array(nxt_cur_nodes)
-        return walk
-
-    def node2vec_random_walk(self, nodes, max_depth, p=1.0, q=1.0):
-        """Implement of node2vec stype random walk.
-
-        Reference paper: https://cs.stanford.edu/~jure/pubs/node2vec-kdd16.pdf.
-
-        Args:
-            nodes: Walk starting from nodes
-            max_depth: Max walking depth
-            p: Return parameter
-            q: In-out parameter
-
-        Return:
-            A list of walks.
-        """
-        if p == 1. and q == 1.:
-            return self.random_walk(nodes, max_depth)
-
-        walk = []
-        # init
-        for node in nodes:
-            walk.append([node])
-
-        cur_walk_ids = np.arange(0, len(nodes))
-        cur_nodes = np.array(nodes)
-        prev_nodes = np.array([-1] * len(nodes), dtype="int64")
-        prev_succs = np.array([[]] * len(nodes), dtype="int64")
-        for l in range(max_depth):
-            # select the walks not end
-            outdegree = self.outdegree(cur_nodes)
-            mask = (outdegree != 0)
-            if np.any(mask):
-                cur_walk_ids = cur_walk_ids[mask]
-                cur_nodes = cur_nodes[mask]
-                prev_nodes = prev_nodes[mask]
-                prev_succs = prev_succs[mask]
-            else:
-                # stop when all nodes have no successor
-                break
-            cur_succs = self.successor(cur_nodes)
-            num_nodes = cur_nodes.shape[0]
-            nxt_nodes = np.zeros(num_nodes, dtype="int64")
-
-            for idx, (succ, prev_succ, walk_id, prev_node) in enumerate(
-                    zip(cur_succs, prev_succs, cur_walk_ids, prev_nodes)):
-
-                sampled_succ = graph_kernel.node2vec_sample(succ, prev_succ,
-                                                            prev_node, p, q)
-                walk[walk_id].append(sampled_succ)
-                nxt_nodes[idx] = sampled_succ
-
-            prev_nodes, prev_succs = cur_nodes, cur_succs
-            cur_nodes = nxt_nodes
-        return walk
-
-    @property
-    def num_graph(self):
-        """ Return Number of Graphs"""
-        return self._num_graph
-
-    @property
-    def graph_lod(self):
-        """ Return Graph Lod Index for Paddle Computation"""
-        return self._graph_lod
-
-
-class SubGraph(Graph):
-    """Implementation of SubGraph in pgl.
-
-    Subgraph is inherit from :code:`Graph`. The best way to construct subgraph
-    is to use :code:`Graph.subgraph` methods to generate Subgraph object.
-
-    Args:
-        num_nodes: number of nodes in a graph
-        edges: list of (u, v) tuples
-        node_feat (optional): a dict of numpy array as node features
-        edge_feat (optional): a dict of numpy array as edge features (should
-                                have consistent order with edges)
-        reindex: A dictionary that maps parent graph node id to subgraph node id.
-    """
-
-    def __init__(self,
-                 num_nodes,
-                 edges=None,
-                 node_feat=None,
-                 edge_feat=None,
-                 reindex=None):
-        super(SubGraph, self).__init__(
-            num_nodes=num_nodes,
-            edges=edges,
-            node_feat=node_feat,
-            edge_feat=edge_feat)
-        if reindex is None:
-            reindex = {}
-        self._from_reindex = reindex
-        self._to_reindex = {u: v for v, u in reindex.items()}
-
-    def reindex_from_parrent_nodes(self, nodes):
-        """Map the given parent graph node id to subgraph id.
-
-        Args:
-            nodes: A list of nodes from parent graph.
-
-        Return:
-            A list of subgraph ids.
-        """
-        return graph_kernel.map_nodes(nodes, self._from_reindex)
-
-    def reindex_to_parrent_nodes(self, nodes):
-        """Map the given subgraph node id to parent graph id.
-
-        Args:
-            nodes: A list of nodes in this subgraph.
-
-        Return:
-            A list of node ids in parent graph.
-        """
-        return graph_kernel.map_nodes(nodes, self._to_reindex)
-
-
-class MultiGraph(Graph):
-    """Implementation of multiple disjoint graph structure in pgl.
-
-    This is a simple implementation of graph structure in pgl.
-
-    Args:
-        graph_list :  A list of Graph Instances
-
-    Examples:
-
-        .. code-block:: python
-        
-            batch_graph = MultiGraph([graph1, graph2, graph3])
-
-    """
-
-    def __init__(self, graph_list):
-        num_nodes = np.sum([g.num_nodes for g in graph_list])
-        node_feat = self._join_node_feature(graph_list)
-        edge_feat = self._join_edge_feature(graph_list)
-        edges = self._join_edges(graph_list)
-        super(MultiGraph, self).__init__(
-            num_nodes=num_nodes,
-            edges=edges,
-            node_feat=node_feat,
-            edge_feat=edge_feat)
-        self._num_graph = len(graph_list)
-        self._src_graph = graph_list
-        graph_lod = [g.num_nodes for g in graph_list]
-        graph_lod = np.cumsum(graph_lod, dtype="int32")
-        graph_lod = np.insert(graph_lod, 0, 0)
-        self._graph_lod = graph_lod
-
-    def __getitem__(self, index):
-        return self._src_graph[index]
-
-    def _join_node_feature(self, graph_list):
-        """join node features for multiple graph"""
-        node_feat = defaultdict(lambda: [])
-        for graph in graph_list:
-            for key in graph.node_feat:
-                node_feat[key].append(graph.node_feat[key])
-        ret_node_feat = {}
-        for key in node_feat:
-            ret_node_feat[key] = np.vstack(node_feat[key])
-        return ret_node_feat
-
-    def _join_edge_feature(self, graph_list):
-        """join edge features for multiple graph"""
-        edge_feat = defaultdict(lambda: [])
-        for graph in graph_list:
-            for key in graph.edge_feat:
-                efeat = graph.edge_feat[key]
-                if len(efeat) > 0:
-                    edge_feat[key].append(efeat)
-
-        ret_edge_feat = {}
-        for key in edge_feat:
-            ret_edge_feat[key] = np.vstack(edge_feat[key])
-        return ret_edge_feat
-
-    def _join_edges(self, graph_list):
-        """join edges for multiple graph"""
-        list_edges = []
-        start_offset = 0
-        for graph in graph_list:
-            edges = graph.edges
-            if len(edges) > 0:
-                edges = edges + start_offset
-                list_edges.append(edges)
-            start_offset += graph.num_nodes
-        edges = np.vstack(list_edges)
-        return edges
-
-
-class MemmapEdgeIndex(EdgeIndex):
-    def __init__(self, path):
-        self._degree = np.load(os.path.join(path, 'degree.npy'), mmap_mode="r")
-        self._sorted_u = np.load(
-            os.path.join(path, 'sorted_u.npy'), mmap_mode="r")
-        self._sorted_v = np.load(
-            os.path.join(path, 'sorted_v.npy'), mmap_mode="r")
-        self._sorted_eid = np.load(
-            os.path.join(path, 'sorted_eid.npy'), mmap_mode="r")
-        self._indptr = np.load(os.path.join(path, 'indptr.npy'), mmap_mode="r")
-
-
-class MemmapGraph(Graph):
-    def __init__(self, path):
-        self._num_nodes = np.load(os.path.join(path, 'num_nodes.npy'))
-        self._edges = np.load(os.path.join(path, 'edges.npy'), mmap_mode="r")
-        self._num_graph = np.load(os.path.join(path, 'num_graph.npy'))
-        self._graph_lod = np.load(os.path.join(path, 'graph_lod.npy'))
-
-        if os.path.isdir(os.path.join(path, 'adj_src')):
-            self._adj_src_index = MemmapEdgeIndex(
-                os.path.join(path, 'adj_src'))
-        else:
-            self._adj_src_index = None
-
-        if os.path.isdir(os.path.join(path, 'adj_dst')):
-            self._adj_dst_index = MemmapEdgeIndex(
-                os.path.join(path, 'adj_dst'))
-        else:
-            self._adj_dst_index = None
-
-        def load_feat(feat_path):
-            """Load features from .npy file.
-            """
-            feat = {}
-            if os.path.isdir(feat_path):
-                for feat_name in os.listdir(feat_path):
-                    feat[os.path.splitext(feat_name)[0]] = np.load(
-                        os.path.join(feat_path, feat_name), mmap_mode="r")
-            return feat
-
-        self._node_feat = load_feat(os.path.join(path, 'node_feat'))
-        self._edge_feat = load_feat(os.path.join(path, 'edge_feat'))
+        self.dump(path)
+        graph = Graph.load(path, mmap_mode="r")
+        return graph

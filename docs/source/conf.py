@@ -29,18 +29,20 @@ conf.py
 """
 import os
 import sys
-sys.path.append(os.path.abspath('../../pgl/'))
 sys.path.append(os.path.abspath('..'))
 import sphinx_rtd_theme
+import paddle
 
 # -- Project information -----------------------------------------------------
+
+master_doc = 'index'
 
 project = 'pgl'
 copyright = '2019, PaddlePaddle'
 author = 'PaddlePaddle'
 
 # The full version, including alpha/beta/rc tags
-release = '1.0.1'
+release = '2.0a'
 
 # -- General configuration ---------------------------------------------------
 
@@ -62,7 +64,7 @@ templates_path = ['_templates']
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 source_suffix = ['.rst', '.md']
-exclude_patterns = ['pgl.graph_kernel', 'pgl.layers.conv']
+exclude_patterns = ['pgl.graph_kernel', 'pgl.nn.conv']
 lanaguage = "zh_cn"
 
 # -- Options for HTML output -------------------------------------------------

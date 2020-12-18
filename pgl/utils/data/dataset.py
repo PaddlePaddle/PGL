@@ -25,7 +25,6 @@ from subprocess import Popen, PIPE
 
 class HadoopUtil(object):
     """Implementation of some common hadoop operations.
-
     """
 
     def __init__(self, hadoop_bin, fs_name, fs_ugi):
