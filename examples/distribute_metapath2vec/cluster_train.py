@@ -20,46 +20,14 @@ import numpy as np
 import paddle.fluid as F
 import paddle.fluid.layers as L
 from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler import fleet
-from paddle.fluid.transpiler.distribute_transpiler import DistributeTranspilerConfig
 import paddle.fluid.incubate.fleet.base.role_maker as role_maker
+from paddle.fluid.incubate.fleet.parameter_server.distribute_transpiler import StrategyFactory
 from pgl.utils.logger import log
 
 from model import Metapath2vecModel
 from graph import m2vGraph
 from utils import load_config
 from walker import multiprocess_data_generator
-
-
-def init_role():
-    # reset the place according to role of parameter server
-    training_role = os.getenv("TRAINING_ROLE", "TRAINER")
-    paddle_role = role_maker.Role.WORKER
-    place = F.CPUPlace()
-    if training_role == "PSERVER":
-        paddle_role = role_maker.Role.SERVER
-
-    # set the fleet runtime environment according to configure
-    ports = os.getenv("PADDLE_PORT", "6174").split(",")
-    pserver_ips = os.getenv("PADDLE_PSERVERS").split(",")  # ip,ip...
-    eplist = []
-    if len(ports) > 1:
-        # local debug mode, multi port
-        for port in ports:
-            eplist.append(':'.join([pserver_ips[0], port]))
-    else:
-        # distributed mode, multi ip
-        for ip in pserver_ips:
-            eplist.append(':'.join([ip, ports[0]]))
-
-    pserver_endpoints = eplist  # ip:port,ip:port...
-    worker_num = int(os.getenv("PADDLE_TRAINERS_NUM", "0"))
-    trainer_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
-    role = role_maker.UserDefinedRoleMaker(
-        current_id=trainer_id,
-        role=paddle_role,
-        worker_num=worker_num,
-        server_endpoints=pserver_endpoints)
-    fleet.init(role)
 
 
 def optimization(base_lr, loss, train_steps, optimizer='sgd'):
@@ -78,13 +46,8 @@ def optimization(base_lr, loss, train_steps, optimizer='sgd'):
 
     log.info('learning rate:%f' % (base_lr))
     #create the DistributeTranspiler configure
-    config = DistributeTranspilerConfig()
-    config.sync_mode = False
-    #config.runtime_split_send_recv = False
-
-    config.slice_var_up = False
-    #create the distributed optimizer
-    optimizer = fleet.distributed_optimizer(optimizer, config)
+    strategy = StrategyFactory.create_async_strategy()
+    optimizer = fleet.distributed_optimizer(optimizer, strategy)
     optimizer.minimize(loss)
 
 
@@ -93,10 +56,8 @@ def build_complied_prog(train_program, model_loss):
     trainer_id = int(os.getenv("PADDLE_TRAINER_ID", 0))
     exec_strategy = F.ExecutionStrategy()
     exec_strategy.num_threads = num_threads
-    #exec_strategy.use_experimental_executor = True
     build_strategy = F.BuildStrategy()
     build_strategy.enable_inplace = True
-    #build_strategy.memory_optimize = True
     build_strategy.memory_optimize = False
     build_strategy.remove_unnecessary_lock = False
     if num_threads > 1:
@@ -127,7 +88,6 @@ def train_prog(exe, program, loss, node2vec_pyreader, args, train_steps):
             if trainer_id == 0:
                 model_path = os.path.join(save_path, "%s" % step)
                 fleet.save_persistables(exe, model_path)
-
         if step == train_steps:
             break
 
@@ -143,7 +103,8 @@ def main(args):
     loss = model.forward()
 
     # init fleet
-    init_role()
+    role = role_maker.PaddleCloudRoleMaker()
+    fleet.init(role)
 
     train_steps = math.ceil(args.num_nodes * args.epochs / args.batch_size /
                             num_devices / worker_num)

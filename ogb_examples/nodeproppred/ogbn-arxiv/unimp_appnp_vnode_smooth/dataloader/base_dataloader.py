@@ -31,14 +31,8 @@ import paddle
 from pgl.utils import mp_reader
 import collections
 import time
-from pgl.utils.logger import log
-import traceback
 
-
-if six.PY3:
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+import pgl
 
 
 def batch_iter(data, perm, batch_size, fid, num_workers):
@@ -61,17 +55,17 @@ def scan_batch_iter(data, batch_size, fid, num_workers):
     """
     batch = []
     cc = 0
-    for line_example in data.scan(): 
+    for line_example in data.scan():
         cc += 1
         if cc % num_workers != fid:
             continue
         batch.append(line_example)
         if len(batch) == batch_size:
-            yield batch 
+            yield batch
             batch = []
 
     if len(batch) > 0:
-        yield batch 
+        yield batch
 
 
 class BaseDataGenerator(object):
@@ -91,10 +85,12 @@ class BaseDataGenerator(object):
     def batch_iter(self, fid, perm):
         """ batch iterator"""
         if self.shuffle:
-            for batch in batch_iter(self, perm, self.batch_size, fid, self.num_workers):
+            for batch in batch_iter(self, perm, self.batch_size, fid,
+                                    self.num_workers):
                 yield batch
         else:
-            for batch in scan_batch_iter(self, self.batch_size, fid, self.num_workers):
+            for batch in scan_batch_iter(self, self.batch_size, fid,
+                                         self.num_workers):
                 yield batch
 
     def __len__(self):
@@ -117,34 +113,24 @@ class BaseDataGenerator(object):
                 pid = os.getpid()
                 np.random.seed(pid + int(time.time()))
                 for batch_examples in self.batch_iter(filter_id, perm):
-                    try:
-                        batch_dict = self.batch_fn(batch_examples)
-                    except Exception as e:
-                       traceback.print_exc()
-                       log.info(traceback.format_exc())
-                       log.info(str(e))
-                       continue
-
-                    if batch_dict is None:
-                        continue
+                    batch_dict = self.batch_fn(batch_examples)
                     yield batch_dict
 
             return func_run
 
         # consume a seed
         np.random.rand()
-
         if self.shuffle:
-            perm = np.arange(0, len(self)) 
+            perm = np.arange(0, len(self))
             np.random.shuffle(perm)
         else:
             perm = None
-
         if self.num_workers == 1:
-            #r = paddle.reader.buffered(worker(0, perm), self.buf_size)
-            r = worker(0, perm)
+            r = paddle.reader.buffered(worker(0, perm), self.buf_size)
         else:
-            worker_pool = [worker(wid, perm) for wid in range(self.num_workers)]
+            worker_pool = [
+                worker(wid, perm) for wid in range(self.num_workers)
+            ]
             worker = mp_reader.multiprocess_reader(
                 worker_pool, use_pipe=True, queue_size=1000)
             r = paddle.reader.buffered(worker, self.buf_size)
@@ -152,6 +138,9 @@ class BaseDataGenerator(object):
         for batch in r():
             yield batch
 
-    def scan(self): 
+    def scan(self):
+        '''scan
+        '''
         for line_example in self.line_examples:
             yield line_example
+

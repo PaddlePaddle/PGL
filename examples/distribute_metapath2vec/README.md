@@ -18,12 +18,12 @@ Before training, run the below command to do data preprocessing.
 python data_process.py --data_path ./data/DBLP  --output_path ./data/data_processed
 ```
 
-We adopt [PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet) as our distributed training frameworks. ```config.yaml``` is a configure file for metapath2vec hyperparameters and ```local_config``` is a configure file for parameter servers of PaddlePaddle. By default, we have 2 pservers and 2 trainers. One can use ```cloud_run.sh``` to help startup the parameter servers and model trainers. 
+We adopt [PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet) as our distributed training frameworks. ```config.yaml``` is a configure file for metapath2vec hyperparameters and ```local_config``` is a configure file for parameter servers of PaddlePaddle. By default, we have 2 pservers and 2 trainers. One can use ``paddle.distributed.launch_ps``` to help startup the parameter servers and model trainers. 
 
 For examples, train metapath2vec in distributed mode on DBLP dataset.
 ```sh
 # train metapath2vec in distributed mode.
-sh cloud_run.sh
+python -m paddle.distributed.launch_ps --worker_num 2 --server_num 2 cluster_train.py
 
 # multiclass task example
 python multi_class.py --dataset ./data/data_processed/author_label.txt --ckpt_path ./checkpoints/2000 --num_nodes 33791

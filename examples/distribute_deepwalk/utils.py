@@ -97,6 +97,14 @@ def build_fake_graph(num_nodes):
     return graph
 
 
+def build_random_graph(num_nodes):
+    edges = np.random.randint(0, num_nodes, [4*num_nodes, 2])
+    graph = pgl.graph.Graph(num_nodes, edges)
+    graph.indegree()
+    graph.outdegree()
+    return graph
+
+
 def build_gen_func(args, graph):
     num_sample_workers = args.num_sample_workers
 
