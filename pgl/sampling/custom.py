@@ -14,6 +14,10 @@
 
 import pgl
 import numpy as np
+from pgl.graph import Graph
+
+__all__ = []
+__all__.append("subgraph")
 
 
 def subgraph(graph,
@@ -70,7 +74,7 @@ def subgraph(graph,
         for key, value in graph._node_feat.items():
             sub_node_feat[key] = value[nodes]
 
-    g = pgl.Graph(
+    g = Graph(
         edges=sub_edges,
         num_nodes=len(nodes),
         node_feat=sub_node_feat,

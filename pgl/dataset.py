@@ -22,7 +22,7 @@ import sys
 import numpy as np
 import pickle as pkl
 
-from pgl import Graph
+from pgl.graph import Graph
 
 __all__ = [
     "CitationDataset",

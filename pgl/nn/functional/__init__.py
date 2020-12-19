@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import graph_op
+from pgl.nn.functional import graph_op
 
-from .graph_op import *
+from pgl.nn.functional.graph_op import *
 
 __all__ = []
 __all__ += graph_op.__all__

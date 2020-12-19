@@ -14,10 +14,11 @@
 """Generate layers api
 """
 
-from . import conv
-from .conv import *
-from . import pool
-from .pool import *
+from pgl.nn import conv
+from pgl.nn import pool
+
+from pgl.nn.pool import *
+from pgl.nn.conv import *
 
 __all__ = []
 __all__ += conv.__all__
