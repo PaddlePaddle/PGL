@@ -20,7 +20,7 @@ import copy
 import numpy as np
 from pgl import graph_kernel
 
-from .subgraph import subgraph
+from pgl.sampling.custom import subgraph
 
 __all__ = ['graphsage_sample', ]
 

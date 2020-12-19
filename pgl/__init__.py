@@ -17,11 +17,14 @@ import os
 import sys
 import logging
 
-from pgl.graph import *
+from pgl import graph
 from pgl import graph_kernel
 from pgl import math
 from pgl import nn
 from pgl import message
 from pgl import dataset
+from pgl import utils
+
+from pgl.graph import *
 
 __version__ = "2.0.0a"
