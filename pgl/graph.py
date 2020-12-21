@@ -60,8 +60,8 @@ class Graph(object):
 
             num_nodes = 5
             edges = [ (0, 1), (1, 2), (3, 4)]
-            feature = np.random.randn(5, 100)
-            edge_feature = np.random.randn(3, 100)
+            feature = np.random.randn(5, 100).astype(np.float32)
+            edge_feature = np.random.randn(3, 100).astype(np.float32)
             graph = pgl.Graph(num_nodes=num_nodes,
                         edges=edges,
                         node_feat={
