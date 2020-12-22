@@ -52,7 +52,8 @@ class ConvTest(unittest.TestCase):
             edge_feat={'efeat': efeat,
                        'weight': weight})
         pg = g.tensor()
-        feat = paddle.to_tensor(nfeat)
+        #feat = paddle.to_tensor(nfeat)
+        feat = g.node_feat["nfeat"]
         for conv in get_conv_list():
             out = conv(pg, feat)
             self.assertTrue(isinstance(out, paddle.Tensor))
