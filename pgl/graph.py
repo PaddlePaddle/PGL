@@ -991,46 +991,41 @@ class Graph(object):
             by :code:`recv` function.
         """
         if self._is_tensor:
-            if node_feat is None:
-                node_feat = {}
+            if (src_feat is not None or
+                    dst_feat is not None) and node_feat is not None:
+                raise ValueError(
+                    "Can not use src/dst feat and node feat at the same time")
 
-            if edge_feat is None:
-                edge_feat = {}
+            src_feat_temp = {}
+            dst_feat_temp = {}
+            if node_feat is not None:
+                assert isinstance(node_feat,
+                                  dict), "The input node_feat must be a dict"
+                src_feat_temp.update(node_feat)
+                dst_feat_temp.update(node_feat)
+            else:
+                if src_feat is not None:
+                    assert isinstance(
+                        src_feat, dict), "The input src_feat must be a dict"
+                    src_feat_temp.update(src_feat)
+
+                if dst_feat is not None:
+                    assert isinstance(
+                        dst_feat, dict), "The input dst_feat must be a dict"
+                    dst_feat_temp.update(dst_feat)
+
+            edge_feat_temp = {}
+            if edge_feat is not None:
+                assert isinstance(edge_feat,
+                                  dict), "The input edge_feat must be a dict"
+                edge_feat_temp.update(edge_feat)
 
             src = self.edges[:, 0]
             dst = self.edges[:, 1]
-            assert isinstance(node_feat,
-                              dict), "The input node_feat must be a dict"
-            assert isinstance(edge_feat,
-                              dict), "The input edge_feat must be a dict"
-
-            src_feat_temp = {}
-            src_feat_temp.update(node_feat)
-            if src_feat is not None:
-                assert isinstance(src_feat,
-                                  dict), "The input src_feat must be a dict"
-                if set(src_feat.keys()) & set(node_feat.keys()):
-                    raise ValueError(
-                        "There are redundant keys between src_feat and node_feat"
-                    )
-                else:
-                    src_feat_temp.update(src_feat)
-
-            dst_feat_temp = {}
-            dst_feat_temp.update(node_feat)
-            if dst_feat is not None:
-                assert isinstance(dst_feat,
-                                  dict), "The input dst_feat must be a dict"
-                if set(dst_feat.keys()) & set(node_feat.keys()):
-                    raise ValueError(
-                        "There are redundant keys between dst_feat and node_feat"
-                    )
-                else:
-                    dst_feat_temp.update(dst_feat)
 
             src_feat = op.RowReader(src_feat_temp, src)
             dst_feat = op.RowReader(dst_feat_temp, dst)
-            msg = message_func(src_feat, dst_feat, edge_feat)
+            msg = message_func(src_feat, dst_feat, edge_feat_temp)
 
             if not isinstance(msg, dict):
                 raise TypeError(
