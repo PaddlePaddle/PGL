@@ -594,7 +594,7 @@ class TransformerConv(nn.Layer):
                     self.gate(
                         paddle.concat(
                             [skip_feat, output, skip_feat - output], axis=-1)))
-                output = gate * skip_feat + (1 - gate) * skip_feat
+                output = gate * skip_feat + (1 - gate) * output
             else:
                 output = skip_feat + output
 
