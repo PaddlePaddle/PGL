@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -594,7 +594,7 @@ class TransformerConv(nn.Layer):
                     self.gate(
                         paddle.concat(
                             [skip_feat, output, skip_feat - output], axis=-1)))
-                output = gate * skip_feat + (1 - gate) * skip_feat
+                output = gate * skip_feat + (1 - gate) * output
             else:
                 output = skip_feat + output
 
