@@ -18,6 +18,7 @@ op package provide some common ops for building paddle model.
 import paddle
 import numpy as np
 from pgl.utils.helper import check_is_tensor
+import paddle.fluid.core as core
 
 
 def read_rows(data, index):
@@ -82,3 +83,39 @@ class RowReader(dict):
         if key not in self.loaded_nfeat:
             self.loaded_nfeat[key] = read_rows(self.nfeat[key], self.index)
         return self.loaded_nfeat[key]
+
+
+def all_reduce_sum_with_grad(tensor, group=0):
+    """
+    Reduce a tensor over all ranks so that all get the result.
+    Args:
+        tensor (Tensor): The input Tensor. It also works as the output Tensor. Its data type
+            should be float16, float32, float64, int32 or int64.
+        op (ReduceOp.SUM|ReduceOp.MAX|ReduceOp.Min|ReduceOp.PROD): Optional. The operation used.
+        group (int): Optional. The process group to work on.
+    Returns:
+        None.
+    Examples:
+        .. code-block:: python
+            import numpy as np
+            import paddle
+            from paddle.distributed import ReduceOp
+            from paddle.distributed import init_parallel_env
+            paddle.disable_static()
+            paddle.set_device('gpu:%d'%paddle.distributed.ParallelEnv().dev_id)
+            init_parallel_env()
+            if paddle.distributed.ParallelEnv().local_rank == 0:
+                np_data = np.array([[4, 5, 6], [4, 5, 6]], dtype="float32")
+            else:
+                np_data = np.array([[1, 2, 3], [1, 2, 3]], dtype="float32")
+            data = paddle.to_tensor(np_data)
+            data.stop_gradient = False
+            output = all_reduce_sum_with_grad(data)
+            paddle.sum(output).backward()
+            print(data.gradient())
+            [[ 0.5, 0.5, 0.5], [0.5, 0.5, 0.5]]
+                   
+    """
+    return core.ops.c_allreduce_sum(tensor,
+                                    paddle.zeros_like(tensor),
+                                    'use_calc_stream', True, 'ring_id', group)
