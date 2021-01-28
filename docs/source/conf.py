@@ -30,6 +30,7 @@ conf.py
 import os
 import sys
 sys.path.append(os.path.abspath('..'))
+sys.path.append(os.path.abspath('../../pgl/'))
 import sphinx_rtd_theme
 import paddle
 
@@ -42,7 +43,7 @@ copyright = '2019, PaddlePaddle'
 author = 'PaddlePaddle'
 
 # The full version, including alpha/beta/rc tags
-release = '2.0a'
+release = '2.0.0a'
 
 # -- General configuration ---------------------------------------------------
 
