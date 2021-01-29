@@ -23,7 +23,7 @@ import paddle.distributed as dist
 from testsuite import create_random_graph
 
 
-class MultiGraphTest(unittest.TestCase):
+class TestDistGPUGraph(unittest.TestCase):
     def test_multi_graph(self):
         paddle.distributed.init_parallel_env()
         num_nodes = 5
