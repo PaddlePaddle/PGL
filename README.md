@@ -37,16 +37,42 @@ Paddle Graph Learning (PGL) is an efficient and flexible graph learning framewor
 
 The newly released PGL supports heterogeneous graph learning on both walk based paradigm and message-passing based paradigm by providing MetaPath sampling and Message Passing mechanism on heterogeneous graph. Furthermor, The newly released PGL also support distributed graph storage and some distributed training algorithms, such as distributed deep walk and distributed graphsage. Combined with the PaddlePaddle deep learning framework, we are able to support both graph representation learning models and graph neural networks, and thus our framework has a wide range of graph-based applications.
 
+
 One of the most important benefits of graph neural networks compared to other models is the ability to use node-to-node connectivity information, but coding the communication between nodes is very cumbersome. At PGL we adopt **Message Passing Paradigm** similar to [DGL](https://github.com/dmlc/dgl) to help to build a customize graph neural network easily. Users only need to write ```send``` and ```recv``` functions to easily implement a simple GCN. As shown in the following figure, for the first step the send function is defined on the edges of the graph, and the user can customize the send function ![](http://latex.codecogs.com/gif.latex?\\phi^e) to send the message from the source to the target node. For the second step, the recv function ![](http://latex.codecogs.com/gif.latex?\\phi^v) is responsible for aggregating ![](http://latex.codecogs.com/gif.latex?\\oplus) messages together from different sources.
 
 <img src="./docs/source/_static/message_passing_paradigm.png" alt="The basic idea of message passing paradigm" width="800">
 
 
-Users only need to call the ```sequence_ops``` functions provided by Paddle to easily implement efficient message aggregation. For examples, using ```sequence_pool``` to sum the neighbor message.
+To write a sum aggregator, user only need to write the following codes.
+
 ```python
-    import paddle.fluid as fluid
-    def recv(msg):
-        return fluid.layers.sequence_pool(msg, "sum")
+
+    import pgl
+    import paddle
+    import numpy as np
+
+    
+    num_nodes = 5
+    edges = [(0, 1), (1, 2), (3, 4)]
+    feature = np.random.randn(5, 100).astype(np.float32)
+
+    g = pgl.Graph(num_nodes=num_nodes,
+        edges=edges,
+        node_feat={
+            "h": feature
+        })
+    g.tensor()
+
+    def send_func(src_feat, dst_feat, edge_feat):
+        return src_feat
+
+    def recv_func(msg):
+        return msg.reduce_sum(msg["h"]) 
+     
+    msg = g.send(send_func, src_feat=g.node_feat)
+
+    ret = g.recv(recv_func, msg)
+
 ```
 
 
