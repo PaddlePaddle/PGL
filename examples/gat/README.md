@@ -10,8 +10,7 @@ import paddle.fluid as fluid
 
 class CustomGATConv(nn.Layer):
     def __init__(self,
-                 input_size,
-                 hidden_size,
+                 input_size, hidden_size,
                  ):
 
         self.hidden_size = hidden_size
@@ -56,8 +55,8 @@ The datasets contain three citation networks: CORA, PUBMED, CITESEER. The detail
 
 ### Dependencies
 
-- paddlepaddle>=1.6
-- pgl
+- paddlepaddle==2.0.0
+- pgl==2.1
 
 ### Performance
 
@@ -73,7 +72,7 @@ We train our models for 200 epochs and report the accuracy on the test dataset.
 
 For examples, use gpu to train gat on cora dataset.
 ```
-python train.py --dataset cora --use_cuda
+python train.py --dataset cora
 ```
 
 #### Hyperparameters
