@@ -23,6 +23,7 @@ import yaml
 from easydict import EasyDict as edict
 import tqdm
 from paddle.optimizer import Adam
+import paddle.distributed as dist
 
 
 def normalize(feat):
@@ -43,6 +44,8 @@ def load(name, normalized_feature=True):
     dataset.graph.node_feat["words"] = normalize(dataset.graph.node_feat[
         "words"])
 
+    if paddle.distributed.get_world_size() > 1:
+        dataset.graph = pgl.DistGPUGraph(dataset.graph)
     dataset.graph.tensor()
     train_index = dataset.train_index
     dataset.train_label = paddle.to_tensor(
@@ -74,7 +77,7 @@ def train(node_index, node_label, gnn_model, graph, criterion, optim):
     return loss, acc
 
 
-@padddle.no_grad()
+@paddle.no_grad()
 def eval(node_index, node_label, gnn_model, graph, criterion):
     gnn_model.eval()
     pred = gnn_model(graph, graph.node_feat["words"])
@@ -89,10 +92,13 @@ def set_seed(seed):
     np.random.seed(seed)
 
 
-def main(args, config):
-    dataset = load(args.dataset, args.feature_pre_normalize)
+def main(args, config, run):
+    if paddle.distributed.get_world_size() > 1:
+        paddle.distributed.init_parallel_env()
 
+    dataset = load(args.dataset, args.feature_pre_normalize)
     graph = dataset.graph
+
     train_index = dataset.train_index
     train_label = dataset.train_label
 
@@ -101,6 +107,7 @@ def main(args, config):
 
     test_index = dataset.test_index
     test_label = dataset.test_label
+
     GraphModel = getattr(model, config.model_name)
     criterion = paddle.nn.loss.CrossEntropyLoss()
 
@@ -108,42 +115,39 @@ def main(args, config):
 
     best_test = []
 
-    for run in range(args.runs):
-        cal_val_acc = []
-        cal_test_acc = []
-        cal_val_loss = []
-        cal_test_loss = []
+    cal_val_acc = []
+    cal_test_acc = []
+    cal_val_loss = []
+    cal_test_loss = []
 
-        gnn_model = GraphModel(
-            input_size=graph.node_feat["words"].shape[1],
-            num_class=dataset.num_classes,
-            **config)
+    gnn_model = GraphModel(
+        input_size=graph.node_feat["words"].shape[1],
+        num_class=dataset.num_classes,
+        **config)
 
-        optim = Adam(
-            learning_rate=config.learning_rate,
-            parameters=gnn_model.parameters(),
-            weight_decay=config.weight_decay)
+    if paddle.distributed.get_world_size() > 1:
+        gnn_model = paddle.DataParallel(gnn_model)
 
-        for epoch in tqdm.tqdm(range(args.epoch)):
-            train_loss, train_acc = train(train_index, train_label, gnn_model,
-                                          graph, criterion, optim)
-            val_loss, val_acc = eval(val_index, val_label, gnn_model, graph,
-                                     criterion)
-            cal_val_acc.append(val_acc.numpy())
-            cal_val_loss.append(val_loss.numpy())
+    optim = Adam(
+        learning_rate=config.learning_rate,
+        parameters=gnn_model.parameters(),
+        weight_decay=config.weight_decay)
 
-            test_loss, test_acc = eval(test_index, test_label, gnn_model,
-                                       graph, criterion)
-            cal_test_acc.append(test_acc.numpy())
-            cal_test_loss.append(test_loss.numpy())
+    for epoch in tqdm.tqdm(range(args.epoch)):
+        train_loss, train_acc = train(train_index, train_label, gnn_model,
+                                      graph, criterion, optim)
+        val_loss, val_acc = eval(val_index, val_label, gnn_model, graph,
+                                 criterion)
+        cal_val_acc.append(val_acc.numpy())
+        cal_val_loss.append(val_loss.numpy())
 
-        log.info("Runs %s: Model: %s Best Test Accuracy: %f" % (
-            run, config.model_name, cal_test_acc[np.argmin(cal_val_loss)]))
+        test_loss, test_acc = eval(test_index, test_label, gnn_model, graph,
+                                   criterion)
+        cal_test_acc.append(test_acc.numpy())
+        cal_test_loss.append(test_loss.numpy())
 
-        best_test.append(cal_test_acc[np.argmin(cal_val_loss)])
-
-    log.info("Dataset: %s Best Test Accuracy: %f ( stddev: %f )" %
-             (args.dataset, np.mean(best_test), np.std(best_test)))
+    log.info("Runs %s: Model: %s Best Test Accuracy: %f" %
+             (run, config.model_name, cal_test_acc[np.argmin(cal_val_loss)]))
 
 
 if __name__ == '__main__':
@@ -162,4 +166,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
     log.info(args)
-    main(args, config)
+    for run in range(args.runs):
+        dist.spawn(main, args=(args, config, run), nprocs=-1)

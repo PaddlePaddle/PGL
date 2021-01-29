@@ -28,12 +28,16 @@ from pgl.message import Message
 from collections import defaultdict
 from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes
 from pgl.utils.edge_index import EdgeIndex
+import paddle.distributed as dist
+import warnings
 
 
 class Graph(object):
     """Implementation of graph interface in pgl.
 
-    This is a simple implementation of graph structure in pgl. `pgl.Graph` is alias on `pgl.graph.Graph` 
+    This is a simple implementation of graph structure in pgl.
+
+    `pgl.Graph` is alias on `pgl.graph.Graph` 
 
     Args:
 
@@ -1247,3 +1251,130 @@ class Graph(object):
         self.dump(path)
         graph = Graph.load(path, mmap_mode="r")
         return graph
+
+
+class DistGPUGraph(Graph):
+    """Implement of Distributed GPU Graph.
+    
+    DistGPUGraph provide ability to shard a graph into MultiGPU to
+    allow MultiGPU FullBatch Training with little changes of codes.
+
+    Currenlty, we only share edges into multiple GPU to reduce the time
+    and memory usage when applying functions on edges. When apply DistGraph
+    on Graph, edges and edge features will be share into different GPU. But
+    node features still have its own copies across all GPUs. And we utilize
+    NCCL allreduce to make sure all the node features are consistence between
+    GPU cards.
+
+
+    THIS IS A EXPERIMENTAL API.
+
+    Example:
+
+       .. code-block:: python
+
+            import numpy as np
+            import pgl
+            import paddle.distributed as dist
+
+            # init distributed env
+            dist.init_parallel_env()
+
+            num_nodes = 5
+            edges = [ (0, 1), (1, 2), (3, 4)]
+            feature = np.random.randn(5, 100).astype(np.float32)
+            edge_feature = np.random.randn(3, 100).astype(np.float32)
+
+            graph = pgl.Graph(num_nodes=num_nodes,
+                        edges=edges,
+                        node_feat={
+                            "feature": feature
+                        },
+                        edge_feat={
+                            "edge_feature": edge_feature
+                        })
+
+            # sharding
+            graph = pgl.DistGraph(graph)
+
+            model = pgl.nn.GCNConv(100, 100)
+            model = paddle.DataParallel(model)
+
+            out = model(graph, graph.node_feat["feature"])
+  
+
+
+    """
+
+    def __init__(self, graph):
+        warnings.warn("DistGPUGraph is an experimental API"
+                      " for Multi-GPU FullBatch Training.")
+        shard_edges, shard_edge_feat = self._shard_edges_by_dst(
+            graph.edges, graph.edge_feat)
+        super(DistGPUGraph, self).__init__(
+            num_nodes=graph.num_nodes,
+            edges=shard_edges,
+            node_feat=graph.node_feat,
+            edge_feat=shard_edge_feat)
+
+        if not self.is_tensor():
+            self.tensor(inplace=True)
+
+    def _shard_edges_by_dst(self, edges, edge_feat):
+        """Shard Edges by dst
+
+        Args:
+
+            edges: list of (u, v) tuples, 2D numpy.ndarry or 2D paddle.Tensor 
+
+            edge_feat (optional): a dict of numpy array as edge features (should
+                                have consistent order with edges)
+
+        Returns:
+     
+            Return a tuple (shard_edges, shard_edge_feat) as the shard results.
+
+        """
+        shard_flag = edges[:, 1]
+        mask = (shard_flag % dist.get_world_size()) == dist.get_rank()
+        if type(mask) == paddle.Tensor:
+            eid = paddle.masked_select(paddle.arange(edges.shape[0]), mask)
+            shard_edges = paddle.gather(edges, eid)
+            shard_edge_feat = {}
+            for key, value in edge_feat.items():
+                shard_edge_feat[key] = paddle.gather(value, eid)
+        else:
+            eid = np.arange(edges.shape[0])[mask]
+            shard_edges = edges[eid]
+            shard_edge_feat = {}
+            for key, value in edge_feat.items():
+                shard_edge_feat[key] = value[eid]
+        return shard_edges, shard_edge_feat
+
+    def numpy(self, inplace=True):
+        raise ValueError("DistGPUGraph can't convert into numpy")
+
+    def recv(self, reduce_func, msg, recv_mode="dst"):
+        if recv_mode != "dst":
+            raise ValueError(
+                "Currently DistGPUGraph can only support recv_mode=='dst'")
+        output = super(DistGPUGraph, self).recv(
+            msg=msg, reduce_func=reduce_func, recv_mode=recv_mode)
+        out = op.all_reduce_sum_with_grad(output)
+        return out
+
+    def indegree(self, nodes=None):
+        degree = super(DistGPUGraph, self).indegree(nodes=nodes)
+        degree = op.all_reduce_sum_with_grad(degree)
+        return degree
+
+    def outdegree(self, nodes=None):
+        degree = super(DistGPUGraph, self).outdegree(nodes=nodes)
+        degree = op.all_reduce_sum_with_grad(degree)
+        return degree
+
+    def send_recv(self, feature, reduce_func="sum"):
+        output = super(DistGPUGraph, self).send_recv(
+            feature=feature, reduce_func="sum")
+        output = op.all_reduce_sum_with_grad(output)
+        return output
