@@ -1,7 +1,7 @@
 # Easy Paper Reproduction for Citation Network ( Cora / Pubmed / Citeseer )
 
 
-This page tries to reproduce all the **Graph Neural Network** paper for Citation Network (Cora/Pubmed/Citeseer), which is the **Hello world**  dataset (**small** and **fast**) for graph neural networks. But it's very hard to achieve very high performance.
+This page tries to reproduce all the **Graph Neural Network** paper for Citation Network (Cora/Pubmed/Citeseer) with the **public train/dev/test split**, which is the **Hello world**  dataset (**small** and **fast**) for graph neural networks. But it's very hard to achieve very high performance.
 
 
 
@@ -18,13 +18,8 @@ All datasets are runned with public split of  **semi-supervised** settings. And 
 | [SGC(Wu 2019)](https://arxiv.org/pdf/1902.07153.pdf)         | 0.818(0.000) | 0.782(0.000) | 0.708(0.000) |                                 -                         |
 | [APPNP (Johannes 2018)](https://arxiv.org/abs/1810.05997)    | 0.846(0.003) | 0.803(0.002) | 0.719(0.003) | Almost the same with  the results reported in Appendix E. |
 | [GCNII (64 Layers, 1500 Epochs, Chen 2020)](https://arxiv.org/pdf/2007.02133.pdf) | 0.846(0.003) | 0.798(0.003) | 0.724(0.006) |            -                         |
-| [TransformConv (Yun 2020)](https://arxiv.org/abs/2009.03509) | | | | 
-
-
 
 ### How to run the experiments?
-
-
 
 ```shell
 # Device choose
@@ -35,7 +30,8 @@ export CUDA_VISIBLE_DEVICES=
 
 # Experimental API
 # If you want to try MultiGPU-FullBatch training. Run the following code instead.
-# This will only speed up models that have more computation on edges. For example, the TransformerConv in [Yun 2020](https://arxiv.org/abs/2009.03509).
+# This will only speed up models that have more computation on edges.
+# For example, the TransformerConv in [Yun 2020](https://arxiv.org/abs/2009.03509).
 
 CUDA_VISIBLE_DEVICES=0,1 multi_gpu_train.py --conf config/transformer.yaml
 
