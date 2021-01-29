@@ -74,6 +74,7 @@ def train(node_index, node_label, gnn_model, graph, criterion, optim):
     return loss, acc
 
 
+@padddle.no_grad()
 def eval(node_index, node_label, gnn_model, graph, criterion):
     gnn_model.eval()
     pred = gnn_model(graph, graph.node_feat["words"])
@@ -108,7 +109,6 @@ def main(args, config):
     best_test = []
 
     for run in range(args.runs):
-        set_seed(run)
         cal_val_acc = []
         cal_test_acc = []
         cal_val_loss = []
@@ -151,7 +151,6 @@ if __name__ == '__main__':
         description='Benchmarking Citation Network')
     parser.add_argument(
         "--dataset", type=str, default="cora", help="dataset (cora, pubmed)")
-    parser.add_argument("--use_cuda", action='store_true', help="use_cuda")
     parser.add_argument("--conf", type=str, help="config file for models")
     parser.add_argument("--epoch", type=int, default=200, help="Epoch")
     parser.add_argument("--runs", type=int, default=10, help="runs")
@@ -161,8 +160,6 @@ if __name__ == '__main__':
         default=True,
         help="pre_normalize feature")
     args = parser.parse_args()
-    if not args.use_cuda:
-        paddle.set_device("cpu")
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
     log.info(args)
     main(args, config)

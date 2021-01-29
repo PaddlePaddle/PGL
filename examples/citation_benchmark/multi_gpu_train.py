@@ -77,6 +77,7 @@ def train(node_index, node_label, gnn_model, graph, criterion, optim):
     return loss, acc
 
 
+@paddle.no_grad()
 def eval(node_index, node_label, gnn_model, graph, criterion):
     gnn_model.eval()
     pred = gnn_model(graph, graph.node_feat["words"])
@@ -92,7 +93,6 @@ def set_seed(seed):
 
 
 def main(args, config, run):
-    set_seed(run)
     if paddle.distributed.get_world_size() > 1:
         paddle.distributed.init_parallel_env()
 
