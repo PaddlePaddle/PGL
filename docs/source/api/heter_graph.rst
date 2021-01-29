@@ -1,7 +1,7 @@
-pgl.heter_graph
+pgl.graph
 ===============================
 
-.. automodule:: pgl.heter_graph
+.. automodule:: pgl.graph
    :members:
    :undoc-members:
    :show-inheritance:

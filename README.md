@@ -43,7 +43,7 @@ One of the most important benefits of graph neural networks compared to other mo
 <img src="./docs/source/_static/message_passing_paradigm.png" alt="The basic idea of message passing paradigm" width="800">
 
 
-To write a sum aggregator, user only need to write the following codes.
+To write a sum aggregator, users only need to write the following codes.
 
 ```python
 
@@ -94,17 +94,19 @@ Because of the different node types on the heterogeneous graph, the message deli
 
 
 ## Large-Scale: Support distributed graph storage and distributed training algorithms
+
 In most cases of large-scale graph learning, we need distributed graph storage and distributed training support. As shown in the following figure, PGL provided a general solution of large-scale training, we adopted [PaddleFleet](https://github.com/PaddlePaddle/Fleet) as our distributed parameter servers, which supports large scale distributed embeddings and a lightweighted distributed storage engine so it can easily set up a large scale distributed training algorithm with MPI clusters.
 
 <img src="./docs/source/_static/distributed_frame.png" alt="The distributed frame of PGL" width="800">
 
 
 ## Model Zoo
-The following graph learning models have been implemented in the framework. You can find more [examples](./examples) and the [details](https://pgl.readthedocs.io/en/latest/introduction.html#highlight-tons-of-models)
+
+The following graph learning models have been implemented in the framework. You can find more [examples](./examples) and the details [here](https://pgl.readthedocs.io/en/latest/introduction.html#highlight-tons-of-models).
 
 |Model | feature |
 |---|---|
-| [**ERNIESage**](./examples/erniesage/) | ERNIE SAmple aggreGatE for Text and Graph |
+| [ERNIESage](./examples/erniesage/) | ERNIE SAmple aggreGatE for Text and Graph |
 | [GCN](./examples/gcn/) | Graph Convolutional Neural Networks |
 | [GAT](./examples/gat/) | Graph Attention Network |
 | [GraphSage](./examples/graphsage/) |Large-scale graph convolution network based on neighborhood sampling|
@@ -129,7 +131,7 @@ PGL requires:
 * cython
 
 
-PGL supports both Python 3
+PGL only supports Python 3
 
 
 ## Installation

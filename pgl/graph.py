@@ -35,9 +35,9 @@ import warnings
 class Graph(object):
     """Implementation of graph interface in pgl.
 
-    This is a simple implementation of graph structure in pgl.
+    This is a simple implementation of graph structure in pgl. 
 
-    `pgl.Graph` is alias on `pgl.graph.Graph` 
+    `pgl.Graph` is an alias for `pgl.graph.Graph` 
 
     Args:
 

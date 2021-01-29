@@ -1,4 +1,4 @@
-pgl.dataset: Some benchmark datasets.
+pgl.dataset
 =================================================
 
 .. automodule:: pgl.dataset

@@ -1,12 +1,12 @@
 API Reference
-===========
+=================================================
 
 .. toctree::
 
    graph
+   heter_graph
    sampling
    nn
    nn.functional
    dataset
-   utils.mp_reader
    message

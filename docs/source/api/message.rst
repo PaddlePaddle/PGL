@@ -1,9 +1,9 @@
-pgl.message 
-==============
+pgl.message
+==================================================
 
 
 The Message Implement for recv function
---------------------------------------
+-------------------------------------------------
 
 .. automodule:: pgl.message
    :members:

@@ -22,6 +22,8 @@ Quick Start
    :caption: Examples
 
    examples/gin.rst
+   examples/gcn.rst
+   examples/gat.rst
    examples/citation_benchmark.rst
    examples/graphsage.rst
 

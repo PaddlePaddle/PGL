@@ -39,11 +39,11 @@ import paddle
 master_doc = 'index'
 
 project = 'pgl'
-copyright = '2019, PaddlePaddle'
+copyright = '2021, PaddlePaddle'
 author = 'PaddlePaddle'
 
 # The full version, including alpha/beta/rc tags
-release = '2.0.0a'
+release = '2.1'
 
 # -- General configuration ---------------------------------------------------
 

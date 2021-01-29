@@ -1,12 +1,30 @@
+
+## Introduction
+
+Paddle Graph Learning (PGL) is an efficient and flexible graph learning framework based on [PaddlePaddle](https://github.com/PaddlePaddle/Paddle).
+
+To let users get started quickly, the main purpose of this tutorial is:
+* Understand how a graph network is calculated based on PGL.
+
+* Use PGL to implement a simple graph neural network model, which is used to classify the nodes in the graph.
+
+
 ## Step 1: using PGL to create a graph 
 Suppose we have a graph with 10 nodes and 14 edges as shown in the following figure:
 ![A simple graph](../_static/quick_start_graph.png)
 
 Our purpose is to train a graph neural network to classify yellow and green nodes. So we can create this graph in such way:
+
+
 ```python
-import pgl
-from pgl import graph  # import pgl module
 import numpy as np
+
+import paddle
+import paddle.nn as nn
+import paddle.nn.functional as F
+from paddle.optimizer import Adam
+import pgl
+
 
 def build_graph():
     # define the number of nodes; we can use number to represent every node
@@ -23,123 +41,153 @@ def build_graph():
     edge_feature = np.random.randn(len(edge_list), 1).astype("float32")
     
     # create a graph
-    g = graph.Graph(num_nodes = num_node,
-                    edges = edge_list, 
-                    node_feat = {'feature':feature}, 
-                    edge_feat ={'edge_feature': edge_feature})
+    g = pgl.Graph(edges = edge_list,
+                  num_nodes = num_node,
+                  node_feat = {'nfeat':feature}, 
+                  edge_feat ={'efeat': edge_feature})
 
     return g
 
-# create a graph object for saving graph data
+```
+
+
+```python
 g = build_graph()
 ```
+
 After creating a graph in PGL, we can print out some information in the graph.
+
 
 ```python
 print('There are %d nodes in the graph.'%g.num_nodes)
 print('There are %d edges in the graph.'%g.num_edges)
-
-# Out:
-# There are 10 nodes in the graph.
-# There are 14 edges in the graph. 
 ```
 
-Currently our PGL is developed based on static computational mode of paddle (we’ll support dynamic computational model later). We need to build model upon a virtual data holder. GraphWrapper provide a virtual graph structure that users can build deep learning models based on this virtual graph. And then feed real graph data to run the models.
-```python
-import paddle.fluid as fluid
+    There are 10 nodes in the graph.
+    There are 14 edges in the graph.
 
-use_cuda = False  
-place = fluid.CUDAPlace(0) if use_cuda else fluid.CPUPlace()
-
-# use GraphWrapper as a container for graph data to construct a graph neural network
-gw = pgl.graph_wrapper.GraphWrapper(name='graph',
-                        node_feat=g.node_feat_info(), 
-                        edge_feat=g.edge_feat_info())
-```
 
 ## Step 2: create a simple Graph Convolutional Network(GCN)
 
-In this tutorial, we use a simple Graph Convolutional Network(GCN) developed by [Kipf and Welling](https://arxiv.org/abs/1609.02907) to perform node classification. Here we use the simplest GCN structure. If readers want to know more about GCN, you can refer to the original paper.
+In this tutorial, we use a simple Graph Convolutional Network(GCN) developed by [Kipf and Welling](https://arxiv.org/abs/1609.02907) to perform node classification. Here we use the simplest GCN structure. If you want to know more about GCN, you can refer to the original paper.
 
 * In layer $l$，each node $u_i^l$ has a feature vector $h_i^l$;
 * In every layer,  the idea of GCN is that the feature vector $h_i^{l+1}$ of each node $u_i^{l+1}$ in the next layer are obtained by weighting the feature vectors of all the neighboring nodes and then go through a non-linear transformation.  
 
 In PGL, we can easily implement a GCN layer as follows:
-```python
-# define GCN layer function
-def gcn_layer(gw, nfeat, efeat, hidden_size, name, activation):
-    # gw is a GraphWrapper；feature is the feature vectors of nodes
-    
-    # define message function
-    def send_func(src_feat, dst_feat, edge_feat): 
-        # In this tutorial, we return the feature vector of the source node as message
-        return src_feat['h'] * edge_feat['e']
 
-    # define reduce function
-    def recv_func(feat):
-        # we sum the feature vector of the source node
-        return fluid.layers.sequence_pool(feat, pool_type='sum')
 
-    # trigger message to passing
-    msg = gw.send(send_func, nfeat_list=[('h', nfeat)], efeat_list=[('e', efeat)])
-    # recv funciton receives message and trigger reduce funcition to handle message 
-    output = gw.recv(msg, recv_func)
-    output = fluid.layers.fc(output,
-                    size=hidden_size,
-                    bias_attr=False,
-                    act=activation,
-                    name=name)
-    return output
-```
-After defining the GCN layer, we can construct a deeper GCN model with two GCN layers.
 ```python
-output = gcn_layer(gw, gw.node_feat['feature'], gw.edge_feat['edge_feature'],
-                hidden_size=8, name='gcn_layer_1', activation='relu')
-output = gcn_layer(gw, output, gw.edge_feat['edge_feature'],
-                hidden_size=1, name='gcn_layer_2', activation=None)
+class GCN(nn.Layer):
+    """Implement of GCN
+    """
+
+    def __init__(self,
+                 input_size,
+                 num_class,
+                 num_layers=2,
+                 hidden_size=16,
+                 **kwargs):
+        super(GCN, self).__init__()
+        self.num_class = num_class
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
+        self.gcns = nn.LayerList()
+        for i in range(self.num_layers):
+            if i == 0:
+                self.gcns.append(
+                    pgl.nn.GCNConv(
+                        input_size,
+                        self.hidden_size,
+                        activation="relu",
+                        norm=True))
+            else:
+                self.gcns.append(
+                    pgl.nn.GCNConv(
+                        self.hidden_size,
+                        self.hidden_size,
+                        activation="relu",
+                        norm=True))
+                
+        self.output = nn.Linear(self.hidden_size, self.num_class)
+    def forward(self, graph, feature):
+        for m in self.gcns:
+            feature = m(graph, feature)
+        logits = self.output(feature)
+        return logits
 ```
 
 ## Step 3:  data preprocessing
+
 Since we implement a node binary classifier, we can use 0 and 1 to represent two classes respectively.
-```python 
-y = [0,1,1,1,0,0,0,1,0,1]
-label = np.array(y, dtype="float32")
-label = np.expand_dims(label, -1)
-```
 
-## Step 4:  training program
-The training process of GCN is the same as that of other paddle-based models.
-
-- First we create a loss function. 
-- Then we create a optimizer.
-- Finally, we create a executor and train the model. 
 
 ```python
-# create a label layer as a container 
-node_label = fluid.layers.data("node_label", shape=[None, 1],
-            dtype="float32", append_batch_size=False)
+y = [0,1,1,1,0,0,0,1,0,1]
+label = np.array(y, dtype="float32")
+```
 
-# using cross-entropy with sigmoid layer as the loss function
-loss = fluid.layers.sigmoid_cross_entropy_with_logits(x=output, label=node_label)
+## Step 4:  training
 
-# calculate the mean loss
-loss = fluid.layers.mean(loss)
+The training process of GCN is the same as that of other paddle-based models.
 
-# choose the Adam optimizer and set the learning rate to be 0.01
-adam = fluid.optimizer.Adam(learning_rate=0.01)
-adam.minimize(loss)
 
-# create the executor 
-exe = fluid.Executor(place)
-exe.run(fluid.default_startup_program())
-feed_dict = gw.to_feed(g) # gets graph data
+```python
+g = g.tensor()
+y = paddle.to_tensor(y)
+gcn = GCN(16, 2)
+criterion = paddle.nn.loss.CrossEntropyLoss()
+optim = Adam(learning_rate=0.01, 
+             parameters=gcn.parameters())
 
+```
+
+
+```python
+gcn.train()
 for epoch in range(30):
-    feed_dict['node_label'] = label
+    logits = gcn(g, g.node_feat['nfeat'])
+    loss = criterion(logits, y)
+    loss.backward()
+    optim.step()
+    optim.clear_grad()
+    print("epoch: %s | loss: %.4f" % (epoch, loss.numpy()[0]))
     
-    train_loss = exe.run(fluid.default_main_program(),
-        feed=feed_dict,
-        fetch_list=[loss],
-        return_numpy=True)
-    print('Epoch %d | Loss: %f'%(epoch, train_loss[0]))
+```
+
+    epoch: 0 | loss: 0.7915
+    epoch: 1 | loss: 0.6991
+    epoch: 2 | loss: 0.6377
+    epoch: 3 | loss: 0.6056
+    epoch: 4 | loss: 0.5844
+    epoch: 5 | loss: 0.5643
+    epoch: 6 | loss: 0.5431
+    epoch: 7 | loss: 0.5214
+    epoch: 8 | loss: 0.5001
+    epoch: 9 | loss: 0.4812
+    epoch: 10 | loss: 0.4683
+    epoch: 11 | loss: 0.4565
+    epoch: 12 | loss: 0.4449
+    epoch: 13 | loss: 0.4343
+    epoch: 14 | loss: 0.4248
+    epoch: 15 | loss: 0.4159
+    epoch: 16 | loss: 0.4081
+    epoch: 17 | loss: 0.4016
+    epoch: 18 | loss: 0.3963
+    epoch: 19 | loss: 0.3922
+    epoch: 20 | loss: 0.3892
+    epoch: 21 | loss: 0.3869
+    epoch: 22 | loss: 0.3854
+    epoch: 23 | loss: 0.3845
+    epoch: 24 | loss: 0.3839
+    epoch: 25 | loss: 0.3837
+    epoch: 26 | loss: 0.3838
+    epoch: 27 | loss: 0.3840
+    epoch: 28 | loss: 0.3843
+    epoch: 29 | loss: 0.3846
+
+
+
+```python
+
 ```
