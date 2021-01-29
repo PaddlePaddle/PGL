@@ -15,11 +15,10 @@ class CustomGATConv(nn.Layer):
 
         self.hidden_size = hidden_size
         self.num_heads = num_heads
-        self.concat = concat
 
         self.linear = nn.Linear(input_size, hidden_size)
-        self.weight_src = self.create_parameter(shape=[ hidden_size])
-        self.weight_dst = self.create_parameter(shape=[ hidden_size])
+        self.weight_src = self.create_parameter(shape=[ hidden_size ])
+        self.weight_dst = self.create_parameter(shape=[ hidden_size ])
 
         self.leaky_relu = nn.LeakyReLU(negative_slope=0.2)
 
