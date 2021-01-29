@@ -38,9 +38,6 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 在最新发布的PGL中引入了异构图的支持，新增MetaPath采样支持异构图表示学习，新增异构图Message Passing机制支持基于消息传递的异构图算法，利用新增的异构图接口，能轻松搭建前沿的异构图学习算法。而且，在最新发布的PGL中，同时也增加了分布式图存储以及一些分布式图学习训练算法，例如，分布式deep walk和分布式graphsage。结合PaddlePaddle深度学习框架，我们的框架基本能够覆盖大部分的图网络应用，包括图表示学习以及图神经网络。
 
 
-# 特色：高效性——支持Scatter-Gather及LodTensor消息传递
-
-
 对比于一般的模型，图神经网络模型最大的优势在于它利用了节点与节点之间连接的信息。但是，如何通过代码来实现建模这些节点连接十分的麻烦。PGL采用与[DGL](https://github.com/dmlc/dgl)相似的**消息传递范式**用于作为构建图神经网络的接口。用于只需要简单的编写```send```还有```recv```函数就能够轻松的实现一个简单的GCN网络。如下图所示，首先，send函数被定义在节点之间的边上，用户自定义send函数![](http://latex.codecogs.com/gif.latex?\\phi^e)会把消息从源点发送到目标节点。然后，recv函数![](http://latex.codecogs.com/gif.latex?\\phi^v)负责将这些消息用汇聚函数 ![](http://latex.codecogs.com/gif.latex?\\oplus) 汇聚起来。
 
 <img src="./docs/source/_static/message_passing_paradigm.png" alt="The basic idea of message passing paradigm" width="800">
