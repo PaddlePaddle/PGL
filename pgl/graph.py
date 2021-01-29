@@ -29,6 +29,7 @@ from collections import defaultdict
 from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes
 from pgl.utils.edge_index import EdgeIndex
 import paddle.distributed as dist
+import warnings
 
 
 class Graph(object):
@@ -1306,6 +1307,8 @@ class DistGPUGraph(Graph):
     """
 
     def __init__(self, graph):
+        warnings.warn("DistGPUGraph is an experimental API"
+                      " for Multi-GPU FullBatch Training.")
         shard_edges, shard_edge_feat = self._shard_edges_by_dst(
             graph.edges, graph.edge_feat)
         super(DistGPUGraph, self).__init__(
@@ -1351,7 +1354,7 @@ class DistGPUGraph(Graph):
     def numpy(self, inplace=True):
         raise ValueError("DistGPUGraph can't convert into numpy")
 
-    def recv(self, msg, reduce_func, recv_mode="dst"):
+    def recv(self, reduce_func, msg, recv_mode="dst"):
         if recv_mode != "dst":
             raise ValueError(
                 "Currently DistGPUGraph can only support recv_mode=='dst'")
