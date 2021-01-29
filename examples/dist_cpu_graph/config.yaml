@@ -1,0 +1,42 @@
+# 如果要使用../hadoop/目录的data sharding 工具对数据进行分片, 那么这个参数就设置为True
+# 并且, 如果shard为True, 则shard_num 为分片的数量, 注意这里要设置大于mpi_trainer_num. 比如设置为1000
+shard: False
+shard_num: 1
+
+# Hadoop Enviroment Settings 
+fs_name: ""
+fs_ugi: ""
+
+# graph_data_hdfs_path: 图数据在hadoop集群存放的位置。
+graph_data_hdfs_path: xxx/graph_data
+
+# paddlecloud需要有个目录作为输出一些日志, 这里随便填一个hadoop路径即可.
+fake_output_path: xxx/fake_path
+
+# 不要修改 embedding_output_path, hadoop_bin and work_dir 这三个路径!!!
+embedding_output_path: "./embedding_output"
+hadoop_bin: "$HADOOP_HOME/bin/hadoop"
+work_dir: "workdir"
+
+# Model Settings
+edge_path: "./graph_data"
+# edge_files 的格式为“edge_type1:edge_file1_or_directory,edge_type2:edge_file2_or_directory” 每个边类型对应一个边文件(或边目录)。
+# 如果使用shard模式, 则边目录要与../hadoop/hadoop_run.sh 脚本中的hadoop_output_path的最后一级目录一致.
+#edge_files: "u2t:u2t_edges.txt,t2f:t2f_edges.txt,u2f:u2f_edges.txt"
+#edge_files: "u2t:u2t,t2f:t2f,u2f:u2f"
+edge_files: "u2t:u2t"
+# node_types_file: 节点类型文件名或目录名; 节点类型文件的每一行格式为: node_type \t node_id   NOTE: node_id不能为0
+# 如果使用shard模式, 则node_types_file是一个目录名, 而且要与../hadoop/hadoop_run.sh 脚本中的hadoop_node_type_output_path的最后一级目录保持一致.
+node_types_file: "node_types"
+symmetry: False
+uniq_edge: False
+node_files: null
+
+# meta_path 元路径定义。 注意跟edge_files变量的边类型对应。用“-”隔开
+# first_node_type: 元路径的起始节点类型. 对应上一个参数meta_path的第一个字母.
+# 下面两个被注释的参数是当walk_mode="multi_m2v"时的参考设置, 每个";"号是一条用户定义的metapath
+# meta_path: "u2t-t2f-f2t-t2u"
+# first_node_type: "u"
+meta_path: "u2t-t2u;t2f-f2t;u2t-t2f-f2t-t2u;t2u-u2t"
+first_node_type: "u;t;u;t"
+

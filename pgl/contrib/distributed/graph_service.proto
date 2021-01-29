@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+//package = graphservice; 
+
+// The graph service definition.
+service GraphService {
+  // Sends Neighbors 
+  rpc SampleNeighbors (SampleNeighborsRequest) returns (SampleNeighborsReply) {}
+
+  // Sends Nodes or ScanNodes 
+  rpc NodeBatchIter(SampleNodesRequest) returns (stream SampleNodesReply) {}
+
+  // Sample Nodes 
+  rpc NegSampleNodes(NegSampleNodesRequest) returns (NegSampleNodesReply) {}
+
+  // Get Node Feat
+  rpc GetNodeFeat(GetNodeFeatRequest) returns (GetNodeFeatReply) {}
+
+  // Get Node Types 
+  rpc NodeTypes(NodeTypesRequest) returns (NodeTypesReply) {}
+
+}
+
+message NodeList {
+    repeated int64 nodeid = 1;
+}
+
+// The request message containing the user's name.
+message SampleNeighborsRequest {
+   NodeList sample_nodes = 1;
+   int32 max_size = 2;
+   string edge_type = 3;
+}
+
+// The response message containing the greetings
+message SampleNeighborsReply{
+   NodeList nodeid = 1;
+   repeated NodeList neighbors = 2;
+}
+
+
+message SampleNodesRequest {
+  int32 batch_size = 1;
+  bool shuffle = 2;
+  int32 rank = 3;
+  int32 nrank = 4;
+  string node_type = 5;
+}
+
+message SampleNodesReply{
+  NodeList sample_nodes = 1;
+}
+
+message NegSampleNodesRequest {
+   NodeList nodeid = 1;
+   int32 neg_num = 2;
+   string neg_sample_type = 3;
+}
+
+message NegSampleNodesReply{
+  NodeList sample_nodes = 1;
+}
+
+
+message GetNodeFeatRequest {
+  NodeList nodes = 1;
+}
+
+message GetNodeFeatReply{
+  NodeList nodes = 1;
+  string value = 2;
+}
+
+message NodeTypesRequest {
+}
+
+message NodeTypesReply {
+  repeated string node_types = 1;
+}
