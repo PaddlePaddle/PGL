@@ -11,18 +11,73 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import tqdm
 import pgl
-import model
 import paddle
 import paddle.nn as nn
 from pgl.utils.logger import log
 import numpy as np
 import time
 import argparse
-import yaml
-from easydict import EasyDict as edict
-import tqdm
 from paddle.optimizer import Adam
+
+
+class GAT(nn.Layer):
+    """Implement of GAT
+    """
+
+    def __init__(
+            self,
+            input_size,
+            num_class,
+            num_layers=1,
+            feat_drop=0.6,
+            attn_drop=0.6,
+            num_heads=8,
+            hidden_size=8, ):
+        super(GAT, self).__init__()
+        self.num_class = num_class
+        self.num_layers = num_layers
+        self.feat_drop = feat_drop
+        self.attn_drop = attn_drop
+        self.num_heads = num_heads
+        self.hidden_size = hidden_size
+        self.gats = nn.LayerList()
+        for i in range(self.num_layers):
+            if i == 0:
+                self.gats.append(
+                    pgl.nn.GATConv(
+                        input_size,
+                        self.hidden_size,
+                        self.feat_drop,
+                        self.attn_drop,
+                        self.num_heads,
+                        activation='elu'))
+            elif i == (self.num_layers - 1):
+                self.gats.append(
+                    pgl.nn.GATConv(
+                        self.num_heads * self.hidden_size,
+                        self.num_class,
+                        self.feat_drop,
+                        self.attn_drop,
+                        1,
+                        concat=False,
+                        activation=None))
+            else:
+                self.gats.append(
+                    pgl.nn.GATConv(
+                        self.num_heads * self.hidden_size,
+                        self.hidden_size,
+                        self.feat_drop,
+                        self.attn_drop,
+                        self.num_heads,
+                        activation='elu'))
+
+    def forward(self, graph, feature):
+        for m in self.gats:
+            feature = m(graph, feature)
+        return feature
 
 
 def normalize(feat):
@@ -89,7 +144,7 @@ def set_seed(seed):
     np.random.seed(seed)
 
 
-def main(args, config):
+def main(args):
     dataset = load(args.dataset, args.feature_pre_normalize)
 
     graph = dataset.graph
@@ -101,7 +156,6 @@ def main(args, config):
 
     test_index = dataset.test_index
     test_label = dataset.test_label
-    GraphModel = getattr(model, config.model_name)
     criterion = paddle.nn.loss.CrossEntropyLoss()
 
     dur = []
@@ -113,20 +167,27 @@ def main(args, config):
         cal_test_acc = []
         cal_val_loss = []
         cal_test_loss = []
-
-        gnn_model = GraphModel(
-            input_size=graph.node_feat["words"].shape[1],
-            num_class=dataset.num_classes,
-            **config)
+        gnn_model = GAT(input_size=graph.node_feat["words"].shape[1],
+                        num_class=dataset.num_classes,
+                        num_layers=2,
+                        feat_drop=0.6,
+                        attn_drop=0.6,
+                        num_heads=8,
+                        hidden_size=8)
 
         optim = Adam(
-            learning_rate=config.learning_rate,
+            learning_rate=0.005,
             parameters=gnn_model.parameters(),
-            weight_decay=config.weight_decay)
+            weight_decay=0.0005)
 
-        for epoch in tqdm.tqdm(range(args.epoch)):
+        for epoch in tqdm.tqdm(range(200)):
+            if epoch >= 3:
+                start = time.time()
             train_loss, train_acc = train(train_index, train_label, gnn_model,
                                           graph, criterion, optim)
+            if epoch >= 3:
+                end = time.time()
+                dur.append(end - start)
             val_loss, val_acc = eval(val_index, val_label, gnn_model, graph,
                                      criterion)
             cal_val_acc.append(val_acc.numpy())
@@ -137,11 +198,12 @@ def main(args, config):
             cal_test_acc.append(test_acc.numpy())
             cal_test_loss.append(test_loss.numpy())
 
-        log.info("Runs %s: Model: %s Best Test Accuracy: %f" % (
-            run, config.model_name, cal_test_acc[np.argmin(cal_val_loss)]))
+        log.info("Runs %s: Model: GAT Best Test Accuracy: %f" %
+                 (run, cal_test_acc[np.argmin(cal_val_loss)]))
 
         best_test.append(cal_test_acc[np.argmin(cal_val_loss)])
 
+    log.info("Average Speed %s sec/ epoch" % (np.mean(dur)))
     log.info("Dataset: %s Best Test Accuracy: %f ( stddev: %f )" %
              (args.dataset, np.mean(best_test), np.std(best_test)))
 
@@ -151,7 +213,6 @@ if __name__ == '__main__':
         description='Benchmarking Citation Network')
     parser.add_argument(
         "--dataset", type=str, default="cora", help="dataset (cora, pubmed)")
-    parser.add_argument("--conf", type=str, help="config file for models")
     parser.add_argument("--epoch", type=int, default=200, help="Epoch")
     parser.add_argument("--runs", type=int, default=10, help="runs")
     parser.add_argument(
@@ -160,6 +221,5 @@ if __name__ == '__main__':
         default=True,
         help="pre_normalize feature")
     args = parser.parse_args()
-    config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
     log.info(args)
-    main(args, config)
+    main(args)
