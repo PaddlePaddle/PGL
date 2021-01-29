@@ -18,6 +18,7 @@ All datasets are runned with public split of  **semi-supervised** settings. And 
 | [SGC(Wu 2019)](https://arxiv.org/pdf/1902.07153.pdf)         | 0.818(0.000) | 0.782(0.000) | 0.708(0.000) |                                 -                         |
 | [APPNP (Johannes 2018)](https://arxiv.org/abs/1810.05997)    | 0.846(0.003) | 0.803(0.002) | 0.719(0.003) | Almost the same with  the results reported in Appendix E. |
 | [GCNII (64 Layers, 1500 Epochs, Chen 2020)](https://arxiv.org/pdf/2007.02133.pdf) | 0.846(0.003) | 0.798(0.003) | 0.724(0.006) |            -                         |
+| [TransformConv(Yun 2020)] (https://arxiv.org/abs/2009.03509) | | | | 
 
 
 
@@ -27,31 +28,51 @@ All datasets are runned with public split of  **semi-supervised** settings. And 
 
 ```shell
 # Device choose
+# use GPU
 export CUDA_VISIBLE_DEVICES=0
+# use CPU
+export CUDA_VISIBLE_DEVICES=
+
 # GCN
-python train.py --conf config/gcn.yaml --use_cuda --dataset cora
-python train.py --conf config/gcn.yaml --use_cuda --dataset pubmed
-python train.py --conf config/gcn.yaml --use_cuda --dataset citeseer
+python train.py --conf config/gcn.yaml  --dataset cora
+python train.py --conf config/gcn.yaml  --dataset pubmed
+python train.py --conf config/gcn.yaml  --dataset citeseer
 
 
 # GAT
-python train.py --conf config/gat.yaml --use_cuda --dataset cora
-python train.py --conf config/gat.yaml --use_cuda --dataset pubmed
-python train.py --conf config/gat.yaml --use_cuda --dataset citeseer
+python train.py --conf config/gat.yaml --dataset cora
+python train.py --conf config/gat.yaml --dataset pubmed
+python train.py --conf config/gat.yaml --dataset citeseer
 
 
 # SGC (Slow version)
-python train.py --conf config/sgc.yaml --use_cuda --dataset cora
-python train.py --conf config/sgc.yaml --use_cuda --dataset pubmed
-python train.py --conf config/sgc.yaml --use_cuda --dataset citeseer
+python train.py --conf config/sgc.yaml --dataset cora
+python train.py --conf config/sgc.yaml --dataset pubmed
+python train.py --conf config/sgc.yaml --dataset citeseer
 
 # APPNP
-python train.py --conf config/appnp.yaml --use_cuda --dataset cora
-python train.py --conf config/appnp.yaml --use_cuda --dataset pubmed
-python train.py --conf config/appnp.yaml --use_cuda --dataset citeseer
+python train.py --conf config/appnp.yaml --dataset cora
+python train.py --conf config/appnp.yaml --dataset pubmed
+python train.py --conf config/appnp.yaml --dataset citeseer
 
 # GCNII (The original code use 1500 epochs.)
-python train.py --conf config/gcnii.yaml --use_cuda --dataset cora --epoch 1500
-python train.py --conf config/gcnii.yaml --use_cuda --dataset pubmed --epoch 1500
-python train.py --conf config/gcnii.yaml --use_cuda --dataset citeseer --epoch 1500
+python train.py --conf config/gcnii.yaml --dataset cora --epoch 1500
+python train.py --conf config/gcnii.yaml --dataset pubmed --epoch 1500
+python train.py --conf config/gcnii.yaml --dataset citeseer --epoch 1500
+
+# TransformConv + Gated Residual
+python train.py --conf config/transformer.yaml --dataset cora
+python train.py --conf config/transformer.yaml --dataset pubmed
+python train.py --conf config/transformer.yaml --dataset citeseer
+
+```
+
+
+```shell
+# Experimental API
+# If you want to try MultiGPU-FullBatch training. Run the following code instead.
+# This will only speed up models that have more computation on edges. For example, the TransformerConv in [Yun 2020](https://arxiv.org/abs/2009.03509).
+
+CUDA_VISIBLE_DEVICES=0,1 multi_gpu_train.py --conf config/transformer.yaml
+
 ```
