@@ -34,7 +34,9 @@ import paddle.distributed as dist
 class Graph(object):
     """Implementation of graph interface in pgl.
 
-    This is a simple implementation of graph structure in pgl. `pgl.Graph` is alias on `pgl.graph.Graph` 
+    This is a simple implementation of graph structure in pgl.
+
+    `pgl.Graph` is alias on `pgl.graph.Graph` 
 
     Args:
 
@@ -1248,60 +1250,6 @@ class Graph(object):
         self.dump(path)
         graph = Graph.load(path, mmap_mode="r")
         return graph
-
-
-class DistGPUGraph(Graph):
-    """Implement of Distributed GPU Graph shareding by edges"""
-
-    def __init__(self, graph):
-        shard_edges, shard_edge_feat = self.shard_edges_by_dst(graph.edges,
-                                                               graph.edge_feat)
-        super(DistGPUGraph, self).__init__(
-            num_nodes=graph.num_nodes,
-            edges=shard_edges,
-            node_feat=graph.node_feat,
-            edge_feat=shard_edge_feat)
-        if not self.is_tensor():
-            self.tensor(inplace=True)
-
-    def shard_edges_by_dst(self, edges, edge_feat):
-        shard_flag = edges[:, 1]
-        mask = (shard_flag % dist.get_world_size()) == dist.get_rank()
-        if type(mask) == paddle.Tensor:
-            eid = paddle.masked_select(paddle.arange(edges.shape[0]), mask)
-            shard_edges = paddle.gather(edges, eid)
-            shard_edge_feat = {}
-            for key, value in edge_feat.items():
-                shard_edge_feat[key] = paddle.gather(value, eid)
-        else:
-            eid = np.arange(edges.shape[0])[mask]
-            shard_edges = edges[eid]
-            shard_edge_feat = {}
-            for key, value in edge_feat.items():
-                shard_edge_feat[key] = value[eid]
-        return shard_edges, shard_edge_feat
-
-    def numpy(self, inplace=True):
-        raise ValueError("DistGPUGraph can't convert into numpy")
-
-    def recv(self, msg, reduce_function, recv_mode="dst"):
-        if recv_mode != "dst":
-            raise ValueError(
-                "Currently DistGPUGraph can only support recv_mode=='dst'")
-        output = super(DistGPUGraph, self).recv(
-            msg=msg, reduce_function=reduce_function, recv_mode=recv_mode)
-        out = op.all_reduce_sum_with_grad(output)
-        return out
-
-    def indegree(self, nodes=None):
-        degree = super(DistGPUGraph, self).indegree(nodes=nodes)
-        degree = op.all_reduce_sum_with_grad(degree)
-        return degree
-
-    def outdegree(self, nodes=None):
-        degree = super(DistGPUGraph, self).outdegree(nodes=nodes)
-        degree = op.all_reduce_sum_with_grad(degree)
-        return degree
 
 
 class DistGPUGraph(Graph):
