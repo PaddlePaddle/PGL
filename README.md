@@ -129,7 +129,7 @@ PGL requires:
 * cython
 
 
-PGL supports both Python 2 & 3
+PGL supports both Python 3
 
 
 ## Installation
