@@ -1351,12 +1351,12 @@ class DistGPUGraph(Graph):
     def numpy(self, inplace=True):
         raise ValueError("DistGPUGraph can't convert into numpy")
 
-    def recv(self, msg, reduce_function, recv_mode="dst"):
+    def recv(self, msg, reduce_func, recv_mode="dst"):
         if recv_mode != "dst":
             raise ValueError(
                 "Currently DistGPUGraph can only support recv_mode=='dst'")
         output = super(DistGPUGraph, self).recv(
-            msg=msg, reduce_function=reduce_function, recv_mode=recv_mode)
+            msg=msg, reduce_func=reduce_func, recv_mode=recv_mode)
         out = op.all_reduce_sum_with_grad(output)
         return out
 
@@ -1372,6 +1372,6 @@ class DistGPUGraph(Graph):
 
     def send_recv(self, feature, reduce_func="sum"):
         output = super(DistGPUGraph, self).send_recv(
-            feature=feature, reduce_function="sum")
+            feature=feature, reduce_func="sum")
         output = op.all_reduce_sum_with_grad(output)
         return output
