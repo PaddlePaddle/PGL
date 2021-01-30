@@ -262,3 +262,28 @@ def segment_softmax(data, segment_ids):
     sum_data = segment_sum(data, segment_ids)
     sum_data = paddle.gather(sum_data, segment_ids, axis=0)
     return data / sum_data
+
+
+def segment_padding(data, segment_ids):
+    idx_a = segment_ids
+    idx_b = paddle.arange(segment_ids.shape[0])
+    
+    temp_idx  = paddle.ones([segment_ids.shape[0]], dtype='float32')
+    temp_idx = segment_sum(temp_idx, segment_ids).astype('int32')
+    
+    max_padding = temp_idx.max().numpy()[0]
+    
+    temp_idx = paddle.fluid.layers.cumsum(temp_idx, exclusive=True)
+    temp_idx = paddle.gather(temp_idx, segment_ids)
+    
+    idx_b = idx_b - temp_idx
+    index = paddle.stack([idx_a, idx_b], axis=1)
+    
+    bz = segment_ids.max().numpy()[0] + 1
+    
+    shape = [bz, max_padding, data.shape[-1]]
+    output = paddle.scatter_nd(index, data, shape)
+    output = paddle.reshape(output, shape=[bz * max_padding, -1])
+    
+    return output
+
