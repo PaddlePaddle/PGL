@@ -93,20 +93,20 @@ The following graph learning models have been implemented in the framework. You 
 
 |Model | feature |
 |---|---|
-| [ERNIESage](./examples/erniesage/) | ERNIE SAmple aggreGatE for Text and Graph |
-| [GCN](./examples/gcn/) | Graph Convolutional Neural Networks |
-| [GAT](./examples/gat/) | Graph Attention Network |
-| [GraphSage](./examples/graphsage/) |Large-scale graph convolution network based on neighborhood sampling|
-| [unSup-GraphSage](./legacy/examples/unsup_graphsage/) | Unsupervised GraphSAGE |
-| [LINE](./legacy/examples/line/) | Representation learning based on first-order and second-order neighbors |
-| [DeepWalk](./examples/deepwalk/) | Representation learning by DFS random walk |
-| [MetaPath2Vec](./legacy/examples/metapath2vec/) | Representation learning based on metapath |
-| [Node2Vec](./legacy/examples/node2vec/) | The representation learning Combined with DFS and BFS  |
-| [Struct2Vec](./legacy/examples/strucvec/) | Representation learning based on structural similarity |
-| [SGC](./legacy/examples/sgc/) | Simplified graph convolution neural network |
-| [GES](./legacy/examples/ges/) | The graph represents learning method with node features |
-| [DGI](./legacy/examples/dgi/) | Unsupervised representation learning based on graph convolution network |
-| [GATNE](./legacy/examples/GATNE) | Representation Learning of Heterogeneous Graph based on MessagePassing |
+| [ERNIESage](../examples/erniesage.html) | ERNIE SAmple aggreGatE for Text and Graph |
+| [GCN](../examples/gcn.html) | Graph Convolutional Neural Networks |
+| [GAT](../examples/gat.html) | Graph Attention Network |
+| [GraphSage](../examples/graphsage.html) |Large-scale graph convolution network based on neighborhood sampling|
+| [unSup-GraphSage](../examples/unsup_graphsage.html) | Unsupervised GraphSAGE |
+| [LINE](../examples/line.html) | Representation learning based on first-order and second-order neighbors |
+| [DeepWalk](../examples/deepwalk.html) | Representation learning by DFS random walk |
+| [MetaPath2Vec](../examples/metapath2vec.html) | Representation learning based on metapath |
+| [Node2Vec](./examples/node2vec.html) | The representation learning Combined with DFS and BFS  |
+| [Struct2Vec](./examples/strucvec.html) | Representation learning based on structural similarity |
+| [SGC](./examples/sgc.html) | Simplified graph convolution neural network |
+| [GES](./examples/ges.html) | The graph represents learning method with node features |
+| [DGI](./examples/dgi.html) | Unsupervised representation learning based on graph convolution network |
+| [GATNE](./examples/GATNE.html) | Representation Learning of Heterogeneous Graph based on MessagePassing |
 
 The above models consists of three parts, namely, graph representation learning, graph neural network and heterogeneous graph learning, which are also divided into graph representation learning and graph neural network.
 

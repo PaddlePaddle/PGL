@@ -22,7 +22,7 @@ PGL v1.1 2020.4.29
 
 - You can find **ERNIESage**, a novel model for modeling text and graph structures, and its introduction [here](./examples/erniesage/).
 
-- PGL for [Open Graph Benchmark](https://github.com/snap-stanford/ogb) examples can be find [here](./ogb_examples/).
+- PGL for [Open Graph Benchmark](https://github.com/snap-stanford/ogb) examples can be found [here](./ogb_examples/).
 
 - We add newly graph level operators like **GraphPooling** and [**GraphNormalization**](https://arxiv.org/abs/2003.00982) for graph level predictions.
 
