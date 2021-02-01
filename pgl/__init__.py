@@ -28,4 +28,4 @@ from pgl import utils
 from pgl.graph import *
 from pgl.heter_graph import *
 
-__version__ = "2.0.0a"
+__version__ = "2.1"

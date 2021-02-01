@@ -1,6 +1,5 @@
-pgl.nn: Predefined graph neural networks layers. 
-==============
-
+pgl.nn
+=================================================
 
 Graph Convolution Layers
 ------------------------

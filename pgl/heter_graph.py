@@ -32,9 +32,49 @@ from pgl.utils.edge_index import EdgeIndex
 __all__ = ['HeterGraph']
 
 class HeterGraph(object):
+    """Implementation of heterogeneous graph structure in pgl
+
+    This is a simple implementation of heterogeneous graph structure in pgl.
+
+    `pgl.HeterGraph` is an alias for `pgl.heter_graph.HeterGraph` 
+
+    Args:
+
+        edges: dict, every element in the dict is a list of (u, v) tuples or a 2D paddle.Tensor.
+
+        num_nodes (optional): int, number of nodes in a heterogeneous graph
+
+        node_types (optional): list of (u, node_type) tuples to specify the node type of every node
+        node_feat (optional): a dict of numpy array as node features
+
+        edge_feat (optional): a dict of dict as edge features for every edge type
+
+    Examples:
+        .. code-block:: python
+
+            import numpy as np
+            import pgl
+
+            num_nodes = 4
+            node_types = [(0, 'user'), (1, 'item'), (2, 'item'), (3, 'user')]
+            edges = {
+                'edges_type1': [(0,1), (3,2)],
+                'edges_type2': [(1,2), (3,1)],
+            }
+            node_feat = {'feature': np.random.randn(4, 16)}
+            edges_feat = {
+                'edges_type1': {'h': np.random.randn(2, 16)},
+                'edges_type2': {'h': np.random.randn(2, 16)},
+            }
+
+            g = pgl.HeterGraph(
+                            num_nodes=num_nodes,
+                            edges=edges,
+                            node_types=node_types,
+                            node_feat=node_feat,
+                            edge_feat=edges_feat)
     """
-    # TODO: docs
-    """
+
     def __init__(self,
                  edges,
                  num_nodes=None,
