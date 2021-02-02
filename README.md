@@ -6,9 +6,10 @@
 [DOC](https://pgl.readthedocs.io/en/latest/) | [Quick Start](https://pgl.readthedocs.io/en/latest/quick_start/instruction.html) | [中文](./README.zh.md)
 
 ## Breaking News !!
-PGL v2.0 up comming 
+PGL v2.1 20210202
 
-- We are now support dygraph version of PaddlePaddle 2.0.
+- We are now support dygraph version of PaddlePaddle 2.0, and release PGL v2.1.
+- You can find the stable staic version of PGL in the branch "static_stable"
 
 PGL v1.2 2020.11.20
 
@@ -20,7 +21,7 @@ PGL v1.2 2020.11.20
 
 PGL v1.1 2020.4.29
 
-- You can find **ERNIESage**, a novel model for modeling text and graph structures, and its introduction [here](./examples/erniesage/).
+- You can find **ERNIESage**, a novel model for modeling text and graph structures, and its introduction [here](./legacy/examples/erniesage/).
 
 - PGL for [Open Graph Benchmark](https://github.com/snap-stanford/ogb) examples can be found [here](./ogb_examples/).
 
