@@ -209,7 +209,7 @@ def segment_max(data, segment_ids, name=None):
 
     This operator calculate the maximum elements of input `data` which with
     the same index in `segment_ids`.
-    It computes a tensor such that $out_i = \\min_{j} data_{j}$
+    It computes a tensor such that $out_i = \\max_{j} data_{j}$
     where max is over j such that `segment_ids[j] == i`.
 
     Args:
@@ -262,3 +262,30 @@ def segment_softmax(data, segment_ids):
     sum_data = segment_sum(data, segment_ids)
     sum_data = paddle.gather(sum_data, segment_ids, axis=0)
     return data / sum_data
+
+
+def segment_padding(data, segment_ids):
+    idx_a = segment_ids
+    idx_b = paddle.arange(segment_ids.shape[0])
+    
+    temp_idx  = paddle.ones([segment_ids.shape[0]], dtype='float32')
+    temp_idx = segment_sum(temp_idx, segment_ids).astype('int32')
+    
+    max_padding = temp_idx.max().numpy()[0]
+    
+    temp_idx = paddle.cumsum(temp_idx)
+    temp_idx_i = paddle.zeros([temp_idx.shape[0] + 1], dtype='int32')
+    temp_idx_i[1: ] = temp_idx
+    temp_idx = temp_idx_i[: -1]
+    temp_idx = paddle.gather(temp_idx, segment_ids)
+    
+    idx_b = idx_b - temp_idx
+    index = paddle.stack([idx_a, idx_b], axis=1)
+    
+    bz = segment_ids.max().numpy()[0] + 1
+    
+    shape = [bz, max_padding, data.shape[-1]]
+    output = paddle.scatter_nd(index, data, shape)
+    
+    return output
+
