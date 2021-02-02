@@ -6,9 +6,10 @@
 [DOC](https://pgl.readthedocs.io/en/latest/) | [Quick Start](https://pgl.readthedocs.io/en/latest/quick_start/instruction.html) | [中文](./README.zh.md)
 
 ## Breaking News !!
-PGL v2.0 up comming 
+PGL v2.1 20210202
 
-- We are now support dygraph version of PaddlePaddle 2.0.
+- We are now support dygraph version of PaddlePaddle 2.0, and release PGL v2.1.
+- You can find the stable staic version of PGL in the branch "static_stable"
 
 PGL v1.2 2020.11.20
 
