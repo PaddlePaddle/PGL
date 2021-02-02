@@ -106,7 +106,7 @@ The following graph learning models have been implemented in the framework. You 
 
 |Model | feature |
 |---|---|
-| [ERNIESage](./examples/erniesage/) | ERNIE SAmple aggreGatE for Text and Graph |
+| [ERNIESage](./legacy/examples/erniesage/) | ERNIE SAmple aggreGatE for Text and Graph |
 | [GCN](./examples/gcn/) | Graph Convolutional Neural Networks |
 | [GAT](./examples/gat/) | Graph Attention Network |
 | [GraphSage](./examples/graphsage/) |Large-scale graph convolution network based on neighborhood sampling|
