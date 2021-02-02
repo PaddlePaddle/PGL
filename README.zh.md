@@ -7,9 +7,10 @@
 
 ## 最新消息
 
-PGL v2.0 正在到来
+PGL v2.1 2020.02.02
 
-- 更易用了！支持PaddlePaddle 2.0动态图版
+- 更易用了！正式发布PGL 2.1版本，正式支持PaddlePaddle 2.0
+- 之前静态图版本（<2.0）的PGL放在“static_stable”分支
 
 PGL v1.2 2020.11.20
 
