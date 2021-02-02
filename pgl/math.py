@@ -209,7 +209,7 @@ def segment_max(data, segment_ids, name=None):
 
     This operator calculate the maximum elements of input `data` which with
     the same index in `segment_ids`.
-    It computes a tensor such that $out_i = \\min_{j} data_{j}$
+    It computes a tensor such that $out_i = \\max_{j} data_{j}$
     where max is over j such that `segment_ids[j] == i`.
 
     Args:
@@ -273,7 +273,10 @@ def segment_padding(data, segment_ids):
     
     max_padding = temp_idx.max().numpy()[0]
     
-    temp_idx = paddle.fluid.layers.cumsum(temp_idx, exclusive=True)
+    temp_idx = paddle.cumsum(temp_idx)
+    temp_idx_i = paddle.zeros([temp_idx.shape[0] + 1], dtype='int32')
+    temp_idx_i[1: ] = temp_idx
+    temp_idx = temp_idx_i[: -1]
     temp_idx = paddle.gather(temp_idx, segment_ids)
     
     idx_b = idx_b - temp_idx
@@ -283,7 +286,6 @@ def segment_padding(data, segment_ids):
     
     shape = [bz, max_padding, data.shape[-1]]
     output = paddle.scatter_nd(index, data, shape)
-    output = paddle.reshape(output, shape=[bz * max_padding, -1])
     
     return output
 
