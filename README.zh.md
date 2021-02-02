@@ -22,7 +22,7 @@ PGL v1.2 2020.11.20
 
 PGL v1.1 2020.4.29
 
-- **ERNIESage**是PGL团队最新提出的模型，可以用于建模文本以及图结构信息。你可以在[这里](./examples/erniesage)看到详细的介绍。
+- **ERNIESage**是PGL团队最新提出的模型，可以用于建模文本以及图结构信息。你可以在[这里](./legacy/examples/erniesage/)看到详细的介绍。
 
 - PGL现在提供[Open Graph Benchmark](https://github.com/snap-stanford/ogb)的一些例子，你可以在[这里](./ogb_examples)找到。
 
