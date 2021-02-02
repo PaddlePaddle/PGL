@@ -152,6 +152,8 @@ class Graph(object):
             os.makedirs(path)
         np.save(os.path.join(path, 'num_nodes.npy'), self._num_nodes)
         np.save(os.path.join(path, 'edges.npy'), self._edges)
+        np.save(os.path.join(path, 'num_graph.npy'), self._num_graph)
+        np.save(os.path.join(path, 'graph_lod.npy'), self._graph_lod)
 
         if self._adj_src_index:
             self._adj_src_index.dump(os.path.join(path, 'adj_src'))
@@ -589,25 +591,24 @@ class Graph(object):
         if eid is None and edges is None:
             raise ValueError("Eid and edges can't be None at the same time.")
 
+        sub_edge_feat = {}
         if edges is None:
             edges = self._edges[eid]
         else:
             edges = np.array(edges, dtype="int64")
-            
+
+        if with_edge_feat:
+            for key, value in self._edge_feat.items():
+                if eid is None:
+                    raise ValueError("Eid can not be None with edge features.")
+                sub_edge_feat[key] = value[eid]
+
+        if edge_feats is not None:
+            sub_edge_feat.update(edge_feats)
+
         sub_edges = graph_kernel.map_edges(
             np.arange(
                 len(edges), dtype="int64"), edges, reindex)
-
-        sub_edge_feat = {}
-        if edges is None:
-            if with_edge_feat:
-                for key, value in self._edge_feat.items():
-                    if eid is None:
-                        raise ValueError(
-                            "Eid can not be None with edge features.")
-                    sub_edge_feat[key] = value[eid]
-        else:
-            sub_edge_feat = edge_feats
 
         sub_node_feat = {}
         if with_node_feat:
@@ -944,6 +945,9 @@ class MemmapGraph(Graph):
     def __init__(self, path):
         self._num_nodes = np.load(os.path.join(path, 'num_nodes.npy'))
         self._edges = np.load(os.path.join(path, 'edges.npy'), mmap_mode="r")
+        self._num_graph = np.load(os.path.join(path, 'num_graph.npy'))
+        self._graph_lod = np.load(os.path.join(path, 'graph_lod.npy'))
+
         if os.path.isdir(os.path.join(path, 'adj_src')):
             self._adj_src_index = MemmapEdgeIndex(
                 os.path.join(path, 'adj_src'))

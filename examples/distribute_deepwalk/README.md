@@ -9,12 +9,12 @@ The datasets contain two networks: [BlogCatalog](http://socialcomputing.asu.edu/
 
 ## How to run
 
-We adopt [PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet) as our distributed training frameworks ```pgl_deepwalk.cfg``` is config file for deepwalk hyperparameter and ```local_config``` is a config file for parameter servers. By default, we have 2 pservers and 2 trainers. We can use ```cloud_run.sh``` to help you startup the parameter servers and model trainers. 
+We adopt [PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet) as our distributed training frameworks ```pgl_deepwalk.cfg``` is config file for deepwalk hyperparameter and ```local_config``` is a config file for parameter servers. By default, we have 2 pservers and 2 trainers. We can use ```paddle.distributed.launch_ps``` to help you startup the parameter servers and model trainers. 
 
 For examples, train deepwalk in distributed mode on BlogCataLog dataset.
 ```sh
 # train deepwalk in distributed mode.
-sh cloud_run.sh
+python3 -m paddle.distributed.launch_ps --worker_num 2 --server_num 2 cluster_train.py
 
 # multiclass task example
 python3 multi_class.py --use_cuda --ckpt_path ./model_path/4029 --epoch 1000

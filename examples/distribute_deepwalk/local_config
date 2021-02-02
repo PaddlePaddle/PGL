@@ -1,7 +1,0 @@
-#!/bin/bash 
-export PADDLE_TRAINERS_NUM=2
-export PADDLE_PSERVERS_NUM=2
-export PADDLE_PORT=6184,6185
-export PADDLE_PSERVERS="127.0.0.1"
-export BASE="./local_dir"
-

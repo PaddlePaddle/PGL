@@ -179,8 +179,8 @@ def main(args):
             os.makedirs(walk_save_path)
         pool = Pool(args.processes)
         args_list = [(x, dataset.graph, walk_save_path, 1, batch_size,
-                      walk_len, p, q, np.random.randint(2**32))
-                     for x in range(epoch)]
+                      walk_len, p, q, np.random.randint(
+                          2**32, dtype="int64")) for x in range(epoch)]
         pool.map(process, args_list)
         filelist = glob.glob(os.path.join(walk_save_path, "*"))
         log.info("Random walk on disk Done.")

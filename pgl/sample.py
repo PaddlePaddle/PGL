@@ -109,8 +109,6 @@ def graphsage_sample(graph, nodes, samples, ignore_edges=[]):
         start = time.time()
         # Find new nodes
 
-    feed_dict = {}
-
     subgraphs = []
     for i in range(num_layers):
         subgraphs.append(
@@ -471,7 +469,8 @@ def pinsage_sample(graph,
             graph.subgraph(
                 nodes=layer_nodes[0],
                 edges=layer_edges[i],
-                edge_feats=edge_feat_dict))
+                edge_feats=edge_feat_dict,
+                with_edge_feat=False))
         subgraphs[i].node_feat["index"] = np.array(
             layer_nodes[0], dtype="int64")
 

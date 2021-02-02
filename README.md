@@ -7,6 +7,14 @@
 
 ## Breaking News !!
 
+PGL v1.2 2020.11.20
+
+- The PGL team proposed a new **Uni**fied **M**essage **P**assing Model (UniMP), and achieved the State of the Art on three tasks on the OGB leaderboards. You can find the code [here](./ogb_examples/nodeproppred/unimp).
+
+- The PGL team proposed a two-stage recall and ranking model based on **ERNIEsage**, and won the **first place** in the [TextGraphs-2020](https://competitions.codalab.org/competitions/23615) competition co-organized by COLING.
+
+- The PGL team worked hard to develop an **open course of Graph Neural Network (GNN)**, which will help you getting started with Graph Neural Network in seven days. Details can be found in [course](https://github.com/PaddlePaddle/PGL/tree/main/course).
+
 PGL v1.1 2020.4.29
 
 - You can find **ERNIESage**, a novel model for modeling text and graph structures, and its introduction [here](./examples/erniesage/).
