@@ -11,140 +11,215 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#-*- coding: utf-8 -*-
+
+import tqdm
 import pgl
-from pgl import data_loader
+import paddle
+import paddle.nn as nn
 from pgl.utils.logger import log
-import paddle.fluid as fluid
 import numpy as np
 import time
 import argparse
+from paddle.optimizer import Adam
 
 
-def load(name):
+class GAT(nn.Layer):
+    """Implement of GAT
+    """
+
+    def __init__(
+            self,
+            input_size,
+            num_class,
+            num_layers=1,
+            feat_drop=0.6,
+            attn_drop=0.6,
+            num_heads=8,
+            hidden_size=8, ):
+        super(GAT, self).__init__()
+        self.num_class = num_class
+        self.num_layers = num_layers
+        self.feat_drop = feat_drop
+        self.attn_drop = attn_drop
+        self.num_heads = num_heads
+        self.hidden_size = hidden_size
+        self.gats = nn.LayerList()
+        for i in range(self.num_layers):
+            if i == 0:
+                self.gats.append(
+                    pgl.nn.GATConv(
+                        input_size,
+                        self.hidden_size,
+                        self.feat_drop,
+                        self.attn_drop,
+                        self.num_heads,
+                        activation='elu'))
+            elif i == (self.num_layers - 1):
+                self.gats.append(
+                    pgl.nn.GATConv(
+                        self.num_heads * self.hidden_size,
+                        self.num_class,
+                        self.feat_drop,
+                        self.attn_drop,
+                        1,
+                        concat=False,
+                        activation=None))
+            else:
+                self.gats.append(
+                    pgl.nn.GATConv(
+                        self.num_heads * self.hidden_size,
+                        self.hidden_size,
+                        self.feat_drop,
+                        self.attn_drop,
+                        self.num_heads,
+                        activation='elu'))
+
+    def forward(self, graph, feature):
+        for m in self.gats:
+            feature = m(graph, feature)
+        return feature
+
+
+def normalize(feat):
+    return feat / np.maximum(np.sum(feat, -1, keepdims=True), 1)
+
+
+def load(name, normalized_feature=True):
     if name == 'cora':
-        dataset = data_loader.CoraDataset()
+        dataset = pgl.dataset.CoraDataset()
     elif name == "pubmed":
-        dataset = data_loader.CitationDataset("pubmed", symmetry_edges=False)
+        dataset = pgl.dataset.CitationDataset("pubmed", symmetry_edges=True)
     elif name == "citeseer":
-        dataset = data_loader.CitationDataset("citeseer", symmetry_edges=False)
+        dataset = pgl.dataset.CitationDataset("citeseer", symmetry_edges=True)
     else:
         raise ValueError(name + " dataset doesn't exists")
+
+    indegree = dataset.graph.indegree()
+    dataset.graph.node_feat["words"] = normalize(dataset.graph.node_feat[
+        "words"])
+
+    dataset.graph.tensor()
+    train_index = dataset.train_index
+    dataset.train_label = paddle.to_tensor(
+        np.expand_dims(dataset.y[train_index], -1))
+    dataset.train_index = paddle.to_tensor(np.expand_dims(train_index, -1))
+
+    val_index = dataset.val_index
+    dataset.val_label = paddle.to_tensor(
+        np.expand_dims(dataset.y[val_index], -1))
+    dataset.val_index = paddle.to_tensor(np.expand_dims(val_index, -1))
+
+    test_index = dataset.test_index
+    dataset.test_label = paddle.to_tensor(
+        np.expand_dims(dataset.y[test_index], -1))
+    dataset.test_index = paddle.to_tensor(np.expand_dims(test_index, -1))
+
     return dataset
 
 
+def train(node_index, node_label, gnn_model, graph, criterion, optim):
+    gnn_model.train()
+    pred = gnn_model(graph, graph.node_feat["words"])
+    pred = paddle.gather(pred, node_index)
+    loss = criterion(pred, node_label)
+    loss.backward()
+    acc = paddle.metric.accuracy(input=pred, label=node_label, k=1)
+    optim.step()
+    optim.clear_grad()
+    return loss, acc
+
+
+@paddle.no_grad()
+def eval(node_index, node_label, gnn_model, graph, criterion):
+    gnn_model.eval()
+    pred = gnn_model(graph, graph.node_feat["words"])
+    pred = paddle.gather(pred, node_index)
+    loss = criterion(pred, node_label)
+    acc = paddle.metric.accuracy(input=pred, label=node_label, k=1)
+    return loss, acc
+
+
+def set_seed(seed):
+    paddle.seed(seed)
+    np.random.seed(seed)
+
+
 def main(args):
-    dataset = load(args.dataset)
-    place = fluid.CUDAPlace(0) if args.use_cuda else fluid.CPUPlace()
-    train_program = fluid.Program()
-    startup_program = fluid.Program()
-    test_program = fluid.Program()
-    hidden_size = 8
+    dataset = load(args.dataset, args.feature_pre_normalize)
 
-    with fluid.program_guard(train_program, startup_program):
-        gw = pgl.graph_wrapper.GraphWrapper(
-            name="graph",
-            node_feat=dataset.graph.node_feat_info())
-
-        output = pgl.layers.gat(gw,
-                                gw.node_feat["words"],
-                                hidden_size,
-                                activation="elu",
-                                name="gat_layer_1",
-                                num_heads=8,
-                                feat_drop=0.6,
-                                attn_drop=0.6,
-                                is_test=False)
-        output = pgl.layers.gat(gw,
-                                output,
-                                dataset.num_classes,
-                                num_heads=1,
-                                activation=None,
-                                name="gat_layer_2",
-                                feat_drop=0.6,
-                                attn_drop=0.6,
-                                is_test=False)
-        node_index = fluid.layers.data(
-            "node_index",
-            shape=[None, 1],
-            dtype="int64",
-            append_batch_size=False)
-        node_label = fluid.layers.data(
-            "node_label",
-            shape=[None, 1],
-            dtype="int64",
-            append_batch_size=False)
-
-        pred = fluid.layers.gather(output, node_index)
-        loss, pred = fluid.layers.softmax_with_cross_entropy(
-            logits=pred, label=node_label, return_softmax=True)
-        acc = fluid.layers.accuracy(input=pred, label=node_label, k=1)
-        loss = fluid.layers.mean(loss)
-
-    test_program = train_program.clone(for_test=True)
-    with fluid.program_guard(train_program, startup_program):
-        adam = fluid.optimizer.Adam(
-            learning_rate=0.005,
-            regularization=fluid.regularizer.L2DecayRegularizer(
-                regularization_coeff=0.0005))
-        adam.minimize(loss)
-
-    exe = fluid.Executor(place)
-    exe.run(startup_program)
-
-    feed_dict = gw.to_feed(dataset.graph)
-
+    graph = dataset.graph
     train_index = dataset.train_index
-    train_label = np.expand_dims(dataset.y[train_index], -1)
-    train_index = np.expand_dims(train_index, -1)
+    train_label = dataset.train_label
 
     val_index = dataset.val_index
-    val_label = np.expand_dims(dataset.y[val_index], -1)
-    val_index = np.expand_dims(val_index, -1)
+    val_label = dataset.val_label
 
     test_index = dataset.test_index
-    test_label = np.expand_dims(dataset.y[test_index], -1)
-    test_index = np.expand_dims(test_index, -1)
+    test_label = dataset.test_label
+    criterion = paddle.nn.loss.CrossEntropyLoss()
 
     dur = []
-    for epoch in range(200):
-        if epoch >= 3:
-            t0 = time.time()
-        feed_dict["node_index"] = np.array(train_index, dtype="int64")
-        feed_dict["node_label"] = np.array(train_label, dtype="int64")
-        train_loss, train_acc = exe.run(train_program,
-                                        feed=feed_dict,
-                                        fetch_list=[loss, acc],
-                                        return_numpy=True)
-        if epoch >= 3:
-            time_per_epoch = 1.0 * (time.time() - t0)
-            dur.append(time_per_epoch)
 
-        feed_dict["node_index"] = np.array(val_index, dtype="int64")
-        feed_dict["node_label"] = np.array(val_label, dtype="int64")
-        val_loss, val_acc = exe.run(test_program,
-                                    feed=feed_dict,
-                                    fetch_list=[loss, acc],
-                                    return_numpy=True)
+    best_test = []
 
-        log.info("Epoch %d " % epoch + "(%.5lf sec) " % np.mean(dur) +
-                 "Train Loss: %f " % train_loss + "Train Acc: %f " % train_acc
-                 + "Val Loss: %f " % val_loss + "Val Acc: %f " % val_acc)
+    for run in range(args.runs):
+        cal_val_acc = []
+        cal_test_acc = []
+        cal_val_loss = []
+        cal_test_loss = []
+        gnn_model = GAT(input_size=graph.node_feat["words"].shape[1],
+                        num_class=dataset.num_classes,
+                        num_layers=2,
+                        feat_drop=0.6,
+                        attn_drop=0.6,
+                        num_heads=8,
+                        hidden_size=8)
 
-    feed_dict["node_index"] = np.array(test_index, dtype="int64")
-    feed_dict["node_label"] = np.array(test_label, dtype="int64")
-    test_loss, test_acc = exe.run(test_program,
-                                  feed=feed_dict,
-                                  fetch_list=[loss, acc],
-                                  return_numpy=True)
-    log.info("Accuracy: %f" % test_acc)
+        optim = Adam(
+            learning_rate=0.005,
+            parameters=gnn_model.parameters(),
+            weight_decay=0.0005)
+
+        for epoch in tqdm.tqdm(range(200)):
+            if epoch >= 3:
+                start = time.time()
+            train_loss, train_acc = train(train_index, train_label, gnn_model,
+                                          graph, criterion, optim)
+            if epoch >= 3:
+                end = time.time()
+                dur.append(end - start)
+            val_loss, val_acc = eval(val_index, val_label, gnn_model, graph,
+                                     criterion)
+            cal_val_acc.append(val_acc.numpy())
+            cal_val_loss.append(val_loss.numpy())
+
+            test_loss, test_acc = eval(test_index, test_label, gnn_model,
+                                       graph, criterion)
+            cal_test_acc.append(test_acc.numpy())
+            cal_test_loss.append(test_loss.numpy())
+
+        log.info("Runs %s: Model: GAT Best Test Accuracy: %f" %
+                 (run, cal_test_acc[np.argmin(cal_val_loss)]))
+
+        best_test.append(cal_test_acc[np.argmin(cal_val_loss)])
+
+    log.info("Average Speed %s sec/ epoch" % (np.mean(dur)))
+    log.info("Dataset: %s Best Test Accuracy: %f ( stddev: %f )" %
+             (args.dataset, np.mean(best_test), np.std(best_test)))
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='GAT')
+    parser = argparse.ArgumentParser(
+        description='Benchmarking Citation Network')
     parser.add_argument(
         "--dataset", type=str, default="cora", help="dataset (cora, pubmed)")
-    parser.add_argument("--use_cuda", action='store_true', help="use_cuda")
+    parser.add_argument("--epoch", type=int, default=200, help="Epoch")
+    parser.add_argument("--runs", type=int, default=10, help="runs")
+    parser.add_argument(
+        "--feature_pre_normalize",
+        type=bool,
+        default=True,
+        help="pre_normalize feature")
     args = parser.parse_args()
     log.info(args)
     main(args)

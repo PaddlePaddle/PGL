@@ -3,27 +3,48 @@
 [Graph Attention Networks \(GAT\)](https://arxiv.org/abs/1710.10903) is a novel architectures that operate on graph-structured data, which leverages masked self-attentional layers to address the shortcomings of prior methods based on graph convolutions or their approximations. Based on PGL, we reproduce GAT algorithms and reach the same level of indicators as the paper in citation network benchmarks.
 ### Simple example to build single head GAT
 
-To build a gat layer,  one can use our pre-defined ```pgl.layers.gat``` or just write a gat layer with message passing interface.
+To build a gat layer,  one can use our pre-defined ```pgl.nn.GATConv``` or just write a gat layer with message passing interface.
+
 ```python
 import paddle.fluid as fluid
-def gat_layer(graph_wrapper, node_feature, hidden_size):
-    def send_func(src_feat, dst_feat, edge_feat):
-        logits = src_feat["a1"] + dst_feat["a2"]
-        logits = fluid.layers.leaky_relu(logits, alpha=0.2)
-        return {"logits": logits, "h": src_feat }
-    
-    def recv_func(msg):
-        norm = fluid.layers.sequence_softmax(msg["logits"])
-        output = msg["h"] * norm
+
+class CustomGATConv(nn.Layer):
+    def __init__(self,
+                 input_size, hidden_size,
+                 ):
+
+        self.hidden_size = hidden_size
+        self.num_heads = num_heads
+
+        self.linear = nn.Linear(input_size, hidden_size)
+        self.weight_src = self.create_parameter(shape=[ hidden_size ])
+        self.weight_dst = self.create_parameter(shape=[ hidden_size ])
+
+        self.leaky_relu = nn.LeakyReLU(negative_slope=0.2)
+
+    def send_attention(self, src_feat, dst_feat, edge_feat):
+        alpha = src_feat["src"] + dst_feat["dst"]
+        alpha = self.leaky_relu(alpha)
+        return {"alpha": alpha, "h": src_feat["h"]}
+
+    def reduce_attention(self, msg):
+        alpha = msg.reduce_softmax(msg["alpha"])
+        feature = msg["h"]
+        feature = feature * alpha
+        feature = msg.reduce(feature, pool_type="sum")
+        return feature
+
+    def forward(self, graph, feature):
+        feature = self.linear(feature)
+        attn_src = paddle.sum(feature * self.weight_src, axis=-1)
+        attn_dst = paddle.sum(feature * self.weight_dst, axis=-1)
+        msg = graph.send(
+            self.send_attention,
+            src_feat={"src": attn_src,
+                      "h": feature},
+            dst_feat={"dst": attn_dst})
+        output = graph.recv(reduce_func=self.reduce_attention, msg=msg)
         return output
-    
-    h = fluid.layers.fc(node_feature, hidden_size, bias_attr=False, name="hidden")
-    a1 = fluid.layers.fc(node_feature, 1, name="a1_weight")
-    a2 = fluid.layers.fc(node_feature, 1, name="a2_weight")
-    message = graph_wrapper.send(send_func,
-            nfeat_list=[("h", h), ("a1", a1), ("a2", a2)])
-    output = graph_wrapper.recv(recv_func, message)
-    return output
 ```
 
 
@@ -33,8 +54,8 @@ The datasets contain three citation networks: CORA, PUBMED, CITESEER. The detail
 
 ### Dependencies
 
-- paddlepaddle>=1.6
-- pgl
+- paddlepaddle==2.0.0
+- pgl==2.1
 
 ### Performance
 
@@ -50,7 +71,7 @@ We train our models for 200 epochs and report the accuracy on the test dataset.
 
 For examples, use gpu to train gat on cora dataset.
 ```
-python train.py --dataset cora --use_cuda
+python train.py --dataset cora
 ```
 
 #### Hyperparameters

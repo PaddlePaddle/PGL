@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ def slice_by_index(np.ndarray[np.int64_t, ndim=1] u,
     for i in xrange(h):
         j = index[i] 
         output.append(u[indptr[j]:indptr[j+1]])
-    return np.array(output)
+    return np.array(output, dtype=object)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)

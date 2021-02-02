@@ -1,5 +1,4 @@
-#-*- coding: utf-8 -*-
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,8 +19,6 @@ import numpy as np
 from collections import namedtuple
 
 import paddle
-import paddle.fluid as F
-import paddle.fluid.layers as L
 
 from pgl.utils import mp_reader
 from pgl.utils.data.dataset import Dataset, StreamDataset
@@ -34,7 +31,9 @@ class Dataloader(object):
     """Dataloader for loading batch data
 
     Example:
+
         .. code-block:: python
+
             from pgl.utils.data import Dataset
             from pgl.utils.data.dataloader import Dataloader
 
@@ -49,9 +48,8 @@ class Dataloader(object):
                     return len(self.data)
 
             def collate_fn(batch_examples):
-                feed_dict = {}
-                feed_dict['data'] = batch_examples
-                return feed_dict
+                inputs = np.array(batch_examples, dtype="int64")
+                return inputs
 
             dataset = MyDataset()
             loader = Dataloader(dataset, 
@@ -63,6 +61,7 @@ class Dataloader(object):
 
             for batch_data in loader:
                 print(batch_data)
+
     """
 
     def __init__(self,

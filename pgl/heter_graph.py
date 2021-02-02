@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,41 +14,47 @@
 """
     This package implement Heterogeneous Graph structure for handling Heterogeneous graph data.
 """
+
 import os
-import time
+import json
+import paddle
+import copy
 import numpy as np
-import pickle as pkl
-import time
+from collections import defaultdict
+
+from pgl.graph import Graph
+from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
-from pgl.graph import Graph, MemmapGraph
+from pgl.message import Message
+from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes
+from pgl.utils.edge_index import EdgeIndex
 
-__all__ = ['HeterGraph', 'SubHeterGraph']
-
-
-def _hide_num_nodes(shape):
-    """Set the first dimension as unknown
-    """
-    shape = list(shape)
-    shape[0] = None
-    return shape
-
+__all__ = ['HeterGraph']
 
 class HeterGraph(object):
     """Implementation of heterogeneous graph structure in pgl
 
     This is a simple implementation of heterogeneous graph structure in pgl.
 
+    `pgl.HeterGraph` is an alias for `pgl.heter_graph.HeterGraph` 
+
     Args:
-        num_nodes: number of nodes in a heterogeneous graph
-        edges: dict, every element in dict is a list of (u, v) tuples.
+
+        edges: dict, every element in the dict is a list of (u, v) tuples or a 2D paddle.Tensor.
+
+        num_nodes (optional): int, number of nodes in a heterogeneous graph
+
         node_types (optional): list of (u, node_type) tuples to specify the node type of every node
         node_feat (optional): a dict of numpy array as node features
+
         edge_feat (optional): a dict of dict as edge features for every edge type
 
     Examples:
         .. code-block:: python
 
             import numpy as np
+            import pgl
+
             num_nodes = 4
             node_types = [(0, 'user'), (1, 'item'), (2, 'item'), (3, 'user')]
             edges = {
@@ -61,7 +67,7 @@ class HeterGraph(object):
                 'edges_type2': {'h': np.random.randn(2, 16)},
             }
 
-            g = heter_graph.HeterGraph(
+            g = pgl.HeterGraph(
                             num_nodes=num_nodes,
                             edges=edges,
                             node_types=node_types,
@@ -70,12 +76,12 @@ class HeterGraph(object):
     """
 
     def __init__(self,
-                 num_nodes,
                  edges,
+                 num_nodes=None,
                  node_types=None,
                  node_feat=None,
                  edge_feat=None):
-        self._num_nodes = num_nodes
+
         self._edges_dict = edges
 
         if isinstance(node_types, list):
@@ -83,10 +89,14 @@ class HeterGraph(object):
         else:
             self._node_types = node_types
 
+        if num_nodes is None:
+            self._num_nodes = len(node_types)
+        else:
+            self._num_nodes = num_nodes
+
         self._nodes_type_dict = {}
-        for n_type in np.unique(self._node_types):
-            self._nodes_type_dict[n_type] = np.where(
-                self._node_types == n_type)[0]
+        for ntype in np.unique(self._node_types):
+            self._nodes_type_dict[ntype] = np.where(self._node_types == ntype)[0]
 
         if node_feat is not None:
             self._node_feat = node_feat
@@ -99,44 +109,31 @@ class HeterGraph(object):
             self._edge_feat = {}
 
         self._multi_graph = {}
-
-        for key, value in self._edges_dict.items():
+        for etype, _edges in self._edges_dict.items():
             if not self._edge_feat:
                 edge_feat = None
             else:
-                edge_feat = self._edge_feat[key]
+                edge_feat = self._edge_feat[etype]
 
-            self._multi_graph[key] = Graph(
-                num_nodes=self._num_nodes,
-                edges=value,
-                node_feat=self._node_feat,
-                edge_feat=edge_feat)
+            self._multi_graph[etype] = Graph(edges=_edges,
+                    num_nodes=self._num_nodes,
+                    node_feat=self._node_feat,
+                    edge_feat=edge_feat)
 
         self._edge_types = self.edge_types_info()
+        self._nodes = None
 
-    def dump(self, path, indegree=False, outdegree=False):
+        for etype, g in self._multi_graph.items():
+            if g.is_tensor():
+                self._is_tensor = True
+            else:
+                self._is_tensor = False
+            break
 
-        if indegree:
-            for e_type, g in self._multi_graph.items():
-                g.indegree()
-
-        if outdegree:
-            for e_type, g in self._multi_graph.items():
-                g.outdegree()
-
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-        np.save(os.path.join(path, "num_nodes.npy"), self._num_nodes)
-        np.save(os.path.join(path, "node_types.npy"), self._node_types)
-        with open(os.path.join(path, "edge_types.pkl"), 'wb') as f:
-            pkl.dump(self._edge_types, f)
-        with open(os.path.join(path, "nodes_type_dict.pkl"), 'wb') as f:
-            pkl.dump(self._nodes_type_dict, f)
-
-        for e_type, g in self._multi_graph.items():
-            sub_path = os.path.join(path, e_type)
-            g.dump(sub_path)
+    def is_tensor(self):
+        """Return whether the HeterGraph is in paddle.Tensor.
+        """
+        return self._is_tensor
 
     @property
     def edge_types(self):
@@ -166,7 +163,7 @@ class HeterGraph(object):
         return self._node_types
 
     @property
-    def edge_feat(self, edge_type=None):
+    def edge_feat(self):
         """Return edge features of all edge types.
         """
         return self._edge_feat
@@ -181,7 +178,12 @@ class HeterGraph(object):
     def nodes(self):
         """Return all nodes id from 0 to :code:`num_nodes - 1`
         """
-        return np.arange(self._num_nodes, dtype='int64')
+        if self._nodes is None:
+            if self.is_tensor():
+                self._nodes = paddle.arange(self.num_nodes)
+            else:
+                self._nodes = np.arange(self.num_nodes)
+        return self._nodes
 
     def __getitem__(self, edge_type):
         """__getitem__
@@ -207,13 +209,16 @@ class HeterGraph(object):
                     if edge_type is None, return the total indegree of the given nodes.
 
         Return:
-            A numpy.ndarray as the given nodes' indegree.
+            A numpy.ndarray or paddle.Tensor as the given nodes' indegree.
         """
         if edge_type is None:
             indegrees = []
             for e_type in self._edge_types:
                 indegrees.append(self._multi_graph[e_type].indegree(nodes))
-            indegrees = np.sum(np.vstack(indegrees), axis=0)
+            if self.is_tensor():
+                indegrees = paddle.sum(paddle.stack(indegrees), axis=0)
+            else:
+                indegrees = np.sum(np.vstack(indegrees), axis=0)
             return indegrees
         else:
             return self._multi_graph[edge_type].indegree(nodes)
@@ -229,13 +234,16 @@ class HeterGraph(object):
                     if edge_type is None, return the total outdegree of the given nodes.
 
         Return:
-            A numpy.array as the given nodes' outdegree.
+            A numpy.array or paddle.Tensor as the given nodes' outdegree.
         """
         if edge_type is None:
             outdegrees = []
             for e_type in self._edge_types:
                 outdegrees.append(self._multi_graph[e_type].outdegree(nodes))
-            outdegrees = np.sum(np.vstack(outdegrees), axis=0)
+            if self.is_tensor():
+                outdegrees = paddle.sum(paddle.stack(outdegrees), axis=0)
+            else:
+                outdegrees = np.sum(np.vstack(outdegrees), axis=0)
             return outdegrees
         else:
             return self._multi_graph[edge_type].outdegree(nodes)
@@ -330,7 +338,7 @@ class HeterGraph(object):
             return_eids=return_eids,
             shuffle=shuffle)
 
-    def node_batch_iter(self, batch_size, shuffle=True, n_type=None):
+    def node_batch_iter(self, batch_size, shuffle=False, n_type=None):
         """Node batch iterator
 
         Iterate all nodes by batch with the specified node type.
@@ -353,68 +361,13 @@ class HeterGraph(object):
 
         if shuffle:
             np.random.shuffle(nodes)
+
+        if self.is_tensor():
+            nodes = paddle.to_tensor(nodes)
         start = 0
         while start < len(nodes):
             yield nodes[start:start + batch_size]
             start += batch_size
-
-    def sample_nodes(self, sample_num, n_type=None):
-        """Sample nodes with the specified n_type from the graph
-
-        This function helps to sample nodes with the specified n_type from the graph.
-        If n_type is None, this function will sample nodes from all nodes.
-        Nodes might be duplicated.
-
-        Args:
-            sample_num: The number of samples
-            n_type: The nodes of type to be sampled
-
-        Return:
-            A list of nodes
-        """
-        if n_type is not None:
-            return np.random.choice(
-                self._nodes_type_dict[n_type], size=sample_num)
-        else:
-            return np.random.randint(
-                low=0, high=self._num_nodes, size=sample_num)
-
-    def node_feat_info(self):
-        """Return the information of node feature for HeterGraphWrapper.
-
-        This function return the information of node features of all node types. And this
-        function is used to help constructing HeterGraphWrapper
-
-        Return:
-            A list of tuple (name, shape, dtype) for all given node feature.
-
-        """
-        node_feat_info = []
-        for feat_name, feat in self._node_feat.items():
-            node_feat_info.append(
-                (feat_name, _hide_num_nodes(feat.shape), feat.dtype))
-
-        return node_feat_info
-
-    def edge_feat_info(self):
-        """Return the information of edge feature for HeterGraphWrapper.
-
-        This function return the information of edge features of all edge types. And this
-        function is used to help constructing HeterGraphWrapper
-
-        Return:
-            A dict of list of tuple (name, shape, dtype) for all given edge feature.
-
-        """
-        edge_feat_info = {}
-        for edge_type_name, feat_dict in self._edge_feat.items():
-            tmp_edge_feat_info = []
-            for feat_name, feat in feat_dict.items():
-                full_name = feat_name
-                tmp_edge_feat_info.append(
-                    (full_name, _hide_num_nodes(feat.shape), feat.dtype))
-            edge_feat_info[edge_type_name] = tmp_edge_feat_info
-        return edge_feat_info
 
     def edge_types_info(self):
         """Return the information of all edge types.
@@ -430,76 +383,3 @@ class HeterGraph(object):
         return edge_types_info
 
 
-class SubHeterGraph(HeterGraph):
-    """Implementation of SubHeterGraph in pgl.
-
-    SubHeterGraph is inherit from :code:`HeterGraph`. 
-
-    Args:
-        num_nodes: number of nodes in a heterogeneous graph
-        edges: dict, every element in dict is a list of (u, v) tuples.
-        node_types (optional): list of (u, node_type) tuples to specify the node type of every node
-        node_feat (optional): a dict of numpy array as node features
-        edge_feat (optional): a dict of dict as edge features for every edge type
-
-        reindex: A dictionary that maps parent hetergraph node id to subhetergraph node id.
-    """
-
-    def __init__(self,
-                 num_nodes,
-                 edges,
-                 node_types=None,
-                 node_feat=None,
-                 edge_feat=None,
-                 reindex=None):
-        super(SubHeterGraph, self).__init__(
-            num_nodes=num_nodes,
-            edges=edges,
-            node_types=node_types,
-            node_feat=node_feat,
-            edge_feat=edge_feat)
-
-        if reindex is None:
-            reindex = {}
-        self._from_reindex = reindex
-        self._to_reindex = {u: v for v, u in reindex.items()}
-
-    def reindex_from_parrent_nodes(self, nodes):
-        """Map the given parent graph node id to subgraph id.
-
-        Args:
-            nodes: A list of nodes from parent graph.
-
-        Return:
-            A list of subgraph ids.
-        """
-        return graph_kernel.map_nodes(nodes, self._from_reindex)
-
-    def reindex_to_parrent_nodes(self, nodes):
-        """Map the given subgraph node id to parent graph id.
-
-        Args:
-            nodes: A list of nodes in this subgraph.
-
-        Return:
-            A list of node ids in parent graph.
-        """
-        return graph_kernel.map_nodes(nodes, self._to_reindex)
-
-
-class MemmapHeterGraph(HeterGraph):
-    def __init__(self, path):
-        self._num_nodes = np.load(os.path.join(path, 'num_nodes.npy'))
-        self._node_types = np.load(
-            os.path.join(path, 'node_types.npy'), allow_pickle=True)
-
-        with open(os.path.join(path, 'edge_types.pkl'), 'rb') as f:
-            self._edge_types = pkl.load(f)
-
-        with open(os.path.join(path, "nodes_type_dict.pkl"), 'rb') as f:
-            self._nodes_type_dict = pkl.load(f)
-
-        self._multi_graph = {}
-        for e_type in self._edge_types:
-            sub_path = os.path.join(path, e_type)
-            self._multi_graph[e_type] = MemmapGraph(sub_path)

@@ -1,0 +1,50 @@
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""This package implements common pooling to help building
+graph neural networks.
+"""
+
+import numpy as np
+
+import paddle
+import paddle.nn as nn
+import paddle.nn.functional as F
+import pgl
+import pgl.math as math
+
+__all__ = ["GraphPool"]
+
+
+class GraphPool(nn.Layer):
+    """Implementation of graph pooling
+
+    This is an implementation of graph pooling
+
+    Args:
+        graph: the graph object from (:code:`Graph`)
+
+        feature: A tensor with shape (num_nodes, feature_size).
+
+        pool_type: The type of pooling ("sum", "mean" , "min", "max")
+
+    Return:
+        A tensor with shape (num_graph, feature_size)
+    """
+
+    def __init__(self):
+        super(GraphPool, self).__init__()
+
+    def forward(self, graph, feature, pool_type):
+        graph_feat = math.segment_pool(feature, graph.graph_node_id, pool_type)
+        return graph_feat

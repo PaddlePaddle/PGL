@@ -1,7 +1,7 @@
 model_name: GAT 
 learning_rate: 0.005
 weight_decay: 0.0005 
-num_layers: 1
+num_layers: 2
 feat_drop: 0.6
 attn_drop: 0.6
 num_heads: 8
