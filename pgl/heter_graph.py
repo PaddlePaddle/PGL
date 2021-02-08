@@ -20,14 +20,13 @@ import json
 import paddle
 import copy
 import numpy as np
+import pickle as pkl
 from collections import defaultdict
 
 from pgl.graph import Graph
 from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
 from pgl.message import Message
-from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes
-from pgl.utils.edge_index import EdgeIndex
 
 __all__ = ['HeterGraph']
 
@@ -149,7 +148,8 @@ class HeterGraph(object):
     def num_nodes(self):
         """Return the number of nodes.
         """
-        return self._num_nodes
+        _num_nodes = self._multi_graph[self._edge_types[0]].num_nodes
+        return _num_nodes
 
     @property
     def num_edges(self):
@@ -452,3 +452,63 @@ class HeterGraph(object):
                     multi_graph=new_multi_graph,
                     )
             return new_graph
+
+    def dump(self, path, indegree=False, outdegree=False):
+        """Dump the heterogeneous graph into a directory.
+
+        This function will dump the graph information into the given directory path. 
+        The graph can be read back with :code:`pgl.HeterGraph.load`
+
+        Args:
+            path: The directory for the storage of the heterogeneous graph.
+
+        """
+        if indegree:
+            for etype, g in self._multi_graph.items():
+                g.indegree()
+
+        if outdegree:
+            for etype, g in self._multi_graph.items():
+                g.outdegree()
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        np.save(os.path.join(path, "node_types.npy"), self._node_types)
+        with open(os.path.join(path, "edge_types.pkl"), "wb") as f:
+            pkl.dump(self._edge_types, f)
+
+        for etype, g in self._multi_graph.items():
+            sub_path = os.path.join(path, etype)
+            g.dump(sub_path)
+
+    @classmethod
+    def load(cls, path, mmap_mode="r"):
+        """Load HeterGraph from path and return a HeterGraph instance in numpy. 
+
+        Args:
+
+            path: The directory path of the stored HeterGraph.
+
+            mmap_mode: Default :code:`mmap_mode="r"`. If not None, memory-map the graph.  
+        """
+
+        _node_types = np.load(os.path.join(path, "node_types.npy"), allow_pickle=True)
+
+        with open(os.path.join(path, "edge_types.pkl"), "rb") as f:
+            _edge_types = pkl.load(f)
+
+        _multi_graph = {}
+
+        for etype in _edge_types:
+            sub_path = os.path.join(path, etype)
+            _multi_graph[etype] = Graph.load(sub_path, mmap_mode)
+
+        return cls(edges=None,
+                node_types=_node_types,
+                multi_graph=_multi_graph,
+                )
+
+
+
+

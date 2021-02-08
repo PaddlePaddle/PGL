@@ -18,6 +18,7 @@ import unittest
 import numpy as np
 import paddle
 import pgl
+import shutil
 
 
 class HeterGraphTest(unittest.TestCase):
@@ -135,6 +136,7 @@ class HeterGraphTest(unittest.TestCase):
 
         self.assertIsInstance(new_hg.node_feat['nfeat'], paddle.Tensor)
         self.assertIsInstance(new_hg.edge_feat['a2p']['efeat'], paddle.Tensor)
+        self.assertIsInstance(new_hg.num_nodes, paddle.Tensor)
 
         hg.tensor(inplace=True)
         self.assertIsInstance(hg.node_feat['nfeat'], paddle.Tensor)
@@ -149,6 +151,47 @@ class HeterGraphTest(unittest.TestCase):
         hg.numpy(inplace=True)
         self.assertIsInstance(hg.node_feat['nfeat'], np.ndarray)
         self.assertIsInstance(hg.edge_feat['a2p']['efeat'], np.ndarray)
+
+    def test_dump_and_load(self):
+        np.random.seed(1)
+        dim = 4
+        num_nodes = 15
+
+        edges = {}
+        # for test no successor
+        edges['c2p'] = [(1, 4), (0, 5), (1, 9), (1, 8), (2, 8), (2, 5), (3, 6),
+                        (3, 7), (3, 4), (3, 8)]
+        edges['p2c'] = [(v, u) for u, v in edges['c2p']]
+        edges['p2a'] = [(4, 10), (4, 11), (4, 12), (4, 14), (4, 13), (6, 12),
+                        (6, 11), (6, 14), (7, 12), (7, 11), (8, 14), (9, 10)]
+        edges['a2p'] = [(v, u) for u, v in edges['p2a']]
+
+        node_types = ['c' for _ in range(4)] + \
+                     ['p' for _ in range(6)] + \
+                     ['a' for _ in range(5)]
+        node_types = [(i, t) for i, t in enumerate(node_types)]
+
+        nfeat = {'nfeat': np.random.randn(num_nodes, dim)}
+        efeat = {}
+        for etype, _edges in edges.items():
+            efeat[etype] = {'efeat': np.random.randn(len(_edges), dim)}
+
+        hg = pgl.HeterGraph(edges=edges,
+                node_types=node_types,
+                node_feat=nfeat,
+                edge_feat=efeat)
+
+        path = "./tmp"
+        hg.dump(path, indegree=True)
+
+        hg2 = pgl.HeterGraph.load(path)
+
+        self.assertEqual(hg.num_nodes, hg2.num_nodes)
+
+        del hg
+        del hg2
+        shutil.rmtree(path)
+
 
 if __name__ == "__main__":
     unittest.main()
