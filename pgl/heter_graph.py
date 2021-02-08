@@ -80,7 +80,8 @@ class HeterGraph(object):
                  num_nodes=None,
                  node_types=None,
                  node_feat=None,
-                 edge_feat=None):
+                 edge_feat=None,
+                 **kwargs):
 
         self._edges_dict = edges
 
@@ -108,17 +109,20 @@ class HeterGraph(object):
         else:
             self._edge_feat = {}
 
-        self._multi_graph = {}
-        for etype, _edges in self._edges_dict.items():
-            if not self._edge_feat:
-                edge_feat = None
-            else:
-                edge_feat = self._edge_feat[etype]
+        if "multi_graph" in kwargs.keys():
+            self._multi_graph = kwargs["multi_graph"]
+        else:
+            self._multi_graph = {}
+            for etype, _edges in self._edges_dict.items():
+                if not self._edge_feat:
+                    edge_feat = None
+                else:
+                    edge_feat = self._edge_feat[etype]
 
-            self._multi_graph[etype] = Graph(edges=_edges,
-                    num_nodes=self._num_nodes,
-                    node_feat=self._node_feat,
-                    edge_feat=edge_feat)
+                self._multi_graph[etype] = Graph(edges=_edges,
+                        num_nodes=self._num_nodes,
+                        node_feat=copy.deepcopy(self._node_feat),
+                        edge_feat=edge_feat)
 
         self._edge_types = self.edge_types_info()
         self._nodes = None
@@ -166,13 +170,17 @@ class HeterGraph(object):
     def edge_feat(self):
         """Return edge features of all edge types.
         """
-        return self._edge_feat
+        efeat = {}
+        for etype, g in self._multi_graph.items():
+            efeat[etype] = g.edge_feat
+        return efeat
 
     @property
     def node_feat(self):
         """Return a dictionary of node features.
         """
-        return self._node_feat
+        nfeat = self._multi_graph[self._edge_types[0]].node_feat
+        return nfeat
 
     @property
     def nodes(self):
@@ -382,4 +390,65 @@ class HeterGraph(object):
 
         return edge_types_info
 
+    def tensor(self, inplace=True):
+        """Convert the Heterogeneous Graph into paddle.Tensor format.
 
+        In paddle.Tensor format, the graph edges and node features are in paddle.Tensor format.
+        You can use send and recv in paddle.Tensor graph.
+        
+        Args:
+
+            inplace: (Default True) Whether to convert the graph into tensor inplace. 
+
+        """
+        if self._is_tensor:
+            return self
+
+        if inplace:
+            for etype in self._edge_types:
+                self._multi_graph[etype].tensor(inplace)
+
+            self._is_tensor = True
+            return self
+        else:
+            new_multi_graph = {}
+            for etype in self._edge_types:
+                new_multi_graph[etype] = self._multi_graph[etype].tensor(inplace)
+
+            new_graph = self.__class__(
+                    edges=None,
+                    node_types=self.__dict__["_node_types"],
+                    multi_graph=new_multi_graph,
+                    )
+            return new_graph
+
+    def numpy(self, inplace=True):
+        """Convert the Heterogeneous Graph into numpy format.
+
+        In numpy format, the graph edges and node features are in numpy.ndarray format.
+        But you can't use send and recv in numpy graph.
+        
+        Args:
+
+            inplace: (Default True) Whether to convert the graph into numpy inplace. 
+
+        """
+        if not self._is_tensor:
+            return self
+
+        if inplace:
+            for etype in self._edge_types:
+                self._multi_graph[etype].numpy(inplace)
+            self._is_tensor = False
+            return self
+        else:
+            new_multi_graph = {}
+            for etype in self._edge_types:
+                new_multi_graph[etype] = self._multi_graph[etype].numpy(inplace)
+
+            new_graph = self.__class__(
+                    edges=None,
+                    node_types=self.__dict__["_node_types"],
+                    multi_graph=new_multi_graph,
+                    )
+            return new_graph

@@ -99,8 +99,56 @@ class HeterGraphTest(unittest.TestCase):
         for batch in hg.node_batch_iter(3, n_type='c'):
             break
 
+    def test_tensor(self):
+        np.random.seed(1)
+        dim = 4
+        num_nodes = 15
 
+        edges = {}
+        # for test no successor
+        edges['c2p'] = [(1, 4), (0, 5), (1, 9), (1, 8), (2, 8), (2, 5), (3, 6),
+                        (3, 7), (3, 4), (3, 8)]
+        edges['p2c'] = [(v, u) for u, v in edges['c2p']]
+        edges['p2a'] = [(4, 10), (4, 11), (4, 12), (4, 14), (4, 13), (6, 12),
+                        (6, 11), (6, 14), (7, 12), (7, 11), (8, 14), (9, 10)]
+        edges['a2p'] = [(v, u) for u, v in edges['p2a']]
 
+        node_types = ['c' for _ in range(4)] + \
+                     ['p' for _ in range(6)] + \
+                     ['a' for _ in range(5)]
+        node_types = [(i, t) for i, t in enumerate(node_types)]
+
+        nfeat = {'nfeat': np.random.randn(num_nodes, dim)}
+        efeat = {}
+        for etype, _edges in edges.items():
+            efeat[etype] = {'efeat': np.random.randn(len(_edges), dim)}
+
+        hg = pgl.HeterGraph(edges=edges,
+                node_types=node_types,
+                node_feat=nfeat,
+                edge_feat=efeat)
+
+        # inplace
+        new_hg = hg.tensor(inplace=False)
+        self.assertNotIsInstance(hg.node_feat['nfeat'], paddle.Tensor)
+        self.assertNotIsInstance(hg.edge_feat['a2p']['efeat'], paddle.Tensor)
+
+        self.assertIsInstance(new_hg.node_feat['nfeat'], paddle.Tensor)
+        self.assertIsInstance(new_hg.edge_feat['a2p']['efeat'], paddle.Tensor)
+
+        hg.tensor(inplace=True)
+        self.assertIsInstance(hg.node_feat['nfeat'], paddle.Tensor)
+        self.assertIsInstance(hg.edge_feat['a2p']['efeat'], paddle.Tensor)
+
+        new_hg = hg.numpy(inplace=False)
+        self.assertIsInstance(new_hg.node_feat['nfeat'], np.ndarray)
+        self.assertIsInstance(new_hg.edge_feat['a2p']['efeat'], np.ndarray)
+        self.assertIsInstance(hg.node_feat['nfeat'], paddle.Tensor)
+        self.assertIsInstance(hg.edge_feat['a2p']['efeat'], paddle.Tensor)
+
+        hg.numpy(inplace=True)
+        self.assertIsInstance(hg.node_feat['nfeat'], np.ndarray)
+        self.assertIsInstance(hg.edge_feat['a2p']['efeat'], np.ndarray)
 
 if __name__ == "__main__":
     unittest.main()
