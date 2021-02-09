@@ -16,6 +16,7 @@ Quick Start
     :caption: Quick Start
 
     quick_start/instruction.rst
+    quick_start/hetergraph_quick_start.rst
 
 .. toctree::
    :maxdepth: 1
