@@ -71,6 +71,8 @@ def train(model, data_loader, optim, log_per_step=1):
 
 
 def main(args):
+    if not args.use_cuda:
+        paddle.set_device("cpu")
     if paddle.distributed.get_world_size() > 1:
         paddle.distributed.init_parallel_env()
 
@@ -85,8 +87,7 @@ def main(args):
 
     optim = Adam(
         learning_rate=args.learning_rate,
-        parameters=model.parameters(),
-        weight_decay=args.weight_decay)
+        parameters=model.parameters())
 
     train_ds = ShardedDataset(graph.nodes)
     collate_fn = BatchRandWalk(graph, args.walk_len, args.win_size,

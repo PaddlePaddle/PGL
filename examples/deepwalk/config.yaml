@@ -1,6 +1,5 @@
 model_name: Deepwalk
 learning_rate: 0.025
-weight_decay: 0.0000
 
 sample_workers: 2
 batch_size: 128
