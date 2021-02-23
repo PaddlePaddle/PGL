@@ -22,7 +22,7 @@ import paddle.nn.functional as F
 
 
 class SkipGramModel(nn.Layer):
-    def __init__(self, num_nodes, embed_size=16, neg_num=5, sparse=False):
+    def __init__(self, num_nodes, embed_size=16, neg_num=5, sparse=False, sparse_embedding=False):
         super(SkipGramModel, self).__init__()
 
         self.num_nodes = num_nodes
@@ -31,8 +31,15 @@ class SkipGramModel(nn.Layer):
         embed_init = nn.initializer.Uniform(
             low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
         emb_attr = paddle.ParamAttr(name="node_embedding")
-        self.emb = nn.Embedding(
-            num_nodes, embed_size, sparse=sparse, weight_attr=emb_attr)
+        if sparse_embedding:
+            def emb_func(x):
+                d_shape = paddle.shape(x)
+                x_emb = paddle.static.nn.sparse_embedding(paddle.reshape(x, [-1, 1]), [num_nodes, embed_size], param_attr=emb_attr)
+                return paddle.reshape(x_emb, [d_shape[0], d_shape[1], embed_size])
+            self.emb = emb_func
+        else:
+            self.emb = nn.Embedding(
+                num_nodes, embed_size, sparse=sparse, weight_attr=emb_attr)
         self.loss = paddle.nn.BCEWithLogitsLoss(reduction="none")
 
     def forward(self, src, dsts):

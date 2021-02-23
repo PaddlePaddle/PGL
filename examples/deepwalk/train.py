@@ -102,6 +102,8 @@ def main(args):
     for epoch in tqdm.tqdm(range(args.epoch)):
         train_loss = train(model, data_loader, optim)
         log.info("Runing epoch:%s\t train_loss:%.6f", epoch, train_loss)
+    paddle.save(model.state_dict(), "model.pdparams")
+
 
 
 if __name__ == '__main__':
