@@ -46,7 +46,7 @@ def load(name):
     return dataset.graph.to_mmap()
 
 
-def train(model, data_loader, optim, log_per_step=1):
+def train(model, data_loader, optim, log_per_step=10):
     model.train()
     total_loss = 0.
     total_sample = 0
@@ -84,9 +84,12 @@ def main(args):
         args.neg_num,
         sparse=not args.use_cuda)
     model = paddle.DataParallel(model)
+    
+    train_steps = int(graph.num_nodes / args.batch_size) * args.epoch
+    scheduler = paddle.optimizer.lr.PolynomialDecay(learning_rate=args.learning_rate, decay_steps=train_steps, end_lr=0.0001)
 
     optim = Adam(
-        learning_rate=args.learning_rate,
+        learning_rate=scheduler,
         parameters=model.parameters())
 
     train_ds = ShardedDataset(graph.nodes)

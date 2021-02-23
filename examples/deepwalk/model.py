@@ -28,8 +28,9 @@ class SkipGramModel(nn.Layer):
         self.num_nodes = num_nodes
         self.neg_num = neg_num
 
-        embed_init = nn.initializer.Uniform(
-            low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
+        # embed_init = nn.initializer.Uniform(
+            # low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
+        embed_init = nn.initializer.Uniform(low=-1.0, high=1.0)
         emb_attr = paddle.ParamAttr(name="node_embedding")
         if sparse_embedding:
             def emb_func(x):
@@ -40,7 +41,7 @@ class SkipGramModel(nn.Layer):
         else:
             self.emb = nn.Embedding(
                 num_nodes, embed_size, sparse=sparse, weight_attr=emb_attr)
-        self.loss = paddle.nn.BCEWithLogitsLoss(reduction="none")
+        self.loss = paddle.nn.BCEWithLogitsLoss()
 
     def forward(self, src, dsts):
         # src [b, 1]
@@ -49,25 +50,24 @@ class SkipGramModel(nn.Layer):
         src_embed = self.emb(src)
         dsts_embed = self.emb(dsts)
 
-        logits = paddle.matmul(
-            src_embed, dsts_embed,
-            transpose_y=True)  # [batch_size, 1, neg_num+1]
+        pos_embed = dsts_embed[:, 0:1]
+        neg_embed = dsts_embed[:, 1:]
 
-        dst_shape = paddle.shape(dsts)
-        batch_size = dst_shape[0]
-        neg_num = dst_shape[1] - 1
+        pos_logits = paddle.matmul(
+            src_embed, pos_embed,
+            transpose_y=True)  # [batch_size, 1, 1]
 
-        pos_label = paddle.ones([batch_size, 1, 1], "float32")
-        neg_label = paddle.zeros([batch_size, 1, neg_num], "float32")
-        label = paddle.concat([pos_label, neg_label], -1)
+        neg_logits = paddle.matmul(
+            src_embed, neg_embed,
+            transpose_y=True)  # [batch_size, 1, neg_num]
 
-        pos_weight = pos_label * neg_num
-        neg_weight = neg_label + 1
-        weight = paddle.concat([pos_weight, neg_weight], -1)
+        ones_label = pos_logits * 0. + 1.
+        ones_label.stop_gradient = True
+        pos_loss = self.loss(pos_logits, ones_label)
 
-        #return logits, label, weight
-        loss = self.loss(logits, label)
-        loss = loss * weight
-        loss = paddle.mean(loss)
-        loss = loss * ((neg_num + 1) / 2 / neg_num)
+        zeros_label = neg_logits * 0.
+        zeros_label.stop_gradient = True
+        neg_loss = self.loss(neg_logits, zeros_label)
+
+        loss = (pos_loss + neg_loss) / 2
         return loss

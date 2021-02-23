@@ -1,8 +1,8 @@
 model_name: Deepwalk
 learning_rate: 0.025
 
-sample_workers: 2
-batch_size: 128
+sample_workers: 10
+batch_size: 512
 neg_num: 20
 walk_len: 40
 win_size: 10
