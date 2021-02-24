@@ -14,7 +14,7 @@
 """This package implements common pooling to help building
 graph neural networks.
 """
-
+import warnings
 import numpy as np
 
 import paddle
@@ -42,9 +42,16 @@ class GraphPool(nn.Layer):
         A tensor with shape (num_graph, feature_size)
     """
 
-    def __init__(self):
+    def __init__(self, pool_type=None):
         super(GraphPool, self).__init__()
+        self.pool_type = pool_type
 
-    def forward(self, graph, feature, pool_type):
+    def forward(self, graph, feature, pool_type=None):
+        if pool_type is not None:
+            warings.warn("The pool_type (%s) argument in forward function \
+                    will be discarded in the future, \
+                    please initialize it while creating a GraphPool instance")
+        else:
+            pool_type = self.pool_type
         graph_feat = math.segment_pool(feature, graph.graph_node_id, pool_type)
         return graph_feat
