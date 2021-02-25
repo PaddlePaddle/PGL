@@ -31,7 +31,8 @@ class SkipGramModel(nn.Layer):
         # embed_init = nn.initializer.Uniform(
             # low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
         embed_init = nn.initializer.Uniform(low=-1.0, high=1.0)
-        emb_attr = paddle.ParamAttr(name="node_embedding")
+        emb_attr = paddle.ParamAttr(name="node_embedding", initializer=embed_init)
+
         if sparse_embedding:
             def emb_func(x):
                 d_shape = paddle.shape(x)

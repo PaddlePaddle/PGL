@@ -56,7 +56,7 @@ class Model(paddle.nn.Layer):
             low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
         emb_attr = paddle.ParamAttr(name="node_embedding")
         self.emb = paddle.nn.Embedding(
-            num_nodes, embed_size, sparse=False, weight_attr=emb_attr)
+            num_nodes, embed_size, weight_attr=emb_attr)
         self.linear = paddle.nn.Linear(embed_size, num_classes)
 
     def forward(self, node_ids):
@@ -145,10 +145,11 @@ def test(model, data_loader, log_per_step=1000, threshold=0.3):
         node = paddle.to_tensor(node)
         labels = paddle.to_tensor(labels)
         logits = model(node)
+        probs = paddle.nn.functional.sigmoid(logits)
         loss = bce_loss(logits, labels)
 
         topk = labels.sum(-1)
-        test_probs_vals.append(logits.numpy())
+        test_probs_vals.append(probs.numpy())
         test_labels_vals.append(labels.numpy())
         test_topk_vals.append(topk.numpy())
 
@@ -189,7 +190,7 @@ def main(args):
 
     batch_size = len(dataset.train_index)
 
-    train_steps = int(graph.num_nodes / batch_size) * args.epoch
+    train_steps = int(len(dataset.train_index) / batch_size) * args.epoch
     scheduler = paddle.optimizer.lr.PolynomialDecay(learning_rate=args.learning_rate, decay_steps=train_steps, end_lr=0.0001)
 
     optim = Adam(

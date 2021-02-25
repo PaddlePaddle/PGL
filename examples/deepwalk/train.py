@@ -122,7 +122,7 @@ if __name__ == '__main__':
         type=str,
         default="./config.yaml",
         help="config file for models")
-    parser.add_argument("--epoch", type=int, default=200, help="Epoch")
+    parser.add_argument("--epoch", type=int, default=400, help="Epoch")
     args = parser.parse_args()
 
     # merge user args and config file 
