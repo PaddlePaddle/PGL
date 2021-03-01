@@ -111,24 +111,45 @@ def topk_f1_score(labels,
     return f1_score(labels, preds, average=average)
 
 
-def train(model, data_loader, optim, log_per_step=1000):
+def train(model, data_loader, optim, log_per_step=1000, threshold=0.3):
     model.train()
     total_loss = 0.
     total_sample = 0
     bce_loss = paddle.nn.BCEWithLogitsLoss()
+    test_probs_vals, test_labels_vals, test_topk_vals = [], [], []
 
     for batch, (node, labels) in enumerate(data_loader):
         num_samples = len(node)
         node = paddle.to_tensor(node)
         labels = paddle.to_tensor(labels)
         logits = model(node)
+        probs = paddle.nn.functional.sigmoid(logits)
         loss = bce_loss(logits, labels)
         loss.backward()
         optim.step()
         optim.clear_grad()
 
+        topk = labels.sum(-1)
+        test_probs_vals.append(probs.numpy())
+        test_labels_vals.append(labels.numpy())
+        test_topk_vals.append(topk.numpy())
+
         total_loss += loss.numpy()[0] * num_samples
         total_sample += num_samples
+
+    test_probs_array = np.concatenate(test_probs_vals)
+    test_labels_array = np.concatenate(test_labels_vals)
+    test_topk_array = np.concatenate(test_topk_vals)
+    test_macro_f1 = topk_f1_score(
+        test_labels_array, test_probs_array, test_topk_array,
+        "macro", threshold)
+    test_micro_f1 = topk_f1_score(
+        test_labels_array, test_probs_array, test_topk_array,
+        "micro", threshold)
+    test_loss_val = total_loss / total_sample
+    log.info("Train Loss: %f " %
+             test_loss_val + "Train Macro F1: %f " % test_macro_f1 +
+             "Train Micro F1: %f " % test_micro_f1)
     return total_loss / total_sample
 
 
@@ -191,21 +212,11 @@ def main(args):
     batch_size = len(dataset.train_index)
 
     train_steps = int(len(dataset.train_index) / batch_size) * args.epoch
-    scheduler = paddle.optimizer.lr.PolynomialDecay(learning_rate=args.learning_rate, decay_steps=train_steps, end_lr=0.0001)
+    scheduler = paddle.optimizer.lr.PolynomialDecay(learning_rate=args.multiclass_learning_rate, decay_steps=train_steps, end_lr=0.0001)
 
     optim = Adam(
         learning_rate=scheduler,
         parameters=model.parameters())
-
-    # train_ds = ShardedDataset(graph.nodes)
-    # collate_fn = BatchRandWalk(graph, args.walk_len, args.win_size,
-                               # args.neg_num, args.neg_sample_type)
-    # data_loader = Dataloader(
-        # train_ds,
-        # batch_size=args.batch_size,
-        # shuffle=True,
-        # num_workers=args.sample_workers,
-        # collate_fn=collate_fn)
 
     model.set_state_dict(paddle.load("model.pdparams"))
 
@@ -216,9 +227,7 @@ def main(args):
 
     for epoch in tqdm.tqdm(range(args.epoch)):
         train_loss = train(model, train_data_loader(), optim)
-        log.info("Runing epoch:%s\t train_loss:%.6f", epoch, train_loss)
         test_loss = test(model, test_data_loader())
-        log.info("Runing epoch:%s\t test_loss:%.6f", epoch, test_loss)
 
 
 if __name__ == '__main__':
