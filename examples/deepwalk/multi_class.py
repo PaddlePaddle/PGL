@@ -15,6 +15,7 @@ import argparse
 import time
 import os
 import math
+import glob
 
 import numpy as np
 import paddle
@@ -193,6 +194,21 @@ def test(model, data_loader, log_per_step=1000, threshold=0.3):
     return test_loss_val
 
 
+def load_from_files(model_dir):
+    files = glob.glob(os.path.join(model_dir, "node_embedding_txt", "node_embedding.block*.txt"))
+    emb_table = dict()
+    for filename in files:
+        for line in open(filename):
+            key, value = line.strip(",\n").split("\t")
+            key = int(key)
+            value = [float(v) for v in value.split(",")]
+            emb_table[key] = value
+
+    emb_list = [emb_table[key] for key in range(len(emb_table))]
+    emb_arr = np.array(emb_list, dtype=np.float32)
+    emb_arr = emb_arr[:, :(emb_arr.shape[1]-3)//3]
+    return {'emb.weight': emb_arr}
+
 
 def main(args):
     if not args.use_cuda:
@@ -218,7 +234,10 @@ def main(args):
         learning_rate=scheduler,
         parameters=model.parameters())
 
-    model.set_state_dict(paddle.load("model.pdparams"))
+    if args.load_from_static:
+        model.set_state_dict(load_from_files("./model"))
+    else:
+        model.set_state_dict(paddle.load("model.pdparams"))
 
     train_data_loader = node_classify_generator(graph, dataset.train_index,
             batch_size=batch_size, epoch=1)
@@ -243,7 +262,8 @@ if __name__ == '__main__':
         type=str,
         default="./config.yaml",
         help="config file for models")
-    parser.add_argument("--epoch", type=int, default=200, help="Epoch")
+    parser.add_argument("--epoch", type=int, default=1000, help="Epoch")
+    parser.add_argument("--load_from_static", action='store_true', help="use_cuda")
     args = parser.parse_args()
 
     # merge user args and config file 

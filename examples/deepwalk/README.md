@@ -22,7 +22,7 @@ CUDA_VISIBLE_DEVICES=0,1 fleetrun train.py --use_cuda
 CPU_NUM=10 fleetrun --worker_num 2 --server_num 2 train_distributed_cpu.py
 
 # multiclass task example
-python multi_class.py --use_cuda --ckpt_path ./model_path/4029 --epoch 1000
+python multi_class.py
 
 ```
 
