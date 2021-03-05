@@ -195,19 +195,17 @@ class Graph(object):
                 '''
                     Args:
 
-                        msg: A LodTensor or a dictionary of LodTensor whose batch_size
-                             is equals to the number of unique dst nodes.
+                        msg: An instance of Message class.
 
                     Return:
 
-                        It should return a tensor with shape (batch_size, out_dims). The
-                        batch size should be the same as msg.
+                        It should return a tensor with shape (batch_size, out_dims).
                 '''
                 pass
 
         Args:
 
-            msg: A tensor or a dictionary of tensor created by send function..
+            msg: A dictionary of tensor created by send function..
 
             reduce_func: A callable UDF reduce function.
 

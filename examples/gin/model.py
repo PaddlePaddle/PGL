@@ -57,7 +57,7 @@ class GINModel(nn.Layer):
             self.linears.append(nn.Linear(self.output_size, self.num_class))
 
         self.relu = nn.ReLU()
-        self.graph_pooling = pgl.nn.GraphPool()
+        self.graph_pooling = pgl.nn.GraphPool(self.pool_type)
 
     def forward(self, graph):
         features_list = [graph.node_feat['attr']]
@@ -69,7 +69,7 @@ class GINModel(nn.Layer):
 
         output = 0
         for i, h in enumerate(features_list):
-            h = self.graph_pooling(graph, h, self.pool_type)
+            h = self.graph_pooling(graph, h)
             h = F.dropout(h, p=self.dropout_prob)
             output += self.linears[i](h)
 
