@@ -62,12 +62,10 @@ class SkipGramModel(nn.Layer):
             src_embed, neg_embed,
             transpose_y=True)  # [batch_size, 1, neg_num]
 
-        ones_label = pos_logits * 0. + 1.
-        ones_label.stop_gradient = True
+        ones_label = paddle.ones_like(pos_logits)
         pos_loss = self.loss(pos_logits, ones_label)
 
-        zeros_label = neg_logits * 0.
-        zeros_label.stop_gradient = True
+        zeros_label = paddle.zeros_like(neg_logits)
         neg_loss = self.loss(neg_logits, zeros_label)
 
         loss = (pos_loss + neg_loss) / 2
