@@ -357,14 +357,17 @@ class APPNP(nn.Layer):
 
         alpha: The hyperparameter of alpha in the paper.
 
+        self_loop: Whether add self loop in APPNP layer.
+
     Return:
         A tensor with shape (num_nodes, hidden_size)
     """
 
-    def __init__(self, alpha=0.2, k_hop=10):
+    def __init__(self, alpha=0.2, k_hop=10, self_loop=False):
         super(APPNP, self).__init__()
         self.alpha = alpha
         self.k_hop = k_hop
+        self.self_loop = self_loop
 
     def forward(self, graph, feature, norm=None):
         """
@@ -382,6 +385,19 @@ class APPNP(nn.Layer):
             A tensor with shape (num_nodes, output_size)
 
         """
+        if self.self_loop:
+            index = paddle.arange(start=0, end=graph.num_nodes, dtype="int64")
+            self_loop_edges = paddle.transpose(
+                paddle.stack((index, index)), [1, 0])
+
+            mask = graph.edges[:, 0] != graph.edges[:, 1]
+            mask_index = paddle.masked_select(
+                paddle.arange(end=graph.num_edges), mask)
+            edges = paddle.gather(graph.edges, mask_index)  # remove self loop
+
+            edges = paddle.concat((self_loop_edges, edges), axis=0)
+            graph = pgl.Graph(num_nodes=graph.num_nodes, edges=edges)
+
         if norm is None:
             norm = GF.degree_norm(graph)
         h0 = feature
@@ -722,7 +738,7 @@ class RGCNConv(nn.Layer):
     def forward(self, graph, feat):
         """
         Args:
-            graph: `pgl.HeterGraph` instance.
+            graph: `pgl.HeterGraph` instance or a dictionary of `pgl.Graph` with their edge type.
 
             feat: A tensor with shape (num_nodes, in_dim)
         """
