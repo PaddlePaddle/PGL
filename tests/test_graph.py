@@ -149,6 +149,43 @@ class GraphTest(unittest.TestCase):
         self.assertTrue(
             np.all(edge_index == multi_graph.graph_edge_id.numpy()))
 
+    def test_disjoint_tensor_graph(self):
+        glist = []
+        dim = 4
+        for i in range(5):
+            num_nodes = np.random.randint(low=2, high=10)
+            edges = np.random.randint(
+                low=1,
+                high=num_nodes,
+                size=[np.random.randint(
+                    low=1, high=10), 2])
+            nfeat = np.random.randn(num_nodes, dim)
+            efeat = np.random.randn(len(edges), dim)
+
+            g = pgl.Graph(
+                edges=paddle.to_tensor(edges),
+                num_nodes=paddle.to_tensor(num_nodes),
+                node_feat={"nfeat": paddle.to_tensor(nfeat)},
+                edge_feat={"efeat": paddle.to_tensor(efeat)})
+            glist.append(g)
+        # Merge Graph
+        multi_graph = pgl.Graph.disjoint(glist)
+
+        # Check Graph Index
+        node_index = [np.ones(g.num_nodes) * n for n, g in enumerate(glist)]
+        edge_index = [np.ones(g.num_edges) * n for n, g in enumerate(glist)]
+        node_index = np.concatenate(node_index)
+        edge_index = np.concatenate(edge_index)
+
+        self.assertTrue(
+            np.all(node_index == multi_graph.graph_node_id.numpy()))
+        self.assertTrue(
+            np.all(edge_index == multi_graph.graph_edge_id.numpy()))
+
+        multi_graph.numpy()
+        self.assertTrue(np.all(node_index == multi_graph.graph_node_id))
+        self.assertTrue(np.all(edge_index == multi_graph.graph_edge_id))
+
     def test_dump_numpy_load_tensor(self):
 
         path = './tmp'

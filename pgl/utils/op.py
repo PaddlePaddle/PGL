@@ -61,8 +61,10 @@ def get_index_from_counts(counts):
     """
     if check_is_tensor(counts):
         index = paddle.concat(
-            [paddle.zeros(
-                shape=[1, ], dtype="int64"), paddle.cumsum(counts)],
+            [
+                paddle.zeros(
+                    shape=[1, ], dtype=counts.dtype), paddle.cumsum(counts)
+            ],
             axis=-1)
     else:
         index = np.cumsum(counts, dtype="int64")
