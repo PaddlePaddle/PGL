@@ -1114,6 +1114,8 @@ class Graph(object):
         ) > 0, "The input graph_list of Graph.disjoint has length $s. It should be greater than 0. " % len(
             graph_list)
 
+        is_tensor = graph_list[0].is_tensor()
+
         edges = cls._join_edges(graph_list)
         num_nodes = cls._join_nodes(graph_list)
         node_feat = cls._join_feature(graph_list, mode="node")
@@ -1124,7 +1126,8 @@ class Graph(object):
             graph_node_index = None
             graph_edge_index = None
         else:
-            num_graph = len(graph_list)
+            num_graph = paddle.to_tensor([len(graph_list)], "int64") \
+                    if is_tensor else len(graph_list)
             graph_node_index = cls._join_graph_index(graph_list, mode="node")
             graph_edge_index = cls._join_graph_index(graph_list, mode="edge")
 

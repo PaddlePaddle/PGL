@@ -20,14 +20,13 @@ import json
 import paddle
 import copy
 import numpy as np
+import pickle as pkl
 from collections import defaultdict
 
 from pgl.graph import Graph
 from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
 from pgl.message import Message
-from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes
-from pgl.utils.edge_index import EdgeIndex
 
 __all__ = ['HeterGraph']
 
@@ -80,7 +79,8 @@ class HeterGraph(object):
                  num_nodes=None,
                  node_types=None,
                  node_feat=None,
-                 edge_feat=None):
+                 edge_feat=None,
+                 **kwargs):
 
         self._edges_dict = edges
 
@@ -108,17 +108,20 @@ class HeterGraph(object):
         else:
             self._edge_feat = {}
 
-        self._multi_graph = {}
-        for etype, _edges in self._edges_dict.items():
-            if not self._edge_feat:
-                edge_feat = None
-            else:
-                edge_feat = self._edge_feat[etype]
+        if "multi_graph" in kwargs.keys():
+            self._multi_graph = kwargs["multi_graph"]
+        else:
+            self._multi_graph = {}
+            for etype, _edges in self._edges_dict.items():
+                if not self._edge_feat:
+                    edge_feat = None
+                else:
+                    edge_feat = self._edge_feat[etype]
 
-            self._multi_graph[etype] = Graph(edges=_edges,
-                    num_nodes=self._num_nodes,
-                    node_feat=self._node_feat,
-                    edge_feat=edge_feat)
+                self._multi_graph[etype] = Graph(edges=_edges,
+                        num_nodes=self._num_nodes,
+                        node_feat=copy.deepcopy(self._node_feat),
+                        edge_feat=edge_feat)
 
         self._edge_types = self.edge_types_info()
         self._nodes = None
@@ -145,7 +148,8 @@ class HeterGraph(object):
     def num_nodes(self):
         """Return the number of nodes.
         """
-        return self._num_nodes
+        _num_nodes = self._multi_graph[self._edge_types[0]].num_nodes
+        return _num_nodes
 
     @property
     def num_edges(self):
@@ -166,13 +170,17 @@ class HeterGraph(object):
     def edge_feat(self):
         """Return edge features of all edge types.
         """
-        return self._edge_feat
+        efeat = {}
+        for etype, g in self._multi_graph.items():
+            efeat[etype] = g.edge_feat
+        return efeat
 
     @property
     def node_feat(self):
         """Return a dictionary of node features.
         """
-        return self._node_feat
+        nfeat = self._multi_graph[self._edge_types[0]].node_feat
+        return nfeat
 
     @property
     def nodes(self):
@@ -381,5 +389,126 @@ class HeterGraph(object):
             edge_types_info.append(key)
 
         return edge_types_info
+
+    def tensor(self, inplace=True):
+        """Convert the Heterogeneous Graph into paddle.Tensor format.
+
+        In paddle.Tensor format, the graph edges and node features are in paddle.Tensor format.
+        You can use send and recv in paddle.Tensor graph.
+        
+        Args:
+
+            inplace: (Default True) Whether to convert the graph into tensor inplace. 
+
+        """
+        if self._is_tensor:
+            return self
+
+        if inplace:
+            for etype in self._edge_types:
+                self._multi_graph[etype].tensor(inplace)
+
+            self._is_tensor = True
+            return self
+        else:
+            new_multi_graph = {}
+            for etype in self._edge_types:
+                new_multi_graph[etype] = self._multi_graph[etype].tensor(inplace)
+
+            new_graph = self.__class__(
+                    edges=None,
+                    node_types=self.__dict__["_node_types"],
+                    multi_graph=new_multi_graph,
+                    )
+            return new_graph
+
+    def numpy(self, inplace=True):
+        """Convert the Heterogeneous Graph into numpy format.
+
+        In numpy format, the graph edges and node features are in numpy.ndarray format.
+        But you can't use send and recv in numpy graph.
+        
+        Args:
+
+            inplace: (Default True) Whether to convert the graph into numpy inplace. 
+
+        """
+        if not self._is_tensor:
+            return self
+
+        if inplace:
+            for etype in self._edge_types:
+                self._multi_graph[etype].numpy(inplace)
+            self._is_tensor = False
+            return self
+        else:
+            new_multi_graph = {}
+            for etype in self._edge_types:
+                new_multi_graph[etype] = self._multi_graph[etype].numpy(inplace)
+
+            new_graph = self.__class__(
+                    edges=None,
+                    node_types=self.__dict__["_node_types"],
+                    multi_graph=new_multi_graph,
+                    )
+            return new_graph
+
+    def dump(self, path, indegree=False, outdegree=False):
+        """Dump the heterogeneous graph into a directory.
+
+        This function will dump the graph information into the given directory path. 
+        The graph can be read back with :code:`pgl.HeterGraph.load`
+
+        Args:
+            path: The directory for the storage of the heterogeneous graph.
+
+        """
+        if indegree:
+            for etype, g in self._multi_graph.items():
+                g.indegree()
+
+        if outdegree:
+            for etype, g in self._multi_graph.items():
+                g.outdegree()
+
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        np.save(os.path.join(path, "node_types.npy"), self._node_types)
+        with open(os.path.join(path, "edge_types.pkl"), "wb") as f:
+            pkl.dump(self._edge_types, f)
+
+        for etype, g in self._multi_graph.items():
+            sub_path = os.path.join(path, etype)
+            g.dump(sub_path)
+
+    @classmethod
+    def load(cls, path, mmap_mode="r"):
+        """Load HeterGraph from path and return a HeterGraph instance in numpy. 
+
+        Args:
+
+            path: The directory path of the stored HeterGraph.
+
+            mmap_mode: Default :code:`mmap_mode="r"`. If not None, memory-map the graph.  
+        """
+
+        _node_types = np.load(os.path.join(path, "node_types.npy"), allow_pickle=True)
+
+        with open(os.path.join(path, "edge_types.pkl"), "rb") as f:
+            _edge_types = pkl.load(f)
+
+        _multi_graph = {}
+
+        for etype in _edge_types:
+            sub_path = os.path.join(path, etype)
+            _multi_graph[etype] = Graph.load(sub_path, mmap_mode)
+
+        return cls(edges=None,
+                node_types=_node_types,
+                multi_graph=_multi_graph,
+                )
+
+
 
 

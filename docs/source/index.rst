@@ -16,6 +16,7 @@ Quick Start
     :caption: Quick Start
 
     quick_start/instruction.rst
+    quick_start/hetergraph_quick_start.rst
 
 .. toctree::
    :maxdepth: 1
@@ -24,6 +25,7 @@ Quick Start
    examples/gin.rst
    examples/gcn.rst
    examples/gat.rst
+   examples/rgcn.rst
    examples/citation_benchmark.rst
    examples/graphsage.rst
 

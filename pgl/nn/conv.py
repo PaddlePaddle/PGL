@@ -31,6 +31,7 @@ __all__ = [
     'GINConv',
     "GraphSageConv",
     "PinSageConv",
+    "RGCNConv",
 ]
 
 
@@ -356,14 +357,17 @@ class APPNP(nn.Layer):
 
         alpha: The hyperparameter of alpha in the paper.
 
+        self_loop: Whether add self loop in APPNP layer.
+
     Return:
         A tensor with shape (num_nodes, hidden_size)
     """
 
-    def __init__(self, alpha=0.2, k_hop=10):
+    def __init__(self, alpha=0.2, k_hop=10, self_loop=False):
         super(APPNP, self).__init__()
         self.alpha = alpha
         self.k_hop = k_hop
+        self.self_loop = self_loop
 
     def forward(self, graph, feature, norm=None):
         """
@@ -381,6 +385,19 @@ class APPNP(nn.Layer):
             A tensor with shape (num_nodes, output_size)
 
         """
+        if self.self_loop:
+            index = paddle.arange(start=0, end=graph.num_nodes, dtype="int64")
+            self_loop_edges = paddle.transpose(
+                paddle.stack((index, index)), [1, 0])
+
+            mask = graph.edges[:, 0] != graph.edges[:, 1]
+            mask_index = paddle.masked_select(
+                paddle.arange(end=graph.num_edges), mask)
+            edges = paddle.gather(graph.edges, mask_index)  # remove self loop
+
+            edges = paddle.concat((self_loop_edges, edges), axis=0)
+            graph = pgl.Graph(num_nodes=graph.num_nodes, edges=edges)
+
         if norm is None:
             norm = GF.degree_norm(graph)
         h0 = feature
@@ -679,3 +696,76 @@ class GINConv(nn.Layer):
         output = self.linear2(output)
 
         return output
+
+
+class RGCNConv(nn.Layer):
+    """Implementation of Relational Graph Convolutional Networks (R-GCN)
+
+    This is an implementation of the paper 
+    Modeling Relational Data with Graph Convolutional Networks 
+    (http://arxiv.org/abs/1703.06103).
+
+    Args:
+        
+        in_dim: The input dimension.
+
+        out_dim: The output dimension.
+
+        etypes: A list of edge types of the heterogeneous graph.
+
+        num_bases: int, number of basis decomposition. Details can be found in the paper.
+
+    """
+
+    def __init__(self, in_dim, out_dim, etypes, num_bases=0):
+        super(RGCNConv, self).__init__()
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        self.etypes = etypes
+        self.num_rels = len(self.etypes)
+        self.num_bases = num_bases
+
+        if self.num_bases <= 0 or self.num_bases >= self.num_rels:
+            self.num_bases = self.num_rels
+
+        self.weight = self.create_parameter(
+            shape=[self.num_bases, self.in_dim, self.out_dim])
+
+        if self.num_bases < self.num_rels:
+            self.w_comp = self.create_parameter(
+                shape=[self.num_rels, self.num_bases])
+
+    def forward(self, graph, feat):
+        """
+        Args:
+            graph: `pgl.HeterGraph` instance or a dictionary of `pgl.Graph` with their edge type.
+
+            feat: A tensor with shape (num_nodes, in_dim)
+        """
+
+        if self.num_bases < self.num_rels:
+            weight = paddle.transpose(self.weight, perm=[1, 0, 2])
+            weight = paddle.matmul(self.w_comp, weight)
+            # [num_rels, in_dim, out_dim]
+            weight = paddle.transpose(weight, perm=[1, 0, 2])
+        else:
+            weight = self.weight
+
+        def send_func(src_feat, dst_feat, edge_feat):
+            return src_feat
+
+        def recv_func(msg):
+            return msg.reduce_mean(msg["h"])
+
+        feat_list = []
+        for idx, etype in enumerate(self.etypes):
+            w = weight[idx, :, :].squeeze()
+            h = paddle.matmul(feat, w)
+            msg = graph[etype].send(send_func, src_feat={"h": h})
+            h = graph[etype].recv(recv_func, msg)
+            feat_list.append(h)
+
+        h = paddle.stack(feat_list, axis=0)
+        h = paddle.sum(h, axis=0)
+
+        return h
