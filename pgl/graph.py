@@ -135,8 +135,12 @@ class Graph(object):
         if num_nodes is None:
             self._num_nodes = maybe_num_nodes(self._edges)
         else:
-            # TODO: check num_nodes is valid
             self._num_nodes = num_nodes
+            max_edge_id = maybe_num_nodes(self._edges)
+            if self._num_nodes < max_edge_id:
+                raise ValueError("The max edge ID should be less than the number of nodes. "
+                        "But got max edge ID [%s] >= num_nodes [%s]" \
+                        % (max_edge_id-1, self._num_nodes))
 
         self._adj_src_index = kwargs.get("adj_src_index", None)
         self._adj_dst_index = kwargs.get("adj_dst_index", None)
@@ -177,7 +181,7 @@ class Graph(object):
                     self._adj_src_index.tensor(inplace=True)
 
             if self._adj_dst_index is not None:
-                if not self._adj_dst_idnex.is_tensor():
+                if not self._adj_dst_index.is_tensor():
                     self._adj_dst_index.tensor(inplace=True)
 
         # preprocess graph level informations
