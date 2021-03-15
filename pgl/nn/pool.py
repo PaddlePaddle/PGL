@@ -48,9 +48,9 @@ class GraphPool(nn.Layer):
 
     def forward(self, graph, feature, pool_type=None):
         if pool_type is not None:
-            warings.warn("The pool_type (%s) argument in forward function \
-                    will be discarded in the future, \
-                    please initialize it while creating a GraphPool instance")
+            warnings.warn("The pool_type (%s) argument in forward function " \
+                    "will be discarded in the future, " \
+                    "please initialize it when creating a GraphPool instance.")
         else:
             pool_type = self.pool_type
         graph_feat = math.segment_pool(feature, graph.graph_node_id, pool_type)

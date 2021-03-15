@@ -142,6 +142,8 @@ def maybe_num_nodes(edges):
 
         An int or paddle.Tensor about the number of nodes.
     """
+    if len(edges) == 0:
+        return 0
     if check_is_tensor(edges):
         return paddle.max(edges) + 1
     else:
