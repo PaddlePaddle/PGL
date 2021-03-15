@@ -1,0 +1,31 @@
+task_name: train.pcba
+dataset_name: ogbg-molpcba
+metrics: ap
+
+K: 3
+hidden_size: 400
+out_dim: 128
+dropout_prob: 0.5
+virt_node: True
+conv_type: "gin+"
+num_layers: 5
+appnp_hop: 5
+alpha: 0.8
+
+# data config
+num_class: null
+
+# runconfig
+epochs: 100
+batch_size: 100 
+lr: 0.005
+num_workers: 4
+shuffle: True
+
+# logger
+stdout: True
+log_dir: ./logs
+log_filename: log.txt
+save_dir: ./checkpoints
+output_dir: ./outputs
+files2saved: ["*.yaml", "*.py", "./utils"]
