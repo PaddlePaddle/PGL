@@ -1193,7 +1193,7 @@ class Graph(object):
         ret_feat = {}
         for key in feat:
             if len(feat[key]) == 1:
-                ret_feat[key] = feat[key]
+                ret_feat[key] = feat[key][0]
             else:
                 if is_tensor:
                     ret_feat[key] = paddle.concat(feat[key], 0)
