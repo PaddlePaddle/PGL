@@ -206,6 +206,11 @@ class GraphTest(unittest.TestCase):
         self.assertTrue(np.all(node_index == multi_graph.graph_node_id))
         self.assertTrue(np.all(edge_index == multi_graph.graph_edge_id))
 
+        # testing for jointing One Graph
+        multi_graph = pgl.Graph.disjoint([glist[0]])
+        self.assertEqual(multi_graph.node_feat['nfeat'].shape,
+                         [glist[0].num_nodes.numpy()[0], dim])
+
     def test_dump_numpy_load_tensor(self):
 
         path = './tmp'
