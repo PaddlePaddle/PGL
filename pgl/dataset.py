@@ -235,7 +235,11 @@ class CoraDataset(object):
         self.val_index = perm[200:500]
         self.test_index = perm[500:1500]
         self.y = np.array(y, dtype="int64")
+        self.train_label = self.y[self.train_index]
+        self.val_label = self.y[self.val_index]
+        self.test_label = self.y[self.test_index]
         self.num_classes = len(y_dict)
+        self.feature = node_feature
 
 
 class BlogCatalogDataset(object):
