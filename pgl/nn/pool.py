@@ -23,7 +23,7 @@ import paddle.nn.functional as F
 import pgl
 import pgl.math as math
 
-__all__ = ["GraphPool"]
+__all__ = ["GraphPool", "GraphNorm"]
 
 
 class GraphPool(nn.Layer):
@@ -55,3 +55,31 @@ class GraphPool(nn.Layer):
             pool_type = self.pool_type
         graph_feat = math.segment_pool(feature, graph.graph_node_id, pool_type)
         return graph_feat
+
+
+class GraphNorm(nn.Layer):
+    """Implementation of graph normalization
+   
+    Reference Paper: BENCHMARKING GRAPH NEURAL NETWORKS
+   
+    Each node features is divied by sqrt(num_nodes) per graphs.
+
+    Args:
+        graph: the graph object from (:code:`Graph`)
+
+        feature: A tensor with shape (num_nodes, feature_size).
+
+    Return:
+        A tensor with shape (num_nodes, hidden_size)
+    """
+
+    def __init__(self):
+        super(GraphNorm, self).__init__()
+        self.graph_pool = GraphPool(pool_type="sum")
+
+    def forward(self, graph, feature):
+        nodes = paddle.ones(shape=[graph.num_nodes, 1], dtype="float32")
+        norm = self.graph_pool(graph, nodes)
+        norm = paddle.sqrt(norm)
+        norm = paddle.gather(norm, graph.graph_node_id)
+        return feature / norm
