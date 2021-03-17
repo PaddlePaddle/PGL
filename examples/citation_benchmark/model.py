@@ -251,7 +251,7 @@ class GCNII(nn.Layer):
                  dropout=0.6,
                  lambda_l=0.5,
                  alpha=0.1,
-                 k_hop=10,
+                 k_hop=64,
                  **kwargs):
         super(GCNII, self).__init__()
         self.num_class = num_class
@@ -261,7 +261,7 @@ class GCNII(nn.Layer):
         self.hidden_size = hidden_size
         self.lambda_l = lambda_l
         self.alpha = alpha
-        self.k_hop = 10
+        self.k_hop = k_hop 
 
         self.mlps = nn.LayerList()
         self.mlps.append(nn.Linear(input_size, self.hidden_size))
