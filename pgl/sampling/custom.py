@@ -17,7 +17,24 @@ import numpy as np
 from pgl.graph import Graph
 
 __all__ = []
-__all__.append("subgraph")
+__all__.extend(["alias_sample", "subgraph"])
+
+
+def alias_sample(size, alias, events):
+    """Implement of alias sample.
+    Args:
+        size: Output shape.
+        alias: The alias table build by `alias_sample_build_table`.
+        events: The events table build by `alias_sample_build_table`.
+    Return:
+        samples: The generated random samples.
+    """
+    rand_num = np.random.uniform(0.0, len(alias), size)
+    idx = rand_num.astype("int64")
+    uni = rand_num - idx
+    flags = (uni >= alias[idx])
+    idx[flags] = events[idx][flags]
+    return idx
 
 
 def subgraph(graph,
