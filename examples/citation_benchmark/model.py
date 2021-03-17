@@ -228,14 +228,13 @@ class SGC(nn.Layer):
 
     def __init__(self, input_size, num_class, num_layers=1, **kwargs):
         super(SGC, self).__init__()
+        self.num_class = num_class
         self.num_layers = num_layers
-        self.appnp_layer = pgl.nn.APPNP(alpha=0, k_hop=self.num_layers)
-        self.linear = nn.Linear(input_size, num_class)
+        self.sgc_layer = pgl.nn.SGCConv(input_size=input_size, output_size=num_class, k_hop=num_layers)
 
     def forward(self, graph, feature):
         feature = graph.node_feat["words"]
-        feature = self.appnp_layer(graph, feature)
-        feature = self.linear(feature)
+        feature = self.sgc_layer(graph, feature)
         return feature
 
 
