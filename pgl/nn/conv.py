@@ -33,6 +33,7 @@ __all__ = [
     "PinSageConv",
     "RGCNConv",
     "SGCConv",
+    "SSGCConv",
 ]
 
 
@@ -792,14 +793,21 @@ class SGCConv(nn.Layer):
 
     """
 
-    def __init__(self, input_size, output_size, k_hop=2, cached=True, activation=None, bias=False):
+    def __init__(self,
+                 input_size,
+                 output_size,
+                 k_hop=2,
+                 cached=True,
+                 activation=None,
+                 bias=False):
         super(SGCConv, self).__init__()
         self.input_size = input_size
         self.output_size = output_size
         self.k_hop = k_hop
         self.linear = nn.Linear(input_size, output_size, bias_attr=False)
         if bias:
-            self.bias = self.create_parameter(shape=[output_size], is_bias=True)
+            self.bias = self.create_parameter(
+                shape=[output_size], is_bias=True)
 
         self.cached = cached
         self.cached_output = None
@@ -828,7 +836,7 @@ class SGCConv(nn.Layer):
                     feature = feature * norm
                     feature = graph.send_recv(feature, "sum")
                     feature = feature * norm
-                self.cached_output = feature 
+                self.cached_output = feature
             else:
                 feature = self.cached_output
         else:
@@ -847,4 +855,98 @@ class SGCConv(nn.Layer):
         return output
 
 
+class SSGCConv(nn.Layer):
+    """Implementation of Simple Spectral Graph Convolution (SSGC)
 
+    This is an implementation of the paper Simple Spectral Graph Convolution 
+    (https://openreview.net/forum?id=CYO5T-YjWZV).
+
+    Args:
+
+        input_size: The size of the inputs. 
+
+        output_size: The size of outputs
+
+        k_hop: K Steps for Propagation
+
+        alpha: The hyper parameter in paper. 
+
+        activation: The activation for the output.
+
+        cached: If :code:`cached` is True, then the graph convolution will be pre-computed and stored.
+
+    """
+
+    def __init__(self,
+                 input_size,
+                 output_size,
+                 k_hop=16,
+                 alpha=0.05,
+                 cached=True,
+                 activation=None,
+                 bias=False):
+        super(SSGCConv, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        self.k_hop = k_hop
+        self.alpha = alpha
+        self.linear = nn.Linear(input_size, output_size, bias_attr=False)
+        if bias:
+            self.bias = self.create_parameter(
+                shape=[output_size], is_bias=True)
+
+        self.cached = cached
+        self.cached_output = None
+        if isinstance(activation, str):
+            activation = getattr(F, activation)
+        self.activation = activation
+
+    def forward(self, graph, feature):
+        """
+         
+        Args:
+ 
+            graph: `pgl.Graph` instance.
+
+            feature: A tensor with shape (num_nodes, input_size)
+     
+        Return:
+
+            A tensor with shape (num_nodes, output_size)
+
+        """
+        if self.cached:
+            if self.cached_output is None:
+                norm = GF.degree_norm(graph)
+                ori_feature = feature
+                sum_feature = feature
+                for hop in range(self.k_hop):
+                    feature = feature * norm
+                    feature = graph.send_recv(feature, "sum")
+                    feature = feature * norm
+                    feature = (1 - self.alpha) * feature
+                    sum_feature += feature
+                feature = sum_feature / self.k_hop + self.alpha * ori_feature
+                self.cached_output = feature
+            else:
+                feature = self.cached_output
+        else:
+
+            norm = GF.degree_norm(graph)
+            ori_feature = feature
+            sum_feature = feature
+            for hop in range(self.k_hop):
+                feature = feature * norm
+                feature = graph.send_recv(feature, "sum")
+                feature = feature * norm
+                feature = (1 - self.alpha) * feature
+                sum_feature += feature
+            feature = sum_feature / self.k_hop + self.alpha * ori_feature
+
+        output = self.linear(feature)
+        if hasattr(self, "bias"):
+            output = output + self.bias
+
+        if self.activation is not None:
+            output = self.activation(output)
+        return output

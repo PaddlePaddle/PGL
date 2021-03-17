@@ -230,11 +230,38 @@ class SGC(nn.Layer):
         super(SGC, self).__init__()
         self.num_class = num_class
         self.num_layers = num_layers
-        self.sgc_layer = pgl.nn.SGCConv(input_size=input_size, output_size=num_class, k_hop=num_layers)
+        self.sgc_layer = pgl.nn.SGCConv(
+            input_size=input_size, output_size=num_class, k_hop=num_layers)
 
     def forward(self, graph, feature):
         feature = graph.node_feat["words"]
         feature = self.sgc_layer(graph, feature)
+        return feature
+
+
+class SSGC(nn.Layer):
+    """Implement of SSGC
+    """
+
+    def __init__(self,
+                 input_size,
+                 num_class,
+                 num_layers=16,
+                 alpha=0.05,
+                 **kwargs):
+        super(SSGC, self).__init__()
+        self.num_class = num_class
+        self.num_layers = num_layers
+        self.ssgc_layer = pgl.nn.SSGCConv(
+            input_size=input_size,
+            output_size=num_class,
+            k_hop=num_layers,
+            alpha=alpha,
+            bias=True)
+
+    def forward(self, graph, feature):
+        feature = graph.node_feat["words"]
+        feature = self.ssgc_layer(graph, feature)
         return feature
 
 
@@ -260,7 +287,7 @@ class GCNII(nn.Layer):
         self.hidden_size = hidden_size
         self.lambda_l = lambda_l
         self.alpha = alpha
-        self.k_hop = k_hop 
+        self.k_hop = k_hop
 
         self.mlps = nn.LayerList()
         self.mlps.append(nn.Linear(input_size, self.hidden_size))
