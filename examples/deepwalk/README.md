@@ -2,33 +2,36 @@
 [Deepwalk](https://arxiv.org/pdf/1403.6652.pdf) is an algorithmic framework for representational learning on graphs. Given any graph, it can learn continuous feature representations for the nodes, which can then be used for various downstream machine learning tasks. Based on PGL, we reproduce distributed deepwalk algorithms and reach the same level of indicators as the paper.
 
 ## Datasets
-The datasets contain two networks: [BlogCatalog](http://socialcomputing.asu.edu/datasets/BlogCatalog3) and [Arxiv](http://snap.stanford.edu/data/ca-AstroPh.html). 
+The datasets contain two networks: [BlogCatalog](http://socialcomputing.asu.edu/datasets/BlogCatalog3). 
 ## Dependencies
-- paddlepaddle>=1.6
-- pgl
+- paddlepaddle>=2.0rc
+- pgl>=2.0
 
 ## How to run
+We adopt [PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet) as our distributed training frameworks ```config.yaml``` is config file for deepwalk hyperparameter. In distributed CPU mode, we have 2 pservers and 2 trainers. We can use ```fleetrun``` to help you startup the parameter servers and model trainers. 
 
-For examples, use gpu to train deepwalh on BlogCatalog and ArXiv dataset.
+For examples, train deepwalk mode on BlogCataLog dataset.
 ```sh
+# train deepwalk in CPU mode.
+python train.py
+# train deepwalk in single GPU mode.
+CUDA_VISIBLE_DEVICES=0 python train.py --use_cuda
+# train deepwalk in multiple GPU mode.
+CUDA_VISIBLE_DEVICES=0,1 fleetrun train.py --use_cuda
+# train deepwalk in distributed CPU mode.
+CPU_NUM=10 fleetrun --worker_num 2 --server_num 2 train_distributed_cpu.py
+
 # multiclass task example
-python deepwalk.py --use_cuda --dataset BlogCatalog --save_path ./tmp/deepwalk_BlogCatalog/ --offline_learning --epoch 400
+python multi_class.py
 
-python multi_class.py --use_cuda --ckpt_path ./tmp/deepwalk_BlogCatalog/paddle_model --epoch 1000
-
-# link prediction task example
-python deepwalk.py --use_cuda --dataset ArXiv --save_path
-./tmp/deepwalk_ArXiv --offline_learning --epoch 100
-
-python link_predict.py --use_cuda --ckpt_path ./tmp/deepwalk_ArXiv/paddle_model --epoch 400
 ```
 
 ## Hyperparameters
-- dataset: The citation dataset "BlogCatalog" and "ArXiv".
-- use_cuda: Use gpu if assign use_cuda. 
+- dataset: The citation dataset "BlogCatalog".
+- conf: The model config file, default is ```./config.yaml``` . 
+- epoch: Number of training epoch.
 
 ### Experiment results
 Dataset|model|Task|Metric|PGL Result|Reported Result 
 --|--|--|--|--|--
-BlogCatalog|deepwalk|multi-label classification|MacroF1|0.250|0.211
-ArXiv|deepwalk|link prediction|AUC|0.9538|0.9340
+BlogCatalog|distributed deepwalk|multi-label classification|MacroF1|0.233|0.211

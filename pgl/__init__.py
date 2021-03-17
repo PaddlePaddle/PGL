@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,15 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Generate pgl apis
-"""
-__version__ = "1.2.1"
-from pgl import layers
-from pgl import graph_wrapper
+"""PGL"""
+
+import os
+import sys
+import logging
+
 from pgl import graph
-from pgl import data_loader
-from pgl import heter_graph
-from pgl import heter_graph_wrapper
-from pgl import contrib
-from pgl import message_passing
-from pgl import sample
+from pgl import graph_kernel
+from pgl import math
+from pgl import nn
+from pgl import message
+from pgl import dataset
+from pgl import utils
+
+from pgl.graph import *
+from pgl.heter_graph import *
+
+__version__ = "2.1.2"

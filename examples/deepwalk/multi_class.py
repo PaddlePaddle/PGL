@@ -1,6 +1,6 @@
 # Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
+# Licensed under the Apache License, Version 2.0 (the "License"); 
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
@@ -13,54 +13,58 @@
 # limitations under the License.
 import argparse
 import time
-import math
 import os
+import math
+import glob
 
 import numpy as np
-import sklearn.metrics
+import paddle
+from easydict import EasyDict as edict
+import pgl
+import yaml
+from paddle.optimizer import Adam
+import tqdm
+from pgl.utils.logger import log
 from sklearn.metrics import f1_score
 
-import pgl
-from pgl import data_loader
-from pgl.utils import op
-from pgl.utils.logger import log
-import paddle.fluid as fluid
-import paddle.fluid.layers as l
-
-np.random.seed(123)
+from dataset import ShardedDataset
 
 
 def load(name):
-    if name == 'BlogCatalog':
-        dataset = data_loader.BlogCatalogDataset()
+    if name == 'cora':
+        dataset = pgl.dataset.CoraDataset()
+    elif name == "pubmed":
+        dataset = pgl.dataset.CitationDataset("pubmed", symmetry_edges=True)
+    elif name == "citeseer":
+        dataset = pgl.dataset.CitationDataset("citeseer", symmetry_edges=True)
+    elif name == "BlogCatalog":
+        dataset = pgl.dataset.BlogCatalogDataset()
     else:
         raise ValueError(name + " dataset doesn't exists")
+    dataset.graph.indegree()
+    dataset.graph.outdegree()
+    dataset.graph = dataset.graph.to_mmap()
     return dataset
 
 
-def node_classify_model(graph,
-                        num_labels,
-                        hidden_size=16,
-                        name='node_classify_task'):
-    pyreader = l.py_reader(
-        capacity=70,
-        shapes=[[-1, 1], [-1, num_labels]],
-        dtypes=['int64', 'float32'],
-        lod_levels=[0, 0],
-        name=name + '_pyreader',
-        use_double_buffer=True)
-    nodes, labels = l.read_file(pyreader)
-    embed_nodes = l.embedding(
-        input=nodes,
-        size=[graph.num_nodes, hidden_size],
-        param_attr=fluid.ParamAttr(name='content'))
-    embed_nodes.stop_gradient = True
-    logits = l.fc(input=embed_nodes, size=num_labels)
-    loss = l.sigmoid_cross_entropy_with_logits(logits, labels)
-    loss = l.reduce_mean(loss)
-    prob = l.sigmoid(logits)
-    topk = l.reduce_sum(labels, -1)
-    return pyreader, loss, prob, labels, topk
+class Model(paddle.nn.Layer):
+    def __init__(self, num_nodes, embed_size=16, num_classes=39):
+        super(Model, self).__init__()
+
+        self.num_nodes = num_nodes
+
+        embed_init = paddle.nn.initializer.Uniform(
+            low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
+        emb_attr = paddle.ParamAttr(name="node_embedding")
+        self.emb = paddle.nn.Embedding(
+            num_nodes, embed_size, weight_attr=emb_attr)
+        self.linear = paddle.nn.Linear(embed_size, num_classes)
+
+    def forward(self, node_ids):
+        node_emb = self.emb(node_ids)
+        node_emb.stop_gradient = True
+        logits = self.linear(node_emb)
+        return logits
 
 
 def node_classify_generator(graph,
@@ -71,7 +75,6 @@ def node_classify_generator(graph,
 
     if all_nodes is None:
         all_nodes = np.arange(graph.num_nodes)
-    #labels = (np.random.rand(512, 39) > 0.95).astype(np.float32)
 
     def batch_nodes_generator(shuffle=shuffle):
         perm = np.arange(len(all_nodes), dtype=np.int64)
@@ -85,11 +88,11 @@ def node_classify_generator(graph,
     def wrapper():
         for _ in range(epoch):
             for batch_nodes in batch_nodes_generator():
-                batch_nodes_expanded = np.expand_dims(batch_nodes,
-                                                      -1).astype(np.int64)
+                # batch_nodes_expanded = np.expand_dims(batch_nodes,
+                                                      # -1).astype(np.int64)
                 batch_labels = graph.node_feat['group_id'][batch_nodes].astype(
                     np.float32)
-                yield [batch_nodes_expanded, batch_labels]
+                yield [batch_nodes, batch_labels]
 
     return wrapper
 
@@ -109,136 +112,161 @@ def topk_f1_score(labels,
     return f1_score(labels, preds, average=average)
 
 
+def train(model, data_loader, optim, log_per_step=1000, threshold=0.3):
+    model.train()
+    total_loss = 0.
+    total_sample = 0
+    bce_loss = paddle.nn.BCEWithLogitsLoss()
+    test_probs_vals, test_labels_vals, test_topk_vals = [], [], []
+
+    for batch, (node, labels) in enumerate(data_loader):
+        num_samples = len(node)
+        node = paddle.to_tensor(node)
+        labels = paddle.to_tensor(labels)
+        logits = model(node)
+        probs = paddle.nn.functional.sigmoid(logits)
+        loss = bce_loss(logits, labels)
+        loss.backward()
+        optim.step()
+        optim.clear_grad()
+
+        topk = labels.sum(-1)
+        test_probs_vals.append(probs.numpy())
+        test_labels_vals.append(labels.numpy())
+        test_topk_vals.append(topk.numpy())
+
+        total_loss += loss.numpy()[0] * num_samples
+        total_sample += num_samples
+
+    test_probs_array = np.concatenate(test_probs_vals)
+    test_labels_array = np.concatenate(test_labels_vals)
+    test_topk_array = np.concatenate(test_topk_vals)
+    test_macro_f1 = topk_f1_score(
+        test_labels_array, test_probs_array, test_topk_array,
+        "macro", threshold)
+    test_micro_f1 = topk_f1_score(
+        test_labels_array, test_probs_array, test_topk_array,
+        "micro", threshold)
+    test_loss_val = total_loss / total_sample
+    log.info("Train Loss: %f " %
+             test_loss_val + "Train Macro F1: %f " % test_macro_f1 +
+             "Train Micro F1: %f " % test_micro_f1)
+    return total_loss / total_sample
+
+
+@paddle.no_grad()
+def test(model, data_loader, log_per_step=1000, threshold=0.3):
+    model.eval()
+    total_loss = 0.
+    total_sample = 0
+    bce_loss = paddle.nn.BCEWithLogitsLoss()
+    test_probs_vals, test_labels_vals, test_topk_vals = [], [], []
+
+    for batch, (node, labels) in enumerate(data_loader):
+        num_samples = len(node)
+        node = paddle.to_tensor(node)
+        labels = paddle.to_tensor(labels)
+        logits = model(node)
+        probs = paddle.nn.functional.sigmoid(logits)
+        loss = bce_loss(logits, labels)
+
+        topk = labels.sum(-1)
+        test_probs_vals.append(probs.numpy())
+        test_labels_vals.append(labels.numpy())
+        test_topk_vals.append(topk.numpy())
+
+        total_loss += loss.numpy()[0] * num_samples
+        total_sample += num_samples
+
+    test_probs_array = np.concatenate(test_probs_vals)
+    test_labels_array = np.concatenate(test_labels_vals)
+    test_topk_array = np.concatenate(test_topk_vals)
+    test_macro_f1 = topk_f1_score(
+        test_labels_array, test_probs_array, test_topk_array,
+        "macro", threshold)
+    test_micro_f1 = topk_f1_score(
+        test_labels_array, test_probs_array, test_topk_array,
+        "micro", threshold)
+    test_loss_val = total_loss / total_sample
+    log.info("\t\tTest Loss: %f " %
+             test_loss_val + "Test Macro F1: %f " % test_macro_f1 +
+             "Test Micro F1: %f " % test_micro_f1)
+    return test_loss_val
+
+
+def load_from_files(model_dir):
+    files = glob.glob(os.path.join(model_dir, "node_embedding_txt", "node_embedding.block*.txt"))
+    emb_table = dict()
+    for filename in files:
+        for line in open(filename):
+            key, value = line.strip(",\n").split("\t")
+            key = int(key)
+            value = [float(v) for v in value.split(",")]
+            emb_table[key] = value
+
+    emb_list = [emb_table[key] for key in range(len(emb_table))]
+    emb_arr = np.array(emb_list, dtype=np.float32)
+    emb_arr = emb_arr[:, :(emb_arr.shape[1]-3)//3]
+    return {'emb.weight': emb_arr}
+
+
 def main(args):
-    hidden_size = args.hidden_size
-    epoch = args.epoch
-    ckpt_path = args.ckpt_path
-    threshold = args.threshold
+    if not args.use_cuda:
+        paddle.set_device("cpu")
+    if paddle.distributed.get_world_size() > 1:
+        paddle.distributed.init_parallel_env()
 
     dataset = load(args.dataset)
+    graph = dataset.graph
 
-    if args.batch_size is None:
-        batch_size = len(dataset.train_index)
+    model = Model(
+        graph.num_nodes,
+        args.embed_size,
+        dataset.num_groups)
+    model = paddle.DataParallel(model)
+
+    batch_size = len(dataset.train_index)
+
+    train_steps = int(len(dataset.train_index) / batch_size) * args.epoch
+    scheduler = paddle.optimizer.lr.PolynomialDecay(learning_rate=args.multiclass_learning_rate, decay_steps=train_steps, end_lr=0.0001)
+
+    optim = Adam(
+        learning_rate=scheduler,
+        parameters=model.parameters())
+
+    if args.load_from_static:
+        model.set_state_dict(load_from_files("./model"))
     else:
-        batch_size = args.batch_size
+        model.set_state_dict(paddle.load("model.pdparams"))
 
-    train_steps = (len(dataset.train_index) // batch_size) * epoch
+    train_data_loader = node_classify_generator(graph, dataset.train_index,
+            batch_size=batch_size, epoch=1)
+    test_data_loader = node_classify_generator(graph, dataset.test_index, 
+            batch_size=batch_size, epoch=1)
 
-    place = fluid.CUDAPlace(0) if args.use_cuda else fluid.CPUPlace()
-    train_prog = fluid.Program()
-    test_prog = fluid.Program()
-    startup_prog = fluid.Program()
-
-    with fluid.program_guard(train_prog, startup_prog):
-        with fluid.unique_name.guard():
-            train_pyreader, train_loss, train_probs, train_labels, train_topk = node_classify_model(
-                dataset.graph,
-                dataset.num_groups,
-                hidden_size=hidden_size,
-                name='train')
-            lr = l.polynomial_decay(0.025, train_steps, 0.0001)
-            adam = fluid.optimizer.Adam(lr)
-            adam.minimize(train_loss)
-
-    with fluid.program_guard(test_prog, startup_prog):
-        with fluid.unique_name.guard():
-            test_pyreader, test_loss, test_probs, test_labels, test_topk = node_classify_model(
-                dataset.graph,
-                dataset.num_groups,
-                hidden_size=hidden_size,
-                name='test')
-    test_prog = test_prog.clone(for_test=True)
-
-    exe = fluid.Executor(place)
-    exe.run(startup_prog)
-
-    train_pyreader.decorate_tensor_provider(
-        node_classify_generator(
-            dataset.graph,
-            dataset.train_index,
-            batch_size=batch_size,
-            epoch=epoch))
-    test_pyreader.decorate_tensor_provider(
-        node_classify_generator(
-            dataset.graph, dataset.test_index, batch_size=batch_size, epoch=1))
-
-    def existed_params(var):
-        if not isinstance(var, fluid.framework.Parameter):
-            return False
-        return os.path.exists(os.path.join(ckpt_path, var.name))
-
-    fluid.io.load_vars(
-        exe, ckpt_path, main_program=train_prog, predicate=existed_params)
-    step = 0
-    prev_time = time.time()
-    train_pyreader.start()
-
-    while 1:
-        try:
-            train_loss_val, train_probs_val, train_labels_val, train_topk_val = exe.run(
-                train_prog,
-                fetch_list=[
-                    train_loss, train_probs, train_labels, train_topk
-                ],
-                return_numpy=True)
-            train_macro_f1 = topk_f1_score(train_labels_val, train_probs_val,
-                                           train_topk_val, "macro", threshold)
-            train_micro_f1 = topk_f1_score(train_labels_val, train_probs_val,
-                                           train_topk_val, "micro", threshold)
-            step += 1
-            log.info("Step %d " % step + "Train Loss: %f " % train_loss_val +
-                     "Train Macro F1: %f " % train_macro_f1 +
-                     "Train Micro F1: %f " % train_micro_f1)
-        except fluid.core.EOFException:
-            train_pyreader.reset()
-            break
-
-        test_pyreader.start()
-        test_probs_vals, test_labels_vals, test_topk_vals = [], [], []
-        while 1:
-            try:
-                test_loss_val, test_probs_val, test_labels_val, test_topk_val = exe.run(
-                    test_prog,
-                    fetch_list=[
-                        test_loss, test_probs, test_labels, test_topk
-                    ],
-                    return_numpy=True)
-                test_probs_vals.append(
-                    test_probs_val), test_labels_vals.append(test_labels_val)
-                test_topk_vals.append(test_topk_val)
-            except fluid.core.EOFException:
-                test_pyreader.reset()
-                test_probs_array = np.concatenate(test_probs_vals)
-                test_labels_array = np.concatenate(test_labels_vals)
-                test_topk_array = np.concatenate(test_topk_vals)
-                test_macro_f1 = topk_f1_score(
-                    test_labels_array, test_probs_array, test_topk_array,
-                    "macro", threshold)
-                test_micro_f1 = topk_f1_score(
-                    test_labels_array, test_probs_array, test_topk_array,
-                    "micro", threshold)
-                log.info("\t\tStep %d " % step + "Test Loss: %f " %
-                         test_loss_val + "Test Macro F1: %f " % test_macro_f1 +
-                         "Test Micro F1: %f " % test_micro_f1)
-                break
+    for epoch in tqdm.tqdm(range(args.epoch)):
+        train_loss = train(model, train_data_loader(), optim)
+        test_loss = test(model, test_data_loader())
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='deepwalk')
+    parser = argparse.ArgumentParser(description='Deepwalk')
     parser.add_argument(
         "--dataset",
         type=str,
         default="BlogCatalog",
-        help="dataset (BlogCatalog)")
+        help="dataset (cora, pubmed, BlogCatalog)")
     parser.add_argument("--use_cuda", action='store_true', help="use_cuda")
-    parser.add_argument("--hidden_size", type=int, default=128)
-    parser.add_argument("--epoch", type=int, default=400)
-    parser.add_argument("--batch_size", type=int, default=None)
-    parser.add_argument("--threshold", type=float, default=0.3)
     parser.add_argument(
-        "--ckpt_path",
+        "--conf",
         type=str,
-        default="./tmp/baseline_deepwalk/paddle_model")
+        default="./config.yaml",
+        help="config file for models")
+    parser.add_argument("--epoch", type=int, default=1000, help="Epoch")
+    parser.add_argument("--load_from_static", action='store_true', help="use_cuda")
     args = parser.parse_args()
-    log.info(args)
-    main(args)
+
+    # merge user args and config file 
+    config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
+    config.update(vars(args))
+    main(config)

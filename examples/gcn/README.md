@@ -4,20 +4,37 @@
 
 ### Simple example to build GCN
 
-To build a gcn layer, one can use our pre-defined ```pgl.layers.gcn``` or just write a gcn layer with message passing interface.
+To build a gcn layer, one can use our pre-defined ```pgl.nn.GCNConv``` or just write a gcn layer with message passing interface.
+
 ```python
-import paddle.fluid as fluid
-def gcn_layer(graph_wrapper, node_feature, hidden_size, act):
-    def send_func(src_feat, dst_feat, edge_feat):
-        return src_feat["h"]
-    
-    def recv_func(msg):
-        return fluid.layers.sequence_pool(msg, "sum")
-    
-    message = graph_wrapper.send(send_func, nfeat_list=[("h", node_feature)])
-    output = graph_wrapper.recv(recv_func, message)
-    output = fluid.layers.fc(output, size=hidden_size, act=act)
-    return output
+
+
+import paddle
+import paddle.nn as nn
+
+class CustomGCNConv(nn.Layer):
+    def __init__(self, input_size, output_size):
+        super(GCNConv, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        self.linear = nn.Linear(input_size, output_size)
+        self.norm = norm
+        self.activation = activation
+
+    def forward(self, graph, feature):
+        norm = GF.degree_norm(graph)
+
+        feature = self.linear(feature)
+
+        output = graph.send_recv(feature, "sum")
+
+        output = output * norm
+        output = nn.functional.relu(output)
+        return output
+
+
+
+
 ```
 
 ### Datasets
@@ -26,8 +43,8 @@ The datasets contain three citation networks: CORA, PUBMED, CITESEER. The detail
 
 ### Dependencies
 
-- paddlepaddle>=1.6
-- pgl
+- paddlepaddle==2.0.0
+- pgl==2.1
 
 ### Performance
 
@@ -44,10 +61,13 @@ We train our models for 200 epochs and report the accuracy on the test dataset.
 
 For examples, use gpu to train gcn on cora dataset.
 ```
-python train.py --dataset cora --use_cuda
+# Run on GPU
+CUDA_VISIBLE_DEVICES=0 python train.py --dataset cora
+
+# Run on CPU 
+CUDA_VISIBLE_DEVICES= python train.py --dataset cora
 ```
 
 #### Hyperparameters
 
 - dataset: The citation dataset "cora", "citeseer", "pubmed".
-- use_cuda: Use gpu if assign use_cuda. 
