@@ -503,6 +503,33 @@ class TransformerConv(nn.Layer):
                  layer_norm=True,
                  activation='relu'):
         super(TransformerConv, self).__init__()
+    """Implementation of TransformerConv from UniMP
+
+    This is an implementation of the paper Unified Message Passing Model for Semi-Supervised Classification
+    (https://arxiv.org/abs/2009.03509).
+    Args:
+    
+        input_size: The size of the inputs. 
+ 
+        hidden_size: The hidden size for gat.
+ 
+        activation: (default None) The activation for the output.
+ 
+        num_heads: (default 1) The head number in transformerconv.
+ 
+        feat_drop: (default 0.6) Dropout rate for feature.
+ 
+        attn_drop: (default 0.6) Dropout rate for attention.
+ 
+        concat: (default True) Whether to concat output heads or average them.
+
+        skip_feat: (default True) Whether to add a skip conect from input to output.
+
+        gate: (default False) Whether to use a gate function in skip conect.
+
+        layer_norm: (default True) Whether to aply layer norm in output
+    """
+
         self.hidden_size = hidden_size
         self.num_heads = num_heads
         self.feat_drop = feat_drop
