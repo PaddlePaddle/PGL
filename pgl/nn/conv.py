@@ -515,7 +515,7 @@ class TransformerConv(nn.Layer):
  
         activation: (default None) The activation for the output.
  
-        num_heads: (default 1) The head number in transformerconv.
+        num_heads: (default 4) The head number in transformerconv.
  
         feat_drop: (default 0.6) Dropout rate for feature.
  
