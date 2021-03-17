@@ -255,6 +255,33 @@ def segment_max(data, segment_ids, name=None):
 
 
 def segment_softmax(data, segment_ids):
+    """
+    Segment softmax operator.
+    
+    This operator calculate the softmax elements of input `data` which with
+    the same index in `segment_ids`.
+    
+    Args:
+        data (tensor): a tensor, available data type float32, float64.
+        segment_ids (tensor): a 1-d tensor, which have the same size
+                            with the first dimension of input data. 
+                            available data type is int32, int64.
+    
+    Returns:
+       output (Tensor): the softmax result.
+    
+    Examples:
+    
+        .. code-block:: python
+    
+            import paddle
+            import pgl
+            data = paddle.to_tensor([[1, 2, 3], [3, 2, 1], [4, 5, 6]], dtype='float32')
+            segment_ids = paddle.to_tensor([0, 0, 1], dtype='int32')
+            out = pgl.math.segment_softmax(data, segment_ids)
+            #Outputs: [[0.11920292, 0.50000000, 0.88079703], [0.88079709, 0.50000000, 0.11920292], [1., 1., 1.]]
+    
+    """
     data_max = segment_max(data, segment_ids)
     data_max = paddle.gather(data, segment_ids, axis=0)
     data = data - data_max
@@ -262,3 +289,60 @@ def segment_softmax(data, segment_ids):
     sum_data = segment_sum(data, segment_ids)
     sum_data = paddle.gather(sum_data, segment_ids, axis=0)
     return data / sum_data
+
+
+def segment_padding(data, segment_ids):
+    """
+    Segment padding operator.
+    
+    This operator padding the input elements which with the same index in 'segment_ids' to a common length ,
+    and reshape its into [uniq_segment_id, max_padding, dim].     
+
+    Args:
+        data (tensor): a tensor, available data type float32, float64.
+        segment_ids (tensor): a 1-d tensor, which have the same size
+                            with the first dimension of input data. 
+                            available data type is int32, int64.
+    
+    Returns:
+        output (Tensor): the padding result with shape [uniq_segment_id, max_padding, dim].
+        seq_len (Tensor): the numbers of elements grouped same segment_ids
+        max_padding: the max number of elements grouped by same segment_ids
+     
+    Examples:
+    
+        .. code-block:: python
+    
+            import paddle
+            import pgl
+            data = paddle.to_tensor([[1, 2, 3], [3, 2, 1], [4, 5, 6]], dtype='float32')
+            segment_ids = paddle.to_tensor([0, 0, 1], dtype='int64')
+            out = pgl.math.segment_softmax(data, segment_ids)
+            #Outputs: [[[1., 2., 3.], [3., 2., 1.]], [[4., 5., 6.], [0., 0., 0.]]], [2,1], 2
+
+    """
+    idx_a = segment_ids
+    idx_b = paddle.arange(segment_ids.shape[0])
+    
+    temp_idx  = paddle.ones([segment_ids.shape[0]], dtype='float32')
+    temp_idx = segment_sum(temp_idx, segment_ids).astype('int32')
+    
+    seq_len = temp_idx
+    max_padding = temp_idx.max().numpy()[0]
+    
+    temp_idx = paddle.cumsum(temp_idx)
+    temp_idx_i = paddle.zeros([temp_idx.shape[0] + 1], dtype='int32')
+    temp_idx_i[1: ] = temp_idx
+    temp_idx = temp_idx_i[: -1]
+    temp_idx = paddle.gather(temp_idx, segment_ids)
+    
+    idx_b = idx_b - temp_idx
+    index = paddle.stack([idx_a, idx_b], axis=1)
+    
+    bz = segment_ids.max().numpy()[0] + 1
+    
+    shape = [bz, max_padding, data.shape[-1]]
+    output = paddle.scatter_nd(index, data, shape)
+    
+    return output, seq_len, index
+
