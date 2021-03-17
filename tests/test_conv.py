@@ -33,6 +33,10 @@ def get_conv_list():
             input_size=global_feat_dim, hidden_size=global_feat_dim),
         pgl.nn.GCNII(hidden_size=global_feat_dim),
         pgl.nn.APPNP(),
+        pgl.nn.SGCConv(
+            input_size=global_feat_dim, output_size=global_feat_dim),
+        pgl.nn.SSGCConv(
+            input_size=global_feat_dim, output_size=global_feat_dim),
     ]
 
 
