@@ -491,18 +491,6 @@ class GCNII(nn.Layer):
 
 
 class TransformerConv(nn.Layer):
-    def __init__(self,
-                 input_size,
-                 hidden_size,
-                 num_heads=4,
-                 feat_drop=0.6,
-                 attn_drop=0.6,
-                 concat=True,
-                 skip_feat=True,
-                 gate=False,
-                 layer_norm=True,
-                 activation='relu'):
-        super(TransformerConv, self).__init__()
     """Implementation of TransformerConv from UniMP
 
     This is an implementation of the paper Unified Message Passing Model for Semi-Supervised Classification
@@ -529,6 +517,19 @@ class TransformerConv(nn.Layer):
 
         layer_norm: (default True) Whether to aply layer norm in output
     """
+
+    def __init__(self,
+                 input_size,
+                 hidden_size,
+                 num_heads=4,
+                 feat_drop=0.6,
+                 attn_drop=0.6,
+                 concat=True,
+                 skip_feat=True,
+                 gate=False,
+                 layer_norm=True,
+                 activation='relu'):
+        super(TransformerConv, self).__init__()
 
         self.hidden_size = hidden_size
         self.num_heads = num_heads
