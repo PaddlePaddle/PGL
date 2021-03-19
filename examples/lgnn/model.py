@@ -15,89 +15,96 @@
 import copy
 import itertools
 import pgl
-# import pgl.function as fn
-import networkx as nx
-import paddle as th
 import paddle.nn as nn
 import paddle.nn.functional as F
 import numpy as np
+import paddle
 
 
-class GNNLayer(nn.Layer):
+def aggregate_radius(radius, graph, feature):
+    feat_list = []
+    feature = graph.send_recv(feature, "sum")
+    feat_list.append(feature)
+    for i in range(radius - 1):
+        for j in range(2**i):
+            feature = graph.send_recv(feature, "sum")
+        feat_list.append(feature)
+    return feat_list
+
+
+class LGNNCore(nn.Layer):
     def __init__(self, in_feats, out_feats, radius):
-        super().__init__()
+        super(LGNNCore, self).__init__()
         self.out_feats = out_feats
         self.radius = radius
 
-        new_linear = lambda: nn.Linear(in_feats, out_feats)
-        new_linear_list = lambda: nn.LayerList([new_linear() for i in range(radius)])
+        self.linear_prev = nn.Linear(in_feats, out_feats)
+        self.linear_deg = nn.Linear(in_feats, out_feats)
+        self.linear_radius = nn.LayerList(
+            [nn.Linear(in_feats, out_feats) for i in range(radius)])
+        # self.linear_fuse = nn.Linear(in_feats, out_feats)
+        self.bn = nn.BatchNorm1D(out_feats)
 
-        self.theta_x, self.theta_deg, self.theta_y = \
-            new_linear(), new_linear(), new_linear()
-        self.theta_list = new_linear_list()
+    def forward(self, graph, feat_a, feat_b, deg):
+        # term "prev"
+        prev_proj = self.linear_prev(feat_a)
+        # term "deg"
+        deg_proj = self.linear_deg(deg * feat_a)
+        # term "radius" "aggregate 2^j-hop features
+        hop2j_list = aggregate_radius(self.radius, graph, feat_a)
+        # apply linear transformation
+        hop2j_list = [
+            linear(x) for linear, x in zip(self.linear_radius, hop2j_list)
+        ]
+        radius_proj = sum(hop2j_list)
 
-        self.gamma_y, self.gamma_deg, self.gamma_x = \
-            new_linear(), new_linear(), new_linear()
-        self.gamma_list = new_linear_list()
+        # TODO add fuse
+        # sum them together
+        result = prev_proj + deg_proj + radius_proj
 
-        self.bn_x = nn.BatchNorm1D(out_feats)
-        self.bn_y = nn.BatchNorm1D(out_feats)
-
-    def aggregate(self, g, z):
-        z_list = []
-        g.ndata['z'] = z
-        g.update_all(fn.copy_src(src='z', out='m'), fn.sum(msg='m', out='z'))
-        z_list.append(g.ndata['z'])
-        for i in range(self.radius - 1):
-            for j in range(2**i):
-                g.update_all(
-                    fn.copy_src(
-                        src='z', out='m'), fn.sum(msg='m', out='z'))
-            z_list.append(g.ndata['z'])
-        return z_list
-
-    def forward(self, g, lg, x, y, deg_g, deg_lg, pm_pd):
-        pmpd_x = F.embedding(pm_pd, x)
-
-        sum_x = sum(
-            theta(z)
-            for theta, z in zip(self.theta_list, self.aggregate(g, x)))
-
-        g.edata['y'] = y
-        g.update_all(fn.copy_edge(edge='y', out='m'), fn.sum('m', 'pmpd_y'))
-        pmpd_y = g.ndata.pop('pmpd_y')
-
-        x = self.theta_x(x) + self.theta_deg(deg_g *
-                                             x) + sum_x + self.theta_y(pmpd_y)
+        # skip connection and batch norm
         n = self.out_feats // 2
-        x = paddle.cat([x[:, :n], F.relu(x[:, n:])], 1)
-        x = self.bn_x(x)
-
-        sum_y = sum(
-            gamma(z)
-            for gamma, z in zip(self.gamma_list, self.aggregate(lg, y)))
-
-        y = self.gamma_y(y) + self.gamma_deg(deg_lg *
-                                             y) + sum_y + self.gamma_x(pmpd_x)
-        y = paddle.cat([y[:, :n], F.relu(y[:, n:])], 1)
-        y = self.bn_y(y)
-
-        return x, y
+        result = paddle.concat([result[:, :n], F.relu(result[:, n:])], 1)
+        result = self.bn(result)
+        return result
 
 
-class GNN(nn.Layer):
-    def __init__(self, feats, radius, n_classes):
-        super(GNN, self).__init__()
-        self.linear = nn.Linear(feats[-1], n_classes)
-        self.module_list = nn.LayerList(
-            [GNNLayer(m, n, radius) for m, n in zip(feats[:-1], feats[1:])])
+class LGNNLayer(nn.Layer):
+    def __init__(self, in_feats, out_feats, radius):
+        super(LGNNLayer, self).__init__()
+        self.g_layer = LGNNCore(in_feats, out_feats, radius)
+        self.lg_layer = LGNNCore(in_feats, out_feats, radius)
 
-    def forward(self, g, lg, deg_g, deg_lg, pm_pd):
-        x, y = deg_g, deg_lg
-        for module in self.module_list:
-            x, y = module(g, lg, x, y, deg_g, deg_lg, pm_pd)
-        return self.linear(x)
+    def forward(self, graph, line_graph, feat, lg_feat, deg_g, deg_lg):
+        next_feat = self.g_layer(graph, feat, lg_feat, deg_g)
+        next_lg_feat = self.lg_layer(line_graph, lg_feat, feat, deg_lg)
+        return next_feat, next_lg_feat
+
+
+class LGNN(nn.Layer):
+    def __init__(self, radius):
+        super(LGNN, self).__init__()
+        self.layer1 = LGNNLayer(1, 16, radius)  # input is scalar feature
+        self.layer2 = LGNNLayer(16, 16, radius)  # hidden size is 16
+        self.layer3 = LGNNLayer(16, 16, radius)
+        self.linear = nn.Linear(16, 2)  # predice two classes
+
+    def forward(self, graph, line_graph):
+        # compute the degrees
+        deg_g = graph.indegree().astype("float32").unsqueeze(-1)
+        #print("deg_g", deg_g)
+        deg_lg = line_graph.indegree().astype("float32").unsqueeze(-1)
+        #print("deg_lg", deg_lg)
+        # use degree as the input feature
+        feat, lg_feat = deg_g, deg_lg
+        feat, lg_feat = self.layer1(graph, line_graph, feat, lg_feat, deg_g,
+                                    deg_lg)
+        feat, lg_feat = self.layer2(graph, line_graph, feat, lg_feat, deg_g,
+                                    deg_lg)
+        feat, lg_feat = self.layer3(graph, line_graph, feat, lg_feat, deg_g,
+                                    deg_lg)
+        return self.linear(feat)
 
 
 if __name__ == "__main__":
-    g = GNN([10, 10, 10], 3, 7)
+    g = LGNN(3)
