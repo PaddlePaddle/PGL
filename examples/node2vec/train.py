@@ -116,7 +116,7 @@ def main(args):
         parameters=model.parameters())
 
     collate_fn = BatchRandWalk(graph, args.walk_len, args.win_size,
-                               args.neg_num, args.neg_sample_type)
+                               args.neg_num, args.neg_sample_type, args.p, args.q)
     data_loader = Dataloader(
         train_ds,
         batch_size=args.batch_size,
@@ -126,7 +126,6 @@ def main(args):
 
     train_loss = train(model, data_loader, optim)
     paddle.save(model.state_dict(), "model.pdparams")
-
 
 
 if __name__ == '__main__':

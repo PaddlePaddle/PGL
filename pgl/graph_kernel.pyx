@@ -145,6 +145,55 @@ def node2vec_sample(np.ndarray[np.int64_t, ndim=1] succ,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+def node2vec_plus_sample(np.ndarray[np.int64_t, ndim=1] succ,
+        np.ndarray[np.int64_t, ndim=1] prev_succ, long long prev_node,
+        float p, float q):
+    """Fast implement of node2vec sampling
+    """
+    cdef long long i
+    cdef succ_len = len(succ)
+    cdef prev_succ_len = len(prev_succ)
+
+    cdef vector[float] probs
+    cdef float prob_sum = 0
+
+    cdef unordered_set[long long] prev_succ_set
+    for i in xrange(prev_succ_len):
+        prev_succ_set.insert(prev_succ[i])
+
+    cdef float prob
+    for i in xrange(succ_len):
+        if succ[i] == prev_node:
+            prob = 1. / p
+        elif prev_succ_set.find(succ[i]) != prev_succ_set.end():
+            prob = 1.
+        else:
+            prob = 1. / q
+        probs.push_back(prob)
+        prob_sum += prob
+
+    for i in xrange(succ_len):
+        prev_succ_set.insert(succ[i])
+
+    cdef int new_prev_succ_size = prev_succ_set.size()
+    cdef np.ndarray[np.int64_t, ndim=1] new_prev_succ = np.zeros([new_prev_succ_size], dtype=np.int64)
+    cdef int idx = 0
+    for node in prev_succ_set:
+        new_prev_succ[idx] = node
+        idx += 1
+
+    cdef float rand_num = float(rand())/RAND_MAX * prob_sum
+
+    cdef long long sample_succ = 0
+    for i in xrange(succ_len):
+        rand_num -= probs[i]
+        if rand_num <= 0:
+            sample_succ = succ[i]
+            return sample_succ, new_prev_succ
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def subset_choose_index(long long s_size,
                             np.ndarray[ndim=1, dtype=np.int64_t] nid,
                             np.ndarray[ndim=1, dtype=np.int64_t] rnd,
