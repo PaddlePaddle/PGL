@@ -14,7 +14,6 @@
 
 import paddle
 import pgl
-from paddle.jit import to_static
 import numpy as np
 paddle.enable_static()
 
