@@ -1,5 +1,5 @@
-# Distributed Deepwalk in PGL
-[Deepwalk](https://arxiv.org/pdf/1403.6652.pdf) is an algorithmic framework for representational learning on graphs. Given any graph, it can learn continuous feature representations for the nodes, which can then be used for various downstream machine learning tasks. Based on PGL, we reproduce distributed deepwalk algorithms and reach the same level of indicators as the paper.
+# Distributed Node2vec in PGL
+[Node2vec](https://cs.stanford.edu/~jure/pubs/node2vec-kdd16.pdf) is an algorithmic framework for representational learning on graphs. Given any graph, it can learn continuous feature representations for the nodes, which can then be used for various downstream machine learning tasks. Based on PGL, we reproduce distributed node2vec algorithms and reach the same level of indicators as the paper.
 
 ## Datasets
 The datasets contain two networks: [BlogCatalog](http://socialcomputing.asu.edu/datasets/BlogCatalog3). 
@@ -8,17 +8,17 @@ The datasets contain two networks: [BlogCatalog](http://socialcomputing.asu.edu/
 - pgl>=2.0
 
 ## How to run
-We adopt [PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet) as our distributed training frameworks ```config.yaml``` is config file for deepwalk hyperparameter. In distributed CPU mode, we have 2 pservers and 2 trainers. We can use ```fleetrun``` to help you startup the parameter servers and model trainers. 
+We adopt [PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet) as our distributed training frameworks ```config.yaml``` is config file for node2vec hyperparameter. In distributed CPU mode, we have 2 pservers and 2 trainers. We can use ```fleetrun``` to help you startup the parameter servers and model trainers. 
 
-For examples, train deepwalk mode on BlogCataLog dataset.
+For examples, train node2vec mode on BlogCataLog dataset.
 ```sh
-# train deepwalk in CPU mode.
+# train node2vec in CPU mode.
 python train.py
-# train deepwalk in single GPU mode.
+# train node2vec in single GPU mode.
 CUDA_VISIBLE_DEVICES=0 python train.py --use_cuda
-# train deepwalk in multiple GPU mode.
+# train node2vec in multiple GPU mode.
 CUDA_VISIBLE_DEVICES=0,1 fleetrun train.py --use_cuda
-# train deepwalk in distributed CPU mode.
+# train node2vec in distributed CPU mode.
 CPU_NUM=10 fleetrun --worker_num 2 --server_num 2 train_distributed_cpu.py
 
 # multiclass task example
@@ -34,4 +34,4 @@ python multi_class.py
 ### Experiment results
 Dataset|model|Task|Metric|PGL Result|Reported Result 
 --|--|--|--|--|--
-BlogCatalog|distributed deepwalk|multi-label classification|MacroF1|0.233|0.211
+BlogCatalog|distributed node2vec|multi-label classification|MacroF1|0.260|0.258
