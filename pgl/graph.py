@@ -941,13 +941,13 @@ class Graph(object):
         assert isinstance(feature, paddle.Tensor), \
                 "The input of send_recv method should be tensor."
 
-        src, dst, eid = self.sorted_edges(sort_by="dst")
+        src, dst = self.edges[:, 0], self.edges[:, 1]
+
 
         msg = self.send(
             lambda sf, df, ef: {"msg": sf["h"]}, src_feat={"h": feature})
 
         def _sum_recv(feat):
-            feat = paddle.gather(feat, eid)
             output_dim = feat.shape[-1]
             init_output = paddle.zeros(
                 shape=[self._num_nodes, output_dim], dtype=feat.dtype)
