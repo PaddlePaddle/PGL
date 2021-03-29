@@ -171,19 +171,13 @@ def node2vec_walk_plus(graph, nodes, max_depth, p=1.0, q=1.0):
                 succ, prev_succ, walk_id, prev_node
         ) in enumerate(zip(cur_succs, prev_succs, cur_walk_ids, prev_nodes)):
 
-            sampled_succ, new_prev_succ = graph_kernel.node2vec_plus_sample(succ, prev_succ,
+            sampled_succ, new_prev_succ = graph_kernel.node2vec_plus_sample(succ, prev_succ.astype(np.int64),
                                                         prev_node, p, q)
             walk[walk_id].append(sampled_succ)
             nxt_nodes[idx] = sampled_succ
             new_prev_succs.append(new_prev_succ)
 
-        #prev_nodes, prev_succs = cur_nodes, cur_succs
         prev_nodes = cur_nodes
-        # for i in range(len(prev_succs)):
-            # if prev_succs[i].shape[0] != 0:
-                # new_prev_succs.append(np.union1d(prev_succs[i], cur_succs[i]))
-            # else:
-                # new_prev_succs.append(cur_succs[i])
         prev_succs = np.array(new_prev_succs, dtype=object)
         cur_nodes = nxt_nodes
     return walk
