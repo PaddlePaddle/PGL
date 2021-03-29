@@ -35,7 +35,6 @@ class BatchRandWalk(object):
         self.q = q
 
     def __call__(self, nodes):
-        walks = random_walk(self.graph, nodes, self.walk_len)
         walks = node2vec_walk(self.graph, nodes, self.walk_len, self.p, self.q)
         src_list, pos_list = [], []
         for walk in walks:

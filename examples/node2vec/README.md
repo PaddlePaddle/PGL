@@ -4,11 +4,11 @@
 ## Datasets
 The datasets contain two networks: [BlogCatalog](http://socialcomputing.asu.edu/datasets/BlogCatalog3). 
 ## Dependencies
-- paddlepaddle>=2.0rc
+- paddlepaddle>=2.0
 - pgl>=2.0
 
 ## How to run
-We adopt [PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet) as our distributed training frameworks ```config.yaml``` is config file for node2vec hyperparameter. In distributed CPU mode, we have 2 pservers and 2 trainers. We can use ```fleetrun``` to help you startup the parameter servers and model trainers. 
+We adopt [PaddlePaddle Fleet](https://github.com/PaddlePaddle/Fleet) as our distributed training frameworks ```config.yaml``` is a config file for node2vec hyperparameter. In distributed CPU mode, we have 2 pservers and 2 trainers. We can use ```fleetrun``` to help you startup the parameter servers and model trainers. 
 
 For examples, train node2vec mode on BlogCataLog dataset.
 ```sh
