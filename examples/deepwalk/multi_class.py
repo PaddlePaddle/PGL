@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); 
 # you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ def node_classify_generator(graph,
         for _ in range(epoch):
             for batch_nodes in batch_nodes_generator():
                 # batch_nodes_expanded = np.expand_dims(batch_nodes,
-                                                      # -1).astype(np.int64)
+                # -1).astype(np.int64)
                 batch_labels = graph.node_feat['group_id'][batch_nodes].astype(
                     np.float32)
                 yield [batch_nodes, batch_labels]
@@ -141,16 +141,13 @@ def train(model, data_loader, optim, log_per_step=1000, threshold=0.3):
     test_probs_array = np.concatenate(test_probs_vals)
     test_labels_array = np.concatenate(test_labels_vals)
     test_topk_array = np.concatenate(test_topk_vals)
-    test_macro_f1 = topk_f1_score(
-        test_labels_array, test_probs_array, test_topk_array,
-        "macro", threshold)
-    test_micro_f1 = topk_f1_score(
-        test_labels_array, test_probs_array, test_topk_array,
-        "micro", threshold)
+    test_macro_f1 = topk_f1_score(test_labels_array, test_probs_array,
+                                  test_topk_array, "macro", threshold)
+    test_micro_f1 = topk_f1_score(test_labels_array, test_probs_array,
+                                  test_topk_array, "micro", threshold)
     test_loss_val = total_loss / total_sample
-    log.info("Train Loss: %f " %
-             test_loss_val + "Train Macro F1: %f " % test_macro_f1 +
-             "Train Micro F1: %f " % test_micro_f1)
+    log.info("Train Loss: %f " % test_loss_val + "Train Macro F1: %f " %
+             test_macro_f1 + "Train Micro F1: %f " % test_micro_f1)
     return total_loss / total_sample
 
 
@@ -181,21 +178,20 @@ def test(model, data_loader, log_per_step=1000, threshold=0.3):
     test_probs_array = np.concatenate(test_probs_vals)
     test_labels_array = np.concatenate(test_labels_vals)
     test_topk_array = np.concatenate(test_topk_vals)
-    test_macro_f1 = topk_f1_score(
-        test_labels_array, test_probs_array, test_topk_array,
-        "macro", threshold)
-    test_micro_f1 = topk_f1_score(
-        test_labels_array, test_probs_array, test_topk_array,
-        "micro", threshold)
+    test_macro_f1 = topk_f1_score(test_labels_array, test_probs_array,
+                                  test_topk_array, "macro", threshold)
+    test_micro_f1 = topk_f1_score(test_labels_array, test_probs_array,
+                                  test_topk_array, "micro", threshold)
     test_loss_val = total_loss / total_sample
-    log.info("\t\tTest Loss: %f " %
-             test_loss_val + "Test Macro F1: %f " % test_macro_f1 +
-             "Test Micro F1: %f " % test_micro_f1)
+    log.info("\t\tTest Loss: %f " % test_loss_val + "Test Macro F1: %f " %
+             test_macro_f1 + "Test Micro F1: %f " % test_micro_f1)
     return test_loss_val, test_macro_f1, test_micro_f1
 
 
 def load_from_files(model_dir):
-    files = glob.glob(os.path.join(model_dir, "node_embedding_txt", "node_embedding.block*.txt"))
+    files = glob.glob(
+        os.path.join(model_dir, "node_embedding_txt",
+                     "node_embedding.block*.txt"))
     emb_table = dict()
     for filename in files:
         for line in open(filename):
@@ -206,7 +202,7 @@ def load_from_files(model_dir):
 
     emb_list = [emb_table[key] for key in range(len(emb_table))]
     emb_arr = np.array(emb_list, dtype=np.float32)
-    emb_arr = emb_arr[:, :(emb_arr.shape[1]-3)//3]
+    emb_arr = emb_arr[:, :(emb_arr.shape[1] - 3) // 3]
     return {'emb.weight': emb_arr}
 
 
@@ -219,35 +215,34 @@ def main(args):
     dataset = load(args.dataset)
     graph = dataset.graph
 
-    model = Model(
-        graph.num_nodes,
-        args.embed_size,
-        dataset.num_groups)
+    model = Model(graph.num_nodes, args.embed_size, dataset.num_groups)
     model = paddle.DataParallel(model)
 
     batch_size = len(dataset.train_index)
 
     train_steps = int(len(dataset.train_index) / batch_size) * args.epoch
-    scheduler = paddle.optimizer.lr.PolynomialDecay(learning_rate=args.multiclass_learning_rate, decay_steps=train_steps, end_lr=0.0001)
+    scheduler = paddle.optimizer.lr.PolynomialDecay(
+        learning_rate=args.multiclass_learning_rate,
+        decay_steps=train_steps,
+        end_lr=0.0001)
 
-    optim = Adam(
-        learning_rate=scheduler,
-        parameters=model.parameters())
+    optim = Adam(learning_rate=scheduler, parameters=model.parameters())
 
     if args.load_from_static:
         model.set_state_dict(load_from_files("./model"))
     else:
         model.set_state_dict(paddle.load("model.pdparams"))
 
-    train_data_loader = node_classify_generator(graph, dataset.train_index,
-            batch_size=batch_size, epoch=1)
-    test_data_loader = node_classify_generator(graph, dataset.test_index, 
-            batch_size=batch_size, epoch=1)
-    
+    train_data_loader = node_classify_generator(
+        graph, dataset.train_index, batch_size=batch_size, epoch=1)
+    test_data_loader = node_classify_generator(
+        graph, dataset.test_index, batch_size=batch_size, epoch=1)
+
     best_test_macro_f1 = -1
     for epoch in tqdm.tqdm(range(args.epoch)):
         train_loss = train(model, train_data_loader(), optim)
-        test_loss, test_macro_f1, test_micro_f1 = test(model, test_data_loader())
+        test_loss, test_macro_f1, test_micro_f1 = test(model,
+                                                       test_data_loader())
         best_test_macro_f1 = max(best_test_macro_f1, test_macro_f1)
     log.info("Best test macro f1 is %s." % best_test_macro_f1)
 
@@ -266,7 +261,8 @@ if __name__ == '__main__':
         default="./config.yaml",
         help="config file for models")
     parser.add_argument("--epoch", type=int, default=1000, help="Epoch")
-    parser.add_argument("--load_from_static", action='store_true', help="use_cuda")
+    parser.add_argument(
+        "--load_from_static", action='store_true', help="use_cuda")
     args = parser.parse_args()
 
     # merge user args and config file 

@@ -66,7 +66,8 @@ class ShardedDataset(Dataset):
         if int(paddle.distributed.get_world_size()) == 1 or mode != "train":
             self.data = nodes
         else:
-            self.data = nodes[int(paddle.distributed.get_rank())::int(paddle.distributed.get_world_size())]
+            self.data = nodes[int(paddle.distributed.get_rank())::int(
+                paddle.distributed.get_world_size())]
 
     def __getitem__(self, idx):
         return self.data[idx % len(self.data)]
