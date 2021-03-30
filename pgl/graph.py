@@ -137,7 +137,8 @@ class Graph(object):
         else:
             self._num_nodes = num_nodes
             max_edge_id = maybe_num_nodes(self._edges)
-            if self._num_nodes < max_edge_id:
+            if not isinstance(max_edge_id, paddle.fluid.framework.
+                              Variable) and self._num_nodes < max_edge_id:
                 raise ValueError("The max edge ID should be less than the number of nodes. "
                         "But got max edge ID [%s] >= num_nodes [%s]" \
                         % (max_edge_id-1, self._num_nodes))
@@ -938,7 +939,7 @@ class Graph(object):
 
         assert reduce_func == "sum", "Only implement 'sum' function right now"
 
-        assert isinstance(feature, paddle.Tensor), \
+        assert isinstance(feature, paddle.Tensor) or isinstance(feature, paddle.fluid.framework.Variable), \
                 "The input of send_recv method should be tensor."
 
         src, dst = self.edges[:, 0], self.edges[:, 1]
