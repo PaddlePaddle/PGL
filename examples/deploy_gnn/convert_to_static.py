@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
+
 import paddle
 import pgl
-import numpy as np
 paddle.enable_static()
 
 import paddle.nn as nn

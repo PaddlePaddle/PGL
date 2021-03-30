@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import unittest
+import os
 import numpy as np
 
 import paddle
@@ -42,23 +43,44 @@ class GNNModel(nn.Layer):
 
 class StaticGraphOpTest(unittest.TestCase):
     def test_static_graph(self):
-        paddle.enable_static()
+        path = './tmp'
         dim = 100
+
+        # Load DyGraph Model
+
+        paddle.disable_static()
+        num_nodes = 5
+        edges = [(0, 1), (1, 2), (3, 4)]
+        nfeat = np.random.randn(num_nodes, dim).astype("float32")
+
         model = GNNModel(dim, 10)
-        num_nodes = static.data(name='num_nodes', shape=[-1], dtype='int32')
-        edges = static.data(name='edges', shape=[-1, 2], dtype='int32')
-        feature = static.data(name="feature", shape=[-1, dim], dtype="float32")
-        output = model(num_nodes, edges, feature)
+        out = model(
+            paddle.to_tensor(num_nodes),
+            paddle.to_tensor(edges), paddle.to_tensor(nfeat))
+        out = out.numpy()
+
+        paddle.save(model.state_dict(),
+                    os.path.join(path, "static_gnn.pdparam"))
+
+        paddle.enable_static()
+
+        # Run Static Fisrt
+
+        model2 = GNNModel(dim, 10)
+        input_num_nodes = static.data(
+            name='num_nodes', shape=[-1], dtype='int32')
+        input_edges = static.data(name='edges', shape=[-1, 2], dtype='int32')
+        input_feature = static.data(
+            name="feature", shape=[-1, dim], dtype="float32")
+        output = model2(input_num_nodes, input_edges, input_feature)
 
         place = paddle.CPUPlace()
         exe = static.Executor(place)
         exe.run(static.default_startup_program())
-
         prog = static.default_main_program()
 
-        num_nodes = 5
-        edges = [(0, 1), (1, 2), (3, 4)]
-        nfeat = np.random.randn(num_nodes, dim)
+        state_dict = paddle.load(os.path.join(path, "static_gnn.pdparam"))
+        model2.set_state_dict(state_dict)
 
         feed_dict = {
             "num_nodes": num_nodes,
@@ -66,7 +88,13 @@ class StaticGraphOpTest(unittest.TestCase):
                 edges, dtype="int32"),
             "feature": nfeat.astype("float32"),
         }
-        out = exe.run(prog, feed=feed_dict, fetch_list=[output])
+        out2 = exe.run(prog, feed=feed_dict, fetch_list=[output])[0]
+
+        eps = np.sum((out2 - out)**2)
+        self.assertTrue(eps < 1e-5)
+
+        import shutil
+        shutil.rmtree(path)
 
 
 if __name__ == "__main__":
