@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-    Deepwalk model file.
+    Node2vec model file.
 """
 import math
 
@@ -33,8 +33,6 @@ class SkipGramModel(nn.Layer):
         self.num_nodes = num_nodes
         self.neg_num = neg_num
 
-        # embed_init = nn.initializer.Uniform(
-        # low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
         embed_init = nn.initializer.Uniform(low=-1.0, high=1.0)
         emb_attr = paddle.ParamAttr(
             name="node_embedding", initializer=embed_init)
