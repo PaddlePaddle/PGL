@@ -24,8 +24,9 @@ from pgl.sampling import node2vec_walk
 from pgl.graph_kernel import skip_gram_gen_pair
 
 
-class BatchRandWalk(object):
-    def __init__(self, graph, walk_len, win_size, neg_num, neg_sample_type, p, q):
+class BatchNode2vecWalk(object):
+    def __init__(self, graph, walk_len, win_size, neg_num, neg_sample_type, p,
+                 q):
         self.graph = graph
         self.walk_len = walk_len
         self.win_size = win_size
@@ -68,7 +69,8 @@ class ShardedDataset(Dataset):
         if int(paddle.distributed.get_world_size()) == 1 or mode != "train":
             self.data = nodes
         else:
-            self.data = nodes[int(paddle.distributed.get_rank())::int(paddle.distributed.get_world_size())]
+            self.data = nodes[int(paddle.distributed.get_rank())::int(
+                paddle.distributed.get_world_size())]
 
     def __getitem__(self, idx):
         return self.data[idx % len(self.data)]

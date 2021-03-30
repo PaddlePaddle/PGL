@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ from paddle.io import get_worker_info
 
 from model import SkipGramModel
 from dataset import ShardedDataset
-from dataset import BatchRandWalk
+from dataset import BatchNode2vecWalk
 
 
 def load(name):
@@ -94,10 +94,6 @@ def main(args):
     else:
         graph = load(args.dataset)
 
-    edges = np.load("./edges.npy")
-    edges = np.concatenate([edges, edges[:,[1,0]]])
-    graph = pgl.Graph(edges)
-
     model = SkipGramModel(
         graph.num_nodes,
         args.embed_size,
@@ -106,17 +102,19 @@ def main(args):
     model = paddle.DataParallel(model)
 
     train_ds = ShardedDataset(graph.nodes, repeat=args.epoch)
-    
+
     train_steps = int(len(train_ds) // args.batch_size)
     log.info("train_steps: %s" % train_steps)
-    scheduler = paddle.optimizer.lr.PolynomialDecay(learning_rate=args.learning_rate, decay_steps=train_steps, end_lr=0.0001)
+    scheduler = paddle.optimizer.lr.PolynomialDecay(
+        learning_rate=args.learning_rate,
+        decay_steps=train_steps,
+        end_lr=0.0001)
 
-    optim = Adam(
-        learning_rate=scheduler,
-        parameters=model.parameters())
+    optim = Adam(learning_rate=scheduler, parameters=model.parameters())
 
-    collate_fn = BatchRandWalk(graph, args.walk_len, args.win_size,
-                               args.neg_num, args.neg_sample_type, args.p, args.q)
+    collate_fn = BatchNode2vecWalk(graph, args.walk_len, args.win_size,
+                                   args.neg_num, args.neg_sample_type, args.p,
+                                   args.q)
     data_loader = Dataloader(
         train_ds,
         batch_size=args.batch_size,

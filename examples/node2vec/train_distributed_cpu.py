@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); 
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ from pgl.utils.data import Dataloader
 
 from model import SkipGramModel
 from dataset import ShardedDataset
-from dataset import BatchRandWalk
+from dataset import BatchNode2vecWalk
 
 
 def load(name):
@@ -110,15 +110,16 @@ def main(args):
         graph = load(args.dataset)
         # bind gen
         train_ds = ShardedDataset(graph.nodes)
-        collate_fn = BatchRandWalk(graph, args.walk_len, args.win_size,
-                                   args.neg_num, args.neg_sample_type)
+        collate_fn = BatchNode2vecWalk(graph, args.walk_len, args.win_size,
+                                       args.neg_num, args.neg_sample_type,
+                                       args.p, args.q)
         data_loader = Dataloader(
             train_ds,
             batch_size=args.batch_size,
             shuffle=True,
             num_workers=args.sample_workers,
             collate_fn=collate_fn)
-        
+
         cpu_num = int(os.environ.get('CPU_NUM', 1))
         if int(cpu_num) > 1:
             parallel_places = [paddle.CPUPlace()] * cpu_num
@@ -126,22 +127,23 @@ def main(args):
             exec_strategy.num_threads = int(cpu_num)
             build_strategy = paddle.static.BuildStrategy()
             build_strategy.reduce_strategy = paddle.static.BuildStrategy.ReduceStrategy.Reduce
-            compiled_prog = paddle.static.CompiledProgram(paddle.static.default_main_program()).with_data_parallel(
-                                loss_name=loss.name, places=parallel_places, build_strategy=build_strategy,
-                                exec_strategy=exec_strategy)
+            compiled_prog = paddle.static.CompiledProgram(
+                paddle.static.default_main_program()).with_data_parallel(
+                    loss_name=loss.name,
+                    places=parallel_places,
+                    build_strategy=build_strategy,
+                    exec_strategy=exec_strategy)
         else:
             compiled_prog = paddle.static.default_main_program()
 
         for epoch in range(args.epoch):
-            train_loss = train(exe,
-                               compiled_prog,
-                               data_loader, loss)
+            train_loss = train(exe, compiled_prog, data_loader, loss)
             log.info("Runing epoch:%s\t train_loss:%.6f", epoch, train_loss)
         fleet.stop_worker()
 
         if fleet.is_first_worker():
-            fleet.save_persistables(exe, "./model", paddle.static.default_main_program())
-
+            fleet.save_persistables(exe, "./model",
+                                    paddle.static.default_main_program())
 
 
 if __name__ == '__main__':
