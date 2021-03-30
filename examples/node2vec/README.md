@@ -20,6 +20,7 @@ CUDA_VISIBLE_DEVICES=0 python train.py --use_cuda
 CUDA_VISIBLE_DEVICES=0,1 fleetrun train.py --use_cuda
 # train node2vec in distributed CPU mode.
 CPU_NUM=10 fleetrun --worker_num 2 --server_num 2 train_distributed_cpu.py
+# The output log is redirected to 'log/workerlog.0'
 
 # multiclass task example
 python multi_class.py
