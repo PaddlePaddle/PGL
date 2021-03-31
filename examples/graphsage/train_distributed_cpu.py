@@ -183,7 +183,7 @@ def main(args):
                                   loss,
                                   acc,
                                   phase="test")
-        log.info("Epoch %s Valid-Loss %s Valid-Acc %s" %
+        log.info("Epoch %s Test-Loss %s Test-Acc %s" %
                  (epoch, test_loss, test_acc))
 
         fleet.stop_worker()
