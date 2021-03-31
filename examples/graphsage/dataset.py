@@ -42,12 +42,14 @@ def batch_fn(batch_ex, graph, samples):
 class ShardedDataset(Dataset):
     def __init__(self, data_index, data_label, mode="train"):
         worker_info = get_worker_info()
-        if worker_info is None or mode != "train":
+        if int(paddle.distributed.get_world_size()) == 1 or mode != "train":
             self.data = [data_index, data_label]
         else:
             self.data = [
-                data_index[worker_info.id::worker_info.num_workers],
-                data_label[worker_info.id::worker_info.num_workers]
+                data_index[int(paddle.distributed.get_rank())::int(
+                    paddle.distributed.get_world_size())],
+                data_label[int(paddle.distributed.get_rank())::int(
+                    paddle.distributed.get_world_size())]
             ]
 
     def __getitem__(self, idx):
