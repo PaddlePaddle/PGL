@@ -129,8 +129,7 @@ class DistGraphTest(unittest.TestCase):
         #  self.s1.stop_server()
         #  self.assertTrue(self.s1.is_stop())
         self.c1.stop_server()
-        while True:
-            pass
+        time.sleep(10)
 
     def test_random_sample_nodes(self):
         g_u_nodes = [98, 97, 96, 7, 59, 47, 39, 37, 34]
