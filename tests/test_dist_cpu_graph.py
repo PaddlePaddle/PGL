@@ -12,7 +12,7 @@ from collections import defaultdict
 
 from pgl.utils.logger import log
 
-from dist_graph import DistGraphClient, DistGraphServer
+from pgl.distributed import DistGraphClient, DistGraphServer
 
 # configuration file
 config = """

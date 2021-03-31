@@ -25,7 +25,7 @@ import numpy as np
 from paddle.fluid.core import GraphPyService, GraphPyServer, GraphPyClient
 from pgl.utils.logger import log
 
-import helper
+from pgl.distributed import helper
 
 __all__ = ['DistGraphServer', 'DistGraphClient']
 
