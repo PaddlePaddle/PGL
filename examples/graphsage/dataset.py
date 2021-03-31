@@ -16,7 +16,6 @@ import os
 
 import paddle
 import numpy as np
-from paddle.io import get_worker_info
 
 from pgl import graph_kernel
 from pgl.utils.logger import log
@@ -41,7 +40,6 @@ def batch_fn(batch_ex, graph, samples):
 
 class ShardedDataset(Dataset):
     def __init__(self, data_index, data_label, mode="train"):
-        worker_info = get_worker_info()
         if int(paddle.distributed.get_world_size()) == 1 or mode != "train":
             self.data = [data_index, data_label]
         else:
