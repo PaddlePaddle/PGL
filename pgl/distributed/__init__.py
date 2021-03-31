@@ -19,4 +19,4 @@ from pgl.distributed import dist_graph
 from pgl.distributed.dist_graph import *
 
 __all__ = []
-__all__ += dist_grpah.__all__
+__all__ += dist_graph.__all__
