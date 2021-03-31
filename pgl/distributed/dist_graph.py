@@ -282,8 +282,10 @@ class DistGraphClient(object):
             feat_names: the node feature name or a list of node feature name
         """
 
+        flag = False
         if isinstance(feat_names, str):
             feat_names = [feat_names]
+            flag = True
         elif isinstance(feat_names, list):
             pass
         else:
@@ -310,4 +312,10 @@ class DistGraphClient(object):
                 ]
             nfeat_list.append(f_list)
 
-        return nfeat_list
+        if flag:
+            return nfeat_list[0]
+        else:
+            return nfeat_list
+
+    def stop_server(self):
+        self._client.stop_server()

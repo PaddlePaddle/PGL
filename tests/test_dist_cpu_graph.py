@@ -1,14 +1,15 @@
 #-*- coding: utf-8 -*-
 import os
 import sys
+import re
 import time
 import tqdm
 import argparse
 import unittest
 import shutil
 import numpy as np
+from collections import defaultdict
 
-from paddle.fluid.core import GraphPyService, GraphPyServer, GraphPyClient
 from pgl.utils.logger import log
 
 from dist_graph import DistGraphClient, DistGraphServer
@@ -19,7 +20,7 @@ etype2files: "u2e2t:./tmp_distgraph_test/edges.txt"
 symmetry: True
 
 ntype2files: "u:./tmp_distgraph_test/node_types.txt,t:./tmp_distgraph_test/node_types.txt"
-nfeat_info: [["u", "a", "float32", 1], ["u", "b", "int32", 2], ["u", "c", "string", 1], ["t", "a", "float32", 1], ["t", "b", "int32", 2]]
+nfeat_info: [["u", "a", "float32", 1], ["u", "b", "int32", 2], ["u", "c", "string", 1], ["t", "a", "float32", 1], ["t", "b", "int32", 2], ["u", "d", "string", 1], ["t", "d", "string", 1]]
 
 meta_path: "u2e2t-t2e2u;t2e2u-u2e2t"
 first_node_type: "u;t"
@@ -48,30 +49,30 @@ edges_file = """37	45	0.34
 34	121	0.21
 39	131	0.21"""
 
-node_file = """u	98	a 0.21	b 13 14	c hello1
-u	97	a 0.22	b 13 14	c hello2
-u	96	a 0.23	b 13 14	c hello3
-u	7	a 0.24	b 13 14	c hello4
-u	59	a 0.25	b 13 14	c hello5
-t	48	a 0.91	b 213 14
-u	47	a 0.21	b 13 14	c hello6
-t	45	a 0.21	b 213 14
-u	39	a 0.21	b 13 14	c hello7
-u	37	a 0.21	b 13 14	c hello8
-u	34	a 0.21	b 13 14	c hello9
-t	333	a 0.21	b 213 14
-t	247	a 0.21	b 213 14
-t	234	a 0.21	b 213 14
-t	222	a 0.21	b 213 14
-t	211	a 0.21	b 213 14
-t	191	a 0.21	b 213 14
-t	145	a 0.11	b 213 14
-t	131	a 0.31	b 213 14
-t	122	a 0.41	b 213 14
-t	121	a 0.51	b 213 14
-t	113	a 0.61	b 213 14
-t	112	a 0.71	b 213 14
-t	111	a 0.81	b 213 14"""
+node_file = """u	98	a 0.21	b 13 14	c hello1	d 23:0,23:1,24:10,24:0
+u	97	a 0.22	b 13 14	c hello2	d 23:0,23:1,24:10,24:1
+u	96	a 0.23	b 13 14	c hello3	d 23:0,23:1,24:10,24:2
+u	7	a 0.24	b 13 14	c hello4	d 23:0,23:1,24:10,24:3
+u	59	a 0.25	b 13 14	c hello5	d 23:0,23:1,24:10,24:4
+t	48	a 0.91	b 213 14	d 23:0,23:1,24:11,24:9
+u	47	a 0.21	b 13 14	c hello6	d 23:0,23:1,24:10,24:5
+t	45	a 0.21	b 213 14 d 23:0,23:1,24:12,24:9
+u	39	a 0.21	b 13 14	c hello7	d 23:0,23:1,24:10,24:6
+u	37	a 0.21	b 13 14	c hello8	d 23:0,23:1,24:10,24:7
+u	34	a 0.21	b 13 14	c hello9	d 23:0,23:1,24:10,24:8
+t	333	a 0.21	b 213 14	d 23:0,23:1,24:13,24:9
+t	247	a 0.21	b 213 14	d 23:0,23:1,24:14,24:9
+t	234	a 0.21	b 213 14	d 23:0,23:1,24:15,24:9
+t	222	a 0.21	b 213 14	d 23:0,23:1,24:16,24:9
+t	211	a 0.21	b 213 14	d 23:0,23:1,24:17,24:9
+t	191	a 0.21	b 213 14	d 23:0,23:1,24:18,24:9
+t	145	a 0.11	b 213 14	d 23:0,23:1,24:19,24:9
+t	131	a 0.31	b 213 14	d 23:0,23:1,24:20,24:9
+t	122	a 0.41	b 213 14	d 23:0,23:1,24:21,24:9
+t	121	a 0.51	b 213 14	d 23:0,23:1,24:22,24:9
+t	113	a 0.61	b 213 14	d 23:0,23:1,24:23,24:9
+t	112	a 0.71	b 213 14	d 23:0,23:1,24:24,24:9
+t	111	a 0.81	b 213 14	d 23:0,23:1,24:25,24:9"""
 
 tmp_path = "./tmp_distgraph_test"
 if not os.path.exists(tmp_path):
@@ -121,6 +122,15 @@ class DistGraphTest(unittest.TestCase):
 
         cls.c1.load_edges()
         cls.c1.load_node_types()
+
+    def test_stop_server(self):
+        #  time.sleep(5)
+        #  self.assertFalse(self.s1.is_stop())
+        #  self.s1.stop_server()
+        #  self.assertTrue(self.s1.is_stop())
+        self.c1.stop_server()
+        while True:
+            pass
 
     def test_random_sample_nodes(self):
         g_u_nodes = [98, 97, 96, 7, 59, 47, 39, 37, 34]
@@ -225,6 +235,44 @@ class DistGraphTest(unittest.TestCase):
             res.append(nfeat_list)
 
         #  print(res)
+
+    def test_slot_feat(self):
+        g_feat = [
+            '23:0,23:1,24:10,24:0', '23:0,23:1,24:10,24:3',
+            '23:0,23:1,24:13,24:9', '23:0,23:1,24:14,24:9'
+        ]
+        nodes = [98, 7, 333, 247]
+        feat_names = "d"
+
+        nfeat_list = []
+        for ntype in self.c1.node_type_list:
+            nfeat_list.append(self.c1.get_node_feat(nodes, ntype, feat_names))
+
+        res = []
+        for all_type_feat in zip(*nfeat_list):
+            for feat in all_type_feat:
+                if len(feat) > 0:
+                    res.append(feat)
+
+        for req, gf in zip(res, g_feat):
+            self.assertEqual(req, gf)
+
+        NODE_FEAT_PATTERN = re.compile(r"[:,]")
+        nfeat_dict = defaultdict(lambda: defaultdict(list))
+        for nid, feat in zip(nodes, res):
+            slot_feat = re.split(NODE_FEAT_PATTERN, feat)
+            for k, v in zip(slot_feat[0::2], slot_feat[1::2]):
+                try:
+                    #  v = [int(i) for i in v.split(" ")]
+                    #  if len(v) == 0:
+                    #      continue
+                    v = int(v)
+                    nfeat_dict[nid][k].append(v)
+                except Exception as e:
+                    continue
+
+        #  print(res)
+        #  print(nfeat_dict)
 
     def test_sample_successor(self):
         nodes = [98, 7]
