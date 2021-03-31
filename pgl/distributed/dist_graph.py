@@ -25,7 +25,7 @@ import numpy as np
 from paddle.fluid.core import GraphPyService, GraphPyServer, GraphPyClient
 from pgl.utils.logger import log
 
-import helper
+import pgl.distributed.helper
 
 __all__ = ['DistGraphServer', 'DistGraphClient']
 
@@ -71,8 +71,7 @@ def stream_shuffle_generator(dataloader,
 
 
 class DistGraphServer(object):
-    def __init__(self, config, shard_num, ip_config, server_id):
-        """
+    """
         Args:
             config: yaml configure file
 
@@ -89,7 +88,9 @@ class DistGraphServer(object):
 
             server_id: int 
 
-        """
+    """
+
+    def __init__(self, config, shard_num, ip_config, server_id):
         self.config = helper.load_config(config)
         self.shard_num = shard_num
         self.server_id = server_id
@@ -126,8 +127,7 @@ class DistGraphServer(object):
 
 
 class DistGraphClient(object):
-    def __init__(self, config, shard_num, server_num, ip_config, client_id):
-        """
+    """
         Args:
             config: yaml configure file
 
@@ -146,7 +146,9 @@ class DistGraphClient(object):
 
             client_id: int 
 
-        """
+    """
+
+    def __init__(self, config, shard_num, server_num, ip_config, client_id):
         self.config = helper.load_config(config)
         self.shard_num = shard_num
         self.server_num = server_num
