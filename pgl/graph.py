@@ -1158,7 +1158,7 @@ class Graph(object):
             counts = [g.num_edges for g in graph_list]
         else:
             raise ValueError(
-                "mode must be in ['node', 'edge']. But recieved model=%s" %
+                "mode must be in ['node', 'edge']. But received model=%s" %
                 mode)
 
         if is_tensor:
@@ -1187,7 +1187,7 @@ class Graph(object):
                     feat[key].append(graph.edge_feat[key])
         else:
             raise ValueError(
-                "mode must be in ['node', 'edge']. But recieved model=%s" %
+                "mode must be in ['node', 'edge']. But received model=%s" %
                 mode)
 
         ret_feat = {}
