@@ -71,7 +71,8 @@ def stream_shuffle_generator(dataloader,
 
 
 class DistGraphServer(object):
-    def __init__(self, config, shard_num, ip_config, server_id):
+    def __init__(self, config, shard_num, ip_config, server_id,
+                 is_block=False):
         """
         Args:
             config: yaml configure file
@@ -89,10 +90,13 @@ class DistGraphServer(object):
 
             server_id: int 
 
+            is_block: bool, whether to block the server.
+
         """
         self.config = helper.load_config(config)
         self.shard_num = shard_num
         self.server_id = server_id
+        self.is_block = is_block
 
         if self.config.symmetry:
             self.symmetry = self.config.symmetry
@@ -122,7 +126,7 @@ class DistGraphServer(object):
         if self.config.nfeat_info:
             for item in self.config.nfeat_info:
                 self._server.add_table_feat_conf(*item)
-        self._server.start_server()
+        self._server.start_server(self.is_block)
 
 
 class DistGraphClient(object):
@@ -319,3 +323,9 @@ class DistGraphClient(object):
 
     def stop_server(self):
         self._client.stop_server()
+
+    def get_node_types(self):
+        return self.node_type_list
+
+    def get_edge_types(self):
+        return self.edge_type_list

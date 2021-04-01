@@ -49,7 +49,7 @@ edges_file = """37	45	0.34
 34	121	0.21
 39	131	0.21"""
 
-node_file = """u	98	a 0.21	b 13 14	c hello1	d 23:0,23:1,24:10,24:0
+node_file = """u	98	a 0.21	b 13 14	c hello1	d 
 u	97	a 0.22	b 13 14	c hello2	d 23:0,23:1,24:10,24:1
 u	96	a 0.23	b 13 14	c hello3	d 23:0,23:1,24:10,24:2
 u	7	a 0.24	b 13 14	c hello4	d 23:0,23:1,24:10,24:3
@@ -123,13 +123,10 @@ class DistGraphTest(unittest.TestCase):
         cls.c1.load_edges()
         cls.c1.load_node_types()
 
-    def test_stop_server(self):
-        #  time.sleep(5)
-        #  self.assertFalse(self.s1.is_stop())
-        #  self.s1.stop_server()
-        #  self.assertTrue(self.s1.is_stop())
-        self.c1.stop_server()
-        time.sleep(10)
+    #  def test_stop_server(self):
+    #      self.c1.stop_server()
+    #      print("server stop")
+    #      time.sleep(10)
 
     def test_random_sample_nodes(self):
         g_u_nodes = [98, 97, 96, 7, 59, 47, 39, 37, 34]
@@ -237,8 +234,8 @@ class DistGraphTest(unittest.TestCase):
 
     def test_slot_feat(self):
         g_feat = [
-            '23:0,23:1,24:10,24:0', '23:0,23:1,24:10,24:3',
-            '23:0,23:1,24:13,24:9', '23:0,23:1,24:14,24:9'
+            '', '23:0,23:1,24:10,24:3', '23:0,23:1,24:13,24:9',
+            '23:0,23:1,24:14,24:9'
         ]
         nodes = [98, 7, 333, 247]
         feat_names = "d"
@@ -249,9 +246,12 @@ class DistGraphTest(unittest.TestCase):
 
         res = []
         for all_type_feat in zip(*nfeat_list):
+            f = ""
             for feat in all_type_feat:
                 if len(feat) > 0:
-                    res.append(feat)
+                    f = feat
+                    break
+            res.append(f)
 
         for req, gf in zip(res, g_feat):
             self.assertEqual(req, gf)
@@ -262,16 +262,10 @@ class DistGraphTest(unittest.TestCase):
             slot_feat = re.split(NODE_FEAT_PATTERN, feat)
             for k, v in zip(slot_feat[0::2], slot_feat[1::2]):
                 try:
-                    #  v = [int(i) for i in v.split(" ")]
-                    #  if len(v) == 0:
-                    #      continue
                     v = int(v)
                     nfeat_dict[nid][k].append(v)
                 except Exception as e:
                     continue
-
-        #  print(res)
-        #  print(nfeat_dict)
 
     def test_sample_successor(self):
         nodes = [98, 7]

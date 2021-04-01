@@ -94,7 +94,8 @@ def get_all_edge_type(etype2files, symmetry):
         for etype in etype2files.keys():
             r_etype = get_inverse_etype(etype)
             etype_list.append(etype)
-            etype_list.append(r_etype)
+            if r_etype != etype:
+                etype_list.append(r_etype)
     else:
         etype_list = list(etype2files.keys())
 
