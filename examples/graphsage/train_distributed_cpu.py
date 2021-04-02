@@ -25,7 +25,7 @@ from pgl.utils.logger import log
 from pgl.utils.data import Dataloader
 
 from model import GraphSage
-from dataset import SplitedDataset, batch_fn
+from dataset import ShardedDataset, batch_fn
 import paddle.distributed.fleet as fleet
 import paddle.distributed.fleet.base.role_maker as role_maker
 import paddle.fluid as F
@@ -183,7 +183,7 @@ def main(args):
                                   loss,
                                   acc,
                                   phase="test")
-        log.info("Epoch %s Valid-Loss %s Valid-Acc %s" %
+        log.info("Epoch %s Test-Loss %s Test-Acc %s" %
                  (epoch, test_loss, test_acc))
 
         fleet.stop_worker()
