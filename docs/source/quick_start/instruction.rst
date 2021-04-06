@@ -8,7 +8,7 @@ To install Paddle Graph Learning, we need the following packages.
 
 .. code-block:: sh
 
-    paddlepaddle >= 2.0.0rc
+    paddlepaddle >= 2.0.0
     cython
 
 We can simply install pgl by pip.
@@ -18,5 +18,3 @@ We can simply install pgl by pip.
     pip install pgl
 
 .. mdinclude:: quick_start.md
-
-

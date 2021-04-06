@@ -1,0 +1,5 @@
+model_name: SSGC 
+num_layers: 16
+alpha: 0.05
+learning_rate: 0.2
+weight_decay: 0.000005

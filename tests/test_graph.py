@@ -59,6 +59,21 @@ class GraphTest(unittest.TestCase):
             node_feat={'nfeat': nfeat},
             edge_feat={'efeat': efeat})
 
+    def test_num_nodes_valid(self):
+
+        num_nodes = 3
+        dim = 4
+        edges = [(0, 1), (1, 2), (3, 4)]
+        nfeat = np.random.randn(num_nodes, dim)
+        efeat = np.random.randn(len(edges), dim)
+
+        with self.assertRaises(ValueError):
+            g1 = pgl.Graph(
+                edges=edges,
+                num_nodes=num_nodes,
+                node_feat={'nfeat': nfeat},
+                edge_feat={'efeat': efeat})
+
     def test_build_tensor_graph(self):
         num_nodes = paddle.to_tensor(5)
         e = np.array([(0, 1), (1, 2), (3, 4)])
@@ -148,6 +163,53 @@ class GraphTest(unittest.TestCase):
             np.all(node_index == multi_graph.graph_node_id.numpy()))
         self.assertTrue(
             np.all(edge_index == multi_graph.graph_edge_id.numpy()))
+
+        # testing for jointing One Graph
+        multi_graph = pgl.Graph.disjoint([glist[0]])
+        self.assertEqual(multi_graph.node_feat['nfeat'].shape,
+                         (glist[0].num_nodes, dim))
+
+    def test_disjoint_tensor_graph(self):
+        glist = []
+        dim = 4
+        for i in range(5):
+            num_nodes = np.random.randint(low=2, high=10)
+            edges = np.random.randint(
+                low=1,
+                high=num_nodes,
+                size=[np.random.randint(
+                    low=1, high=10), 2])
+            nfeat = np.random.randn(num_nodes, dim)
+            efeat = np.random.randn(len(edges), dim)
+
+            g = pgl.Graph(
+                edges=paddle.to_tensor(edges),
+                num_nodes=paddle.to_tensor(num_nodes),
+                node_feat={"nfeat": paddle.to_tensor(nfeat)},
+                edge_feat={"efeat": paddle.to_tensor(efeat)})
+            glist.append(g)
+        # Merge Graph
+        multi_graph = pgl.Graph.disjoint(glist)
+
+        # Check Graph Index
+        node_index = [np.ones(g.num_nodes) * n for n, g in enumerate(glist)]
+        edge_index = [np.ones(g.num_edges) * n for n, g in enumerate(glist)]
+        node_index = np.concatenate(node_index)
+        edge_index = np.concatenate(edge_index)
+
+        self.assertTrue(
+            np.all(node_index == multi_graph.graph_node_id.numpy()))
+        self.assertTrue(
+            np.all(edge_index == multi_graph.graph_edge_id.numpy()))
+
+        multi_graph.numpy()
+        self.assertTrue(np.all(node_index == multi_graph.graph_node_id))
+        self.assertTrue(np.all(edge_index == multi_graph.graph_edge_id))
+
+        # testing for jointing One Graph
+        multi_graph = pgl.Graph.disjoint([glist[0]])
+        self.assertEqual(multi_graph.node_feat['nfeat'].shape,
+                         [glist[0].num_nodes.numpy()[0], dim])
 
     def test_dump_numpy_load_tensor(self):
 

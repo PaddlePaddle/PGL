@@ -16,7 +16,6 @@ import os
 
 import paddle
 import numpy as np
-from paddle.io import get_worker_info
 
 from pgl import graph_kernel
 from pgl.utils.logger import log
@@ -62,15 +61,16 @@ class BatchRandWalk(object):
 
 
 class ShardedDataset(Dataset):
-    def __init__(self, nodes, mode="train"):
-        worker_info = get_worker_info()
-        if worker_info is None or mode != "train":
+    def __init__(self, nodes, mode="train", repeat=1):
+        self.repeat = repeat
+        if int(paddle.distributed.get_world_size()) == 1 or mode != "train":
             self.data = nodes
         else:
-            self.data = nodes[worker_info.id::worker_info.num_workers]
+            self.data = nodes[int(paddle.distributed.get_rank())::int(
+                paddle.distributed.get_world_size())]
 
     def __getitem__(self, idx):
-        return self.data[idx]
+        return self.data[idx % len(self.data)]
 
     def __len__(self):
-        return len(self.data)
+        return len(self.data) * self.repeat

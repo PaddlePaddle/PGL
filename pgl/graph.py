@@ -35,9 +35,9 @@ import warnings
 class Graph(object):
     """Implementation of graph interface in pgl.
 
-    This is a simple implementation of graph structure in pgl.
+    This is a simple implementation of graph structure in pgl. 
 
-    `pgl.Graph` is alias on `pgl.graph.Graph` 
+    `pgl.Graph` is an alias for `pgl.graph.Graph` 
 
     Args:
 
@@ -136,8 +136,13 @@ class Graph(object):
         if num_nodes is None:
             self._num_nodes = maybe_num_nodes(self._edges)
         else:
-            # TODO: check num_nodes is valid
             self._num_nodes = num_nodes
+            max_edge_id = maybe_num_nodes(self._edges)
+            if not isinstance(max_edge_id, paddle.fluid.framework.
+                              Variable) and self._num_nodes < max_edge_id:
+                raise ValueError("The max edge ID should be less than the number of nodes. "
+                        "But got max edge ID [%s] >= num_nodes [%s]" \
+                        % (max_edge_id-1, self._num_nodes))
 
         self._adj_src_index = kwargs.get("adj_src_index", None)
         self._adj_dst_index = kwargs.get("adj_dst_index", None)
@@ -178,7 +183,7 @@ class Graph(object):
                     self._adj_src_index.tensor(inplace=True)
 
             if self._adj_dst_index is not None:
-                if not self._adj_dst_idnex.is_tensor():
+                if not self._adj_dst_index.is_tensor():
                     self._adj_dst_index.tensor(inplace=True)
 
         # preprocess graph level informations
@@ -196,19 +201,17 @@ class Graph(object):
                 '''
                     Args:
 
-                        msg: A LodTensor or a dictionary of LodTensor whose batch_size
-                             is equals to the number of unique dst nodes.
+                        msg: An instance of Message class.
 
                     Return:
 
-                        It should return a tensor with shape (batch_size, out_dims). The
-                        batch size should be the same as msg.
+                        It should return a tensor with shape (batch_size, out_dims).
                 '''
                 pass
 
         Args:
 
-            msg: A tensor or a dictionary of tensor created by send function..
+            msg: A dictionary of tensor created by send function..
 
             reduce_func: A callable UDF reduce function.
 
@@ -937,16 +940,16 @@ class Graph(object):
 
         assert reduce_func == "sum", "Only implement 'sum' function right now"
 
-        assert isinstance(feature, paddle.Tensor), \
+        assert isinstance(feature, paddle.Tensor) or isinstance(feature, paddle.fluid.framework.Variable), \
                 "The input of send_recv method should be tensor."
 
-        src, dst, eid = self.sorted_edges(sort_by="dst")
+        src, dst = self.edges[:, 0], self.edges[:, 1]
+
 
         msg = self.send(
             lambda sf, df, ef: {"msg": sf["h"]}, src_feat={"h": feature})
 
         def _sum_recv(feat):
-            feat = paddle.gather(feat, eid)
             output_dim = feat.shape[-1]
             init_output = paddle.zeros(
                 shape=[self._num_nodes, output_dim], dtype=feat.dtype)
@@ -1117,6 +1120,8 @@ class Graph(object):
         ) > 0, "The input graph_list of Graph.disjoint has length $s. It should be greater than 0. " % len(
             graph_list)
 
+        is_tensor = graph_list[0].is_tensor()
+
         edges = cls._join_edges(graph_list)
         num_nodes = cls._join_nodes(graph_list)
         node_feat = cls._join_feature(graph_list, mode="node")
@@ -1127,7 +1132,8 @@ class Graph(object):
             graph_node_index = None
             graph_edge_index = None
         else:
-            num_graph = len(graph_list)
+            num_graph = paddle.to_tensor([len(graph_list)], "int64") \
+                    if is_tensor else len(graph_list)
             graph_node_index = cls._join_graph_index(graph_list, mode="node")
             graph_edge_index = cls._join_graph_index(graph_list, mode="edge")
 
@@ -1154,7 +1160,7 @@ class Graph(object):
             counts = [g.num_edges for g in graph_list]
         else:
             raise ValueError(
-                "mode must be in ['node', 'edge']. But recieved model=%s" %
+                "mode must be in ['node', 'edge']. But received model=%s" %
                 mode)
 
         if is_tensor:
@@ -1183,13 +1189,13 @@ class Graph(object):
                     feat[key].append(graph.edge_feat[key])
         else:
             raise ValueError(
-                "mode must be in ['node', 'edge']. But recieved model=%s" %
+                "mode must be in ['node', 'edge']. But received model=%s" %
                 mode)
 
         ret_feat = {}
         for key in feat:
             if len(feat[key]) == 1:
-                ret_feat[key] = feat[key]
+                ret_feat[key] = feat[key][0]
             else:
                 if is_tensor:
                     ret_feat[key] = paddle.concat(feat[key], 0)

@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ from easydict import EasyDict as edict
 import tqdm
 from paddle.optimizer import Adam
 from pgl.utils.data import Dataloader
+from paddle.io import get_worker_info
 
 from model import SkipGramModel
 from dataset import ShardedDataset
@@ -46,7 +47,19 @@ def load(name):
     return dataset.graph.to_mmap()
 
 
-def train(model, data_loader, optim, log_per_step=1):
+def load_from_file(path):
+    edges = []
+    with open(path) as inf:
+        for line in inf:
+            u, t = line.strip("\n").split("\t")
+            u, t = int(u), int(t)
+            edges.append((u, t))
+    edges = np.array(edges)
+    graph = pgl.Graph(edges)
+    return graph
+
+
+def train(model, data_loader, optim, log_per_step=10):
     model.train()
     total_loss = 0.
     total_sample = 0
@@ -71,10 +84,19 @@ def train(model, data_loader, optim, log_per_step=1):
 
 
 def main(args):
+    if not args.use_cuda:
+        paddle.set_device("cpu")
     if paddle.distributed.get_world_size() > 1:
         paddle.distributed.init_parallel_env()
 
-    graph = load(args.dataset)
+    if args.edge_file:
+        graph = load_from_file(args.edge_file)
+    else:
+        graph = load(args.dataset)
+
+    edges = np.load("./edges.npy")
+    edges = np.concatenate([edges, edges[:, [1, 0]]])
+    graph = pgl.Graph(edges)
 
     model = SkipGramModel(
         graph.num_nodes,
@@ -83,12 +105,17 @@ def main(args):
         sparse=not args.use_cuda)
     model = paddle.DataParallel(model)
 
-    optim = Adam(
-        learning_rate=args.learning_rate,
-        parameters=model.parameters(),
-        weight_decay=args.weight_decay)
+    train_ds = ShardedDataset(graph.nodes, repeat=args.epoch)
 
-    train_ds = ShardedDataset(graph.nodes)
+    train_steps = int(len(train_ds) // args.batch_size)
+    log.info("train_steps: %s" % train_steps)
+    scheduler = paddle.optimizer.lr.PolynomialDecay(
+        learning_rate=args.learning_rate,
+        decay_steps=train_steps,
+        end_lr=0.0001)
+
+    optim = Adam(learning_rate=scheduler, parameters=model.parameters())
+
     collate_fn = BatchRandWalk(graph, args.walk_len, args.win_size,
                                args.neg_num, args.neg_sample_type)
     data_loader = Dataloader(
@@ -98,9 +125,8 @@ def main(args):
         num_workers=args.sample_workers,
         collate_fn=collate_fn)
 
-    for epoch in tqdm.tqdm(range(args.epoch)):
-        train_loss = train(model, data_loader, optim)
-        log.info("Runing epoch:%s\t train_loss:%.6f", epoch, train_loss)
+    train_loss = train(model, data_loader, optim)
+    paddle.save(model.state_dict(), "model.pdparams")
 
 
 if __name__ == '__main__':
@@ -116,7 +142,8 @@ if __name__ == '__main__':
         type=str,
         default="./config.yaml",
         help="config file for models")
-    parser.add_argument("--epoch", type=int, default=200, help="Epoch")
+    parser.add_argument("--epoch", type=int, default=400, help="Epoch")
+    parser.add_argument("--edge_file", type=str, default=None)
     args = parser.parse_args()
 
     # merge user args and config file 
