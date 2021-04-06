@@ -128,7 +128,8 @@ class Graph(object):
             if isinstance(edges, np.ndarray):
                 if edges.dtype != "int64":
                     edges = edges.astype("int64")
-            edges = np.array(edges, dtype="int64")
+            else:
+                edges = np.array(edges, dtype="int64")
 
         self._edges = edges
 
