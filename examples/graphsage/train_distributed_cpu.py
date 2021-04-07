@@ -179,6 +179,7 @@ def main(args):
 
         train_ds = ShardedDataset(train_index, train_label)
         valid_ds = ShardedDataset(val_index, val_label)
+        test_ds = ShardedDataset(test_index, test_label)
 
         collate_fn = partial(batch_fn, graph=graph, samples=args.samples)
 
@@ -195,6 +196,14 @@ def main(args):
             shuffle=True,
             num_workers=args.sample_workers,
             collate_fn=collate_fn)
+
+        test_loader = Dataloader(
+            test_ds,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.sample_workers,
+            collate_fn=collate_fn)
+
         compiled_prog, cpu_num = setup_compiled_prog(loss)
 
         for epoch in tqdm.tqdm(range(args.epoch)):
