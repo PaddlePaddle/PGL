@@ -31,6 +31,25 @@ import paddle.distributed.fleet.base.role_maker as role_maker
 import paddle.fluid as F
 
 
+def setup_compiled_prog(loss):
+    cpu_num = int(os.environ.get('CPU_NUM', 1))
+    if int(cpu_num) > 1:
+        parallel_places = [paddle.CPUPlace()] * cpu_num
+        exec_strategy = paddle.static.ExecutionStrategy()
+        exec_strategy.num_threads = int(cpu_num)
+        build_strategy = paddle.static.BuildStrategy()
+        build_strategy.reduce_strategy = paddle.static.BuildStrategy.ReduceStrategy.Reduce
+        compiled_prog = paddle.static.CompiledProgram(
+            paddle.static.default_main_program()).with_data_parallel(
+                loss_name=loss.name,
+                places=parallel_places,
+                build_strategy=build_strategy,
+                exec_strategy=exec_strategy)
+    else:
+        compiled_prog = paddle.static.default_main_program()
+    return compiled_prog, cpu_num
+
+
 def run(dataset,
         feature,
         exe,
@@ -38,13 +57,16 @@ def run(dataset,
         loss,
         acc,
         phase="train",
-        log_per_step=5):
+        log_per_step=5,
+        cpu_num=1):
 
     batch = 0
     total_loss = 0.
     total_acc = 0.
     total_sample = 0
 
+    feed_list = []
+    step = 0
     for g, sample_index, index, label in dataset:
         feed_dict = {
             "num_nodes": np.array(
@@ -56,17 +78,34 @@ def run(dataset,
             "feature": feature[sample_index].astype("float32")
         }
 
+        if len(feed_list) < cpu_num:
+            feed_list.append(feed_dict)
         batch += 1
-        batch_loss, batch_acc = exe.run(program,
-                                        feed=feed_dict,
-                                        fetch_list=[loss.name, acc.name])
+        step += 1
 
-        if batch % log_per_step == 0:
-            log.info("Batch %s %s-Loss %s %s-Acc %s" %
-                     (batch, phase, batch_loss, phase, batch_acc))
-        total_acc += batch_acc * len(index)
-        total_loss += batch_loss * len(index)
-        total_sample += len(index)
+        if len(feed_list) == cpu_num:
+            batch_index = []
+            for feed_dict in feed_list:
+                batch_index.append(feed_dict["index"])
+
+            if len(feed_list) == 1:
+                feed_list = feed_list[0]
+
+            batch_loss, batch_acc = exe.run(program,
+                                            feed=feed_list,
+                                            fetch_list=[loss.name, acc.name])
+            step += 1
+            feed_list = []
+
+            if step % log_per_step == 0:
+                log.info("Batch %s %s-Loss %s %s-Acc %s" %
+                         (batch, phase, np.mean(batch_loss), phase,
+                          np.mean(batch_acc)))
+
+            for n, index in enumerate(batch_index):
+                total_acc += batch_acc[n] * len(index)
+                total_loss += batch_loss[n] * len(index)
+                total_sample += len(index)
 
     return total_loss / total_sample, total_acc / total_sample
 
@@ -140,6 +179,7 @@ def main(args):
 
         train_ds = ShardedDataset(train_index, train_label)
         valid_ds = ShardedDataset(val_index, val_label)
+        test_ds = ShardedDataset(test_index, test_label)
 
         collate_fn = partial(batch_fn, graph=graph, samples=args.samples)
 
@@ -157,14 +197,24 @@ def main(args):
             num_workers=args.sample_workers,
             collate_fn=collate_fn)
 
+        test_loader = Dataloader(
+            test_ds,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.sample_workers,
+            collate_fn=collate_fn)
+
+        compiled_prog, cpu_num = setup_compiled_prog(loss)
+
         for epoch in tqdm.tqdm(range(args.epoch)):
             train_loss, train_acc = run(train_loader,
                                         data.feature,
                                         exe,
-                                        paddle.static.default_main_program(),
+                                        compiled_prog,
                                         loss,
                                         acc,
-                                        phase="train")
+                                        phase="train",
+                                        cpu_num=cpu_num)
 
             valid_loss, valid_acc = run(valid_loader,
                                         data.feature,
@@ -172,7 +222,8 @@ def main(args):
                                         test_program,
                                         loss,
                                         acc,
-                                        phase="valid")
+                                        phase="valid",
+                                        cpu_num=1)
 
             log.info("Epoch %s Valid-Loss %s Valid-Acc %s" %
                      (epoch, valid_loss, valid_acc))
@@ -182,7 +233,8 @@ def main(args):
                                   test_program,
                                   loss,
                                   acc,
-                                  phase="test")
+                                  phase="test",
+                                  cpu_num=1)
         log.info("Epoch %s Test-Loss %s Test-Acc %s" %
                  (epoch, test_loss, test_acc))
 
