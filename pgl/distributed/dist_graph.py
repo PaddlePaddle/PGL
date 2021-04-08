@@ -76,7 +76,7 @@ class DistGraphServer(object):
                  is_block=False):
         """
         Args:
-            config: yaml configure file
+            config: a yaml configure file or a dict of parameters
 
             shard_num: int, the sharding number of graph data
 
@@ -127,7 +127,7 @@ class DistGraphClient(object):
     def __init__(self, config, shard_num, ip_config, client_id):
         """
         Args:
-            config: yaml configure file
+            config: a yaml configure file or a dict of parameters
 
             shard_num: int, the sharding number of graph data
 
