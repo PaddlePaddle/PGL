@@ -17,7 +17,6 @@ import argparse
 import threading
 import multiprocessing
 import time
-from mpi4py import MPI
 
 from paddle.distributed.fleet.base.private_helper_function import wait_server_ready
 
@@ -104,9 +103,10 @@ def launch_graph_service(config, ip_config, server_id, mode, shard_num=1000):
 
     if mode == "mpi":
         try:
+            from mpi4py import MPI
             fleet = Dist()
         except Exception as e:
-            print(e)
+            log.info(e)
         server_id = fleet.worker_index()
 
         if ip_config is None:

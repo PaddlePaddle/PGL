@@ -221,8 +221,13 @@ class DistGraphClient(object):
             edge_type: str, edge type
         """
 
-        out = self.sample_successor(nodes, max_degree, edge_type)
-        return out
+        res = self._client.batch_sample_neighboors(edge_type, nodes,
+                                                   max_degree)
+        neighs = [[] for _ in range(len(res))]
+        for idx, n_neighs in enumerate(res):
+            for pair in n_neighs:
+                neighs[idx].append(pair[0])
+        return neighs
 
     def sample_successor(self, nodes, max_degree, edge_type):
         """
