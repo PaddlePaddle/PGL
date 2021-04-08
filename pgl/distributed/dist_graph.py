@@ -212,6 +212,15 @@ class DistGraphClient(object):
             self._client.load_node_file(ntype, filepath)
 
     def sample_predecessor(self, nodes, max_degree, edge_type):
+        """
+        Args:
+            nodes: list of node ID
+
+            max_degree: int, sample number of each node
+
+            edge_type: str, edge type
+        """
+
         out = self.sample_successor(nodes, max_degree, edge_type)
         return out
 
@@ -234,7 +243,6 @@ class DistGraphClient(object):
 
     def random_sample_nodes(self, node_type, size):
         """
-
         Args:
             node_type: str,
 
@@ -251,6 +259,19 @@ class DistGraphClient(object):
                         shuffle=True,
                         rank=0,
                         nrank=1):
+        """
+        Args:
+            batch_size: int
+
+            node_type: string
+
+            shuffle: bool
+
+            rank: int
+
+            nrank: int
+        """
+
         def _batch_data_generator(server_idx):
             start = rank * batch_size
             while True:
