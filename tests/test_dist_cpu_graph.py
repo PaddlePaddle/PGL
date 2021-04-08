@@ -107,18 +107,10 @@ class DistGraphTest(unittest.TestCase):
         cls.s2 = DistGraphServer(config, shard_num, ip_addr, server_id=1)
 
         cls.c1 = DistGraphClient(
-            config,
-            shard_num=shard_num,
-            server_num=2,
-            ip_config=ip_addr,
-            client_id=0)
+            config, shard_num=shard_num, ip_config=ip_addr, client_id=0)
 
         cls.c2 = DistGraphClient(
-            config,
-            shard_num=shard_num,
-            server_num=2,
-            ip_config=ip_addr,
-            client_id=1)
+            config, shard_num=shard_num, ip_config=ip_addr, client_id=1)
 
         cls.c1.load_edges()
         cls.c1.load_node_types()

@@ -20,6 +20,7 @@ import os
 import sys
 import time
 import argparse
+import warnings
 import numpy as np
 
 from paddle.fluid.core import GraphPyService, GraphPyServer, GraphPyClient
@@ -130,14 +131,12 @@ class DistGraphServer(object):
 
 
 class DistGraphClient(object):
-    def __init__(self, config, shard_num, server_num, ip_config, client_id):
+    def __init__(self, config, shard_num, ip_config, client_id):
         """
         Args:
             config: yaml configure file
 
             shard_num: int, the sharding number of graph data
-
-            server_num: int, total number of server
 
             ip_config: list of IP address or a path of IP configuration file
             
@@ -153,7 +152,6 @@ class DistGraphClient(object):
         """
         self.config = helper.load_config(config)
         self.shard_num = shard_num
-        self.server_num = server_num
         self.client_id = client_id
 
         if self.config.symmetry:
@@ -176,6 +174,8 @@ class DistGraphClient(object):
             raise TypeError("ip_config should be list of IP address or "
                             "a path of IP configuration file. "
                             "But got %s" % (type(ip_config)))
+
+        self.server_num = len(self.ip_addr.split(";"))
 
         if self.config.nfeat_info is not None:
             self.nfeat_info = helper.convert_nfeat_info(self.config.nfeat_info)

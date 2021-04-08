@@ -71,7 +71,12 @@ def start_client(config, ip_addr, server_num, server_id, shard_num=1000):
         graph_client.load_node_types()
 
 
-def launch_graph_service(config, ip_config, server_id, mode, shard_num=1000):
+def launch_graph_service(config,
+                         ip_config,
+                         server_id,
+                         mode,
+                         shard_num=1000,
+                         port=8245):
     """
 
     Args:
@@ -90,6 +95,8 @@ def launch_graph_service(config, ip_config, server_id, mode, shard_num=1000):
 
         shard_num: The total sharding number for the graph. 
             Each server is responsible for part of shards.
+
+        port: int, port number, default is 8245
 
     Return:
         A DistGraphClient for handling GraphServer 
@@ -110,7 +117,7 @@ def launch_graph_service(config, ip_config, server_id, mode, shard_num=1000):
         server_id = fleet.worker_index()
 
         if ip_config is None:
-            local_ip_addr = ":".join([fleet.get_local_ip(), "8245"])
+            local_ip_addr = ":".join([fleet.get_local_ip(), str(port)])
             ip_addr = fleet.allgather(local_ip_addr)
 
     server_num = len(ip_addr)
@@ -141,8 +148,9 @@ if __name__ == '__main__':
         "--server_id", type=int, default=0, help="The Rank of the server.")
     parser.add_argument(
         "--shard_num", type=int, default=1000, help="Sharding for graph")
+    parser.add_argument("--port", type=int, default=8245, help="port number")
     args = parser.parse_args()
     log.info(args)
 
     launch_graph_service(args.config, args.ip_config, args.server_id,
-                         args.mode, args.shard_num)
+                         args.mode, args.shard_num, args.port)
