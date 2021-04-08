@@ -128,7 +128,8 @@ class Graph(object):
             if isinstance(edges, np.ndarray):
                 if edges.dtype != "int64":
                     edges = edges.astype("int64")
-            edges = np.array(edges, dtype="int64")
+            else:
+                edges = np.array(edges, dtype="int64")
 
         self._edges = edges
 
@@ -137,7 +138,8 @@ class Graph(object):
         else:
             self._num_nodes = num_nodes
             max_edge_id = maybe_num_nodes(self._edges)
-            if self._num_nodes < max_edge_id:
+            if not isinstance(max_edge_id, paddle.fluid.framework.
+                              Variable) and self._num_nodes < max_edge_id:
                 raise ValueError("The max edge ID should be less than the number of nodes. "
                         "But got max edge ID [%s] >= num_nodes [%s]" \
                         % (max_edge_id-1, self._num_nodes))
@@ -938,7 +940,7 @@ class Graph(object):
 
         assert reduce_func == "sum", "Only implement 'sum' function right now"
 
-        assert isinstance(feature, paddle.Tensor), \
+        assert isinstance(feature, paddle.Tensor) or isinstance(feature, paddle.fluid.framework.Variable), \
                 "The input of send_recv method should be tensor."
 
         src, dst = self.edges[:, 0], self.edges[:, 1]
@@ -1158,7 +1160,7 @@ class Graph(object):
             counts = [g.num_edges for g in graph_list]
         else:
             raise ValueError(
-                "mode must be in ['node', 'edge']. But recieved model=%s" %
+                "mode must be in ['node', 'edge']. But received model=%s" %
                 mode)
 
         if is_tensor:
@@ -1187,7 +1189,7 @@ class Graph(object):
                     feat[key].append(graph.edge_feat[key])
         else:
             raise ValueError(
-                "mode must be in ['node', 'edge']. But recieved model=%s" %
+                "mode must be in ['node', 'edge']. But received model=%s" %
                 mode)
 
         ret_feat = {}
