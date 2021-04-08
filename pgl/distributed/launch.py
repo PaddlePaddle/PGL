@@ -28,7 +28,7 @@ from pgl.distributed import helper
 class Dist(object):
     """dist config"""
 
-    def __init__(self):
+    def __init__(self, MPI):
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.nrank = self.comm.Get_size()
@@ -60,11 +60,7 @@ class Dist(object):
 def start_client(config, ip_addr, server_num, server_id, shard_num=1000):
     wait_server_ready(ip_addr)
     graph_client = DistGraphClient(
-        config,
-        shard_num=shard_num,
-        server_num=server_num,
-        ip_config=ip_addr,
-        client_id=server_id)
+        config, shard_num=shard_num, ip_config=ip_addr, client_id=server_id)
 
     if server_id == 0:
         graph_client.load_edges()
@@ -102,18 +98,18 @@ def launch_graph_service(config,
         A DistGraphClient for handling GraphServer 
 
     """
-    if isinstance(ip_config, str):
+    if ip_config is not None:
         ip_addr = helper.load_ip_addr(ip_config)
         ip_addr = ip_addr.split(";")
-    else:
-        ip_addr = ip_config
 
     if mode == "mpi":
         try:
             from mpi4py import MPI
-            fleet = Dist()
+            fleet = Dist(MPI)
         except Exception as e:
             log.info(e)
+            raise
+
         server_id = fleet.worker_index()
 
         if ip_config is None:
