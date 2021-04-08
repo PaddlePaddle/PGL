@@ -77,14 +77,21 @@ def make_dir(path):
         os.makedirs(path)
 
 
-def load_config(config_file):
-    """Load config file"""
-    with open(config_file) as f:
-        if hasattr(yaml, 'FullLoader'):
-            config = yaml.load(f, Loader=yaml.FullLoader)
-        else:
-            config = yaml.load(f)
-    config = AttrDict(config)
+def load_config(config):
+    """Load configuration"""
+    if isinstance(config, str):
+        with open(config) as f:
+            if hasattr(yaml, 'FullLoader'):
+                config = yaml.load(f, Loader=yaml.FullLoader)
+            else:
+                config = yaml.load(f)
+        config = AttrDict(config)
+    elif isinstance(config, dict):
+        config = AttrDict(config)
+    else:
+        raise TypeError("config should be a dict or "
+                        "a path of configuration file. "
+                        "But got %s" % (type(config)))
     return config
 
 
@@ -135,11 +142,18 @@ def get_files(edge_file_or_dir):
 
 
 def load_ip_addr(ip_config):
-    ip_addr_list = []
-    with open(ip_config, 'r') as f:
-        for line in f:
-            ip_addr_list.append(line.strip())
-    ip_addr = ";".join(ip_addr_list)
+    if isinstance(ip_config, str):
+        ip_addr_list = []
+        with open(ip_config, 'r') as f:
+            for line in f:
+                ip_addr_list.append(line.strip())
+        ip_addr = ";".join(ip_addr_list)
+    elif isinstance(ip_config, list):
+        ip_addr = ";".join(ip_config)
+    else:
+        raise TypeError("ip_config should be list of IP address or "
+                        "a path of IP configuration file. "
+                        "But got %s" % (type(ip_config)))
     return ip_addr
 
 

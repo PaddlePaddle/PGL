@@ -104,14 +104,7 @@ class DistGraphServer(object):
         else:
             self.symmetry = False
 
-        if isinstance(ip_config, str):
-            self.ip_addr = helper.load_ip_addr(ip_config)
-        elif isinstance(ip_config, list):
-            self.ip_addr = ";".join(ip_config)
-        else:
-            raise TypeError("ip_config should be list of IP address or "
-                            "a path of IP configuration file. "
-                            "But got %s" % (type(ip_config)))
+        self.ip_addr = helper.load_ip_addr(ip_config)
 
         self.ntype2files = helper.parse_files(self.config.ntype2files)
         self.node_type_list = list(self.ntype2files.keys())
@@ -166,15 +159,7 @@ class DistGraphClient(object):
                           "default value is 20000")
             self.stream_shuffle_size = 20000
 
-        if isinstance(ip_config, str):
-            self.ip_addr = helper.load_ip_addr(ip_config)
-        elif isinstance(ip_config, list):
-            self.ip_addr = ";".join(ip_config)
-        else:
-            raise TypeError("ip_config should be list of IP address or "
-                            "a path of IP configuration file. "
-                            "But got %s" % (type(ip_config)))
-
+        self.ip_addr = helper.load_ip_addr(ip_config)
         self.server_num = len(self.ip_addr.split(";"))
 
         if self.config.nfeat_info is not None:
