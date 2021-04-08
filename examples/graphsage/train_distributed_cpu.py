@@ -81,7 +81,6 @@ def run(dataset,
         if len(feed_list) < cpu_num:
             feed_list.append(feed_dict)
         batch += 1
-        step += 1
 
         if len(feed_list) == cpu_num:
             batch_index = []
