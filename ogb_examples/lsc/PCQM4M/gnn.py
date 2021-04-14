@@ -76,11 +76,7 @@ class GNN(paddle.nn.Layer):
         else:
             raise ValueError("Invalid graph pooling type.")
 
-        if graph_pooling == "set2set":
-            self.graph_pred_linear = nn.Linear(2 * self.emb_dim,
-                                               self.num_tasks)
-        else:
-            self.graph_pred_linear = nn.Linear(self.emb_dim, self.num_tasks)
+        self.graph_pred_linear = nn.Linear(self.emb_dim, self.num_tasks)
 
     def forward(self, g):
         h_node = self.gnn_node(g)
