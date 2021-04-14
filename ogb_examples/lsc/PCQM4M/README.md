@@ -62,10 +62,10 @@ clearly reported in the final submission.
 
 | Model       | Original Valid MAE | PGL Valid MAE | #Parameters | 
 | ----------- | ------------------ | ------------- | ----------- | 
-| GIN         | 0.1536             | 0.1536        | 3.8M        | 
-| GIN-virtual | 0.1396             | 0.1407        | 6.7M        |
-| GCN         | 0.1684             | 0.1683        | 2.0M        |
-| GCN-virtual | 0.1510             | 0.1557        | 4.9M        |
+| GIN         | 0.1536             | 0.1543        | 3.8M        | 
+| GIN-virtual | 0.1396             | 0.1419        | 6.7M        |
+| GCN         | 0.1684             | 0.1791        | 2.0M        |
+| GCN-virtual | 0.1510             | 0.1603        | 4.9M        |
 
 ## References
 
