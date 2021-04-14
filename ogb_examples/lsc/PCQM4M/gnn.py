@@ -73,13 +73,6 @@ class GNN(paddle.nn.Layer):
             self.pool = gnn.GraphPool(pool_type="mean")
         elif self.graph_pooling == "max":
             self.pool = gnn.GraphPool(pool_type="max")
-        elif self.graph_pooling == "attention":
-            self.pool = GlobalAttention(gate_nn=paddle.nn.Sequential(
-                nn.Linear(emb_dim, 2 * emb_dim),
-                nn.BatchNorm1d(2 * emb_dim),
-                nn.ReLU(), nn.Linear(2 * emb_dim, 1)))
-        elif self.graph_pooling == "set2set":
-            self.pool = Set2Set(emb_dim, processing_steps=2)
         else:
             raise ValueError("Invalid graph pooling type.")
 
