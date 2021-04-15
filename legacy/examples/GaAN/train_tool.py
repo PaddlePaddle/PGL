@@ -29,8 +29,9 @@ def train_epoch(batch_iter,
     result = 0
     for batch_feed_dict in batch_iter():
         batch += 1
-        batch_loss, y_pred = exe.run(
-            program, fetch_list=[loss, score], feed=batch_feed_dict)
+        batch_loss, y_pred = exe.run(program,
+                                     fetch_list=[loss, score],
+                                     feed=batch_feed_dict)
 
         num_samples = len(batch_feed_dict["node_index"])
         total_loss += batch_loss * num_samples
@@ -58,8 +59,9 @@ def valid_epoch(batch_iter,
     total_loss = 0.0
     for batch_feed_dict in batch_iter():
         batch += 1
-        batch_loss, y_pred = exe.run(
-            program, fetch_list=[loss, score], feed=batch_feed_dict)
+        batch_loss, y_pred = exe.run(program,
+                                     fetch_list=[loss, score],
+                                     feed=batch_feed_dict)
         input_dict = {
             "y_true": batch_feed_dict["node_label"],
             "y_pred": y_pred

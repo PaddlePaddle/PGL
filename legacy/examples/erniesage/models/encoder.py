@@ -69,8 +69,8 @@ class ERNIESageV1Encoder(Encoder):
 
         for i in range(self.config.num_layers):
             feature = graphsage_sum(feature, graph_wrappers[i],
-                                    self.config.hidden_size, "graphsage_sum_%s"
-                                    % i, None)
+                                    self.config.hidden_size,
+                                    "graphsage_sum_%s" % i, None)
 
         final_feats = [
             self.take_final_feature(feature, i, "final_fc") for i in inputs

@@ -110,8 +110,8 @@ class BatchedGraphWrapper(unittest.TestCase):
         feed_dict["edges"] = np.array(
             np.concatenate(feed_edges, 0), dtype="int32").reshape([-1, 2])
         feed_dict["node_feats"] = np.array(
-            np.concatenate(feed_node_feats, 0), dtype="float32").reshape(
-                [-1, 4])
+            np.concatenate(feed_node_feats, 0),
+            dtype="float32").reshape([-1, 4])
 
         # Run
         O1, O2 = exe.run(prog, feed=feed_dict, fetch_list=[output, output2])

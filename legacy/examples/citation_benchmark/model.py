@@ -140,8 +140,10 @@ class APPNP(object):
                 feature,
                 self.dropout,
                 dropout_implementation='upscale_in_train')
-            feature = L.fc(
-                feature, self.hidden_size, act="relu", name="lin%s" % i)
+            feature = L.fc(feature,
+                           self.hidden_size,
+                           act="relu",
+                           name="lin%s" % i)
 
         feature = L.dropout(
             feature, self.dropout, dropout_implementation='upscale_in_train')
@@ -172,8 +174,11 @@ class SGC(object):
             alpha=0,
             k_hop=self.num_layers)
         feature.stop_gradient = True
-        feature = L.fc(
-            feature, self.num_class, act=None, bias_attr=False, name="output")
+        feature = L.fc(feature,
+                       self.num_class,
+                       act=None,
+                       bias_attr=False,
+                       name="output")
         return feature
 
 
@@ -197,8 +202,10 @@ class GCNII(object):
             edge_dropout = 0
 
         for i in range(self.num_layers):
-            feature = L.fc(
-                feature, self.hidden_size, act="relu", name="lin%s" % i)
+            feature = L.fc(feature,
+                           self.hidden_size,
+                           act="relu",
+                           name="lin%s" % i)
             feature = L.dropout(
                 feature,
                 self.dropout,
