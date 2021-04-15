@@ -137,43 +137,6 @@ def flat_node_and_edge(nodes):
     return nodes
 
 
-# def k_hop_sampler(graph, samples, batch_nodes):
-#     graph_list = []
-#     for max_deg in samples:
-#         start_nodes = copy.deepcopy(batch_nodes)
-#         edges = []
-#         if max_deg == -1:
-#             pred_nodes = graph.predecessor(start_nodes)
-#         else:
-#             pred_nodes = graph.sample_predecessor(start_nodes, max_degree=max_deg)
-
-#         for dst_node, src_nodes in zip(start_nodes, pred_nodes):
-#             for src_node in src_nodes:
-#                 edges.append((src_node, dst_node))
-
-#         nodes = [start_nodes, pred_nodes]
-#         nodes = flat_node_and_edge(nodes)
-
-#         sg = subgraph(graph,
-#                       nodes=nodes,
-#                       edges=edges,
-#                       with_node_feat=False,
-#                       with_edge_feat=False)
-
-#         sub_node_index = subgraph.reindex_from_parrent_nodes(batch_nodes)
-
-#         subgraph = graph.subgraph(
-#         nodes=nodes, edges=edges, with_node_feat=False, with_edge_feat=False)
-#         subgraph = add_self_loop_for_subgraph(subgraph)
-#         sub_node_index = subgraph.reindex_from_parrent_nodes(batch_nodes)
-
-#         batch_nodes = nodes
-#         graph_list.append((subgraph, batch_nodes, sub_node_index))
-
-#     graph_list = graph_list[::-1]
-#     return graph_list
-
-
 def neighbor_sample(graph, nodes, samples):
     assert not graph.is_tensor(), "You must call Graph.numpy() first."
 
