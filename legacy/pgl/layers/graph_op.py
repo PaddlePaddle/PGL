@@ -14,7 +14,7 @@
 """This package implements common layers to help building
 graph neural networks.
 """
-import paddle.fluid as F 
+import paddle.fluid as F
 import paddle.fluid.layers as L
 from pgl import graph_wrapper
 from pgl.utils import paddle_helper
@@ -58,8 +58,7 @@ def graph_norm(gw, feature):
     Return:
         A tensor with shape (num_nodes, hidden_size)
     """
-    nodes = L.fill_constant(
-        [gw.num_nodes, 1], dtype="float32", value=1.0)
+    nodes = L.fill_constant([gw.num_nodes, 1], dtype="float32", value=1.0)
     norm = graph_pooling(gw, nodes, pool_type="sum")
     norm = L.sqrt(norm)
     feature_lod = op.nested_lod_reset(feature, gw.graph_lod)
@@ -96,4 +95,3 @@ def graph_gather(gw, feature, index):
     new_shape.append(output_dim)
     feature = L.reshape(feature, new_shape)
     return feature
-

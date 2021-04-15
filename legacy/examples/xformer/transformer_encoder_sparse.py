@@ -18,7 +18,6 @@ import paddle.fluid as fluid
 import paddle.fluid.layers as L
 import paddle.fluid.layers as layers
 
-
 from .sparse_scaled_dot_product_attention import sparse_scaled_dot_product_attention
 
 to_3d = lambda a: a  # will change later
@@ -103,7 +102,7 @@ def multi_head_attention(queries,
         # size of the input as the output dimension size.
         #trans_x.desc.set_shape((-1, 1, n_head, d_value))
         return layers.reshape(x=trans_x, shape=[0, 0, d_model], inplace=True)
-    
+
     q, k, v = __compute_qkv(queries, keys, values, n_head, d_key, d_value)
     q = to_3d(q)
     k = to_3d(k)
@@ -120,8 +119,8 @@ def multi_head_attention(queries,
             [layers.reshape(
                 cache["v"], shape=[0, 0, d_model]), v], axis=1)
 
-    out, _ = sparse_scaled_dot_product_attention(q, k, v, 
-            input_mask, dropout_rate, n_head, d_key, d_value)
+    out, _ = sparse_scaled_dot_product_attention(
+        q, k, v, input_mask, dropout_rate, n_head, d_key, d_value)
 
     out = to_2d(out)
 
@@ -357,5 +356,3 @@ def encoder(enc_input,
         name="post_encoder")
     enc_output = to_3d(enc_output)
     return enc_output, all_hidden, all_attn, all_ffn
-
-

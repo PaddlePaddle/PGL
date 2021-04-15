@@ -14,15 +14,24 @@
 import time
 from pgl.utils.logger import log
 
-def train_epoch(batch_iter, exe, program, loss, score, evaluator, epoch, log_per_step=1):
+
+def train_epoch(batch_iter,
+                exe,
+                program,
+                loss,
+                score,
+                evaluator,
+                epoch,
+                log_per_step=1):
     batch = 0
     total_loss = 0.0
     total_sample = 0
     result = 0
     for batch_feed_dict in batch_iter():
         batch += 1
-        batch_loss, y_pred = exe.run(program, fetch_list=[loss, score], feed=batch_feed_dict)
-        
+        batch_loss, y_pred = exe.run(
+            program, fetch_list=[loss, score], feed=batch_feed_dict)
+
         num_samples = len(batch_feed_dict["node_index"])
         total_loss += batch_loss * num_samples
         total_sample += num_samples
@@ -32,25 +41,33 @@ def train_epoch(batch_iter, exe, program, loss, score, evaluator, epoch, log_per
         }
         result += evaluator.eval(input_dict)["rocauc"]
 
-    return total_loss.item()/total_sample, result/batch
+    return total_loss.item() / total_sample, result / batch
 
-def valid_epoch(batch_iter, exe, program, loss, score, evaluator, epoch, log_per_step=1):
+
+def valid_epoch(batch_iter,
+                exe,
+                program,
+                loss,
+                score,
+                evaluator,
+                epoch,
+                log_per_step=1):
     batch = 0
     total_sample = 0
     result = 0
     total_loss = 0.0
     for batch_feed_dict in batch_iter():
         batch += 1
-        batch_loss, y_pred = exe.run(program, fetch_list=[loss, score], feed=batch_feed_dict)
+        batch_loss, y_pred = exe.run(
+            program, fetch_list=[loss, score], feed=batch_feed_dict)
         input_dict = {
             "y_true": batch_feed_dict["node_label"],
             "y_pred": y_pred
         }
         result += evaluator.eval(input_dict)["rocauc"]
 
-
         num_samples = len(batch_feed_dict["node_index"])
         total_loss += batch_loss * num_samples
         total_sample += num_samples
 
-    return total_loss.item()/total_sample, result/batch
+    return total_loss.item() / total_sample, result / batch

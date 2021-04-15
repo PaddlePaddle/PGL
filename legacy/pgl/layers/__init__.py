@@ -18,7 +18,7 @@ from pgl.layers import conv
 from pgl.layers.conv import *
 from pgl.layers import set2set
 from pgl.layers.set2set import *
-from pgl.layers import graph_op 
+from pgl.layers import graph_op
 from pgl.layers.graph_op import *
 
 __all__ = []

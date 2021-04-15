@@ -98,7 +98,7 @@ def build_fake_graph(num_nodes):
 
 
 def build_random_graph(num_nodes):
-    edges = np.random.randint(0, num_nodes, [4*num_nodes, 2])
+    edges = np.random.randint(0, num_nodes, [4 * num_nodes, 2])
     graph = pgl.graph.Graph(num_nodes, edges)
     graph.indegree()
     graph.outdegree()

@@ -22,6 +22,7 @@ import time
 import argparse
 from paddle.optimizer import Adam
 
+
 def normalize(feat):
     return feat / np.maximum(np.sum(feat, -1, keepdims=True), 1)
 
@@ -110,9 +111,10 @@ def main(args):
         cal_val_loss = []
         cal_test_loss = []
 
-        gnn_model = pgl.nn.SGCConv(input_size=graph.node_feat["words"].shape[1],
-                               output_size=dataset.num_classes,
-                               k_hop=2)
+        gnn_model = pgl.nn.SGCConv(
+            input_size=graph.node_feat["words"].shape[1],
+            output_size=dataset.num_classes,
+            k_hop=2)
 
         optim = Adam(
             learning_rate=0.2,

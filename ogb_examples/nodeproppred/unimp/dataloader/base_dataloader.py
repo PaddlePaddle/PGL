@@ -143,4 +143,3 @@ class BaseDataGenerator(object):
         '''
         for line_example in self.line_examples:
             yield line_example
-

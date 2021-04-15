@@ -22,6 +22,7 @@ from pgl.utils.logger import log
 from conv import norm_gcn
 from pgl.layers.conv import gcn
 
+
 def topk_pool(gw, score, graph_id, ratio):
     """Implementation of topk pooling, where k means pooling ratio.
     
@@ -48,22 +49,21 @@ def topk_pool(gw, score, graph_id, ratio):
     num_nodes = L.ones(shape=[graph_nodes], dtype="float32")
     num_nodes = L.lod_reset(num_nodes, graph_lod)
     num_nodes_per_graph = L.sequence_pool(num_nodes, pool_type='sum')
-    max_num_nodes = L.reduce_max(num_nodes_per_graph, dim=0) 
+    max_num_nodes = L.reduce_max(num_nodes_per_graph, dim=0)
     max_num_nodes = L.cast(max_num_nodes, dtype="int32")
 
     index = L.arange(0, gw.num_nodes, dtype="int64")
     offset = L.gather(graph_lod, graph_id, overwrite=False)
     index = (index - offset) + (graph_id * max_num_nodes)
     index.stop_gradient = True
-    
+
     # padding
-    dense_score = L.fill_constant(shape=[num_graph * max_num_nodes],
-                                  dtype="float32", value=-999999)
+    dense_score = L.fill_constant(
+        shape=[num_graph * max_num_nodes], dtype="float32", value=-999999)
     index = L.reshape(index, shape=[-1])
     dense_score = L.scatter(dense_score, index, updates=score)
     num_graph = L.cast(num_graph, dtype="int32")
-    dense_score = L.reshape(dense_score, 
-                            shape=[num_graph, max_num_nodes])
+    dense_score = L.reshape(dense_score, shape=[num_graph, max_num_nodes])
 
     # record the sorted index
     _, sort_index = L.argsort(dense_score, axis=-1, descending=True)
@@ -76,16 +76,18 @@ def topk_pool(gw, score, graph_id, ratio):
     sort_index = L.reshape(sort_index, shape=[-1, 1])
 
     # use sequence_slice to choose selected node index
-    pad_lod = L.arange(0, (num_graph + 1) * max_num_nodes, step=max_num_nodes, dtype="int32")
+    pad_lod = L.arange(
+        0, (num_graph + 1) * max_num_nodes, step=max_num_nodes, dtype="int32")
     sort_index = L.lod_reset(sort_index, pad_lod)
-    ratio_length = L.ceil(num_nodes_per_graph * ratio) 
+    ratio_length = L.ceil(num_nodes_per_graph * ratio)
     ratio_length = L.cast(ratio_length, dtype="int64")
     ratio_length = L.reshape(ratio_length, shape=[-1, 1])
-    offset = L.zeros(shape=[num_graph, 1], dtype="int64") 
-    choose_index = L.sequence_slice(input=sort_index, offset=offset, length=ratio_length) 
+    offset = L.zeros(shape=[num_graph, 1], dtype="int64")
+    choose_index = L.sequence_slice(
+        input=sort_index, offset=offset, length=ratio_length)
 
     perm = L.reshape(choose_index, shape=[-1])
-    return perm, ratio_length 
+    return perm, ratio_length
 
 
 def sag_pool(gw, feature, ratio, graph_id, dataset, name, activation=L.tanh):
@@ -121,14 +123,15 @@ def sag_pool(gw, feature, ratio, graph_id, dataset, name, activation=L.tanh):
     else:
         gcn_ = norm_gcn
 
-    score = gcn_(gw=gw,    
-                feature=feature, 
-                hidden_size=1,
-                activation=None,
-                norm=gw.node_feat["norm"],
-                name=name)
-    score = L.squeeze(score, axes=[])  
-    perm, ratio_length = topk_pool(gw, score, graph_id, ratio) 
+    score = gcn_(
+        gw=gw,
+        feature=feature,
+        hidden_size=1,
+        activation=None,
+        norm=gw.node_feat["norm"],
+        name=name)
+    score = L.squeeze(score, axes=[])
+    perm, ratio_length = topk_pool(gw, score, graph_id, ratio)
 
     mask = L.zeros_like(score)
     mask = L.cast(mask, dtype="float32")
@@ -138,4 +141,4 @@ def sag_pool(gw, feature, ratio, graph_id, dataset, name, activation=L.tanh):
     new_feature = L.elementwise_mul(feature, mask, axis=0)
     temp_score = activation(score)
     new_feature = L.elementwise_mul(new_feature, temp_score, axis=0)
-    return new_feature, ratio_length 
+    return new_feature, ratio_length

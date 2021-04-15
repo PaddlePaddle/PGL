@@ -22,7 +22,7 @@ import tqdm
 import yaml
 import pgl
 import paddle
-import paddle.nn.functional as F 
+import paddle.nn.functional as F
 import numpy as np
 import optimization as optim
 from ogb.lsc import MAG240MEvaluator
@@ -38,19 +38,21 @@ from tensorboardX import SummaryWriter
 from collections import defaultdict
 import time
 
-    
+
 def train_step(model, loss_fn, batch, dataset):
     graph_list, x, y = batch
-    
+
     x = dataset.x[x]
-    
+
     x = paddle.to_tensor(x, dtype='float32')
     y = paddle.to_tensor(y, dtype='int64')
-    graph_list = [(item[0].tensor(), paddle.to_tensor(item[2])) for item in graph_list]
-    
+    graph_list = [(item[0].tensor(), paddle.to_tensor(item[2]))
+                  for item in graph_list]
+
     out = model(graph_list, x)
-    
+
     return loss_fn(out, y)
+
 
 def train(config, do_eval=False):
     if paddle.distributed.get_world_size() > 1:
@@ -58,14 +60,14 @@ def train(config, do_eval=False):
 
     dataset = MAG240M(config.data_dir, seed=123)
     evaluator = MAG240MEvaluator()
-    
+
     if paddle.distributed.get_rank() == 0:
         dataset.prepare_data()
     paddle.distributed.barrier
     if paddle.distributed.get_rank() != 0:
         dataset.prepare_data()
-    paddle.distributed.barrier    
-    
+    paddle.distributed.barrier
+
     train_iter = DataGenerator(
         dataset=dataset,
         samples=config.samples,
@@ -79,35 +81,37 @@ def train(config, do_eval=False):
         batch_size=config.batch_size,
         num_workers=config.num_workers,
         data_type="eval")
-    
-    model = getattr(models, config.model.name).GNNModel(**dict(config.model.items()))
-    
+
+    model = getattr(models, config.model.name).GNNModel(
+        **dict(config.model.items()))
+
     if paddle.distributed.get_world_size() > 1:
         model = paddle.DataParallel(model)
-        
+
     loss_func = F.cross_entropy
-    
-    opt, lr_scheduler = optim.get_optimizer(parameters=model.parameters(),
-                      learning_rate=config.lr,
-                      max_steps=config.max_steps,
-                      weight_decay=config.weight_decay,
-                      warmup_proportion=config.warmup_proportion,
-                      clip=config.clip,
-                      use_lr_decay=config.use_lr_decay)
+
+    opt, lr_scheduler = optim.get_optimizer(
+        parameters=model.parameters(),
+        learning_rate=config.lr,
+        max_steps=config.max_steps,
+        weight_decay=config.weight_decay,
+        warmup_proportion=config.warmup_proportion,
+        clip=config.clip,
+        use_lr_decay=config.use_lr_decay)
 
     _create_if_not_exist(config.output_path)
-#     load_model(config.output_path, model, opt, lr_scheduler)
+    #     load_model(config.output_path, model, opt, lr_scheduler)
     load_model(config.output_path, model)
     swriter = SummaryWriter(os.path.join(config.output_path, 'log'))
-    
+
     if do_eval and paddle.distributed.get_rank() == 0:
         valid_iter = DataGenerator(
-                    dataset=dataset,
-                    samples=[160] * len(config.samples),
-                    batch_size=config.batch_size,
-                    num_workers=config.num_workers,
-                    data_type="eval")
-        
+            dataset=dataset,
+            samples=[160] * len(config.samples),
+            batch_size=config.batch_size,
+            num_workers=config.num_workers,
+            data_type="eval")
+
         r = evaluate(valid_iter, model, loss_func, config, evaluator, dataset)
         log.info(dict(r))
     else:
@@ -115,9 +119,9 @@ def train(config, do_eval=False):
         for e_id in range(config.epochs):
             loss_temp = []
             for batch in tqdm.tqdm(train_iter.generator()):
- 
+
                 loss = train_step(model, loss_func, batch, dataset)
-                
+
                 log.info(loss.numpy()[0])
                 loss.backward()
                 opt.step()
@@ -125,7 +129,6 @@ def train(config, do_eval=False):
                     lr_scheduler.step()
                 opt.clear_gradients()
                 loss_temp.append(loss.numpy()[0])
-                
 
             loss = np.mean(loss_temp)
             log.info("Epoch %s Train Loss: %s" % (e_id, loss))
@@ -133,35 +136,38 @@ def train(config, do_eval=False):
 
             if e_id >= config.eval_step and  e_id % config.eval_per_steps == 0 and \
                                             paddle.distributed.get_rank() == 0:
-                r = evaluate(valid_iter, model, loss_func, config, evaluator, dataset)
+                r = evaluate(valid_iter, model, loss_func, config, evaluator,
+                             dataset)
                 log.info(dict(r))
                 for key, value in r.items():
                     swriter.add_scalar('eval/' + key, value, e_id)
                 best_valid_acc = max(best_valid_acc, r['acc'])
                 if best_valid_acc == r['acc']:
-                    save_model(config.output_path, model, e_id, opt, lr_scheduler)
+                    save_model(config.output_path, model, e_id, opt,
+                               lr_scheduler)
     swriter.close()
-    
-    
+
+
 @paddle.no_grad()
 def evaluate(eval_ds, model, loss_fn, config, evaluator, dataset):
     model.eval()
     step = 0
-    output_metric = defaultdict(lambda : []) 
+    output_metric = defaultdict(lambda: [])
     pred_temp = []
     y_temp = []
-    
+
     for batch in eval_ds.generator():
-        
+
         graph_list, x, y = batch
         x = dataset.x[x]
         x = paddle.to_tensor(x, dtype='float32')
         y = paddle.to_tensor(y, dtype='int64')
-        graph_list = [(item[0].tensor(), paddle.to_tensor(item[2])) for item in graph_list]
-        
+        graph_list = [(item[0].tensor(), paddle.to_tensor(item[2]))
+                      for item in graph_list]
+
         out = model(graph_list, x)
         loss = loss_fn(out, y)
-        
+
         pred_temp.append(out.numpy())
         y_temp.append(y.numpy())
         output_metric["loss"].append(loss.numpy()[0])
@@ -171,15 +177,19 @@ def evaluate(eval_ds, model, loss_fn, config, evaluator, dataset):
             break
 
     model.train()
-    
+
     for key, value in output_metric.items():
         output_metric[key] = np.mean(value)
-    
+
     pred_temp = np.concatenate(pred_temp, axis=0)
     y_pred = pred_temp.argmax(axis=-1)
     y_eval = np.concatenate(y_temp, axis=0)
-    output_metric['acc'] = evaluator.eval({'y_true': y_eval, 'y_pred': y_pred})['acc']
+    output_metric['acc'] = evaluator.eval({
+        'y_true': y_eval,
+        'y_pred': y_pred
+    })['acc']
     return output_metric
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='main')

@@ -34,35 +34,40 @@ import time
 from pgl.utils.logger import log
 import traceback
 
-
 if six.PY3:
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 
 def scan_batch_iter(data, batch_size, fid, num_workers):
     """node_batch_iter
     """
     batch = []
     cc = 0
-    for line_example in data.scan(): 
+    for line_example in data.scan():
         cc += 1
         if cc % num_workers != fid:
             continue
         batch.append(line_example)
         if len(batch) == batch_size:
-            yield batch 
+            yield batch
             batch = []
     if len(batch) > 0:
-        yield batch 
+        yield batch
 
-def scan_batch_iter_shuffle(data, batch_size, fid, num_workers, shuffle_buffer=100000):
+
+def scan_batch_iter_shuffle(data,
+                            batch_size,
+                            fid,
+                            num_workers,
+                            shuffle_buffer=100000):
     """node_batch_iter
     """
     batch = []
     buffer = []
     cc = 0
-    for line_example in data.scan(): 
+    for line_example in data.scan():
         cc += 1
         if cc % num_workers != fid:
             continue
@@ -73,18 +78,19 @@ def scan_batch_iter_shuffle(data, batch_size, fid, num_workers, shuffle_buffer=1
             batch.append(buffer[index])
             buffer[index] = line_example
             if len(batch) == batch_size:
-                yield batch 
+                yield batch
                 batch = []
-                
+
 #     np.random.shuffle(buffer)
     for line_example in buffer:
         batch.append(line_example)
         if len(batch) == batch_size:
-            yield batch 
-            batch = []  
-                
+            yield batch
+            batch = []
+
     if len(batch) > 0:
-        yield batch 
+        yield batch
+
 
 class BaseDataGenerator(object):
     """Base Data Geneartor"""
@@ -103,12 +109,14 @@ class BaseDataGenerator(object):
     def batch_iter(self, fid, perm):
         """ batch iterator"""
         if self.shuffle:
-            for batch in scan_batch_iter_shuffle(self, self.batch_size, fid, self.num_workers):
+            for batch in scan_batch_iter_shuffle(self, self.batch_size, fid,
+                                                 self.num_workers):
                 yield batch
         else:
-            for batch in scan_batch_iter(self, self.batch_size, fid, self.num_workers):
+            for batch in scan_batch_iter(self, self.batch_size, fid,
+                                         self.num_workers):
                 yield batch
-                
+
     def __len__(self):
         return len(self.line_examples)
 
@@ -127,15 +135,15 @@ class BaseDataGenerator(object):
             def func_run():
                 """ func_run """
                 pid = os.getpid()
-#                 np.random.seed(pid + int(time.time()))
+                #                 np.random.seed(pid + int(time.time()))
                 for batch_examples in self.batch_iter(filter_id, perm):
                     try:
                         batch_dict = self.batch_fn(batch_examples)
                     except Exception as e:
-                       traceback.print_exc()
-                       log.info(traceback.format_exc())
-                       log.info(str(e))
-                       continue
+                        traceback.print_exc()
+                        log.info(traceback.format_exc())
+                        log.info(str(e))
+                        continue
 
                     if batch_dict is None:
                         continue
@@ -146,24 +154,28 @@ class BaseDataGenerator(object):
         perm = None
 
         if self.num_workers == 1:
-            
+
             def post_fn():
                 for batch in worker(worker(0, perm)):
                     yield self.post_fn(batch)
+
             r = paddle.reader.buffered(post_fn(), self.buf_size)
         else:
-            worker_pool = [worker(wid, perm) for wid in range(self.num_workers)]
+            worker_pool = [
+                worker(wid, perm) for wid in range(self.num_workers)
+            ]
             worker = mp_reader.multiprocess_reader(
                 worker_pool, use_pipe=True, queue_size=1000)
-            
+
             def post_fn():
                 for batch in worker():
                     yield self.post_fn(batch)
+
             r = paddle.reader.buffered(post_fn, self.buf_size)
 
         for batch in r():
             yield batch
 
-    def scan(self): 
+    def scan(self):
         for line_example in self.line_examples:
             yield line_example

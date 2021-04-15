@@ -41,4 +41,3 @@ sh run_lsc_node_rgat_hetegraph.sh
 | Model       |  Valid ACC | 
 | ----------- | ---------------| 
 | RGAT        | 0.702         | 
-

@@ -112,7 +112,9 @@ def fake_py_reader(data_iter, num):
             while len(queue) < num:
                 queue.append(queue[-1])
             yield queue
+
     return fake_iter
+
 
 def train_prog(exe, program, model, pyreader, args):
     trainer_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
@@ -126,7 +128,7 @@ def train_prog(exe, program, model, pyreader, args):
             try:
                 cpu_time = time.time()
                 batch += 1
-                batch_loss, batch_acc  = exe.run(
+                batch_loss, batch_acc = exe.run(
                     program,
                     feed=batch_feed_dict,
                     fetch_list=[model.loss, model.acc])
@@ -135,7 +137,8 @@ def train_prog(exe, program, model, pyreader, args):
                 if batch % args.log_per_step == 0:
                     log.info(
                         "Batch %s Loss %s Acc %s \t Speed(per batch) %.5lf/%.5lf sec"
-                        % (batch, np.mean(batch_loss), np.mean(batch_acc), (end - start) /batch, (end - cpu_time)))
+                        % (batch, np.mean(batch_loss), np.mean(batch_acc),
+                           (end - start) / batch, (end - cpu_time)))
 
                 if step % args.steps_per_save == 0:
                     save_path = args.save_path
@@ -145,6 +148,7 @@ def train_prog(exe, program, model, pyreader, args):
             except Exception as e:
                 log.info("Pyreader train error")
                 log.exception(e)
+
 
 def main(args):
     log.info("start")
@@ -188,4 +192,3 @@ if __name__ == '__main__':
     config = load_config(args.config)
     log.info(config)
     main(config)
-

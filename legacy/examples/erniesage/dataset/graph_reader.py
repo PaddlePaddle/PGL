@@ -1,3 +1,17 @@
+# Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """Graph Dataset
 """
 
@@ -17,19 +31,30 @@ from pgl.utils.logger import log
 from dataset.base_dataset import BaseDataGenerator
 from pgl.sample import alias_sample
 from pgl.sample import pinsage_sample
-from pgl.sample import graphsage_sample 
+from pgl.sample import graphsage_sample
 from pgl.sample import edge_hash
 
 
 class GraphGenerator(BaseDataGenerator):
-    def __init__(self, graph_wrappers, data, batch_size, samples,
-        num_workers, feed_name_list, use_pyreader,
-        phase, graph_data_path, shuffle=True, buf_size=1000, neg_type="batch_neg"):
+    def __init__(self,
+                 graph_wrappers,
+                 data,
+                 batch_size,
+                 samples,
+                 num_workers,
+                 feed_name_list,
+                 use_pyreader,
+                 phase,
+                 graph_data_path,
+                 shuffle=True,
+                 buf_size=1000,
+                 neg_type="batch_neg"):
 
         super(GraphGenerator, self).__init__(
             buf_size=buf_size,
             num_workers=num_workers,
-            batch_size=batch_size, shuffle=shuffle)
+            batch_size=batch_size,
+            shuffle=shuffle)
         # For iteration
         self.line_examples = data
 
@@ -40,15 +65,17 @@ class GraphGenerator(BaseDataGenerator):
         self.phase = phase
         self.load_graph(graph_data_path)
         self.num_layers = len(graph_wrappers)
-        self.neg_type= neg_type
+        self.neg_type = neg_type
 
     def load_graph(self, graph_data_path):
         self.graph = pgl.graph.MemmapGraph(graph_data_path)
-        self.alias = np.load(os.path.join(graph_data_path, "alias.npy"), mmap_mode="r")
-        self.events = np.load(os.path.join(graph_data_path, "events.npy"), mmap_mode="r")
+        self.alias = np.load(
+            os.path.join(graph_data_path, "alias.npy"), mmap_mode="r")
+        self.events = np.load(
+            os.path.join(graph_data_path, "events.npy"), mmap_mode="r")
         #self.term_ids = np.load(os.path.join(graph_data_path, "term_ids.npy"), mmap_mode="r")
         self.term_ids = self.graph.node_feat["term_ids"]
- 
+
     def batch_fn(self, batch_ex):
         # batch_ex = [
         #     (src, dst, neg),
@@ -62,7 +89,7 @@ class GraphGenerator(BaseDataGenerator):
         for batch in batch_ex:
             batch_src.append(batch[0])
             batch_dst.append(batch[1])
-            if len(batch) == 3: # default neg samples
+            if len(batch) == 3:  # default neg samples
                 batch_neg.append(batch[2])
 
         if len(batch_src) != self.batch_size:
@@ -79,7 +106,8 @@ class GraphGenerator(BaseDataGenerator):
         else:
             # TODO user define shape of neg_sample
             neg_shape = batch_dst.shape
-            sampled_batch_neg = alias_sample(neg_shape, self.alias, self.events)
+            sampled_batch_neg = alias_sample(neg_shape, self.alias,
+                                             self.events)
             batch_neg = np.concatenate([batch_neg, sampled_batch_neg], 0)
 
         if self.phase == "train":
@@ -90,9 +118,12 @@ class GraphGenerator(BaseDataGenerator):
             ignore_edges = set()
 
         nodes = np.unique(np.concatenate([batch_src, batch_dst, batch_neg], 0))
-        subgraphs = graphsage_sample(self.graph, nodes, self.samples, ignore_edges=ignore_edges)
-        subgraphs[0].node_feat["index"] = subgraphs[0].reindex_to_parrent_nodes(subgraphs[0].nodes).astype(np.int64)
-        subgraphs[0].node_feat["term_ids"] = self.term_ids[subgraphs[0].node_feat["index"]].astype(np.int64)
+        subgraphs = graphsage_sample(
+            self.graph, nodes, self.samples, ignore_edges=ignore_edges)
+        subgraphs[0].node_feat["index"] = subgraphs[
+            0].reindex_to_parrent_nodes(subgraphs[0].nodes).astype(np.int64)
+        subgraphs[0].node_feat["term_ids"] = self.term_ids[subgraphs[
+            0].node_feat["index"]].astype(np.int64)
         feed_dict = {}
         for i in range(self.num_layers):
             feed_dict.update(self.graph_wrappers[i].to_feed(subgraphs[i]))
@@ -123,9 +154,8 @@ class GraphGenerator(BaseDataGenerator):
 
         except Exception as e:
             log.exception(e)
- 
 
-    
+
 class NodeClassificationGenerator(GraphGenerator):
     def batch_fn(self, batch_ex):
         # batch_ex = [
@@ -147,8 +177,10 @@ class NodeClassificationGenerator(GraphGenerator):
         batch_label = np.array(batch_label, dtype="int64")
 
         subgraphs = graphsage_sample(self.graph, batch_node, self.samples)
-        subgraphs[0].node_feat["index"] = subgraphs[0].reindex_to_parrent_nodes(subgraphs[0].nodes).astype(np.int64)
-        subgraphs[0].node_feat["term_ids"] = self.term_ids[subgraphs[0].node_feat["index"]].astype(np.int64)
+        subgraphs[0].node_feat["index"] = subgraphs[
+            0].reindex_to_parrent_nodes(subgraphs[0].nodes).astype(np.int64)
+        subgraphs[0].node_feat["term_ids"] = self.term_ids[subgraphs[
+            0].node_feat["index"]].astype(np.int64)
         feed_dict = {}
         for i in range(self.num_layers):
             feed_dict.update(self.graph_wrappers[i].to_feed(subgraphs[i]))
@@ -170,7 +202,7 @@ class BatchGraphGenerator(GraphGenerator):
         for batch in batch_ex:
             batch_src.append(batch[0])
             batch_dst.append(batch[1])
-            if len(batch) == 3: # default neg samples
+            if len(batch) == 3:  # default neg samples
                 batch_neg.append(batch[2])
 
         if len(batch_src) != self.batch_size:
@@ -187,7 +219,8 @@ class BatchGraphGenerator(GraphGenerator):
         else:
             # TODO user define shape of neg_sample
             neg_shape = batch_dst.shape
-            sampled_batch_neg = alias_sample(neg_shape, self.alias, self.events)
+            sampled_batch_neg = alias_sample(neg_shape, self.alias,
+                                             self.events)
             batch_neg = np.concatenate([batch_neg, sampled_batch_neg], 0)
 
         if self.phase == "train":
@@ -198,10 +231,13 @@ class BatchGraphGenerator(GraphGenerator):
             ignore_edges = set()
 
         nodes = np.unique(np.concatenate([batch_src, batch_dst, batch_neg], 0))
-        subgraphs = graphsage_sample(self.graph, nodes, self.samples, ignore_edges=ignore_edges)
+        subgraphs = graphsage_sample(
+            self.graph, nodes, self.samples, ignore_edges=ignore_edges)
         subgraph = subgraphs[0]
-        subgraphs[0].node_feat["index"] = subgraphs[0].reindex_to_parrent_nodes(subgraphs[0].nodes).astype(np.int64)
-        subgraphs[0].node_feat["term_ids"] = self.term_ids[subgraphs[0].node_feat["index"]].astype(np.int64)
+        subgraphs[0].node_feat["index"] = subgraphs[
+            0].reindex_to_parrent_nodes(subgraphs[0].nodes).astype(np.int64)
+        subgraphs[0].node_feat["term_ids"] = self.term_ids[subgraphs[
+            0].node_feat["index"]].astype(np.int64)
 
         # only reindex from first subgraph
         sub_src_idx = subgraphs[0].reindex_from_parrent_nodes(batch_src)
@@ -223,7 +259,7 @@ class BatchGraphGenerator(GraphGenerator):
 
         # pairwise training with label 1.
         fake_label = np.ones_like(user_index)
-        
+
         if self.phase == "train":
             return num_nodes, num_edges, edges, node_feat["index"], node_feat["term_ids"], user_index, \
                     pos_item_index, neg_item_index, user_real_index, pos_item_real_index, fake_label

@@ -74,8 +74,7 @@ def build_complied_prog(train_program, model_loss):
         build_strategy.reduce_strategy = F.BuildStrategy.ReduceStrategy.Reduce
 
     compiled_prog = F.compiler.CompiledProgram(
-        train_program).with_data_parallel(
-            loss_name=model_loss.name)
+        train_program).with_data_parallel(loss_name=model_loss.name)
     return compiled_prog
 
 
@@ -216,17 +215,17 @@ def train(args):
 
         if args.dataset is not None:
             # load graph from built-in dataset
-            if args.dataset == "BlogCatalog":    
-                graph = data_loader.BlogCatalogDataset().graph    
-            elif args.dataset == "ArXiv":    
-                graph = data_loader.ArXivDataset().graph    
-            else:    
-                raise ValueError(args.dataset + " dataset doesn't exists")    
-            log.info("Load buildin BlogCatalog dataset done.")    
-        elif args.walkpath_files is None or args.walkpath_files == "None":    
+            if args.dataset == "BlogCatalog":
+                graph = data_loader.BlogCatalogDataset().graph
+            elif args.dataset == "ArXiv":
+                graph = data_loader.ArXivDataset().graph
+            else:
+                raise ValueError(args.dataset + " dataset doesn't exists")
+            log.info("Load buildin BlogCatalog dataset done.")
+        elif args.walkpath_files is None or args.walkpath_files == "None":
             # build graph from edges file.
-            graph = build_graph(args.num_nodes, args.edge_path)    
-            log.info("Load graph from '%s' done." % args.edge_path)    
+            graph = build_graph(args.num_nodes, args.edge_path)
+            log.info("Load graph from '%s' done." % args.edge_path)
         else:
             # build a random graph for test
             graph = build_random_graph(args.num_nodes)
@@ -241,7 +240,6 @@ def train(args):
         compiled_prog = build_complied_prog(fleet.main_program, loss)
         train_prog(exe, compiled_prog, loss, pyreader, args, train_steps)
         fleet.stop_worker()
-
 
 
 if __name__ == '__main__':

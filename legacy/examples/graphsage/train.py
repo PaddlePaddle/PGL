@@ -203,8 +203,7 @@ def main(args):
             hide_batch_size=False)
 
         graph_wrapper = pgl.graph_wrapper.GraphWrapper(
-            "sub_graph",
-            node_feat=data['graph'].node_feat_info())
+            "sub_graph", node_feat=data['graph'].node_feat_info())
 
         model_loss, model_acc = build_graph_model(
             graph_wrapper,

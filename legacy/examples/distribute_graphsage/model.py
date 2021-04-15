@@ -27,6 +27,7 @@ import paddle.fluid.layers as L
 import paddle.fluid as F
 import paddle.fluid as fluid
 
+
 def copy_send(src_feat, dst_feat, edge_feat):
     return src_feat["h"]
 
@@ -209,7 +210,8 @@ class GraphsageModel(object):
         args = self.args
 
         graph_wrapper = pgl.graph_wrapper.GraphWrapper(
-            "sub_graph", node_feat=[('feats', [None, 602], np.dtype('float32'))])
+            "sub_graph",
+            node_feat=[('feats', [None, 602], np.dtype('float32'))])
         loss, acc = build_graph_model(
             graph_wrapper,
             num_class=args.num_class,
@@ -223,4 +225,3 @@ class GraphsageModel(object):
         self.loss = loss
         self.acc = acc
         return loss
-

@@ -247,7 +247,8 @@ def predict(config):
         "%s/part-%s" % (config.model_dir, trainer_id), "w", encoding="utf8")
 
     if "infer_model" in config:
-        predict_result_iter = est.predict(predict_ds, ckpt_path=config["infer_model"])
+        predict_result_iter = est.predict(
+            predict_ds, ckpt_path=config["infer_model"])
     else:
         predict_result_iter = est.predict(predict_ds, ckpt=-1)
 

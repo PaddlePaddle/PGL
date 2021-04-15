@@ -133,8 +133,7 @@ def train_and_evaluate(exe,
             ret = metric.parse(ret)
             if global_step % train_log_step == 0:
                 for key, value in ret.items():
-                    writer.add_scalar(
-                        'train_' + key, value, global_step)
+                    writer.add_scalar('train_' + key, value, global_step)
 
             global_step += 1
             if global_step % eval_step == 0:

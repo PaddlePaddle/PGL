@@ -39,7 +39,8 @@ import warnings
 from sklearn.model_selection import KFold
 
 warnings.filterwarnings("ignore")
-     
+
+
 def main(args, train_dataset, val_dataset, test_dataset):
     """main function for running one testing results.
     """
@@ -62,34 +63,40 @@ def main(args, train_dataset, val_dataset, test_dataset):
 
     with fluid.program_guard(train_program, startup_program):
         with fluid.unique_name.guard():
-            graph_model = GlobalModel(args, dataset) 
-            train_loader = GraphDataloader(train_dataset,
-                                           graph_model.graph_wrapper,
-                                           batch_size=args.batch_size)
-            optimizer = fluid.optimizer.Adam(learning_rate=args.learning_rate,
-                regularization=fluid.regularizer.L2DecayRegularizer(args.weight_decay))
+            graph_model = GlobalModel(args, dataset)
+            train_loader = GraphDataloader(
+                train_dataset,
+                graph_model.graph_wrapper,
+                batch_size=args.batch_size)
+            optimizer = fluid.optimizer.Adam(
+                learning_rate=args.learning_rate,
+                regularization=fluid.regularizer.L2DecayRegularizer(
+                    args.weight_decay))
             optimizer.minimize(graph_model.loss)
 
     exe.run(startup_program)
     test_program = fluid.Program()
     test_program = train_program.clone(for_test=True)
 
-    val_loader = GraphDataloader(val_dataset,   
-                                 graph_model.graph_wrapper,
-                                 batch_size=args.batch_size,
-                                 shuffle=False)
-    test_loader = GraphDataloader(test_dataset,
-                                  graph_model.graph_wrapper,
-                                  batch_size=args.batch_size,
-                                  shuffle=False)
+    val_loader = GraphDataloader(
+        val_dataset,
+        graph_model.graph_wrapper,
+        batch_size=args.batch_size,
+        shuffle=False)
+    test_loader = GraphDataloader(
+        test_dataset,
+        graph_model.graph_wrapper,
+        batch_size=args.batch_size,
+        shuffle=False)
 
     min_loss = 1e10
     global_step = 0
     for epoch in range(args.epochs):
         for feed_dict in train_loader:
-            loss, pred = exe.run(train_program,
-                           feed=feed_dict,
-                           fetch_list=[graph_model.loss, graph_model.pred])
+            loss, pred = exe.run(
+                train_program,
+                feed=feed_dict,
+                fetch_list=[graph_model.loss, graph_model.pred])
 
             log.info("Epoch: %d, global_step: %d, Training loss: %f" \
                      % (epoch, global_step, loss))
@@ -98,12 +105,13 @@ def main(args, train_dataset, val_dataset, test_dataset):
         # validation
         valid_loss = 0.
         correct = 0.
-        for feed_dict in val_loader: 
-            valid_loss_, correct_ = exe.run(test_program,
-                                 feed=feed_dict,
-                                 fetch_list=[graph_model.loss, graph_model.correct])
+        for feed_dict in val_loader:
+            valid_loss_, correct_ = exe.run(
+                test_program,
+                feed=feed_dict,
+                fetch_list=[graph_model.loss, graph_model.correct])
             valid_loss += valid_loss_
-            correct += correct_ 
+            correct += correct_
 
         if epoch % 50 == 0:
             log.info("Epoch:%d, Validation loss: %f, Validation acc: %f" \
@@ -133,7 +141,7 @@ def main(args, train_dataset, val_dataset, test_dataset):
         correct += correct_[0]
     log.info("Test acc: %f" % (correct / len(test_loader)))
     return correct / len(test_loader)
-    
+
 
 def split_10_cv(dataset, args):
     """10 folds cross validation
@@ -150,22 +158,24 @@ def split_10_cv(dataset, args):
         test_dataset = Subset(dataset, test_index)
         train_val_index_range = list(range(0, len(train_val_dataset)))
         num_val = int(len(train_val_dataset) / 9)
-        val_dataset = Subset(train_val_dataset, train_val_index_range[:num_val])
-        train_dataset = Subset(train_val_dataset, train_val_index_range[num_val:])
+        val_dataset = Subset(train_val_dataset,
+                             train_val_index_range[:num_val])
+        train_dataset = Subset(train_val_dataset,
+                               train_val_index_range[num_val:])
 
         log.info("######%d fold of 10-fold cross validation######" % i)
         i += 1
         test_acc_ = main(args, train_dataset, val_dataset, test_dataset)
         test_acc.append(test_acc_)
 
-    mean_acc = sum(test_acc) / len(test_acc)    
+    mean_acc = sum(test_acc) / len(test_acc)
     return mean_acc, test_acc
 
 
 def random_seed_20(args, dataset):
     """run for 20 random seeds
     """
-    alist = random.sample(range(1,1000),20)
+    alist = random.sample(range(1, 1000), 20)
     test_acc_fold = []
     for seed in alist:
         log.info('############ Seed %d ############' % seed)
@@ -179,10 +189,12 @@ def random_seed_20(args, dataset):
     temp = [(acc - mean_acc) * (acc - mean_acc) for acc in test_acc_fold]
     standard_std = math.sqrt(sum(temp) / len(test_acc_fold))
 
-    log.info('Final mean test acc using 20 random seeds(mean for 10-fold): %f' % (mean_acc))
-    log.info('Final standard std using 20 random seeds(mean for 10-fold): %f' % (standard_std))
+    log.info('Final mean test acc using 20 random seeds(mean for 10-fold): %f'
+             % (mean_acc))
+    log.info('Final standard std using 20 random seeds(mean for 10-fold): %f' %
+             (standard_std))
 
-    
+
 if __name__ == "__main__":
     args = parser.parse_args()
     log.info('loading data...')

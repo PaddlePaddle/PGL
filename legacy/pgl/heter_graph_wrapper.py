@@ -106,9 +106,7 @@ class HeterGraphWrapper(object):
                 e_feat = {}
 
             self._multi_gw[edge_type] = GraphWrapper(
-                name=type_name,
-                node_feat=n_feat,
-                edge_feat=e_feat)
+                name=type_name, node_feat=n_feat, edge_feat=e_feat)
 
     def to_feed(self, heterGraph, edge_types_list=ALL):
         """Convert the graph into feed_dict.

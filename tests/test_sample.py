@@ -64,5 +64,6 @@ class SampleTest(unittest.TestCase):
         g1 = self.build_test_graph()
         walk_paths = node2vec_walk_plus(g1, [0, 1], 4, p=0.25, q=0.25)
 
+
 if __name__ == '__main__':
     unittest.main()

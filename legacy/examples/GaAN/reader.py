@@ -90,9 +90,9 @@ def worker(batch_info, graph, graph_wrapper, samples):
 
             sub_node_index = subgraph.reindex_from_parrent_nodes(
                 batch_train_samples)
-            
+
             feed_dict = _graph_wrapper.to_feed(subgraph)
-            
+
             feed_dict["node_label"] = batch_train_labels
             feed_dict["node_index"] = sub_node_index
             feed_dict["parent_node_index"] = np.array(nodes, dtype="int64")
@@ -153,5 +153,5 @@ def multiprocess_graph_reader(graph,
                                   repr(graph_wrapper), graph.node_feat,
                                   with_parent_node_index)
         return paddle.reader.buffered(r, num_workers)
-    
+
     return reader()

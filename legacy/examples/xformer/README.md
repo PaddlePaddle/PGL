@@ -28,4 +28,3 @@ We have evaluate the implemented method on a summarization dataset CNN/DM. The e
 
 **\**** For this task, we warm up from ERNIE 2.0 en directly rather than pretrain the model for the additional position embedding, so the embedding for the position which is larger than 512 is used repeatedly from ERNIE 2.0.
 This may cause score degradation. But in the future, we will test the pre-trained model.
-

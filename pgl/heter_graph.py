@@ -30,6 +30,7 @@ from pgl.message import Message
 
 __all__ = ['HeterGraph']
 
+
 class HeterGraph(object):
     """Implementation of heterogeneous graph structure in pgl
 
@@ -96,7 +97,8 @@ class HeterGraph(object):
 
         self._nodes_type_dict = {}
         for ntype in np.unique(self._node_types):
-            self._nodes_type_dict[ntype] = np.where(self._node_types == ntype)[0]
+            self._nodes_type_dict[ntype] = np.where(
+                self._node_types == ntype)[0]
 
         if node_feat is not None:
             self._node_feat = node_feat
@@ -118,10 +120,11 @@ class HeterGraph(object):
                 else:
                     edge_feat = self._edge_feat[etype]
 
-                self._multi_graph[etype] = Graph(edges=_edges,
-                        num_nodes=self._num_nodes,
-                        node_feat=copy.deepcopy(self._node_feat),
-                        edge_feat=edge_feat)
+                self._multi_graph[etype] = Graph(
+                    edges=_edges,
+                    num_nodes=self._num_nodes,
+                    node_feat=copy.deepcopy(self._node_feat),
+                    edge_feat=edge_feat)
 
         self._edge_types = self.edge_types_info()
         self._nodes = None
@@ -413,13 +416,13 @@ class HeterGraph(object):
         else:
             new_multi_graph = {}
             for etype in self._edge_types:
-                new_multi_graph[etype] = self._multi_graph[etype].tensor(inplace)
+                new_multi_graph[etype] = self._multi_graph[etype].tensor(
+                    inplace)
 
             new_graph = self.__class__(
-                    edges=None,
-                    node_types=self.__dict__["_node_types"],
-                    multi_graph=new_multi_graph,
-                    )
+                edges=None,
+                node_types=self.__dict__["_node_types"],
+                multi_graph=new_multi_graph, )
             return new_graph
 
     def numpy(self, inplace=True):
@@ -444,13 +447,13 @@ class HeterGraph(object):
         else:
             new_multi_graph = {}
             for etype in self._edge_types:
-                new_multi_graph[etype] = self._multi_graph[etype].numpy(inplace)
+                new_multi_graph[etype] = self._multi_graph[etype].numpy(
+                    inplace)
 
             new_graph = self.__class__(
-                    edges=None,
-                    node_types=self.__dict__["_node_types"],
-                    multi_graph=new_multi_graph,
-                    )
+                edges=None,
+                node_types=self.__dict__["_node_types"],
+                multi_graph=new_multi_graph, )
             return new_graph
 
     def dump(self, path, indegree=False, outdegree=False):
@@ -493,7 +496,8 @@ class HeterGraph(object):
             mmap_mode: Default :code:`mmap_mode="r"`. If not None, memory-map the graph.  
         """
 
-        _node_types = np.load(os.path.join(path, "node_types.npy"), allow_pickle=True)
+        _node_types = np.load(
+            os.path.join(path, "node_types.npy"), allow_pickle=True)
 
         with open(os.path.join(path, "edge_types.pkl"), "rb") as f:
             _edge_types = pkl.load(f)
@@ -504,11 +508,7 @@ class HeterGraph(object):
             sub_path = os.path.join(path, etype)
             _multi_graph[etype] = Graph.load(sub_path, mmap_mode)
 
-        return cls(edges=None,
-                node_types=_node_types,
-                multi_graph=_multi_graph,
-                )
-
-
-
-
+        return cls(
+            edges=None,
+            node_types=_node_types,
+            multi_graph=_multi_graph, )

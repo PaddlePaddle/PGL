@@ -29,14 +29,16 @@ from multiprocessing import Queue
 import threading
 from collections import namedtuple
 
+_np_serialized_data = namedtuple("_np_serialized_data",
+                                 ["value", "shape", "dtype"])
 
-_np_serialized_data = namedtuple("_np_serialized_data", ["value", "shape", "dtype"])
 
 def serialize_data(data):
     """serialize_data"""
     if data is None:
         return None
     return numpy_serialize_data(data)  #, ensure_ascii=False)
+
 
 def index_iter(data):
     """return indexing iter"""
@@ -53,8 +55,10 @@ def numpy_serialize_data(data):
     if isinstance(ret_data, (dict, list)):
         for key in index_iter(ret_data):
             if isinstance(ret_data[key], np.ndarray):
-                ret_data[key] = _np_serialized_data(value=ret_data[key].tobytes(),
-                                shape=list(ret_data[key].shape), dtype="%s" % ret_data[key].dtype)
+                ret_data[key] = _np_serialized_data(
+                    value=ret_data[key].tobytes(),
+                    shape=list(ret_data[key].shape),
+                    dtype="%s" % ret_data[key].dtype)
     return ret_data
 
 
@@ -66,8 +70,9 @@ def numpy_deserialize_data(data):
     if isinstance(data, (dict, list)):
         for key in index_iter(data):
             if isinstance(data[key], _np_serialized_data):
-                data[key] = np.frombuffer(buffer=data[key].value,
-                                dtype=data[key].dtype).reshape(data[key].shape)
+                data[key] = np.frombuffer(
+                    buffer=data[key].value,
+                    dtype=data[key].dtype).reshape(data[key].shape)
     return data
 
 
@@ -125,7 +130,6 @@ def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
                 else:
                     yield sample
 
-
     def _read_into_pipe(reader, conn, max_pipe_size):
         """read_into_pipe"""
         for sample in reader():
@@ -158,7 +162,7 @@ def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
                     alive_conn_indices.remove(alive_conn_index)
                 else:
                     yield sample
-                    
+
     if use_pipe:
         return pipe_reader
     else:

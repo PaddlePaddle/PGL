@@ -21,6 +21,7 @@ from pgl.graph import Graph, MultiGraph
 import numpy as np
 import pickle
 
+
 class BaseDataset(object):
     def __init__(self):
         pass
@@ -49,12 +50,12 @@ class Subset(BaseDataset):
 
     def __len__(self):
         return len(self.indices)
-    
+
 
 class Dataset(BaseDataset):
     def __init__(self, args):
         self.args = args
-        
+
         with open('data/%s.pkl' % args.dataset_name, 'rb') as f:
             graphs_info_list = pickle.load(f)
 
@@ -63,20 +64,20 @@ class Dataset(BaseDataset):
         for i in range(len(graphs_info_list) - 1):
             graph = graphs_info_list[i]
             edges_l, edges_r = graph["edge_src"], graph["edge_dst"]
-            
+
             # add self-loops
             if self.args.dataset_name != "FRANKENSTEIN":
                 num_nodes = graph["num_nodes"]
                 x = np.arange(0, num_nodes)
                 edges_l = np.append(edges_l, x)
                 edges_r = np.append(edges_r, x)
-            
+
             edges = list(zip(edges_l, edges_r))
             g = pgl.graph.Graph(num_nodes=graph["num_nodes"], edges=edges)
             g.node_feat["feat"] = graph["node_feat"]
             self.pgl_graph_list.append(g)
             self.graph_label_list.append(graph["label"])
-            
+
         self.num_classes = graphs_info_list[-1]["num_classes"]
         self.num_features = graphs_info_list[-1]["num_features"]
 

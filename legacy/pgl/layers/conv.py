@@ -54,9 +54,9 @@ def gcn(gw, feature, hidden_size, activation, name, norm=None):
     size = feature.shape[-1]
     if size > hidden_size:
         feature = L.fc(feature,
-                                  size=hidden_size,
-                                  bias_attr=False,
-                                  param_attr=fluid.ParamAttr(name=name))
+                       size=hidden_size,
+                       bias_attr=False,
+                       param_attr=fluid.ParamAttr(name=name))
 
     if norm is not None:
         feature = feature * norm
@@ -68,9 +68,9 @@ def gcn(gw, feature, hidden_size, activation, name, norm=None):
     else:
         output = gw.recv(msg, "sum")
         output = L.fc(output,
-                                 size=hidden_size,
-                                 bias_attr=False,
-                                 param_attr=fluid.ParamAttr(name=name))
+                      size=hidden_size,
+                      bias_attr=False,
+                      param_attr=fluid.ParamAttr(name=name))
 
     if norm is not None:
         output = output * norm
@@ -123,8 +123,7 @@ def gat(gw,
 
     def send_attention(src_feat, dst_feat, edge_feat):
         output = src_feat["left_a"] + dst_feat["right_a"]
-        output = L.leaky_relu(
-            output, alpha=0.2)  # (num_edges, num_heads)
+        output = L.leaky_relu(output, alpha=0.2)  # (num_edges, num_heads)
         return {"alpha": output, "h": src_feat["h"]}
 
     def reduce_attention(msg):
@@ -153,9 +152,9 @@ def gat(gw,
             dropout_implementation='upscale_in_train')
 
     ft = L.fc(feature,
-                         hidden_size * num_heads,
-                         bias_attr=False,
-                         param_attr=fluid.ParamAttr(name=name + '_weight'))
+              hidden_size * num_heads,
+              bias_attr=False,
+              param_attr=fluid.ParamAttr(name=name + '_weight'))
     left_a = L.create_parameter(
         shape=[num_heads, hidden_size],
         dtype='float32',
@@ -236,10 +235,10 @@ def gin(gw,
     output = gw.recv(msg, "sum") + feature * (epsilon + 1.0)
 
     output = L.fc(output,
-                             size=hidden_size,
-                             act=None,
-                             param_attr=fluid.ParamAttr(name="%s_w_0" % name),
-                             bias_attr=fluid.ParamAttr(name="%s_b_0" % name))
+                  size=hidden_size,
+                  act=None,
+                  param_attr=fluid.ParamAttr(name="%s_w_0" % name),
+                  bias_attr=fluid.ParamAttr(name="%s_b_0" % name))
 
     output = L.layer_norm(
         output,
@@ -255,15 +254,16 @@ def gin(gw,
         output = getattr(L, activation)(output)
 
     output = L.fc(output,
-                             size=hidden_size,
-                             act=activation,
-                             param_attr=fluid.ParamAttr(name="%s_w_1" % name),
-                             bias_attr=fluid.ParamAttr(name="%s_b_1" % name))
+                  size=hidden_size,
+                  act=activation,
+                  param_attr=fluid.ParamAttr(name="%s_w_1" % name),
+                  bias_attr=fluid.ParamAttr(name="%s_b_1" % name))
 
     return output
 
 
-def gaan(gw, feature, hidden_size_a, hidden_size_v, hidden_size_m, hidden_size_o, heads, name):
+def gaan(gw, feature, hidden_size_a, hidden_size_v, hidden_size_m,
+         hidden_size_o, heads, name):
     """Implementation of GaAN"""
 
     def send_func(src_feat, dst_feat, edge_feat):
@@ -277,11 +277,13 @@ def gaan(gw, feature, hidden_size_a, hidden_size_v, hidden_size_m, hidden_size_o
         # E * M
         alpha = L.reduce_sum(feat_key * feat_query, dim=-1)
 
-        return {'dst_node_feat': dst_feat['node_feat'],
-                'src_node_feat': src_feat['node_feat'],
-                'feat_value': src_feat['feat_value'],
-                'alpha': alpha,
-                'feat_gate': src_feat['feat_gate']}
+        return {
+            'dst_node_feat': dst_feat['node_feat'],
+            'src_node_feat': src_feat['node_feat'],
+            'feat_value': src_feat['feat_value'],
+            'alpha': alpha,
+            'feat_gate': src_feat['feat_gate']
+        }
 
     def recv_func(message):
         # 每条边的终点的特征
@@ -301,21 +303,24 @@ def gaan(gw, feature, hidden_size_a, hidden_size_v, hidden_size_m, hidden_size_o
 
         # softmax
         alpha = message['alpha']
-        alpha = paddle_helper.sequence_softmax(alpha) # E * M
+        alpha = paddle_helper.sequence_softmax(alpha)  # E * M
 
-        feat_value = message['feat_value'] # E * (M * D2)
+        feat_value = message['feat_value']  # E * (M * D2)
         old = feat_value
-        feat_value = L.reshape(feat_value, [-1, heads, hidden_size_v]) # E * M * D2
+        feat_value = L.reshape(feat_value,
+                               [-1, heads, hidden_size_v])  # E * M * D2
         feat_value = L.elementwise_mul(feat_value, alpha, axis=0)
-        feat_value = L.reshape(feat_value, [-1, heads*hidden_size_v]) # E * (M * D2)
+        feat_value = L.reshape(feat_value,
+                               [-1, heads * hidden_size_v])  # E * (M * D2)
         feat_value = L.lod_reset(feat_value, old)
 
-        feat_value = L.sequence_pool(feat_value, 'sum') # N * (M * D2)
+        feat_value = L.sequence_pool(feat_value, 'sum')  # N * (M * D2)
 
-        feat_value = L.reshape(feat_value, [-1, heads, hidden_size_v]) # N * M * D2
+        feat_value = L.reshape(feat_value,
+                               [-1, heads, hidden_size_v])  # N * M * D2
 
         output = L.elementwise_mul(feat_value, g, axis=0)
-        output = L.reshape(output, [-1, heads * hidden_size_v]) # N * (M * D2)
+        output = L.reshape(output, [-1, heads * hidden_size_v])  # N * (M * D2)
 
         output = L.concat([x, output], axis=1)
 
@@ -326,41 +331,48 @@ def gaan(gw, feature, hidden_size_a, hidden_size_v, hidden_size_m, hidden_size_o
     # 计算每个点自己需要发送出去的内容
     # 投影后的特征向量
     # N * (D1 * M)
-    feat_key = L.fc(feature, hidden_size_a * heads, bias_attr=False,
-                     param_attr=fluid.ParamAttr(name=name + '_project_key'))
+    feat_key = L.fc(feature,
+                    hidden_size_a * heads,
+                    bias_attr=False,
+                    param_attr=fluid.ParamAttr(name=name + '_project_key'))
     # N * (D2 * M)
-    feat_value = L.fc(feature, hidden_size_v * heads, bias_attr=False,
-                     param_attr=fluid.ParamAttr(name=name + '_project_value'))
+    feat_value = L.fc(feature,
+                      hidden_size_v * heads,
+                      bias_attr=False,
+                      param_attr=fluid.ParamAttr(name=name + '_project_value'))
     # N * (D1 * M)
-    feat_query = L.fc(feature, hidden_size_a * heads, bias_attr=False,
-                     param_attr=fluid.ParamAttr(name=name + '_project_query'))
+    feat_query = L.fc(feature,
+                      hidden_size_a * heads,
+                      bias_attr=False,
+                      param_attr=fluid.ParamAttr(name=name + '_project_query'))
     # N * Dm
-    feat_gate = L.fc(feature, hidden_size_m, bias_attr=False, 
-                                param_attr=fluid.ParamAttr(name=name + '_project_gate'))
+    feat_gate = L.fc(feature,
+                     hidden_size_m,
+                     bias_attr=False,
+                     param_attr=fluid.ParamAttr(name=name + '_project_gate'))
 
     # send 阶段
 
     message = gw.send(
         send_func,
-        nfeat_list=[('node_feat', feature), ('feat_key', feat_key), ('feat_value', feat_value),
-                    ('feat_query', feat_query), ('feat_gate', feat_gate)],
-        efeat_list=None,
-    )
+        nfeat_list=[('node_feat', feature), ('feat_key', feat_key),
+                    ('feat_value', feat_value), ('feat_query', feat_query),
+                    ('feat_gate', feat_gate)],
+        efeat_list=None, )
 
     # 聚合邻居特征
     output = gw.recv(message, recv_func)
-    output = L.fc(output, hidden_size_o, bias_attr=False,
-                            param_attr=fluid.ParamAttr(name=name + '_project_output'))
+    output = L.fc(output,
+                  hidden_size_o,
+                  bias_attr=False,
+                  param_attr=fluid.ParamAttr(name=name + '_project_output'))
     output = L.leaky_relu(output, alpha=0.1)
     output = L.dropout(output, dropout_prob=0.1)
 
     return output
 
 
-def gen_conv(gw,
-        feature,
-        name,
-        beta=None):
+def gen_conv(gw, feature, name, beta=None):
     """Implementation of GENeralized Graph Convolution (GENConv), see the paper
     "DeeperGCN: All You Need to Train Deeper GCNs" in
     https://arxiv.org/pdf/2006.07739.pdf
@@ -377,41 +389,42 @@ def gen_conv(gw,
     Return:
         A tensor with shape (num_nodes, feature_size)
     """
-   
+
     if beta == "dynamic":
         beta = L.create_parameter(
-                shape=[1],
-                dtype='float32',
-                default_initializer=
-                    fluid.initializer.ConstantInitializer(value=1.0),
-                name=name + '_beta')
-    
+            shape=[1],
+            dtype='float32',
+            default_initializer=fluid.initializer.ConstantInitializer(
+                value=1.0),
+            name=name + '_beta')
+
     # message passing
     msg = gw.send(message_passing.copy_send, nfeat_list=[("h", feature)])
     output = gw.recv(msg, message_passing.softmax_agg(beta))
-    
+
     # msg norm
     output = message_passing.msg_norm(feature, output, name)
     output = feature + output
-    
+
     output = L.fc(output,
-                     feature.shape[-1],
-                     bias_attr=False,
-                     act="relu",
-                     param_attr=fluid.ParamAttr(name=name + '_weight1'))
-    
+                  feature.shape[-1],
+                  bias_attr=False,
+                  act="relu",
+                  param_attr=fluid.ParamAttr(name=name + '_weight1'))
+
     output = L.fc(output,
-                     feature.shape[-1],
-                     bias_attr=False,
-                     param_attr=fluid.ParamAttr(name=name + '_weight2'))
+                  feature.shape[-1],
+                  bias_attr=False,
+                  param_attr=fluid.ParamAttr(name=name + '_weight2'))
 
     return output
+
 
 def get_norm(indegree):
     """Get Laplacian Normalization"""
     float_degree = L.cast(indegree, dtype="float32")
     float_degree = L.clamp(float_degree, min=1.0)
-    norm = L.pow(float_degree, factor=-0.5) 
+    norm = L.pow(float_degree, factor=-0.5)
     return norm
 
 
@@ -433,18 +446,18 @@ def appnp(gw, feature, edge_dropout=0, alpha=0.2, k_hop=10):
     """
 
     def send_src_copy(src_feat, dst_feat, edge_feat):
-       feature = src_feat["h"]
-       return feature
+        feature = src_feat["h"]
+        return feature
 
     h0 = feature
-    ngw = gw 
+    ngw = gw
     norm = get_norm(ngw.indegree())
-    
+
     for i in range(k_hop):
-        if edge_dropout > 1e-5:     
-            ngw = pgl.sample.edge_drop(gw, edge_dropout) 
+        if edge_dropout > 1e-5:
+            ngw = pgl.sample.edge_drop(gw, edge_dropout)
             norm = get_norm(ngw.indegree())
-            
+
         feature = feature * norm
 
         msg = gw.send(send_src_copy, nfeat_list=[("h", feature)])
@@ -454,18 +467,18 @@ def appnp(gw, feature, edge_dropout=0, alpha=0.2, k_hop=10):
         feature = feature * norm
 
         feature = feature * (1 - alpha) + h0 * alpha
-    return feature 
+    return feature
 
 
 def gcnii(gw,
-    feature,
-    name,
-    activation=None,
-    alpha=0.5,
-    lambda_l=0.5,
-    k_hop=1,
-    dropout=0.5,
-    is_test=False):
+          feature,
+          name,
+          activation=None,
+          alpha=0.5,
+          lambda_l=0.5,
+          k_hop=1,
+          dropout=0.5,
+          is_test=False):
     """Implementation of GCNII of "Simple and Deep Graph Convolutional Networks"  
 
     paper: https://arxiv.org/pdf/2007.02133.pdf
@@ -492,14 +505,14 @@ def gcnii(gw,
     """
 
     def send_src_copy(src_feat, dst_feat, edge_feat):
-       feature = src_feat["h"]
-       return feature
+        feature = src_feat["h"]
+        return feature
 
     h0 = feature
-    ngw = gw 
+    ngw = gw
     norm = get_norm(ngw.indegree())
     hidden_size = feature.shape[-1]
-    
+
     for i in range(k_hop):
         beta_i = np.log(1.0 * lambda_l / (i + 1) + 1)
         feature = L.dropout(
@@ -516,10 +529,12 @@ def gcnii(gw,
         # appnp
         feature = feature * (1 - alpha) + h0 * alpha
 
-        feature_transed = L.fc(feature, hidden_size,
-                    act=None, bias_attr=False,
-                    name=name+"_%s_w1" % i) 
+        feature_transed = L.fc(feature,
+                               hidden_size,
+                               act=None,
+                               bias_attr=False,
+                               name=name + "_%s_w1" % i)
         feature = feature_transed * beta_i + feature * (1 - beta_i)
         if activation is not None:
             feature = getattr(L, activation)(feature)
-    return feature 
+    return feature

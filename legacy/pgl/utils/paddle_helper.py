@@ -202,8 +202,8 @@ def sequence_softmax(x, beta=None):
     """
 
     if beta is not None:
-        x =  x * beta
-    
+        x = x * beta
+
     x_max = L.sequence_pool(x, "max")
     x_max = L.sequence_expand_as(x_max, x)
     x = x - x_max
@@ -252,6 +252,7 @@ def scatter_max(input, index, updates):
     output = L.scatter(input, index, updates, mode='max')
     return output
 
+
 def masked_select(input, mask):
     """masked_select
     
@@ -289,6 +290,7 @@ def ensure_dtype(input, dtype):
     else:
         return L.cast(input, dtype=dtype)
 
+
 def lod_remove(input):
     """Lod Remove
     
@@ -301,5 +303,3 @@ def lod_remove(input):
         A 1D input
     """
     return L.reshape(L.reshape(input, [1, -1]), [-1])
-    
-    

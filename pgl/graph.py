@@ -945,7 +945,6 @@ class Graph(object):
 
         src, dst = self.edges[:, 0], self.edges[:, 1]
 
-
         msg = self.send(
             lambda sf, df, ef: {"msg": sf["h"]}, src_feat={"h": feature})
 

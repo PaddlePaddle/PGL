@@ -1,3 +1,17 @@
+# Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import math
 import numpy as np
 import paddle
@@ -7,25 +21,30 @@ import paddle.nn.functional as F
 import pgl
 from pgl.nn import functional as GF
 
+
 def linear_init(input_size, hidden_size, with_bias=True, init_type='gcn'):
     if init_type == 'gcn':
         fc_w_attr = paddle.ParamAttr(initializer=nn.initializer.XavierNormal())
-        fc_bias_attr = paddle.ParamAttr(initializer=nn.initializer.Constant(0.0))
+        fc_bias_attr = paddle.ParamAttr(
+            initializer=nn.initializer.Constant(0.0))
     else:
         fan_in = input_size
         bias_bound = 1.0 / math.sqrt(fan_in)
-        fc_bias_attr = paddle.ParamAttr(initializer=nn.initializer.Uniform(low=-bias_bound, high=bias_bound))
+        fc_bias_attr = paddle.ParamAttr(initializer=nn.initializer.Uniform(
+            low=-bias_bound, high=bias_bound))
 
         negative_slope = math.sqrt(5)
-        gain = math.sqrt(2.0 / (1 + negative_slope ** 2))
+        gain = math.sqrt(2.0 / (1 + negative_slope**2))
         std = gain / math.sqrt(fan_in)
         weight_bound = math.sqrt(3.0) * std
-        fc_w_attr = paddle.ParamAttr(initializer=nn.initializer.Uniform(low=-weight_bound, high=weight_bound))
-    
+        fc_w_attr = paddle.ParamAttr(initializer=nn.initializer.Uniform(
+            low=-weight_bound, high=weight_bound))
+
     if not with_bias:
         fc_bias_attr = False
-        
-    return nn.Linear(input_size, hidden_size, weight_attr=fc_w_attr, bias_attr=fc_bias_attr)
+
+    return nn.Linear(
+        input_size, hidden_size, weight_attr=fc_w_attr, bias_attr=fc_bias_attr)
 
 
 class GATConv(nn.Layer):
@@ -57,13 +76,16 @@ class GATConv(nn.Layer):
         self.attn_drop = attn_drop
         self.concat = concat
 
-        self.linear = linear_init(input_size, num_heads * hidden_size, init_type='gcn')
-        
+        self.linear = linear_init(
+            input_size, num_heads * hidden_size, init_type='gcn')
+
         fc_w_attr = paddle.ParamAttr(initializer=nn.initializer.XavierNormal())
-        self.weight_src = self.create_parameter(shape=[1, num_heads, hidden_size], attr=fc_w_attr)
-        
+        self.weight_src = self.create_parameter(
+            shape=[1, num_heads, hidden_size], attr=fc_w_attr)
+
         fc_w_attr = paddle.ParamAttr(initializer=nn.initializer.XavierNormal())
-        self.weight_dst = self.create_parameter(shape=[1, num_heads, hidden_size], attr=fc_w_attr)
+        self.weight_dst = self.create_parameter(
+            shape=[1, num_heads, hidden_size], attr=fc_w_attr)
 
         self.feat_dropout = nn.Dropout(p=feat_drop)
         self.attn_dropout = nn.Dropout(p=attn_drop)
@@ -128,8 +150,8 @@ class GATConv(nn.Layer):
         if self.activation is not None:
             output = self.activation(output)
         return output
-    
-    
+
+
 class TransformerConv(nn.Layer):
     """Implementation of TransformerConv from UniMP
     This is an implementation of the paper Unified Message Passing Model for Semi-Supervised Classification
@@ -173,24 +195,30 @@ class TransformerConv(nn.Layer):
         self.attn_drop = attn_drop
         self.concat = concat
 
-        self.q = linear_init(input_size, num_heads * hidden_size, init_type='gcn')
-        self.k = linear_init(input_size, num_heads * hidden_size, init_type='gcn')
-        self.v = linear_init(input_size, num_heads * hidden_size, init_type='gcn')
+        self.q = linear_init(
+            input_size, num_heads * hidden_size, init_type='gcn')
+        self.k = linear_init(
+            input_size, num_heads * hidden_size, init_type='gcn')
+        self.v = linear_init(
+            input_size, num_heads * hidden_size, init_type='gcn')
 
         self.feat_dropout = nn.Dropout(p=feat_drop)
         self.attn_dropout = nn.Dropout(p=attn_drop)
 
         if skip_feat:
             if concat:
-                self.skip_feat = linear_init(input_size, num_heads * hidden_size, init_type='gcn')
+                self.skip_feat = linear_init(
+                    input_size, num_heads * hidden_size, init_type='gcn')
             else:
-                self.skip_feat = linear_init(input_size, hidden_size, init_type='gcn')
+                self.skip_feat = linear_init(
+                    input_size, hidden_size, init_type='gcn')
         else:
             self.skip_feat = None
 
         if gate:
             if concat:
-                self.gate = linear_init(3 * num_heads * hidden_size, 1, init_type='gcn')
+                self.gate = linear_init(
+                    3 * num_heads * hidden_size, 1, init_type='gcn')
             else:
                 self.gate = linear_init(3 * hidden_size, 1, init_type='gcn')
         else:

@@ -28,4 +28,3 @@ source ./redis_graph.cfg
 sh ./src/dump_data.sh $edge_path $server_list $num_nodes $node_feat_path
 
 exit 0
-

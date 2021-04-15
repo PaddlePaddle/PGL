@@ -19,6 +19,7 @@ import pgl
 from pgl.utils.logger import log
 from pgl.graph import Graph, MultiGraph
 
+
 def batch_iter(data, batch_size):
     """node_batch_iter
     """
@@ -62,13 +63,14 @@ def label_to_onehot(labels):
 class GraphDataloader(object):
     """Graph Dataloader
     """
+
     def __init__(self,
-                dataset,
-                graph_wrapper,
-                batch_size,
-                seed=0,
-                buf_size=1000,
-                shuffle=True):
+                 dataset,
+                 graph_wrapper,
+                 batch_size,
+                 seed=0,
+                 buf_size=1000,
+                 shuffle=True):
 
         self.shuffle = shuffle
         self.seed = seed
@@ -88,7 +90,7 @@ class GraphDataloader(object):
         norm = np.zeros_like(indegree, dtype="float32")
         norm[indegree > 0] = np.power(indegree[indegree > 0], -0.5)
         join_graph.node_feat["norm"] = np.expand_dims(norm, -1)
-        
+
         feed_dict = self.graph_wrapper.to_feed(join_graph)
         labels = np.array(labels)
         feed_dict["labels_1dim"] = labels
@@ -112,11 +114,11 @@ class GraphDataloader(object):
                 yield batch
         else:
             for batch in scan_batch_iter(self, self.batch_size):
-                yield batch			
+                yield batch
 
     def __len__(self):
         """__len__"""
-        return len(self.dataset) 
+        return len(self.dataset)
 
     def __getitem__(self, idx):
         """__getitem__"""
@@ -127,6 +129,7 @@ class GraphDataloader(object):
 
     def __iter__(self):
         """__iter__"""
+
         def func_run():
             for batch_examples in self.batch_iter():
                 batch_dict = self.batch_fn(batch_examples)

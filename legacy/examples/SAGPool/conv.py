@@ -15,6 +15,7 @@
 import paddle.fluid as fluid
 import paddle.fluid.layers as L
 
+
 def norm_gcn(gw, feature, hidden_size, activation, name, norm=None):
     """Implementation of graph convolutional neural networks(GCN), using different 
        normalization method.
@@ -51,6 +52,7 @@ def norm_gcn(gw, feature, hidden_size, activation, name, norm=None):
         def send_src_copy(src_feat, dst_feat, edge_feat):
             return src_feat["h"] * norm
     else:
+
         def send_src_copy(src_feat, dst_feat, edge_feat):
             return src_feat["h"]
 

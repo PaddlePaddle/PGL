@@ -37,4 +37,3 @@ if __name__ == '__main__':
         i, j = int(l_sp[0]), int(l_sp[1])
         nodes = graph.sample_predecessor(np.array([i]), 10000)
         assert j in nodes
-

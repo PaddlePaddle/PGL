@@ -33,7 +33,8 @@ root.setLevel(logging.DEBUG)
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 root.addHandler(handler)
 
@@ -198,7 +199,8 @@ def build_infos(edge_path, num_nodes, startup_host, startup_port, num_bucket):
     rs[node].set("ef:infos", json.dumps([]))
 
 
-def build_node_feat(node_feat_path, num_nodes, startup_host, startup_port, num_bucket):
+def build_node_feat(node_feat_path, num_nodes, startup_host, startup_port,
+                    num_bucket):
     assert node_feat_path != "", "node_feat_path empty!"
     feat_dict = np.load(node_feat_path)
     for k in feat_dict.keys():
@@ -269,7 +271,6 @@ if __name__ == '__main__':
                     args.startup_port, args.num_bucket)
     elif args.mode == 'node_feat':
         build_node_feat(args.node_feat_path, args.num_nodes, args.startup_host,
-                    args.startup_port, args.num_bucket)
+                        args.startup_port, args.num_bucket)
     else:
         raise ValueError("%s mode not found" % args.mode)
-

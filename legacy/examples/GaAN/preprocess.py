@@ -28,30 +28,30 @@ def get_graph_data(d_name="ogbn-proteins", mini_data=False):
             mini_data: if mini_data==True, only use a small dataset (for test)
     """
     # import ogb data
-    dataset = NodePropPredDataset(name = d_name)
-    num_tasks = dataset.num_tasks # obtaining the number of prediction tasks in a dataset
+    dataset = NodePropPredDataset(name=d_name)
+    num_tasks = dataset.num_tasks  # obtaining the number of prediction tasks in a dataset
 
     split_idx = dataset.get_idx_split()
-    train_idx, valid_idx, test_idx = split_idx["train"], split_idx["valid"], split_idx["test"]
+    train_idx, valid_idx, test_idx = split_idx["train"], split_idx[
+        "valid"], split_idx["test"]
     graph, label = dataset[0]
-    
+
     # reshape
     graph["edge_index"] = graph["edge_index"].T
-    
+
     # mini dataset
-    if mini_data: 
+    if mini_data:
         graph['num_nodes'] = 500
-        mask = (graph['edge_index'][:, 0] < 500)*(graph['edge_index'][:, 1] < 500)
+        mask = (graph['edge_index'][:, 0] < 500) * (
+            graph['edge_index'][:, 1] < 500)
         graph["edge_index"] = graph["edge_index"][mask]
         graph["edge_feat"] = graph["edge_feat"][mask]
         label = label[:500]
-        train_idx = np.arange(0,400)
-        valid_idx = np.arange(400,450)
-        test_idx = np.arange(450,500)
-    
+        train_idx = np.arange(0, 400)
+        valid_idx = np.arange(400, 450)
+        test_idx = np.arange(450, 500)
 
-    
-    # read/compute node feature
+# read/compute node feature
     if mini_data:
         node_feat_path = './dataset/ogbn_proteins_node_feat_small.npy'
     else:
@@ -68,36 +68,35 @@ def get_graph_data(d_name="ogbn-proteins", mini_data=False):
         for i in range(graph['num_nodes']):
             if i % 100 == 0:
                 dur = time.perf_counter() - start
-                print("{}/{}({}%), times: {:.2f}s".format(
-                    i, graph['num_nodes'], i/graph['num_nodes']*100, dur
-                ))
+                print("{}/{}({}%), times: {:.2f}s".format(i, graph[
+                    'num_nodes'], i / graph['num_nodes'] * 100, dur))
             mask = (graph['edge_index'][:, 0] == i)
-            
-            current_node_feat = np.mean(np.compress(mask, graph['edge_feat'], axis=0),
-                                        axis=0, keepdims=True)
+
+            current_node_feat = np.mean(
+                np.compress(
+                    mask, graph['edge_feat'], axis=0),
+                axis=0,
+                keepdims=True)
             if i == 0:
                 new_node_feat = [current_node_feat]
-            else:  
+            else:
                 new_node_feat.append(current_node_feat)
 
         new_node_feat = np.concatenate(new_node_feat, axis=0)
-        print("End: compute node feature".center(50,'='))
+        print("End: compute node feature".center(50, '='))
 
-        print("Saving node feature in "+node_feat_path.center(50, '='))
+        print("Saving node feature in " + node_feat_path.center(50, '='))
         np.save(node_feat_path, new_node_feat)
-        print("Saving finish".center(50,'='))
-    
+        print("Saving finish".center(50, '='))
+
     print(new_node_feat)
-    
-    
+
     # create graph
     g = pgl.graph.Graph(
         num_nodes=graph["num_nodes"],
-        edges = graph["edge_index"],
-        node_feat = {'node_feat': new_node_feat},
-        edge_feat = None
-    )
+        edges=graph["edge_index"],
+        node_feat={'node_feat': new_node_feat},
+        edge_feat=None)
     print("Create graph")
     print(g)
     return g, label, train_idx, valid_idx, test_idx, Evaluator(d_name)
-    

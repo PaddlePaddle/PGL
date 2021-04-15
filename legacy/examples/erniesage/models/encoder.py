@@ -36,8 +36,8 @@ def graphsage_sum(feature, gw, hidden_size, name, act):
     neigh_feature = gw.recv(msg, lambda feat: L.sequence_pool(feat, pool_type="sum"))
 
     hidden_size = hidden_size
-    self_feature = linear(feature, hidden_size, name+"_l", act)
-    neigh_feature = linear(neigh_feature, hidden_size, name+"_r", act)
+    self_feature = linear(feature, hidden_size, name + "_l", act)
+    neigh_feature = linear(neigh_feature, hidden_size, name + "_r", act)
     output = L.concat([self_feature, neigh_feature], axis=1)
     output = L.l2_normalize(output, axis=1)
     return output
@@ -68,7 +68,9 @@ class ERNIESageV1Encoder(Encoder):
         feature = self.ernie_pool(graph_wrappers[0].node_feat["term_ids"])
 
         for i in range(self.config.num_layers):
-            feature = graphsage_sum(feature, graph_wrappers[i], self.config.hidden_size, "graphsage_sum_%s"%i, None)
+            feature = graphsage_sum(feature, graph_wrappers[i],
+                                    self.config.hidden_size, "graphsage_sum_%s"
+                                    % i, None)
 
         final_feats = [
             self.take_final_feature(feature, i, "final_fc") for i in inputs
@@ -99,11 +101,12 @@ class ERNIESageV2Encoder(Encoder):
     def __call__(self, graph_wrappers, inputs):
         feature = graph_wrappers[0].node_feat["term_ids"]
         feature = self.ernie_send_aggregate(graph_wrappers[0], feature,
-                                 'leaky_relu', "erniesage_v2")
+                                            'leaky_relu', "erniesage_v2")
 
         for i in range(1, self.config.num_layers):
-            feature = graphsage_sum(feature, graph_wrappers[i], self.config.hidden_size, 
-                    "graphsage_sum_%s"%i, None)
+            feature = graphsage_sum(feature, graph_wrappers[i],
+                                    self.config.hidden_size,
+                                    "graphsage_sum_%s" % i, None)
 
         final_feats = [
             self.take_final_feature(feature, i, "final_fc") for i in inputs
@@ -122,12 +125,12 @@ class ERNIESageV2Encoder(Encoder):
         return feat
 
     def ernie_send_aggregate(self, gw, feature, act, name):
-
         def ernie_send(src_feat, dst_feat, edge_feat):
             def build_position_ids(term_ids):
                 input_mask = L.cast(term_ids > 0, "int64")
                 position_ids = L.cumsum(input_mask, axis=1) - 1
                 return position_ids
+
             """doc"""
             # input_ids
             cls = L.fill_constant_batch_size_like(
@@ -150,15 +153,15 @@ class ERNIESageV2Encoder(Encoder):
         msg = gw.send(ernie_send, nfeat_list=[("term_ids", term_ids)])
         neigh_feature = gw.recv(msg, lambda feat: F.layers.sequence_pool(feat, pool_type="sum"))
 
-        cls = L.fill_constant_batch_size_like(term_ids, [-1, 1],
-                                              "int64", self.config.cls_id)
+        cls = L.fill_constant_batch_size_like(term_ids, [-1, 1], "int64",
+                                              self.config.cls_id)
         term_ids = L.concat([cls, term_ids], 1)
         ernie_model = ErnieModel(self.config.ernie_config, "")
         self_feature, _ = ernie_model(term_ids)
 
         hidden_size = self.config.hidden_size
-        self_feature = linear(self_feature, hidden_size, name+"_l", act)
-        neigh_feature = linear(neigh_feature, hidden_size, name+"_r", act)
+        self_feature = linear(self_feature, hidden_size, name + "_l", act)
+        neigh_feature = linear(neigh_feature, hidden_size, name + "_r", act)
         output = L.concat([self_feature, neigh_feature], axis=1)
         output = L.l2_normalize(output, axis=1)
         return output
@@ -167,7 +170,8 @@ class ERNIESageV2Encoder(Encoder):
 class ERNIESageV3Encoder(Encoder):
     def __call__(self, graph_wrappers, inputs):
         feature = graph_wrappers[0].node_feat["term_ids"]
-        feature = self.concat_aggregate(graph_wrappers[0], feature, "erniesage_v3_0")
+        feature = self.concat_aggregate(graph_wrappers[0], feature,
+                                        "erniesage_v3_0")
 
         final_feats = [
             self.take_final_feature(feature, i, "final_fc") for i in inputs
@@ -229,7 +233,8 @@ class ERNIESageV3Encoder(Encoder):
         a_position_ids = L.expand(a_position_ids,
                                   [src_batch, 1])  # [B, slot_seqlen]
 
-        input_mask = L.cast(src_ids[:,:slot_seqlen] == 0, "int32")  # assume pad id == 0 [B, slot_seqlen, 1]
+        input_mask = L.cast(src_ids[:, :slot_seqlen] == 0,
+                            "int32")  # assume pad id == 0 [B, slot_seqlen, 1]
         a_pad_len = L.reduce_sum(input_mask, 1)  # [B, 1]
 
         b_position_ids = L.reshape(
@@ -238,8 +243,7 @@ class ERNIESageV3Encoder(Encoder):
             [1, slot_seqlen],
             inplace=True)  # [1, slot_seqlen]
         b_position_ids = L.expand(
-            b_position_ids,
-            [src_batch, num_b])  # [B, slot_seqlen * num_b]
+            b_position_ids, [src_batch, num_b])  # [B, slot_seqlen * num_b]
         b_position_ids = b_position_ids - a_pad_len  # [B, slot_seqlen * num_b]
 
         position_ids = L.concat([a_position_ids, b_position_ids], 1)

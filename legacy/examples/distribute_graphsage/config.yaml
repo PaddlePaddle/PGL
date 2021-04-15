@@ -16,4 +16,3 @@ log_per_step: 1
 save_path: "./checkpoints"
 log_dir: "./logs"
 CPU_NUM: 1
-

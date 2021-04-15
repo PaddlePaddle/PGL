@@ -34,4 +34,3 @@ popd
 ```sh
 sh ./cloud_run.sh
 ```
-

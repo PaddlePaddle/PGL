@@ -23,6 +23,7 @@ import unicodedata
 import six
 import sentencepiece as sp
 
+
 def convert_to_unicode(text):
     """Converts `text` to Unicode (if it's not already), assuming utf-8 input."""
     if six.PY3:
@@ -295,22 +296,22 @@ class SentencepieceTokenizer(object):
         Returns:
             A list of wordpiece tokens.
         """
-        text = text.lower() if self.do_lower_case else text 
+        text = text.lower() if self.do_lower_case else text
         text = convert_to_unicode(text.replace("\1", " "))
         tokens = self.tokenizer.EncodeAsPieces(text)
-        
+
         output_tokens = []
         for token in tokens:
             if token == self.sp_unk_token:
                 token = self.unk_token
-            
+
             if token in self.vocab:
                 output_tokens.append(token)
             else:
                 output_tokens.append(self.unk_token)
-        
+
         return output_tokens
-    
+
     def convert_tokens_to_ids(self, tokens):
         return convert_by_vocab(self.vocab, tokens)
 
@@ -321,13 +322,16 @@ class SentencepieceTokenizer(object):
 class WordsegTokenizer(object):
     """Runs Wordseg tokenziation."""
 
-    def __init__(self, vocab_file, do_lower_case=True, unk_token="[UNK]", 
-            split_token="\1"):
+    def __init__(self,
+                 vocab_file,
+                 do_lower_case=True,
+                 unk_token="[UNK]",
+                 split_token="\1"):
         self.vocab = load_vocab(vocab_file)
         self.inv_vocab = {v: k for k, v in self.vocab.items()}
         self.tokenizer = sp.SentencePieceProcessor()
         self.tokenizer.Load(vocab_file + ".model")
-        
+
         self.do_lower_case = do_lower_case
         self.unk_token = unk_token
         self.split_token = split_token
@@ -338,9 +342,9 @@ class WordsegTokenizer(object):
         Returns:
             A list of wordpiece tokens.
         """
-        text = text.lower() if self.do_lower_case else text 
+        text = text.lower() if self.do_lower_case else text
         text = convert_to_unicode(text)
-        
+
         output_tokens = []
         for token in text.split(self.split_token):
             if token in self.vocab:
@@ -351,7 +355,7 @@ class WordsegTokenizer(object):
                     if sp_token in self.vocab:
                         output_tokens.append(sp_token)
         return output_tokens
-    
+
     def convert_tokens_to_ids(self, tokens):
         return convert_by_vocab(self.vocab, tokens)
 

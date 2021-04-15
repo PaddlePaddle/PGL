@@ -26,9 +26,11 @@ from pgl.layers.conv import gcn
 from layers import sag_pool
 from conv import norm_gcn
 
+
 class GlobalModel(object):
     """Implementation of global pooling architecture with SAGPool.
     """
+
     def __init__(self, args, dataset):
         self.args = args
         self.dataset = dataset
@@ -53,9 +55,7 @@ class GlobalModel(object):
         graph_data = batch_graph
 
         self.graph_wrapper = GraphWrapper(
-            name="graph",
-            node_feat=graph_data.node_feat_info()
-            )
+            name="graph", node_feat=graph_data.node_feat_info())
         self.labels = L.data(
             "labels",
             shape=[None, self.args.num_classes],
@@ -63,56 +63,54 @@ class GlobalModel(object):
             append_batch_size=False)
 
         self.labels_1dim = L.data(
-          "labels_1dim",
-          shape=[None],
-          dtype="int32",
-          append_batch_size=False)
+            "labels_1dim",
+            shape=[None],
+            dtype="int32",
+            append_batch_size=False)
 
         self.graph_id = L.data(
-          "graph_id",
-          shape=[None],
-          dtype="int32",
-          append_batch_size=False)
+            "graph_id", shape=[None], dtype="int32", append_batch_size=False)
 
         if self.args.dataset_name == "FRANKENSTEIN":
             self.gcn = gcn
         else:
             self.gcn = norm_gcn
-        
+
         self.build_model()
 
     def build_model(self):
         node_features = self.graph_wrapper.node_feat["feat"]
 
-        output = self.gcn(gw=self.graph_wrapper, 
-                     feature=node_features, 
-                     hidden_size=self.hidden_size,
-                     activation="relu", 
-                     norm=self.graph_wrapper.node_feat["norm"],
-                     name="gcn_layer_1")
+        output = self.gcn(gw=self.graph_wrapper,
+                          feature=node_features,
+                          hidden_size=self.hidden_size,
+                          activation="relu",
+                          norm=self.graph_wrapper.node_feat["norm"],
+                          name="gcn_layer_1")
         output1 = output
-        output = self.gcn(gw=self.graph_wrapper, 
-                     feature=output, 
-                     hidden_size=self.hidden_size,
-                     activation="relu", 
-                     norm=self.graph_wrapper.node_feat["norm"],
-                     name="gcn_layer_2")
+        output = self.gcn(gw=self.graph_wrapper,
+                          feature=output,
+                          hidden_size=self.hidden_size,
+                          activation="relu",
+                          norm=self.graph_wrapper.node_feat["norm"],
+                          name="gcn_layer_2")
         output2 = output
-        output = self.gcn(gw=self.graph_wrapper, 
-                     feature=output, 
-                     hidden_size=self.hidden_size,
-                     activation="relu", 
-                     norm=self.graph_wrapper.node_feat["norm"],
-                     name="gcn_layer_3")
-        
+        output = self.gcn(gw=self.graph_wrapper,
+                          feature=output,
+                          hidden_size=self.hidden_size,
+                          activation="relu",
+                          norm=self.graph_wrapper.node_feat["norm"],
+                          name="gcn_layer_3")
+
         output = L.concat(input=[output1, output2, output], axis=-1)
 
-        output, ratio_length = sag_pool(gw=self.graph_wrapper, 
-                          feature=output, 
-                          ratio=self.pooling_ratio,
-                          graph_id=self.graph_id,
-                          dataset=self.args.dataset_name,
-                          name="sag_pool_1")
+        output, ratio_length = sag_pool(
+            gw=self.graph_wrapper,
+            feature=output,
+            ratio=self.pooling_ratio,
+            graph_id=self.graph_id,
+            dataset=self.args.dataset_name,
+            name="sag_pool_1")
         output = L.lod_reset(output, self.graph_wrapper.graph_lod)
         cat1 = L.sequence_pool(output, "sum")
         ratio_length = L.cast(ratio_length, dtype="float32")
@@ -123,14 +121,16 @@ class GlobalModel(object):
         output = L.fc(output, size=self.hidden_size, act="relu")
         output = L.dropout(output, dropout_prob=self.dropout_ratio)
         output = L.fc(output, size=self.hidden_size // 2, act="relu")
-        output = L.fc(output, size=self.num_classes, act=None,
-                      param_attr=fluid.ParamAttr(name="final_fc")) 
+        output = L.fc(output,
+                      size=self.num_classes,
+                      act=None,
+                      param_attr=fluid.ParamAttr(name="final_fc"))
 
         self.labels = L.cast(self.labels, dtype="float32")
         loss = L.sigmoid_cross_entropy_with_logits(x=output, label=self.labels)
         self.loss = L.mean(loss)
-        pred = L.sigmoid(output) 
-        self.pred = L.argmax(x=pred, axis=-1) 
+        pred = L.sigmoid(output)
+        self.pred = L.argmax(x=pred, axis=-1)
         correct = L.equal(self.pred, self.labels_1dim)
         correct = L.cast(correct, dtype="int32")
         self.correct = L.reduce_sum(correct)

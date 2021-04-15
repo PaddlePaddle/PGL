@@ -60,4 +60,3 @@ edge_path=$1
 feat_fn=$4
 
 dump_data
-

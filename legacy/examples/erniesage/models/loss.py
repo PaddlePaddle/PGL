@@ -23,7 +23,6 @@ import paddle.fluid.layers as L
 
 
 class Loss(object):
-
     def __init__(self, config):
         self.config = config
 
@@ -41,10 +40,10 @@ class Loss(object):
 
 
 class HingeLoss(Loss):
-
     def __call__(self, user_feat, pos_item_feat, neg_item_feat):
-        pos = L.reduce_sum(user_feat * pos_item_feat, -1, keep_dim=True) # [B, 1]
-        neg = L.matmul(user_feat, neg_item_feat, transpose_y=True) # [B, B]
+        pos = L.reduce_sum(
+            user_feat * pos_item_feat, -1, keep_dim=True)  # [B, 1]
+        neg = L.matmul(user_feat, neg_item_feat, transpose_y=True)  # [B, B]
         loss = L.reduce_mean(L.relu(neg - pos + self.config.margin))
         return loss
 
@@ -54,34 +53,36 @@ def all_gather(X):
     trainer_num = int(os.getenv("PADDLE_TRAINERS_NUM", "1"))
     if trainer_num == 1:
         copy_X = X * 1
-        copy_X.stop_gradient=True
+        copy_X.stop_gradient = True
         return copy_X
 
     Xs = []
     for i in range(trainer_num):
         copy_X = X * 1
-        copy_X =  L.collective._broadcast(copy_X, i, True)
-        copy_X.stop_gradient=True
+        copy_X = L.collective._broadcast(copy_X, i, True)
+        copy_X.stop_gradient = True
         Xs.append(copy_X)
 
     if len(Xs) > 1:
-        Xs=L.concat(Xs, 0)
-        Xs.stop_gradient=True
+        Xs = L.concat(Xs, 0)
+        Xs.stop_gradient = True
     else:
         Xs = Xs[0]
     return Xs
 
 
 class GlobalHingeLoss(Loss):
-
     def __call__(self, user_feat, pos_item_feat, neg_item_feat):
-        pos = L.reduce_sum(user_feat * pos_item_feat, -1, keep_dim=True) # [B, 1]
-        all_pos = all_gather(pos) # [B * n, 1]
-        all_neg_item_feat = all_gather(neg_item_feat) # [B * n, 1]
-        all_user_feat = all_gather(user_feat) # [B * n, 1]
+        pos = L.reduce_sum(
+            user_feat * pos_item_feat, -1, keep_dim=True)  # [B, 1]
+        all_pos = all_gather(pos)  # [B * n, 1]
+        all_neg_item_feat = all_gather(neg_item_feat)  # [B * n, 1]
+        all_user_feat = all_gather(user_feat)  # [B * n, 1]
 
-        neg1 = L.matmul(user_feat, all_neg_item_feat, transpose_y=True) # [B, B * n]
-        neg2 = L.matmul(all_user_feat, neg_item_feat, transpose_y=True) # [B *n, B]
+        neg1 = L.matmul(
+            user_feat, all_neg_item_feat, transpose_y=True)  # [B, B * n]
+        neg2 = L.matmul(
+            all_user_feat, neg_item_feat, transpose_y=True)  # [B *n, B]
 
         loss1 = L.reduce_mean(L.relu(neg1 - pos + self.config.margin))
         loss2 = L.reduce_mean(L.relu(neg2 - all_pos + self.config.margin))

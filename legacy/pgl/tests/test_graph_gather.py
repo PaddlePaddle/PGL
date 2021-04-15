@@ -39,17 +39,19 @@ class GraphGatherTest(unittest.TestCase):
         np.random.seed(1)
 
         graph_list = []
-      
+
         num_graph = 10
         for _ in range(num_graph):
-            num_nodes = np.random.randint(5, 20) 
+            num_nodes = np.random.randint(5, 20)
             edges = np.random.randint(low=0, high=num_nodes, size=(10, 2))
-            node_feat = {"feature": np.random.rand(num_nodes, 4).astype("float32")}
-            g = graph.Graph(num_nodes=num_nodes, edges=edges, node_feat=node_feat)
+            node_feat = {
+                "feature": np.random.rand(num_nodes, 4).astype("float32")
+            }
+            g = graph.Graph(
+                num_nodes=num_nodes, edges=edges, node_feat=node_feat)
             graph_list.append(g)
 
         gg = graph.MultiGraph(graph_list)
-        
 
         use_cuda = False
         place = F.CUDAPlace(0) if use_cuda else F.CPUPlace()
@@ -66,7 +68,6 @@ class GraphGatherTest(unittest.TestCase):
             index = L.data(name="index", dtype="int32", shape=[-1])
             feats = pgl.layers.graph_gather(gw, gw.node_feat["feature"], index)
 
-
         exe = F.Executor(place)
         exe.run(startup_prog)
         feed_dict = gw.to_feed(gg)
@@ -75,7 +76,7 @@ class GraphGatherTest(unittest.TestCase):
         self.assertEqual(list(ret[0].shape), [num_graph, 4])
         for i in range(num_graph):
             dist = (ret[0][i] - graph_list[i].node_feat["feature"][0])
-            dist = np.sum(dist ** 2)
+            dist = np.sum(dist**2)
             self.assertLess(dist, 1e-15)
 
 

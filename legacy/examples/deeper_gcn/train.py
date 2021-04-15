@@ -19,8 +19,9 @@ import paddle.fluid as fluid
 import numpy as np
 import time
 import argparse
-from pgl.utils.log_writer import LogWriter # vdl
+from pgl.utils.log_writer import LogWriter  # vdl
 from model import DeeperGCN
+
 
 def load(name):
     if name == 'cora':
@@ -48,16 +49,10 @@ def main(args):
 
     with fluid.program_guard(train_program, startup_program):
         gw = pgl.graph_wrapper.GraphWrapper(
-            name="graph",
-            node_feat=dataset.graph.node_feat_info())
-        
-        output = DeeperGCN(gw, 
-                gw.node_feat["words"],
-                num_layers,
-                hidden_size,
-                dataset.num_classes,
-                "deepercnn",
-                0.1)
+            name="graph", node_feat=dataset.graph.node_feat_info())
+
+        output = DeeperGCN(gw, gw.node_feat["words"], num_layers, hidden_size,
+                           dataset.num_classes, "deepercnn", 0.1)
 
         node_index = fluid.layers.data(
             "node_index",
@@ -100,7 +95,7 @@ def main(args):
     test_index = dataset.test_index
     test_label = np.expand_dims(dataset.y[test_index], -1)
     test_index = np.expand_dims(test_index, -1)
-    
+
     # get beta param
     beta_param_list = []
     for param in fluid.io.get_program_parameter(train_program):
@@ -118,8 +113,9 @@ def main(args):
                                         fetch_list=[loss, acc],
                                         return_numpy=True)
         for param in beta_param_list:
-            beta = np.array(fluid.global_scope().find_var(param.name).get_tensor())
-            writer.add_scalar("beta/"+param.name, beta, epoch)
+            beta = np.array(fluid.global_scope().find_var(param.name)
+                            .get_tensor())
+            writer.add_scalar("beta/" + param.name, beta, epoch)
 
         if epoch >= 3:
             time_per_epoch = 1.0 * (time.time() - t0)

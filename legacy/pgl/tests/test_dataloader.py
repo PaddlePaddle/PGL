@@ -104,7 +104,6 @@ class DataloaderTest(unittest.TestCase):
                 res.extend(batch_data['data'])
             self.assertEqual(set([i for i in range(DATA_SIZE)]), set(res))
 
-
     def test_IterDataset(self):
         config = {
             'batch_size': 3,

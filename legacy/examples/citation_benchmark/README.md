@@ -58,5 +58,3 @@ python train.py --conf config/gcnii.yaml --use_cuda --dataset cora --epoch 1500
 python train.py --conf config/gcnii.yaml --use_cuda --dataset pubmed --epoch 1500
 python train.py --conf config/gcnii.yaml --use_cuda --dataset citeseer --epoch 1500
 ```
-
-
