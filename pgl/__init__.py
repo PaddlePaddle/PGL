@@ -26,7 +26,6 @@ from pgl import dataset
 from pgl import utils
 
 from pgl.graph import *
-from pgl.bigraph import *
 from pgl.heter_graph import *
 
 __version__ = "2.1.2"
