@@ -33,33 +33,3 @@ def create_random_graph():
         node_feat={'nfeat': nfeat},
         edge_feat={'efeat': efeat})
     return g
-
-def create_random_bigraph():
-    dim = 4
-    src_num_nodes = np.random.randint(low=2, high=10)
-    dst_num_nodes = np.random.randint(low=2, high=10)
-    edges_size = np.random.randint(low=1, high=10)
-    edges_src = np.random.randint(
-        low=1,
-        high=src_num_nodes,
-        size=[edges_size, 1])
-
-    edges_dst = np.random.randint(
-        low=1,
-        high=dst_num_nodes,
-        size=[edges_size, 1])
-
-    edges = np.hstack([edges_src, edges_dst])
-
-    src_nfeat = np.random.randn(src_num_nodes, dim)
-    dst_nfeat = np.random.randn(dst_num_nodes, dim)
-    efeat = np.random.randn(len(edges), dim)
-
-    g = pgl.BiGraph(
-        edges=edges,
-        src_num_nodes=src_num_nodes,
-        dst_num_nodes=dst_num_nodes,
-        src_node_feat={'nfeat': src_nfeat},
-        dst_node_feat={'nfeat': dst_nfeat},
-        edge_feat={'efeat': efeat})
-    return g
