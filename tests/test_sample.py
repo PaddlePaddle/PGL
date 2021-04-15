@@ -20,6 +20,8 @@ import paddle
 import pgl
 from pgl.sampling import graphsage_sample
 from pgl.sampling import random_walk
+from pgl.sampling import node2vec_walk
+from pgl.sampling import node2vec_walk_plus
 
 from testsuite import create_random_graph
 
@@ -36,7 +38,7 @@ class SampleTest(unittest.TestCase):
         np.random.seed(1)
         subgraphs = graphsage_sample(graph, nodes, [10, 10], [])
 
-    def test_random_walk(self):
+    def build_test_graph(self):
         num_nodes = 5
         dim = 4
         edges = [(0, 1), (1, 2), (3, 4), (1, 0), (2, 1), (4, 3)]
@@ -48,9 +50,19 @@ class SampleTest(unittest.TestCase):
             num_nodes=num_nodes,
             node_feat={'nfeat': nfeat},
             edge_feat={'efeat': efeat})
+        return g1
 
+    def test_random_walk(self):
+        g1 = self.build_test_graph()
         walk_paths = random_walk(g1, [0, 1], 2)
 
+    def test_node2vec_walk(self):
+        g1 = self.build_test_graph()
+        walk_paths = node2vec_walk(g1, [0, 1], 4, p=0.25, q=0.25)
+
+    def test_node2vec_walk_plus(self):
+        g1 = self.build_test_graph()
+        walk_paths = node2vec_walk_plus(g1, [0, 1], 4, p=0.25, q=0.25)
 
 if __name__ == '__main__':
     unittest.main()
