@@ -20,20 +20,23 @@ import numpy as np
 from pgl import graph_kernel
 from pgl.utils.logger import log
 from pgl.utils.data import Dataset
-from pgl.sampling import random_walk
+from pgl.sampling import node2vec_walk
 from pgl.graph_kernel import skip_gram_gen_pair
 
 
-class BatchRandWalk(object):
-    def __init__(self, graph, walk_len, win_size, neg_num, neg_sample_type):
+class BatchNode2vecWalk(object):
+    def __init__(self, graph, walk_len, win_size, neg_num, neg_sample_type, p,
+                 q):
         self.graph = graph
         self.walk_len = walk_len
         self.win_size = win_size
         self.neg_num = neg_num
         self.neg_sample_type = neg_sample_type
+        self.p = p
+        self.q = q
 
     def __call__(self, nodes):
-        walks = random_walk(self.graph, nodes, self.walk_len)
+        walks = node2vec_walk(self.graph, nodes, self.walk_len, self.p, self.q)
         src_list, pos_list = [], []
         for walk in walks:
             s, p = skip_gram_gen_pair(walk, self.win_size)

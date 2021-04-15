@@ -28,7 +28,7 @@ from paddle.io import get_worker_info
 
 from model import SkipGramModel
 from dataset import ShardedDataset
-from dataset import BatchRandWalk
+from dataset import BatchNode2vecWalk
 
 
 def load(name):
@@ -94,10 +94,6 @@ def main(args):
     else:
         graph = load(args.dataset)
 
-    edges = np.load("./edges.npy")
-    edges = np.concatenate([edges, edges[:, [1, 0]]])
-    graph = pgl.Graph(edges)
-
     model = SkipGramModel(
         graph.num_nodes,
         args.embed_size,
@@ -116,8 +112,9 @@ def main(args):
 
     optim = Adam(learning_rate=scheduler, parameters=model.parameters())
 
-    collate_fn = BatchRandWalk(graph, args.walk_len, args.win_size,
-                               args.neg_num, args.neg_sample_type)
+    collate_fn = BatchNode2vecWalk(graph, args.walk_len, args.win_size,
+                                   args.neg_num, args.neg_sample_type, args.p,
+                                   args.q)
     data_loader = Dataloader(
         train_ds,
         batch_size=args.batch_size,
