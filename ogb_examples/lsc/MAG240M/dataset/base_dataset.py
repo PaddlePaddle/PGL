@@ -81,7 +81,7 @@ def scan_batch_iter_shuffle(data,
                 yield batch
                 batch = []
 
-#     np.random.shuffle(buffer)
+    np.random.shuffle(buffer)
     for line_example in buffer:
         batch.append(line_example)
         if len(batch) == batch_size:

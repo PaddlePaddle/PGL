@@ -178,6 +178,7 @@ class MAG240M(object):
 
         np.random.seed(self.seed)
         self.train_idx = dataset.get_idx_split('train')
+        np.random.shuffle(self.train_idx)
 
         self.val_idx = dataset.get_idx_split('valid')
         self.test_idx = dataset.get_idx_split('test')
@@ -204,7 +205,7 @@ class MAG240M(object):
         trainer_num = int(os.getenv("PADDLE_TRAINERS_NUM", "1"))
         count_line = 0
 
-        np.random.shuffle(self.train_idx)
+        #np.random.shuffle(self.train_idx)
         for idx in self.train_idx:
             count_line += 1
             if count_line % trainer_num == trainer_id:
