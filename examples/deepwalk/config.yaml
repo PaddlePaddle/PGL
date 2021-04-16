@@ -3,6 +3,7 @@ learning_rate: 0.0025
 
 sample_workers: 10
 batch_size: 512
+cpu_batch_size: 32
 neg_num: 20
 walk_len: 40
 win_size: 10

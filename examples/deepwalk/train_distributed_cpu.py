@@ -48,14 +48,6 @@ def load(name):
 
 
 def build_graph(args):
-    # if args.use_graph_engine:
-    # rank = int(paddle.distributed.get_rank())
-    # ip_addr = open("./endpoints").read()
-    # from pgl.distributed import DistGraphClient
-    # graph = DistGraphClient(args.conf, args.shard_num, 
-    # server_num=len(ip_addr), ip_config=ip_addr.split(","), client_id=rank)
-    # else:
-    # graph = load(args.dataset)
     graph = load(args.dataset)
     return graph
 
@@ -136,7 +128,7 @@ def main(args):
                                    args.neg_num, args.neg_sample_type)
         data_loader = Dataloader(
             train_ds,
-            batch_size=args.batch_size,
+            batch_size=args.cpu_batch_size,
             shuffle=True,
             num_workers=args.sample_workers,
             collate_fn=collate_fn)
