@@ -134,9 +134,9 @@ def main(args):
             collate_fn=collate_fn)
         py_reader.set_batch_generator(lambda: data_loader)
 
-        compiled_prog = paddle.static.default_main_program()
-
-        train_loss = train(exe, compiled_prog, py_reader, loss)
+        train_loss = train(exe,
+                           paddle.static.default_main_program(), py_reader,
+                           loss)
         fleet.stop_worker()
 
         if fleet.is_first_worker():

@@ -94,10 +94,6 @@ def main(args):
     else:
         graph = load(args.dataset)
 
-    edges = np.load("./edges.npy")
-    edges = np.concatenate([edges, edges[:, [1, 0]]])
-    graph = pgl.Graph(edges)
-
     model = SkipGramModel(
         graph.num_nodes,
         args.embed_size,
