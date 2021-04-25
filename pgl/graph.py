@@ -1200,7 +1200,7 @@ class Graph(object):
                 if is_tensor:
                     ret_feat[key] = paddle.concat(feat[key], 0)
                 else:
-                    ret_feat[key] = np.vstack(feat[key])
+                    ret_feat[key] = np.concatenate(feat[key], axis=0)
         return ret_feat
 
     @staticmethod
@@ -1221,7 +1221,7 @@ class Graph(object):
         if is_tensor:
             edges = paddle.concat(list_edges, 0)
         else:
-            edges = np.vstack(list_edges)
+            edges = np.concatenate(list_edges, axis=0)
         return edges
 
     def node_batch_iter(self, batch_size, shuffle=True):
