@@ -13,6 +13,7 @@
 # limitations under the License.
 """Distributed Graph Engine API
 """
+import warnings
 
 from pgl.distributed import dist_graph
 
@@ -20,3 +21,7 @@ from pgl.distributed.dist_graph import *
 
 __all__ = []
 __all__ += dist_graph.__all__
+
+warnings.warn(
+    "The Distributed Graph Engine is experimental, we will officially release it soon"
+)
