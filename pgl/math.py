@@ -14,7 +14,7 @@
 
 __all__ = [
     'segment_sum', 'segment_mean', 'segment_max', 'segment_min',
-    'segment_softmax'
+    'segment_softmax', 'segment_padding'
 ]
 
 import paddle
@@ -276,14 +276,21 @@ def segment_softmax(data, segment_ids):
     
             import paddle
             import pgl
-            data = paddle.to_tensor([[1, 2, 3], [3, 2, 1], [4, 5, 6]], dtype='float32')
+            data = [[1, 2, 3], 
+                    [3, 2, 1], 
+                    [4, 5, 6]]
+            data = paddle.to_tensor(, dtype='float32')
             segment_ids = paddle.to_tensor([0, 0, 1], dtype='int32')
             out = pgl.math.segment_softmax(data, segment_ids)
-            #Outputs: [[0.11920292, 0.50000000, 0.88079703], [0.88079709, 0.50000000, 0.11920292], [1., 1., 1.]]
-    
+
+            # Outputs:
+                    [[0.11920292 0.5        0.880797  ]
+                     [0.880797   0.5        0.11920292]
+                     [1.         1.         1.        ]]
+
     """
     data_max = segment_max(data, segment_ids)
-    data_max = paddle.gather(data, segment_ids, axis=0)
+    data_max = paddle.gather(data_max, segment_ids, axis=0)
     data = data - data_max
     data = paddle.exp(data)
     sum_data = segment_sum(data, segment_ids)
@@ -317,32 +324,30 @@ def segment_padding(data, segment_ids):
             import pgl
             data = paddle.to_tensor([[1, 2, 3], [3, 2, 1], [4, 5, 6]], dtype='float32')
             segment_ids = paddle.to_tensor([0, 0, 1], dtype='int64')
-            out = pgl.math.segment_softmax(data, segment_ids)
-            #Outputs: [[[1., 2., 3.], [3., 2., 1.]], [[4., 5., 6.], [0., 0., 0.]]], [2,1], 2
+            out = pgl.math.segment_padding(data, segment_ids)
 
     """
     idx_a = segment_ids
     idx_b = paddle.arange(segment_ids.shape[0])
-    
-    temp_idx  = paddle.ones([segment_ids.shape[0]], dtype='float32')
+
+    temp_idx = paddle.ones([segment_ids.shape[0]], dtype='float32')
     temp_idx = segment_sum(temp_idx, segment_ids).astype('int32')
-    
+
     seq_len = temp_idx
     max_padding = temp_idx.max().numpy()[0]
-    
+
     temp_idx = paddle.cumsum(temp_idx)
     temp_idx_i = paddle.zeros([temp_idx.shape[0] + 1], dtype='int32')
-    temp_idx_i[1: ] = temp_idx
-    temp_idx = temp_idx_i[: -1]
+    temp_idx_i[1:] = temp_idx
+    temp_idx = temp_idx_i[:-1]
     temp_idx = paddle.gather(temp_idx, segment_ids)
-    
+
     idx_b = idx_b - temp_idx
     index = paddle.stack([idx_a, idx_b], axis=1)
-    
+
     bz = segment_ids.max().numpy()[0] + 1
-    
+
     shape = [bz, max_padding, data.shape[-1]]
     output = paddle.scatter_nd(index, data, shape)
-    
-    return output, seq_len, index
 
+    return output, seq_len, index
