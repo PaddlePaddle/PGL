@@ -1251,30 +1251,6 @@ class Graph(object):
             yield perm[start:start + batch_size]
             start += batch_size
 
-    def __getitem__(self, index):
-        """Slice Graph by given index if the Graph is batched.
-        """
-        num_nodes = self._graph_node_index[index + 1] - self._graph_node_index[
-            index]
-        node_shift = self._graph_node_index[index]
-        edges = self.edges[self._graph_edge_index[index]:
-                           self._graph_edge_index[index + 1]] - node_shift
-        edge_feat = {}
-        for key, item in self.edge_feat.items():
-            edge_feat[key] = item[self._graph_edge_index[index]:
-                                  self._graph_edge_index[index + 1]]
-
-        node_feat = {}
-        for key, item in self.node_feat.items():
-            node_feat[key] = item[self._graph_node_index[index]:
-                                  self._graph_node_index[index + 1]]
-
-        return Graph(
-            num_nodes=num_nodes,
-            edges=edges,
-            node_feat=node_feat,
-            edge_feat=edge_feat)
-
     def to_mmap(self, path="./tmp"):
         """Turn the Graph into Memmap mode which can share memory between processes.
         """
