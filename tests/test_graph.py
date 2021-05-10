@@ -87,8 +87,34 @@ class GraphTest(unittest.TestCase):
 
         g2 = pgl.Graph(edges=edges)
 
+    def test_neighbors(self):
+
+        num_nodes = 5
+        edges = [(0, 1), (0, 2), (1, 2), (3, 4)]
+        g1 = pgl.Graph(edges=edges, num_nodes=num_nodes)
+
+        pred, pred_eid = g1.predecessor(return_eids=True)
+        self.assertEqual(len(pred), num_nodes)
+        self.assertEqual(len(pred_eid), num_nodes)
+
+        self.assertEqual(set(pred[0]), set([]))
+        self.assertEqual(set(pred[1]), set([0]))
+        self.assertEqual(set(pred[2]), set([0, 1]))
+        self.assertEqual(set(pred[3]), set([]))
+        self.assertEqual(set(pred[4]), set([3]))
+
+        succ, succ_eid = g1.successor(return_eids=True)
+        self.assertEqual(len(succ), num_nodes)
+        self.assertEqual(len(succ_eid), num_nodes)
+
+        self.assertEqual(set(succ[0]), set([1, 2]))
+        self.assertEqual(set(succ[1]), set([2]))
+        self.assertEqual(set(succ[2]), set([]))
+        self.assertEqual(set(succ[3]), set([4]))
+        self.assertEqual(set(succ[4]), set([]))
+
     def test_check_degree(self):
-        """Check the de
+        """Check the degree
         """
         num_nodes = 5
         edges = [(0, 1), (1, 2), (3, 4)]

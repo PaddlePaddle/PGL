@@ -105,7 +105,7 @@ Sorted edges and represent edges in compressed style like csc_matrix or csr_matr
             raise NotImplementedError("not implemented!")
         else:
             if u is None:
-                return np.split(self._sorted_v, self._indptr[1:])
+                return np.split(self._sorted_v, self._indptr[1:-1])
             else:
                 u = np.array(u, dtype="int64")
                 return graph_kernel.slice_by_index(
@@ -118,7 +118,7 @@ Sorted edges and represent edges in compressed style like csc_matrix or csr_matr
             raise NotImplementedError("not implemented!")
         else:
             if u is None:
-                return np.split(self._sorted_eid, self._indptr[1:])
+                return np.split(self._sorted_eid, self._indptr[1:-1])
             else:
                 u = np.array(u, dtype="int64")
                 return graph_kernel.slice_by_index(
