@@ -627,7 +627,7 @@ class TransformerConv(nn.Layer):
         k = paddle.reshape(k, [-1, self.num_heads, self.hidden_size])
         v = paddle.reshape(v, [-1, self.num_heads, self.hidden_size])
         if edge_feat is not None:
-            if self.feat_dropout > 1e-5:
+            if self.feat_drop > 1e-5:
                 edge_feat = self.feat_dropout(edge_feat)
             edge_feat = paddle.reshape(edge_feat,
                                        [-1, self.num_heads, self.hidden_size])
