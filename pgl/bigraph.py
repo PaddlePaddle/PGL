@@ -285,21 +285,21 @@ class BiGraph(object):
         edges = np.load(os.path.join(path, 'edges.npy'), mmap_mode=mmap_mode)
         num_graph = np.load(
             os.path.join(path, 'num_graph.npy'), mmap_mode=mmap_mode)
-        if os.path.isdir(os.path.join(path, 'graph_src_node_index.npy')):
+        if os.path.exists(os.path.join(path, 'graph_src_node_index.npy')):
             graph_src_node_index = np.load(
                 os.path.join(path, 'graph_src_node_index.npy'),
                 mmap_mode=mmap_mode)
         else:
             graph_src_node_index = None
 
-        if os.path.isdir(os.path.join(path, 'graph_dst_node_index.npy')):
+        if os.path.exists(os.path.join(path, 'graph_dst_node_index.npy')):
             graph_dst_node_index = np.load(
                 os.path.join(path, 'graph_dst_node_index.npy'),
                 mmap_mode=mmap_mode)
         else:
             graph_dst_node_index = None
 
-        if os.path.isdir(os.path.join(path, 'graph_edge_index.npy')):
+        if os.path.exists(os.path.join(path, 'graph_edge_index.npy')):
             graph_edge_index = np.load(
                 os.path.join(path, 'graph_edge_index.npy'),
                 mmap_mode=mmap_mode)
@@ -1337,7 +1337,7 @@ class BiGraph(object):
         # TODO:@Yelrose supporting disjoint a disjointed graph_list.
         assert len(
             graph_list
-        ) > 0, "The input graph_list of BiGraph.disjoint has length $s. It should be greater than 0. " % len(
+        ) > 0, "The input graph_list of BiGraph.disjoint has length %s. It should be greater than 0. " % len(
             graph_list)
 
         is_tensor = graph_list[0].is_tensor()
