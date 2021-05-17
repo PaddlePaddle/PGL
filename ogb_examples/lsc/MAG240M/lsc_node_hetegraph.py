@@ -179,6 +179,43 @@ def evaluate(eval_ds, model, loss_fn, config, evaluator, dataset):
     })['acc']
     return output_metric
 
+@paddle.no_grad()
+def predict(config):
+    model = getattr(models, config.model.name).GNNModel(
+        **dict(config.model.items()))
+
+    _create_if_not_exist(config.output_path)
+    load_model(config.output_path, model)
+    model.eval()
+
+    pred_temp = []
+
+    dataset = MAG240M(config.data_dir, seed=123)
+    evaluator = MAG240MEvaluator()
+    dataset.prepare_data()
+    test_iter = DataGenerator(
+        dataset=dataset,
+        samples=[160] * len(config.samples),
+        batch_size=16,
+        num_workers=config.num_workers,
+        data_type="test")
+
+    for batch in test_iter.generator():
+        graph_list, x, y = batch
+        x = paddle.to_tensor(x, dtype='float32')
+        y = paddle.to_tensor(y, dtype='int64')
+        graph_list = [(item[0].tensor(), paddle.to_tensor(item[2]))
+                      for item in graph_list]
+
+        out = model(graph_list, x)
+        pred_temp.append(out.numpy())
+
+    pred_temp = np.concatenate(pred_temp, axis=0)
+    y_pred = pred_temp.argmax(axis=-1)
+    res = {'y_pred': y_pred}
+    evaluator.save_test_submission(res, 'results')
+   
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='main')
