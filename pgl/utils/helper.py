@@ -152,3 +152,5 @@ def maybe_num_nodes(edges):
         return paddle.max(edges) + 1
     else:
         return np.max(edges) + 1
+
+

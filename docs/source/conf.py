@@ -43,7 +43,7 @@ copyright = '2021, PaddlePaddle'
 author = 'PaddlePaddle'
 
 # The full version, including alpha/beta/rc tags
-release = '2.1.2'
+release = '2.1.4'
 
 # -- General configuration ---------------------------------------------------
 
