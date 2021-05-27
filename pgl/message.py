@@ -102,7 +102,7 @@ class Message(object):
  
             Returns a paddle.Tensor with the first dim the same as the largest segment_id.
         """
-        return math.segment_max(msg, self._segment_ids)
+        return math.segment_min(msg, self._segment_ids)
 
     def edge_expand(self, msg):
         """This is the inverse method for reduce.
