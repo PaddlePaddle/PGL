@@ -80,7 +80,6 @@ def convert_pyg2pgl(pgl_model, pyg_model):
             print("Load key", key, " from PyG")
             value.set_value(pyg_state_dict[mapping[key]].cpu().numpy())
         else:
-
             print("Not found key", key, " from PyG")
 
 

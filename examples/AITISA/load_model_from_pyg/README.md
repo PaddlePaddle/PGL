@@ -46,3 +46,24 @@ class PGLGCN(paddle.nn.Layer):
 ```
 
  
+## Convert PyG to PGL
+
+```
+def convert_pyg2pgl(pgl_model, pyg_model):
+
+    pyg_state_dict = pyg_model.state_dict()
+    mapping = {
+        "conv1.bias": "conv1.bias",
+        "conv2.bias": "conv2.bias",
+        "conv1.linear.weight": "conv1.weight",
+        "conv2.linear.weight": "conv2.weight"
+    }
+
+    for key, value in pgl_model.state_dict().items():
+        if mapping[key] in pyg_state_dict:
+            print("Load key", key, " from PyG")
+            value.set_value(pyg_state_dict[mapping[key]].cpu().numpy())
+        else:
+            print("Not found key", key, " from PyG")
+
+```
