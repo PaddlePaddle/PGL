@@ -47,33 +47,51 @@ def load(name):
     return dataset.graph
 
 
-def train(exe, program, data_loader, loss, log_per_step=1):
+def build_graph(args):
+    graph = load(args.dataset)
+    return graph
+
+
+def train(exe, program, reader, loss, log_per_step=1):
     total_loss = 0.
-    total_sample = 0
-    for batch, (src, dsts) in enumerate(data_loader):
-        num_samples = len(src)
-        feed_dict = {"src": src, "dsts": dsts}
-        begin_time = time.time()
-        loss_val, = exe.run(program, fetch_list=[loss.name], feed=feed_dict)
-        step_time = time.time() - begin_time
-        loss_val = loss_val.mean()
+    batch = 0
+    reader.start()
+    try:
+        while True:
+            num_samples = 1
+            begin_time = time.time()
+            loss_val, = exe.run(program, fetch_list=[loss.name])
+            step_time = time.time() - begin_time
+            loss_val = loss_val.mean()
 
-        total_loss += loss_val * num_samples
-        total_sample += num_samples
+            total_loss += loss_val * num_samples
+            batch += 1
 
-        if batch % log_per_step == 0:
-            log.info("Batch %s\t%s-Loss %.6f\t%.6f sec/step" %
-                     (batch, "train", loss_val, step_time))
+            if batch % log_per_step == 0:
+                log.info("Batch %s\t%s-Loss %.6f\t%.6f sec/step" %
+                         (batch, "train", loss_val, step_time))
+    except paddle.fluid.core.EOFException:
+        reader.reset()
 
-    return total_loss / total_sample
+    return total_loss / batch
 
 
-def StaticSkipGramModel(num_nodes, neg_num, embed_size, sparse):
+def StaticSkipGramModel(num_nodes,
+                        neg_num,
+                        embed_size,
+                        sparse=False,
+                        sparse_embedding=False):
     src = F.data("src", shape=[-1, 1], dtype="int64")
     dsts = F.data("dsts", shape=[-1, neg_num + 1], dtype="int64")
-    model = SkipGramModel(num_nodes, embed_size, neg_num, sparse)
+    py_reader = paddle.fluid.io.DataLoader.from_generator(
+        capacity=64,
+        feed_list=[src, dsts],
+        iterable=False,
+        use_double_buffer=False)
+    model = SkipGramModel(num_nodes, embed_size, neg_num, sparse,
+                          sparse_embedding)
     loss = model(src, dsts)
-    return loss
+    return py_reader, loss
 
 
 def main(args):
@@ -82,13 +100,9 @@ def main(args):
 
     fleet.init()
 
-    if args.num_nodes is None:
-        num_nodes = load(args.dataset).num_nodes
-    else:
-        num_nodes = args.num_nodes
-
-    loss = StaticSkipGramModel(
-        num_nodes, args.neg_num, args.embed_size, sparse=True)
+    fake_num_nodes = 1
+    py_reader, loss = StaticSkipGramModel(
+        fake_num_nodes, args.neg_num, args.embed_size, sparse_embedding=True)
 
     optimizer = F.optimizer.Adam(args.learning_rate, lazy_mode=True)
     dist_strategy = fleet.DistributedStrategy()
@@ -107,37 +121,22 @@ def main(args):
         exe.run(paddle.static.default_startup_program())
         fleet.init_worker()
 
-        graph = load(args.dataset)
+        graph = build_graph(args)
         # bind gen
-        train_ds = ShardedDataset(graph.nodes)
+        train_ds = ShardedDataset(graph.nodes, args.epoch)
         collate_fn = BatchRandWalk(graph, args.walk_len, args.win_size,
                                    args.neg_num, args.neg_sample_type)
         data_loader = Dataloader(
             train_ds,
-            batch_size=args.batch_size,
+            batch_size=args.cpu_batch_size,
             shuffle=True,
             num_workers=args.sample_workers,
             collate_fn=collate_fn)
+        py_reader.set_batch_generator(lambda: data_loader)
 
-        cpu_num = int(os.environ.get('CPU_NUM', 1))
-        if int(cpu_num) > 1:
-            parallel_places = [paddle.CPUPlace()] * cpu_num
-            exec_strategy = paddle.static.ExecutionStrategy()
-            exec_strategy.num_threads = int(cpu_num)
-            build_strategy = paddle.static.BuildStrategy()
-            build_strategy.reduce_strategy = paddle.static.BuildStrategy.ReduceStrategy.Reduce
-            compiled_prog = paddle.static.CompiledProgram(
-                paddle.static.default_main_program()).with_data_parallel(
-                    loss_name=loss.name,
-                    places=parallel_places,
-                    build_strategy=build_strategy,
-                    exec_strategy=exec_strategy)
-        else:
-            compiled_prog = paddle.static.default_main_program()
-
-        for epoch in range(args.epoch):
-            train_loss = train(exe, compiled_prog, data_loader, loss)
-            log.info("Runing epoch:%s\t train_loss:%.6f", epoch, train_loss)
+        train_loss = train(exe,
+                           paddle.static.default_main_program(), py_reader,
+                           loss)
         fleet.stop_worker()
 
         if fleet.is_first_worker():
@@ -158,7 +157,6 @@ if __name__ == '__main__':
         default="./config.yaml",
         help="config file for models")
     parser.add_argument("--epoch", type=int, default=400, help="Epoch")
-    parser.add_argument("--num_nodes", type=int, default=None, help="Epoch")
     args = parser.parse_args()
 
     # merge user args and config file 
