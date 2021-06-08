@@ -50,6 +50,24 @@ class MathTest(unittest.TestCase):
 
         self.assertAlmostEqual(out, ground)
 
+    def test_segment_padding(self):
+
+        data = np.array([[1, 2, 3], [3, 2, 1], [4, 5, 6]], dtype="float32")
+        seg_ids = np.array([0, 0, 2], dtype="int64")
+
+        data = paddle.to_tensor(data, dtype='float32')
+        segment_ids = paddle.to_tensor(seg_ids, dtype='int64')
+
+        ground = np.array(
+            [[[1, 2, 3], [3, 2, 1]], [[0, 0, 0], [0, 0, 0]],
+             [[4, 5, 6], [0, 0, 0]]],
+            dtype="float32")
+
+        ground = ground.reshape(-1, ).tolist()
+        out, _, _ = pgl.math.segment_padding(data, segment_ids)
+        out = out.numpy().reshape(-1, ).tolist()
+        self.assertAlmostEqual(out, ground)
+
 
 if __name__ == "__main__":
     unittest.main()
