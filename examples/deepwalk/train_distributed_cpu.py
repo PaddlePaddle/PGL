@@ -88,8 +88,8 @@ def StaticSkipGramModel(num_nodes,
         feed_list=[src, dsts],
         iterable=False,
         use_double_buffer=False)
-    model = SkipGramModel(num_nodes, embed_size, neg_num, sparse,
-                          sparse_embedding)
+    model = SkipGramModel(num_nodes, embed_size, neg_num, sparse=sparse,
+                          sparse_embedding=sparse_embedding)
     loss = model(src, dsts)
     return py_reader, loss
 
