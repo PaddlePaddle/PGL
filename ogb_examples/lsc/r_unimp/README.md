@@ -1,6 +1,6 @@
-# Baseline Code for MAG240M using PGL
+# R-UNIMP for MAG240M using PGL
 
-The code is ported from the R-GAT examples [here](https://github.com/snap-stanford/ogb/tree/master/examples/lsc/mag240m). Please refer to the [OGB-LSC paper](https://arxiv.org/abs/2103.09430) for the detailed setting.
+The code is ported from the R-UNIMP examples [here](https://github.com/snap-stanford/ogb/tree/master/examples/lsc/mag240m).
 
 ## Installation Requirements
 
