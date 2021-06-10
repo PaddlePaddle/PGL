@@ -293,14 +293,14 @@ class Graph(object):
         edges = np.load(os.path.join(path, 'edges.npy'), mmap_mode=mmap_mode)
         num_graph = np.load(
             os.path.join(path, 'num_graph.npy'), mmap_mode=mmap_mode)
-        if os.path.isdir(os.path.join(path, 'graph_node_index.npy')):
+        if os.path.exists(os.path.join(path, 'graph_node_index.npy')):
             graph_node_index = np.load(
                 os.path.join(path, 'graph_node_index.npy'),
                 mmap_mode=mmap_mode)
         else:
             graph_node_index = None
 
-        if os.path.isdir(os.path.join(path, 'graph_edge_index.npy')):
+        if os.path.exists(os.path.join(path, 'graph_edge_index.npy')):
             graph_edge_index = np.load(
                 os.path.join(path, 'graph_edge_index.npy'),
                 mmap_mode=mmap_mode)
@@ -945,7 +945,6 @@ class Graph(object):
 
         src, dst = self.edges[:, 0], self.edges[:, 1]
 
-
         msg = self.send(
             lambda sf, df, ef: {"msg": sf["h"]}, src_feat={"h": feature})
 
@@ -1117,7 +1116,7 @@ class Graph(object):
         # TODO:@Yelrose supporting disjoint a disjointed graph_list.
         assert len(
             graph_list
-        ) > 0, "The input graph_list of Graph.disjoint has length $s. It should be greater than 0. " % len(
+        ) > 0, "The input graph_list of Graph.disjoint has length %s. It should be greater than 0. " % len(
             graph_list)
 
         is_tensor = graph_list[0].is_tensor()

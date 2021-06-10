@@ -22,6 +22,7 @@ import paddle
 from paddle.fluid.framework import core, in_dygraph_mode
 from paddle.fluid.layer_helper import LayerHelper, in_dygraph_mode
 from paddle.fluid.data_feeder import check_variable_and_dtype
+from pgl.utils.op import get_index_from_counts
 
 
 def segment_pool(data, segment_ids, pool_type, name=None):
@@ -289,8 +290,10 @@ def segment_softmax(data, segment_ids):
                      [1.         1.         1.        ]]
 
     """
-    data_max = segment_max(data, segment_ids)
-    data_max = paddle.gather(data_max, segment_ids, axis=0)
+    with paddle.no_grad():
+        # no need gradients
+        data_max = segment_max(data, segment_ids)
+        data_max = paddle.gather(data_max, segment_ids, axis=0)
     data = data - data_max
     data = paddle.exp(data)
     sum_data = segment_sum(data, segment_ids)
@@ -301,53 +304,46 @@ def segment_softmax(data, segment_ids):
 def segment_padding(data, segment_ids):
     """
     Segment padding operator.
-    
-    This operator padding the input elements which with the same index in 'segment_ids' to a common length ,
-    and reshape its into [uniq_segment_id, max_padding, dim].     
 
+    This operator padding the input elements which with the same index in 'segment_ids' to a common length ,
+    and reshape its into [uniq_segment_id, max_padding, dim].
     Args:
         data (tensor): a tensor, available data type float32, float64.
         segment_ids (tensor): a 1-d tensor, which have the same size
-                            with the first dimension of input data. 
+                            with the first dimension of input data.
                             available data type is int32, int64.
-    
+
     Returns:
         output (Tensor): the padding result with shape [uniq_segment_id, max_padding, dim].
         seq_len (Tensor): the numbers of elements grouped same segment_ids
-        max_padding: the max number of elements grouped by same segment_ids
-     
+        index: The index of elements for gather_nd or scatter_nd operation
+
     Examples:
-    
+
         .. code-block:: python
-    
+
             import paddle
             import pgl
             data = paddle.to_tensor([[1, 2, 3], [3, 2, 1], [4, 5, 6]], dtype='float32')
             segment_ids = paddle.to_tensor([0, 0, 1], dtype='int64')
-            out = pgl.math.segment_padding(data, segment_ids)
-
+            output, seq_len, index = pgl.math.segment_padding(data, segment_ids)
     """
     idx_a = segment_ids
-    idx_b = paddle.arange(segment_ids.shape[0])
+    idx_b = paddle.arange(paddle.shape(segment_ids)[0])
 
-    temp_idx = paddle.ones([segment_ids.shape[0]], dtype='float32')
-    temp_idx = segment_sum(temp_idx, segment_ids).astype('int32')
+    temp_idx = paddle.ones_like(segment_ids, dtype='float32')
+    segment_len = segment_sum(temp_idx, segment_ids).astype('int32')
 
-    seq_len = temp_idx
-    max_padding = temp_idx.max().numpy()[0]
+    max_padding = paddle.max(segment_len)
 
-    temp_idx = paddle.cumsum(temp_idx)
-    temp_idx_i = paddle.zeros([temp_idx.shape[0] + 1], dtype='int32')
-    temp_idx_i[1:] = temp_idx
-    temp_idx = temp_idx_i[:-1]
-    temp_idx = paddle.gather(temp_idx, segment_ids)
+    segment_shift = get_index_from_counts(segment_len)[:-1]
+    segment_shift = paddle.gather(segment_shift, segment_ids)
 
-    idx_b = idx_b - temp_idx
+    idx_b = idx_b - segment_shift
+
     index = paddle.stack([idx_a, idx_b], axis=1)
 
-    bz = segment_ids.max().numpy()[0] + 1
-
-    shape = [bz, max_padding, data.shape[-1]]
+    shape = [paddle.shape(segment_len)[0], max_padding, data.shape[-1]]
     output = paddle.scatter_nd(index, data, shape)
 
-    return output, seq_len, index
+    return output, segment_len, index
