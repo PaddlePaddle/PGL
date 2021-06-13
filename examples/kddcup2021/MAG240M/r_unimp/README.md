@@ -37,11 +37,9 @@ This will give you the following files:
 * `institution_edge_symmetric_pgl_split_src`: The *author_to_institution* PGL graph.
 * `institution_edge_symmetric_pgl_split_dst`: The *institution_to_author* PGL graph.
 
-### Get the m2v embedding:
+### Get the Metapath2vec embedding:
 
-```
-AAA
-```
+We get metapath2vec embeddings following https://github.com/PaddlePaddle/PGL/tree/static_stable/examples/metapath2vec 
 
 ### Get the new validation split:
 
@@ -67,7 +65,7 @@ This will give you R_UNIMP value in the performance table below
 ## Running Post Process Script
 
 ```
-AAA
+
 ```
 This will give you R_UNIMP_POST value in the performance table below 
 
@@ -77,5 +75,5 @@ This will give you R_UNIMP_POST value in the performance table below
 | Model       |  Valid ACC | 
 | ----------- | ---------------| 
 | R_UNIMP        | 0.771       | 
-| R_UNIMP_POST   | 0.771       | 
+| R_UNIMP_POST   | -      | 
 
