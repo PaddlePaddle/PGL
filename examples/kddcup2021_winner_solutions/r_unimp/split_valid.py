@@ -19,6 +19,6 @@ def split_dir(data_dir, output_dit):
 
 
 if __name__ == "__main__":
-    data_dir = ""
-    output_dir = ''
+    data_dir = "dataset_path"
+    output_dir = 'valid_64'
     split_valid(data_dir, output_dir)

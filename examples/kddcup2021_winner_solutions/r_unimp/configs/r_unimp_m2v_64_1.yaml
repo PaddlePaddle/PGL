@@ -16,7 +16,7 @@ m2v_dim : 64
 
 # Model
 model:
-    name: "rgat_unimp_init_path_attn_linear_m2v_fc_label"
+    name: "r_unimp"
     input_size: 768
     num_class: 153
     num_layers: 2

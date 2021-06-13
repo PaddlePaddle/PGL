@@ -469,7 +469,7 @@ class DataGenerator(BaseDataGenerator):
         return graph_list, x, id_x, y, sub_label_y, sub_label_index
 
 if __name__ == "__main__":
-    root = '/root/paddlejob/lsc/dataset'
+    root = 'dataset_path'
     print(root)
     dataset = MAG240M(root)
     dataset.prepare_data()

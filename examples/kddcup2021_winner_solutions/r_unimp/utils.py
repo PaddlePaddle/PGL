@@ -18,9 +18,6 @@ def save_model(output_path, model, steps, opt, lr_scheduler, max_ckpt=2):
             os.makedirs(output_dir)
 
         paddle.save(model.state_dict(), os.path.join(output_dir, "ckpt.pdparams" ))
-#         paddle.save({ "global_step": steps }, os.path.join(output_dir, "step"))
-#         paddle.save(opt.state_dict(), os.path.join(output_dir, "opt.pdparams"))
-#         paddle.save(lr_scheduler.state_dict(), os.path.join(output_dir, "lr_scheduler.pdparams"))
 
         log.info("save model %s" % output_dir)
 

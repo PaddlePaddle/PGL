@@ -98,7 +98,7 @@ class MAG240M(object):
             log.info(f'Done! [{time.perf_counter() - t:.2f}s]')
             
 if __name__ == "__main__":
-    root = '/root/paddlejob/lsc/dataset'
+    root = 'dataset_path'
     print(root)
     dataset = MAG240M(root)
     dataset.prepare_data()

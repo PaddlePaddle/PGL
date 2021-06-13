@@ -41,6 +41,12 @@ Since that will usually take a long time, you can download the full_feat.npy as 
 
 * [`full_feat.npy`](https://dgl-data.s3-accelerate.amazonaws.com/dataset/OGB-LSC/full_feat.npy)
 
+### Get the m2v embedding:
+
+```
+AAA
+```
+
 ### Get the new validation split:
 
 ```
@@ -60,11 +66,20 @@ run_r_unimp_train.sh
 ```
 run_r_unimp_infer.sh
 ```
-This will give you a value in the performance table below 
+This will give you R_UNIMP value in the performance table below 
+
+## Running Post Process Script
+
+```
+AAA
+```
+This will give you R_UNIMP_POST value in the performance table below 
+
 
 ## Performance
 
 | Model       |  Valid ACC | 
 | ----------- | ---------------| 
 | R_UNIMP        | 0.771       | 
+| R_UNIMP_POST   | 0.771       | 
 

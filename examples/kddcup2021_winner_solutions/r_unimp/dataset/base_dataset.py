@@ -76,7 +76,6 @@ def scan_batch_iter_shuffle(data, batch_size, fid, num_workers, shuffle_buffer=1
                 yield batch 
                 batch = []
                 
-#     np.random.shuffle(buffer)
     for line_example in buffer:
         batch.append(line_example)
         if len(batch) == batch_size:
@@ -127,7 +126,6 @@ class BaseDataGenerator(object):
             def func_run():
                 """ func_run """
                 pid = os.getpid()
-#                 np.random.seed(pid + int(time.time()))
                 for batch_examples in self.batch_iter(filter_id, perm):
                     try:
                         batch_dict = self.batch_fn(batch_examples)
