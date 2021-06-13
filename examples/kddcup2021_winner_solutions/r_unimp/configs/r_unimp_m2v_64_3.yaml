@@ -1,5 +1,5 @@
 # configs
-data_dir: "/root/paddlejob/lsc/dataset/"
+data_dir: "dataset_path"
 samples: "25-15"
 seed: 43
 num_workers: 3
