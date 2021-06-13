@@ -60,3 +60,5 @@ coverage.xml
 
 # tutorials: jupyter log
 tutorials/.ipynb_checkpoints/
+.ipynb_checkpoints
+*.ipynb

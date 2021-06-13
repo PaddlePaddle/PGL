@@ -1,0 +1,45 @@
+# configs
+data_dir: "dataset_path"
+samples: "25-15"
+seed: 43
+num_workers: 3
+batch_size: 1024
+
+# valid_data
+valid_path: "./valid_64"
+valid_name: "valid_4.npy"
+test_name: "test_4"
+
+# m2v_feat
+m2v_file: "m2v_64.npy"
+m2v_dim : 64
+
+# Model
+model:
+    name: "r_unimp"
+    input_size: 768
+    num_class: 153
+    num_layers: 2
+    feat_drop: 0
+    attn_drop: 0
+    num_heads: 4
+    hidden_size: 1024
+    activation: False
+    drop: 0.5
+    edge_type: 5
+
+# trainer
+output_path: "./output/model_64_valid_4"
+epochs: 100
+eval_step: 0
+eval_per_steps: 1
+eval_max_steps: 50000
+max_steps: 100
+
+
+# opt & lr_scheduler hparam
+warmup_proportion: -1
+weight_decay: 0.0
+lr: 0.0003
+clip: -1
+use_lr_decay: True
