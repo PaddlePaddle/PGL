@@ -290,8 +290,10 @@ def segment_softmax(data, segment_ids):
                      [1.         1.         1.        ]]
 
     """
-    data_max = segment_max(data, segment_ids)
-    data_max = paddle.gather(data_max, segment_ids, axis=0)
+    with paddle.no_grad():
+        # no need gradients
+        data_max = segment_max(data, segment_ids)
+        data_max = paddle.gather(data_max, segment_ids, axis=0)
     data = data - data_max
     data = paddle.exp(data)
     sum_data = segment_sum(data, segment_ids)

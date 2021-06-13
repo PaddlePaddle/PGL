@@ -26,6 +26,7 @@ class SkipGramModel(nn.Layer):
                  num_nodes,
                  embed_size=16,
                  neg_num=5,
+                 num_emb_part=1,
                  sparse=False,
                  sparse_embedding=False):
         super(SkipGramModel, self).__init__()
@@ -50,6 +51,19 @@ class SkipGramModel(nn.Layer):
                                       [d_shape[0], d_shape[1], embed_size])
 
             self.emb = emb_func
+        elif num_emb_part > 1:
+            assert embed_size % num_emb_part == 0
+            emb_list = []
+            for i in range(num_emb_part):
+                emb_attr = paddle.ParamAttr(
+                    name="node_embedding_part%s" % i, initializer=embed_init)
+                emb = nn.Embedding(
+                    num_nodes,
+                    embed_size // num_emb_part,
+                    weight_attr=emb_attr)
+                emb_list.append(emb)
+            self.emb_list = nn.LayerList(emb_list)
+            self.emb = lambda x: paddle.concat([emb(x) for emb in emb_list], -1)
         else:
             self.emb = nn.Embedding(
                 num_nodes, embed_size, sparse=sparse, weight_attr=emb_attr)
