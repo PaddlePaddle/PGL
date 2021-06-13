@@ -64,9 +64,70 @@ This will give you R_UNIMP value in the performance table below
 
 ## Running Post Process Script
 
+1. Construct the coauthor graph
 ```
+# Constructed Co-author Graph
+
+python construct_coauthor_graph.py
 
 ```
+
+2. Arange all the validation and test prediction file as following  
+
+```
+./result/model1
+             \_   all_eval_result.npy  # concatenate all validation output
+             \_   test_0.npy           # Prediciton for Fold-0 model 
+             \_   test_1.npy           # Prediciton for Fold-1 model 
+             \_   test_2.npy           # Prediciton for Fold-2 model 
+             \_   test_3.npy           # Prediciton for Fold-3 model 
+             \_   test_4.npy           # Prediciton for Fold-4 model 
+             \_   valid_0.npy          # validation-id for Fold-0
+             \_   valid_1.npy          # validation-id for Fold-1
+             \_   valid_2.npy          # validation-id for Fold-2
+             \_   valid_3.npy          # validation-id for Fold-3
+             \_   valid_4.npy          # validation-id for Fold-4
+
+./result/model2
+             \_   all_eval_result.npy  # concatenate all validation output
+             \_   test_0.npy           # Prediciton for Fold-0 model 
+             \_   test_1.npy           # Prediciton for Fold-1 model 
+             \_   test_2.npy           # Prediciton for Fold-2 model 
+             \_   test_3.npy           # Prediciton for Fold-3 model 
+             \_   test_4.npy           # Prediciton for Fold-4 model 
+             \_   valid_0.npy          # validation-id for Fold-0
+             \_   valid_1.npy          # validation-id for Fold-1
+             \_   valid_2.npy          # validation-id for Fold-2
+             \_   valid_3.npy          # validation-id for Fold-3
+             \_   valid_4.npy          # validation-id for Fold-4
+```
+
+3. Runing Post-Smoothing
+
+```
+model_name=model1
+
+# set alpha = 0.8 and smoothing for each fold
+python post_smoothing.py 0.8 0 ${model_name} 
+python post_smoothing.py 0.8 1 ${model_name} 
+python post_smoothing.py 0.8 2 ${model_name}
+python post_smoothing.py 0.8 3 ${model_name} 
+python post_smoothing.py 0.8 4 ${model_name} 
+
+
+# merge result and generate ./result/${model_name}_diff0.8/all_eval_result.npy
+python merge_result.py ${model_name}_diff0.8
+
+```
+
+4. Run ensemble
+
+```
+# This will automatically ensemble results from ./result/ and generate y_pred_mag240m.npz 
+python ensemble.py
+```
+
+
 This will give you R_UNIMP_POST value in the performance table below 
 
 
@@ -74,6 +135,5 @@ This will give you R_UNIMP_POST value in the performance table below
 
 | Model       |  Valid ACC | 
 | ----------- | ---------------| 
-| R_UNIMP        | 0.771       | 
-| R_UNIMP_POST   | -      | 
-
+| R_UNIMP        | 0.7715      | 
+| R_UNIMP_POST   | 0.7729      | 
