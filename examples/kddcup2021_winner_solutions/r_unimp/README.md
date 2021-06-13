@@ -1,6 +1,6 @@
 # R-UNIMP for MAG240M using PGL
 
-The code is ported from the R-UNIMP examples [here](https://github.com/snap-stanford/ogb/tree/master/examples/lsc/mag240m).
+The code is about the winner solution for LSC-Node.
 
 ## Installation Requirements
 
