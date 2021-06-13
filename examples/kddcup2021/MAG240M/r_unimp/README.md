@@ -1,6 +1,6 @@
 # R-UNIMP for MAG240M using PGL
 
-The code is about the winner solution for LSC-Node.
+The code is about the solution for LSC-Node.
 
 ## Installation Requirements
 
