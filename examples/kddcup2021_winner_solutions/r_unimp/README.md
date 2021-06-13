@@ -37,10 +37,6 @@ This will give you the following files:
 * `institution_edge_symmetric_pgl_split_src`: The *author_to_institution* PGL graph.
 * `institution_edge_symmetric_pgl_split_dst`: The *institution_to_author* PGL graph.
 
-Since that will usually take a long time, you can download the full_feat.npy as follow. And only run dataset/data_generator to get pgl graph.
-
-* [`full_feat.npy`](https://dgl-data.s3-accelerate.amazonaws.com/dataset/OGB-LSC/full_feat.npy)
-
 ### Get the m2v embedding:
 
 ```
