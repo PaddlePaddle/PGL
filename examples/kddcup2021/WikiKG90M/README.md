@@ -11,7 +11,7 @@ paddle>=2.0.0
 pgl>=2.1.2
 ```
 
-## Running Preprocessing Script
+## Running Manual Features
 
 ### Get the features:
 
@@ -36,32 +36,27 @@ pgl>=2.1.2
 ```
 This will give you the manual features in `feature_output`.
 
-### Get the Metapath2vec embedding:
-
-We get metapath2vec embeddings following https://github.com/PaddlePaddle/PGL/tree/static_stable/examples/metapath2vec 
-
-
-## Running Training Script
-
+## Running Knowledge Embedding Model
+### Running Training Script
 ```
-sh ./model/mlplr0.00002_lrdecay_bs1kneg1k_ote.sh
+sh ./model/run_train_all.sh
+sh ./model/run_infer_all.sh
 ```
-
-## Running Inferring Script
+This will give you the manual features in `model_output`.
+In order for everyone to understand better, we have also implemented the DGLKE version in model_dglke.
 ```
-sh run_infer.sh
+sh ./model_dglke/run_train_all.sh
+sh ./model_dglke/run_infer_all.sh
 ```
 
-3. Run ensemble
+
+## Running ensamble
 
 ```
 # This will automatically ensemble results from ./model_output/, ./feature_output/ and generate t_pred_wikikg90m.npz
 python ensemble.py
 ```
-
-
 This will give you **NOTE** value in the performance table below 
-
 
 ## Performance
 
