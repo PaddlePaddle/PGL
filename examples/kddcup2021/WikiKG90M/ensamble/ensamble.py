@@ -22,7 +22,7 @@ test_t_candidate = np.load(main_dir + "test_t_candidate.npy", mmap_mode="r")
 
 def load_feat_and_score(mode):
     #mode = "valid"
-    feat_dir = "feature_output/%s/%s_feats/" % (postfix, mode)
+    feat_dir = "feature_output/%s%s_feats/" % (postfix, mode)
     rrt_feat = np.load(feat_dir + "rrt_feat.npy", mmap_mode="r")
     h2t_t2h_feat = np.load(feat_dir + "h2t_t2h_feat.npy", mmap_mode="r")
     t2h_h2t_feat = np.load(feat_dir + "t2h_h2t_feat.npy", mmap_mode="r")
@@ -38,7 +38,7 @@ def load_feat_and_score(mode):
         r2t_h2r_feat, r2t_feat, rrh_feat, rt_count, ht_count
     ]
     # model scores
-    score_dir = "model_output/%s/" % postfix
+    score_dir = "model_output/%s" % postfix
     ote_names = [
         "ote20_bs1.2k/OTE_wikikg90m_concat_d_200_g_12.00",
         "ote20_gamma10/OTE_wikikg90m_concat_d_200_g_10.00",
