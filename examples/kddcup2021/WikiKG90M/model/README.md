@@ -26,8 +26,6 @@ Recent representation learning methods have achieved great success on standard d
 Thus, we use the PGL-KE train the advance algorithms in different domains to learn the triplets, including OTE, QuatE, RotatE and TransE.
 Significantly, based on PGL-KE, we achieved the winners' solution for the KDD Cpu 2021 WikiKG90M track.
 
-More details please refer [solutions papapr for KDD Cpu 2021](./xx.paf).
-
 
 ## References
 
