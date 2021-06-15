@@ -38,15 +38,17 @@ This will give you the manual features in `feature_output`.
 
 ## Running Knowledge Embedding Model
 ### Running Training Script
-```
-sh ./model/run_train_all.sh
-sh ./model/run_infer_all.sh
-```
-This will give you the manual features in `model_output`.
-In order for everyone to understand better, we have also implemented the DGLKE version in [model_dglke](https://github.com/WeiyueSu/PGL/tree/wikikg90m-dglke/examples/kddcup2021/WikiKG90M/model_dglke).
+
+The DGL-KE version code is in [model_dglke](https://github.com/WeiyueSu/PGL/tree/wikikg90m-dglke/examples/kddcup2021/WikiKG90M/model_dglke).
 ```
 sh ./model_dglke/run_train_all.sh
 sh ./model_dglke/run_infer_all.sh
+```
+This will give you the manual features in `model_output`.
+In order for paddlepaddle users to understand better, we have also implemented the PGL-KE version in ./model.
+```
+sh ./model/run_train_all.sh
+sh ./model/run_infer_all.sh
 ```
 
 ## Running Post Smoothing
