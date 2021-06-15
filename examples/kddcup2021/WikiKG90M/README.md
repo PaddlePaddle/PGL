@@ -49,6 +49,12 @@ sh ./model_dglke/run_train_all.sh
 sh ./model_dglke/run_infer_all.sh
 ```
 
+## Running Post Smoothing
+For the trained TransE and RotatE models, we use post smooothing technology to further improve the effect
+```
+sh post_smoothing/run_transe.sh
+sh post_smoothing/run_rotate.sh
+```
 
 ## Running ensamble
 
