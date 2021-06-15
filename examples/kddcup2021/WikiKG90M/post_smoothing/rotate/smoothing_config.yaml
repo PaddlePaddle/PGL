@@ -1,0 +1,21 @@
+smoothing_task_name: smoothing
+
+# Model Config
+khop: 10
+alpha: 0.97
+bidirect: true
+indegree: true
+
+# hadoop Config
+map_task: 10000
+reduce_task: 10000
+local_hadoop_bin: 'hadoop'
+python_package: 'python37-gcc482.tar'
+
+hadoop_edges_path: "/xxx/edges"
+
+# format: node_id \t embed_vec
+hadoop_embed_path: "/xxx/data"
+
+# hadoop_output_path: output directory
+hadoop_output_path: "/xxx/output"
