@@ -1,6 +1,6 @@
-# N-OTE for WikiKG90M using PGL
+# NOTE for WikiKG90M using PGL
 
-The code is about [《N-OTE: Solution for KDD-Cup 2021 WikiKG90M-LSC》](./LSC.pdf). 
+The code is about [《NOTE: Solution for KDD-Cup 2021 WikiKG90M-LSC》](./LSC.pdf). 
 
 ## Installation Requirements
 
