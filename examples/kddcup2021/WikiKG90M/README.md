@@ -1,6 +1,6 @@
 # NOTE for WikiKG90M using PGL
 
-The code is about [《NOTE: Solution for KDD-Cup 2021 WikiKG90M-LSC》](./NOTE__SOLUTION_FOR_KDD_CUP_2021_WikiKG90M_LSC.pdf.pdf). 
+The code is about [《NOTE: Solution for KDD-Cup 2021 WikiKG90M-LSC》](./NOTE__SOLUTION_FOR_KDD_CUP_2021_WikiKG90M_LSC.pdf). 
 
 ## Installation Requirements
 
