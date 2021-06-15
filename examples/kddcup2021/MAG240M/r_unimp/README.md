@@ -1,6 +1,6 @@
 # R-UNIMP for MAG240M using PGL
 
-The code is about [《R-UNIMP: SOLUTION FOR KDDCUP 2021 MAG240M-LSC》](https://https://github.com/PaddlePaddle/PGL/tree/main/examples/kddcup2021/MAG240M/r_unimp/R_UniMP__Solution_for_KDDCUP_2021_MAG240M_LSC.pdf). 
+The code is about [《R-UNIMP: SOLUTION FOR KDDCUP 2021 MAG240M-LSC》](./R_UniMP__Solution_for_KDDCUP_2021_MAG240M_LSC.pdf). 
 
 ## Installation Requirements
 
