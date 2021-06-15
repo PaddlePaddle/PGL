@@ -1,6 +1,6 @@
 # R-UNIMP for MAG240M using PGL
 
-The code is about the solution for LSC-Node.
+The code is about [《R-UNIMP: SOLUTION FOR KDDCUP 2021 MAG240M-LSC》](https://dgl-data.s3-accelerate.amazonaws.com/dataset/OGB-LSC/full_feat.npy). 
 
 ## Installation Requirements
 
