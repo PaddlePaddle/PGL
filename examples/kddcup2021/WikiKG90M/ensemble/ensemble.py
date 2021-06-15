@@ -91,7 +91,7 @@ def get_mrr(score, idx):
     return sum(mrrs) / len(mrrs)
 
 
-def ensamble(scores, feats, label=None, num=5000):
+def ensemble(scores, feats, label=None, num=5000):
     score = 0
     for feat, weight in scores:
         cur_feat = feat[:num].astype(np.float32)
@@ -136,7 +136,7 @@ feats = [
     (test_scores[7], 0.1),
 ]
 
-score = ensamble(scores, feats, None, 500000000000)
+score = ensemble(scores, feats, None, 500000000000)
 
 top10 = np.argsort(-score, -1)[:, :10]
 evaluator = WikiKG90MEvaluator()
