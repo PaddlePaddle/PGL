@@ -40,16 +40,16 @@ def load_feat_and_score(mode):
     # model scores
     score_dir = "model_output/%s" % postfix
     ote_names = [
+        "ote40/OTE_wikikg90m_concat_d_200_g_12.00",
+        "ote20_hd240/OTE_wikikg90m_concat_d_200_g_12.00",
+        "ote20_lr0.3/OTE_wikikg90m_concat_d_200_g_12.00",
+        "ote20_lrd2w/OTE_wikikg90m_concat_d_200_g_12.00",
+        "ote20_lrd5k/OTE_wikikg90m_concat_d_200_g_12.00",
+        "ote20_mlplr4e-5/OTE_wikikg90m_concat_d_200_g_12.00",
         "ote20_bs1.2k/OTE_wikikg90m_concat_d_200_g_12.00",
         "ote20_gamma10/OTE_wikikg90m_concat_d_200_g_10.00",
         "ote20_gamma14/OTE_wikikg90m_concat_d_200_g_14.00",
-        "ote20_lrd5k/OTE_wikikg90m_concat_d_200_g_12.00",
-        "ote20_mlplr4e-5/OTE_wikikg90m_concat_d_200_g_12.00",
-        "ote20/OTE_wikikg90m_concat_d_200_g_12.01",
-        "ote40_4p/OTE_wikikg90m_concat_d_200_g_12.00",
-        "ote40/OTE_wikikg90m_concat_d_200_g_12.00",
-        "ote_re1e-3/OTE_wikikg90m_concat_d_200_g_12.00",
-        "ote_re1e-4/OTE_wikikg90m_concat_d_200_g_12.00",
+        "ote20/OTE_wikikg90m_concat_d_200_g_12.00",
     ]
     ote_scores = [
         np.load(
@@ -60,15 +60,26 @@ def load_feat_and_score(mode):
         score_dir +
         "/TransE/TransE_l2_wikikg90m_concat_d_200_g_8.00/%s_scores.npy" % mode,
         mmap_mode="r")
+    transe_ps_score = np.load(
+        score_dir + "/TransE/PostSmoothing/%s_scores.npy" % mode,
+        mmap_mode="r")
     rotate_score = np.load(
         score_dir +
         "/RotatE/RotatE_wikikg90m_concat_d_100_g_8.00/%s_scores.npy" % mode,
+        mmap_mode="r")
+    rotate_ps_score = np.load(
+        score_dir + "/RotatE/PostSmoothing/%s_scores.npy" % mode,
         mmap_mode="r")
     quate_score = np.load(
         score_dir + "/QuatE/QuatE_wikikg90m_concat_d_200_g_8.00/%s_scores.npy"
         % mode,
         mmap_mode="r")
-    scores = ote_scores + [transe_score, rotate_score, quate_score]
+    deepwalk_score = np.load(
+        score_dir + "/Deepwalk/Deepwalk/%s_scores.npy" % mode, mmap_mode="r")
+    scores = ote_scores + [
+        transe_score, transe_ps_score, rotate_score, rotate_ps_score,
+        quate_score, deepwalk_score
+    ]
     return feats, scores
 
 
@@ -124,6 +135,9 @@ scores = [
     (test_scores[10], 1),
     (test_scores[11], 1),
     (test_scores[12], 1),
+    (test_scores[13], 1),
+    (test_scores[14], 1),
+    (test_scores[15], 1),
 ]
 feats = [
     (test_scores[0], 1000),
@@ -132,8 +146,10 @@ feats = [
     (test_scores[3], 10),
     (test_scores[4], 3),
     (test_scores[5], 1000),
-    (test_scores[6], 1 / 100),
-    (test_scores[7], 0.1),
+    (test_scores[6], 0.01),
+    (test_scores[7], 0.01),
+    (test_scores[8], 0.01),
+    (test_scores[9], 0.1),
 ]
 
 score = ensemble(scores, feats, None, 500000000000)
