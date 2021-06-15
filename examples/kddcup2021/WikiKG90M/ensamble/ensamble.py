@@ -141,5 +141,5 @@ score = ensamble(scores, feats, None, 500000000000)
 top10 = np.argsort(-score, -1)[:, :10]
 evaluator = WikiKG90MEvaluator()
 best_test_dict = {"h,r->t": {"t_pred_top10": top10, }}
-path = "./submit/"
+path = "./"
 evaluator.save_test_submission(best_test_dict, path)
