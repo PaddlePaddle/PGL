@@ -26,7 +26,6 @@ def get_last_dir(path):
 
     return last_dir
 
-
 def make_dir(path):
     """Build directory"""
     if not os.path.exists(path):

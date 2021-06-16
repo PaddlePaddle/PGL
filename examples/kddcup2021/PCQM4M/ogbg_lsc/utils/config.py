@@ -1,17 +1,3 @@
-# Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 """doc
 """
 
@@ -25,7 +11,6 @@ import six
 import warnings
 import glob
 from utils.util import get_last_dir
-
 
 class AttrDict(dict):
     def __init__(self, d={}, **kwargs):
@@ -42,9 +27,8 @@ class AttrDict(dict):
 
     def __setattr__(self, name, value):
         if isinstance(value, (list, tuple)):
-            value = [
-                self.__class__(x) if isinstance(x, dict) else x for x in value
-            ]
+            value = [self.__class__(x)
+                     if isinstance(x, dict) else x for x in value]
         elif isinstance(value, dict) and not isinstance(value, self.__class__):
             value = self.__class__(value)
         super(AttrDict, self).__setattr__(name, value)
@@ -71,12 +55,10 @@ class AttrDict(dict):
         delattr(self, k)
         return super(EasyDict, self).pop(k, d)
 
-
 def make_dir(path):
     """Build directory"""
     if not os.path.exists(path):
         os.makedirs(path)
-
 
 def load_config(config_file):
     """Load config file"""
@@ -85,8 +67,7 @@ def load_config(config_file):
             config = yaml.load(f, Loader=yaml.FullLoader)
         else:
             config = yaml.load(f)
-    return config
-
+    return config 
 
 def create_necessary_dirs(config):
     """Create some necessary directories to save some important files.
@@ -99,7 +80,6 @@ def create_necessary_dirs(config):
     make_dir(config.log_dir)
     make_dir(config.save_dir)
     make_dir(config.output_dir)
-
 
 def save_files(config):
     """Save config file so that we can know the config when we look back
@@ -125,17 +105,14 @@ def save_files(config):
                     else:
                         print("%s is not existed." % filename)
 
-
 def copy_and_overwrite(from_path, to_path):
     if os.path.exists(to_path):
         shutil.rmtree(to_path)
     shutil.copytree(from_path, to_path)
 
-
 def files(curr_dir='./', files='*.py'):
     for i in glob.glob(os.path.join(curr_dir, files)):
         yield i
-
 
 def prepare_config(config_file, isCreate=False, isSave=False):
     if os.path.isfile(config_file):
@@ -151,3 +128,4 @@ def prepare_config(config_file, isCreate=False, isSave=False):
         save_files(config)
 
     return config
+

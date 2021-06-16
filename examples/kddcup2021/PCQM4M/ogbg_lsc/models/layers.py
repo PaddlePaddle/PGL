@@ -14,39 +14,15 @@ from pgl.utils.logger import log
 
 import models.mol_encoder as ME
 
-
 def batch_norm_1d(num_channels):
     if dist.get_world_size() > 1:
-        return nn.SyncBatchNorm.convert_sync_batchnorm(
-            nn.BatchNorm1D(num_channels))
+        return nn.SyncBatchNorm.convert_sync_batchnorm(nn.BatchNorm1D(num_channels))
     else:
         return nn.BatchNorm1D(num_channels)
 
-
-class MsgNorm(paddle.nn.Layer):
-    def __init__(self, learn_scale=False):
-        super(MsgNorm, self).__init__()
-
-        if learn_scale:
-            self.scale = self.create_parameter(
-                shape=[1, ],
-                dtype='float32',
-                default_initializer=nn.initializer.Constant(value=1.0))
-        else:
-            self.scale = 1.0
-
-    def forward(self, x, msg, p=2):
-        msg = F.normalize(msg, p=p, axis=-1)
-        x_norm = x.norm(p=p, axis=1, keepdim=True)
-        #  x_norm = paddle.sum(x * x, axis=1, keepdim=True)
-        #  x_norm = paddle.sqrt(x_norm)
-
-        return msg * x_norm * self.scale
-
-
-class GENConv(paddle.nn.Layer):
+class LiteGEMConv(paddle.nn.Layer):
     def __init__(self, config, with_efeat=True):
-        super(GENConv, self).__init__()
+        super(LiteGEMConv, self).__init__()
         log.info("layer_type is %s" % self.__class__.__name__)
         self.config = config
         self.with_efeat = with_efeat
@@ -62,8 +38,8 @@ class GENConv(paddle.nn.Layer):
         self.emb_dim = self.config.emb_dim
 
         if self.with_efeat:
-            self.bond_encoder = getattr(ME, self.config.bond_enc_type,
-                                        ME.BondEncoder)(emb_dim=self.emb_dim)
+            self.bond_encoder = getattr(ME, self.config.bond_enc_type, ME.BondEncoder)(
+                    emb_dim = self.emb_dim)
 
         self.concat = config.concat
         if self.concat:
@@ -76,11 +52,9 @@ class GENConv(paddle.nn.Layer):
             channels_list.append(self.emb_dim * 2)
         channels_list.append(self.emb_dim)
 
-        self.mlp = MLP(channels_list, norm=self.config.norm, last_lin=True)
-
-        self.mn = False  # deeperGCN is false
-        if self.mn:
-            self.msg_norm = MsgNorm(False)
+        self.mlp = MLP(channels_list,
+                       norm=self.config.norm,
+                       last_lin=True)
 
         if self.learn_t and self.aggr == "softmax":
             self.t = self.create_parameter(
@@ -99,8 +73,7 @@ class GENConv(paddle.nn.Layer):
     def send_func(self, src_feat, dst_feat, edge_feat):
         if self.with_efeat:
             if self.concat:
-                h = paddle.concat(
-                    [dst_feat['h'], src_feat['h'], edge_feat['e']], axis=1)
+                h = paddle.concat([dst_feat['h'], src_feat['h'], edge_feat['e']], axis=1)
                 h = self.fc_concat(h)
             else:
                 h = src_feat["h"] + edge_feat["e"]
@@ -123,26 +96,21 @@ class GENConv(paddle.nn.Layer):
             if self.with_efeat:
                 efeat = self.bond_encoder(efeat)
 
-            msg = graph.send(
-                src_feat={"h": nfeat},
-                dst_feat={"h": nfeat},
-                edge_feat={"e": efeat},
-                message_func=self.send_func)
+            msg = graph.send(src_feat={"h": nfeat},
+                             dst_feat={"h": nfeat},
+                             edge_feat={"e": efeat},
+                             message_func=self.send_func)
         else:
-            msg = graph.send(
-                src_feat={"h": nfeat},
-                dst_feat={"h": nfeat},
-                message_func=self.send_func)
+            msg = graph.send(src_feat={"h": nfeat},
+                             dst_feat={"h": nfeat},
+                             message_func=self.send_func)
 
         out = graph.recv(msg=msg, reduce_func=self.recv_func)
-        if self.mn:
-            out = self.msg_norm(nfeat, out)
 
         out = nfeat + out
         out = self.mlp(out)
 
         return out
-
 
 class CatGINConv(paddle.nn.Layer):
     def __init__(self, config, with_efeat=True):
@@ -153,13 +121,14 @@ class CatGINConv(paddle.nn.Layer):
 
         self.with_efeat = with_efeat
 
-        self.mlp = nn.Sequential(
-            Linear(emb_dim, emb_dim),
-            batch_norm_1d(emb_dim), nn.Swish(), Linear(emb_dim, emb_dim))
+        self.mlp = nn.Sequential(Linear(emb_dim, emb_dim), 
+                                 batch_norm_1d(emb_dim), 
+                                 nn.Swish(), 
+                                 Linear(emb_dim, emb_dim))
 
-        self.send_mlp = nn.Sequential(
-            nn.Linear(2 * emb_dim, 2 * emb_dim),
-            nn.Swish(), Linear(2 * emb_dim, emb_dim))
+        self.send_mlp = nn.Sequential(nn.Linear(2*emb_dim, 2*emb_dim), 
+                                 nn.Swish(), 
+                                 Linear(2*emb_dim, emb_dim))
 
         self.eps = self.create_parameter(
             shape=[1, 1],
@@ -167,8 +136,8 @@ class CatGINConv(paddle.nn.Layer):
             default_initializer=nn.initializer.Constant(value=0))
 
         if self.with_efeat:
-            self.bond_encoder = getattr(ME, self.config.bond_enc_type,
-                                        ME.BondEncoder)(emb_dim=emb_dim)
+            self.bond_encoder = getattr(ME, self.config.bond_enc_type, ME.BondEncoder)(
+                    emb_dim = emb_dim)
 
     def send_func(self, src_feat, dst_feat, edge_feat):
         if self.with_efeat:
@@ -185,26 +154,23 @@ class CatGINConv(paddle.nn.Layer):
     def forward(self, graph, feature, edge_feat=None):
 
         if self.with_efeat:
-            edge_embedding = self.bond_encoder(edge_feat)
+            edge_embedding = self.bond_encoder(edge_feat)    
 
-            msg = graph.send(
-                src_feat={"x": feature},
-                dst_feat={"x": feature},
-                edge_feat={"e": edge_embedding},
-                message_func=self.send_func)
+            msg = graph.send(src_feat={"x": feature},
+                    dst_feat={"x": feature},
+                    edge_feat={"e": edge_embedding},
+                    message_func=self.send_func)
         else:
-            msg = graph.send(
-                src_feat={"x": feature},
-                dst_feat={"x": feature},
-                message_func=self.send_func)
+            msg = graph.send(src_feat={"x": feature},
+                    dst_feat={"x": feature},
+                    message_func=self.send_func)
 
         neigh_feature = graph.recv(msg=msg, reduce_func=self.recv_sum)
 
         out = (1 + self.eps) * feature + neigh_feature
         out = self.mlp(out)
-
+        
         return out
-
 
 class GINConv(paddle.nn.Layer):
     def __init__(self, config, with_efeat=True):
@@ -214,17 +180,18 @@ class GINConv(paddle.nn.Layer):
         self.config = config
         self.with_efeat = with_efeat
         emb_dim = self.config.emb_dim
-        self.mlp = nn.Sequential(
-            Linear(emb_dim, emb_dim),
-            batch_norm_1d(emb_dim), nn.Swish(), Linear(emb_dim, emb_dim))
-
+        self.mlp = nn.Sequential(Linear(emb_dim, emb_dim), 
+                                 batch_norm_1d(emb_dim), 
+                                 nn.Swish(), 
+                                 Linear(emb_dim, emb_dim))
+        
         self.eps = self.create_parameter(
             shape=[1, 1],
             dtype='float32',
             default_initializer=nn.initializer.Constant(value=0))
 
-        self.bond_encoder = getattr(ME, self.config.bond_enc_type,
-                                    ME.BondEncoder)(emb_dim=emb_dim)
+        self.bond_encoder = getattr(ME, self.config.bond_enc_type, ME.BondEncoder)(
+                    emb_dim = emb_dim)
 
     def send_func(self, src_feat, dst_feat, edge_feat):
         return {"h": F.relu(src_feat["x"] + edge_feat["e"])}
@@ -233,20 +200,18 @@ class GINConv(paddle.nn.Layer):
         return msg.reduce_sum(msg["h"])
 
     def forward(self, graph, feature, edge_feat):
-        edge_embedding = self.bond_encoder(edge_feat)
+        edge_embedding = self.bond_encoder(edge_feat)    
 
-        msg = graph.send(
-            src_feat={"x": feature},
-            edge_feat={"e": edge_embedding},
-            message_func=self.send_func)
+        msg = graph.send(src_feat={"x": feature},
+                edge_feat={"e": edge_embedding},
+                message_func=self.send_func)
 
         neigh_feature = graph.recv(msg=msg, reduce_func=self.recv_sum)
 
         out = (1 + self.eps) * feature + neigh_feature
         out = self.mlp(out)
-
+        
         return out
-
 
 class NormGINConv(paddle.nn.Layer):
     def __init__(self, config, with_efeat=True):
@@ -256,18 +221,19 @@ class NormGINConv(paddle.nn.Layer):
         self.config = config
         self.with_efeat = with_efeat
         emb_dim = self.config.emb_dim
-        self.mlp = nn.Sequential(
-            Linear(emb_dim, emb_dim),
-            batch_norm_1d(emb_dim), nn.Swish(), Linear(emb_dim, emb_dim))
-
+        self.mlp = nn.Sequential(Linear(emb_dim, emb_dim), 
+                                 batch_norm_1d(emb_dim), 
+                                 nn.Swish(), 
+                                 Linear(emb_dim, emb_dim))
+        
         self.eps = self.create_parameter(
             shape=[1, 1],
             dtype='float32',
             default_initializer=nn.initializer.Constant(value=0))
 
         if with_efeat:
-            self.bond_encoder = getattr(ME, self.config.bond_enc_type,
-                                        ME.BondEncoder)(emb_dim=emb_dim)
+            self.bond_encoder = getattr(ME, self.config.bond_enc_type, ME.BondEncoder)(
+                        emb_dim = emb_dim)
 
     def send_func(self, src_feat, dst_feat, edge_feat):
         if self.with_efeat:
@@ -280,17 +246,15 @@ class NormGINConv(paddle.nn.Layer):
 
     def forward(self, graph, feature, edge_feat):
         if self.with_efeat:
-            edge_embedding = self.bond_encoder(edge_feat)
+            edge_embedding = self.bond_encoder(edge_feat)    
 
-            msg = graph.send(
-                src_feat={"x": feature},
-                edge_feat={"e": edge_embedding},
-                message_func=self.send_func)
+            msg = graph.send(src_feat={"x": feature},
+                    edge_feat={"e": edge_embedding},
+                    message_func=self.send_func)
         else:
-            msg = graph.send(
-                src_feat={"x": feature},
-                dst_feat={"x": feature},
-                message_func=self.send_func)
+            msg = graph.send(src_feat={"x": feature},
+                    dst_feat={"x": feature},
+                    message_func=self.send_func)
 
         neigh_feature = graph.recv(msg=msg, reduce_func=self.recv_sum)
 
@@ -298,29 +262,27 @@ class NormGINConv(paddle.nn.Layer):
         norm = GF.degree_norm(graph)
         out = out * norm
         out = self.mlp(out)
-
+        
         return out
-
 
 def Linear(input_size, hidden_size, with_bias=True):
     fan_in = input_size
     bias_bound = 1.0 / math.sqrt(fan_in)
     fc_bias_attr = paddle.ParamAttr(initializer=nn.initializer.Uniform(
-        low=-bias_bound, high=bias_bound))
+	low=-bias_bound, high=bias_bound))
 
     negative_slope = math.sqrt(5)
     gain = math.sqrt(2.0 / (1 + negative_slope**2))
     std = gain / math.sqrt(fan_in)
     weight_bound = math.sqrt(3.0) * std
     fc_w_attr = paddle.ParamAttr(initializer=nn.initializer.Uniform(
-        low=-weight_bound, high=weight_bound))
+	low=-weight_bound, high=weight_bound))
 
     if not with_bias:
         fc_bias_attr = False
 
     return nn.Linear(
         input_size, hidden_size, weight_attr=fc_w_attr, bias_attr=fc_bias_attr)
-
 
 def norm_layer(norm_type, nc):
     # normalization layer 1d
@@ -330,10 +292,8 @@ def norm_layer(norm_type, nc):
     elif norm == 'layer':
         layer = nn.LayerNorm(nc)
     else:
-        raise NotImplementedError('normalization layer [%s] is not found' %
-                                  norm)
+        raise NotImplementedError('normalization layer [%s] is not found' % norm)
     return layer
-
 
 def act_layer(act_type, inplace=False, neg_slope=0.2, n_prelu=1):
     # activation layer
@@ -350,15 +310,8 @@ def act_layer(act_type, inplace=False, neg_slope=0.2, n_prelu=1):
         raise NotImplementedError('activation layer [%s] is not found' % act)
     return layer
 
-
 class MLP(paddle.nn.Sequential):
-    def __init__(self,
-                 channels,
-                 act='swish',
-                 norm=None,
-                 bias=True,
-                 drop=0.,
-                 last_lin=False):
+    def __init__(self, channels, act='swish', norm=None, bias=True, drop=0., last_lin=False):
         m = []
 
         for i in range(1, len(channels)):

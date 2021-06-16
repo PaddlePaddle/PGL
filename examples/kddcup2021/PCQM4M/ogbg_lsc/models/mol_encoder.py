@@ -15,7 +15,6 @@ import numpy as np
 import paddle
 import paddle.nn as nn
 import paddle.distributed as dist
-#  from ogb.utils.features import get_atom_feature_dims, get_bond_feature_dims
 
 from pgl.utils.logger import log
 
@@ -24,14 +23,11 @@ import features.local_feature as MolFeat
 full_atom_feature_dims = MolFeat.get_atom_feature_dims()
 full_bond_feature_dims = MolFeat.get_bond_feature_dims()
 
-
 def batch_norm_1d(num_channels):
     if dist.get_world_size() > 1:
-        return nn.SyncBatchNorm.convert_sync_batchnorm(
-            nn.BatchNorm1D(num_channels))
+        return nn.SyncBatchNorm.convert_sync_batchnorm(nn.BatchNorm1D(num_channels))
     else:
         return nn.BatchNorm1D(num_channels)
-
 
 class AtomEncoder(nn.Layer):
     def __init__(self, emb_dim):
@@ -73,7 +69,6 @@ class BondEncoder(nn.Layer):
 
         return bond_embedding
 
-
 class CatAtomEncoder(nn.Layer):
     def __init__(self, emb_dim):
         super(CatAtomEncoder, self).__init__()
@@ -86,10 +81,10 @@ class CatAtomEncoder(nn.Layer):
             emb = paddle.nn.Embedding(dim, emb_dim, weight_attr=weight_attr)
             self.atom_embedding_list.append(emb)
 
-        self.mlp = nn.Sequential(
-            nn.Linear(len(full_atom_feature_dims) * emb_dim, 2 * emb_dim),
-            batch_norm_1d(2 * emb_dim),
-            nn.Swish(), nn.Linear(2 * emb_dim, emb_dim))
+        self.mlp = nn.Sequential(nn.Linear(len(full_atom_feature_dims) * emb_dim, 2 * emb_dim),
+                        batch_norm_1d(2 * emb_dim),
+                        nn.Swish(),
+                        nn.Linear(2 * emb_dim, emb_dim))
         #  channels = [len(full_atom_feature_dims) * emb_dim, 2 * emb_dim, emb_dim]
         #  self.mlp = MLP(channels, norm="batch", last_lin=True)
 
@@ -115,10 +110,10 @@ class CatBondEncoder(nn.Layer):
             emb = paddle.nn.Embedding(dim, emb_dim, weight_attr=weight_attr)
             self.bond_embedding_list.append(emb)
 
-        self.mlp = nn.Sequential(
-            nn.Linear(len(full_bond_feature_dims) * emb_dim, 2 * emb_dim),
-            batch_norm_1d(2 * emb_dim),
-            nn.Swish(), nn.Linear(2 * emb_dim, emb_dim))
+        self.mlp = nn.Sequential(nn.Linear(len(full_bond_feature_dims) * emb_dim, 2 * emb_dim),
+                        batch_norm_1d(2 * emb_dim),
+                        nn.Swish(),
+                        nn.Linear(2 * emb_dim, emb_dim))
 
     def forward(self, edge_attr):
         bond_embedding = []
@@ -129,7 +124,6 @@ class CatBondEncoder(nn.Layer):
 
         return self.mlp(bond_embedding)
 
-
 class AtomEncoderFloat(nn.Layer):
     def __init__(self, emb_dim):
         super(AtomEncoderFloat, self).__init__()
@@ -137,18 +131,16 @@ class AtomEncoderFloat(nn.Layer):
         num_center = 21
         centers1 = np.linspace(-1, 4, num_center).reshape(1, -1)
 
-        self.centers1 = self.create_parameter(
-            shape=centers1.shape,
-            dtype="float32",
-            default_initializer=nn.initializer.Assign(centers1))
-        self.centers1.stop_gradient = True
+        self.centers1 = self.create_parameter(shape=centers1.shape,
+                             dtype="float32",
+                             default_initializer=nn.initializer.Assign(centers1))
+        self.centers1.stop_gradient=True
 
         centers2 = np.linspace(1, 3, num_center).reshape(1, -1)
-        self.centers2 = self.create_parameter(
-            shape=centers2.shape,
-            dtype="float32",
-            default_initializer=nn.initializer.Assign(centers2))
-        self.centers2.stop_gradient = True
+        self.centers2 = self.create_parameter(shape=centers2.shape,
+                             dtype="float32",
+                             default_initializer=nn.initializer.Assign(centers2))
+        self.centers2.stop_gradient=True
 
         self.width = 0.5
 
@@ -162,16 +154,16 @@ class AtomEncoderFloat(nn.Layer):
         x_embedding = 0
         for i in range(x_float.shape[1]):
             x = x_float[:, i]
-            x = paddle.reshape(x, [-1, 1])
+            x =  paddle.reshape(x, [-1, 1])
             if i == 0:
-                gaussian_expansion = paddle.exp(-(x - self.centers1)**2 /
-                                                self.width**2)
+                gaussian_expansion = paddle.exp(-(x - self.centers1)**2 / self.width**2)
             elif i == 1:
-                gaussian_expansion = paddle.exp(-(x - self.centers2)**2 /
-                                                self.width**2)
+                gaussian_expansion = paddle.exp(-(x - self.centers2)**2 / self.width**2)
 
             x_embedding += self.atom_embedding_list[i](gaussian_expansion)
         return x_embedding
+
+
 
 
 if __name__ == '__main__':

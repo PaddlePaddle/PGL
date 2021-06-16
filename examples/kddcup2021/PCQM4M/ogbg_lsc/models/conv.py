@@ -1,17 +1,3 @@
-# Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import numpy as np
 import paddle
 import paddle.nn as nn
@@ -24,22 +10,20 @@ from pgl.utils.logger import log
 import models.mol_encoder as ME
 import models.layers as L
 
-
-class DeeperGCN(paddle.nn.Layer):
+class LiteGEM(paddle.nn.Layer):
     def __init__(self, config, with_efeat=False):
-        super(DeeperGCN, self).__init__()
+        super(LiteGEM, self).__init__()
         log.info("gnn_type is %s" % self.__class__.__name__)
 
         self.config = config
         self.with_efeat = with_efeat
         self.num_layers = config.num_layers
         self.drop_ratio = config.drop_ratio
-        self.block = config.block
         self.virtual_node = config.virtual_node
         self.emb_dim = config.emb_dim
         self.norm = config.norm
 
-        self.gcns = paddle.nn.LayerList()
+        self.gnns = paddle.nn.LayerList()
         self.norms = paddle.nn.LayerList()
 
         if self.virtual_node:
@@ -52,39 +36,26 @@ class DeeperGCN(paddle.nn.Layer):
                 default_initializer=nn.initializer.Constant(value=0.0))
 
             for layer in range(self.num_layers - 1):
-                self.mlp_virtualnode_list.append(
-                    L.MLP([self.emb_dim] * 3, norm=self.norm))
+                self.mlp_virtualnode_list.append(L.MLP([self.emb_dim] * 3,
+                                                       norm=self.norm))
 
         for layer in range(self.num_layers):
-            self.gcns.append(L.GENConv(config, with_efeat=not self.with_efeat))
-            #  self.gcns.append(L.GINConv(config))
+            self.gnns.append(L.LiteGEMConv(config, with_efeat=not self.with_efeat))
             self.norms.append(L.norm_layer(self.norm, self.emb_dim))
 
-        self.atom_encoder = getattr(ME, self.config.atom_enc_type,
-                                    ME.AtomEncoder)(emb_dim=self.emb_dim)
+        self.atom_encoder = getattr(ME, self.config.atom_enc_type, ME.AtomEncoder)(
+                emb_dim=self.emb_dim)
         if self.config.exfeat:
             self.atom_encoder_float = ME.AtomEncoderFloat(emb_dim=self.emb_dim)
 
         if self.with_efeat:
-            self.bond_encoder = getattr(ME, self.config.bond_enc_type,
-                                        ME.BondEncoder)(emb_dim=self.emb_dim)
-
-        if self.block == 'res+':
-            print('LN/BN->ReLU->GraphConv->Res')
-        elif self.block == 'res':
-            print('GraphConv->LN/BN->ReLU->Res')
-        elif self.block == 'dense':
-            raise NotImplementedError('To be implemented')
-        elif self.block == "plain":
-            print('GraphConv->LN/BN->ReLU')
-        else:
-            raise Exception('Unknown block Type')
+            self.bond_encoder = getattr(ME, self.config.bond_enc_type, ME.BondEncoder)(
+                    emb_dim=self.emb_dim)
 
         self.pool = gnn.GraphPool(pool_type="sum")
 
         if self.config.appnp_k is not None:
-            self.appnp = gnn.APPNP(
-                k_hop=self.config.appnp_k, alpha=self.config.appnp_a)
+            self.appnp = gnn.APPNP(k_hop=self.config.appnp_k, alpha=self.config.appnp_a)
 
         if self.config.graphnorm is not None:
             self.gn = gnn.GraphNorm()
@@ -101,7 +72,7 @@ class DeeperGCN(paddle.nn.Layer):
 
         if self.virtual_node:
             virtualnode_embedding = self.virtualnode_embedding.expand(
-                [g.num_graph, self.virtualnode_embedding.shape[-1]])
+                    [g.num_graph, self.virtualnode_embedding.shape[-1]])
             h = h + paddle.gather(virtualnode_embedding, g.graph_node_id)
             #  print("virt0: ", np.sum(h.numpy()))
 
@@ -110,38 +81,34 @@ class DeeperGCN(paddle.nn.Layer):
         else:
             edge_emb = edge_feat
 
-        if self.block == "res+":
-            h = self.gcns[0](g, h, edge_emb)
-            if self.config.graphnorm:
-                h = self.gn(g, h)
+        h = self.gnns[0](g, h, edge_emb)
+        if self.config.graphnorm:
+            h = self.gn(g, h)
 
-            #  print("h0: ", np.sum(h.numpy()))
-            for layer in range(1, self.num_layers):
-                h1 = self.norms[layer - 1](h)
-                h2 = F.swish(h1)
-                h2 = F.dropout(h2, p=self.drop_ratio, training=self.training)
+        #  print("h0: ", np.sum(h.numpy()))
+        for layer in range(1, self.num_layers):
+            h1 = self.norms[layer-1](h)
+            h2 = F.swish(h1)
+            h2 = F.dropout(h2, p=self.drop_ratio, training=self.training)
 
-                if self.virtual_node:
-                    virtualnode_embedding_temp = self.pool(
-                        g, h2) + virtualnode_embedding
-                    virtualnode_embedding = self.mlp_virtualnode_list[
-                        layer - 1](virtualnode_embedding_temp)
-                    virtualnode_embedding = F.dropout(
+            if self.virtual_node:
+                virtualnode_embedding_temp = self.pool(g, h2) + virtualnode_embedding
+                virtualnode_embedding = self.mlp_virtualnode_list[layer-1](virtualnode_embedding_temp)
+                virtualnode_embedding  = F.dropout(
                         virtualnode_embedding,
                         self.drop_ratio,
                         training=self.training)
 
-                    h2 = h2 + paddle.gather(virtualnode_embedding,
-                                            g.graph_node_id)
-                    #  print("virt_h%s: " % (layer), np.sum(h2.numpy()))
+                h2 = h2 + paddle.gather(virtualnode_embedding, g.graph_node_id)
+                #  print("virt_h%s: " % (layer), np.sum(h2.numpy()))
 
-                h = self.gcns[layer](g, h2, edge_emb) + h
-                if self.config.graphnorm:
-                    h = self.gn(g, h)
-                #  print("h%s: " % (layer), np.sum(h.numpy()))
+            h = self.gnns[layer](g, h2, edge_emb) + h
+            if self.config.graphnorm:
+                h = self.gn(g, h)
+            #  print("h%s: " % (layer), np.sum(h.numpy()))
 
-            h = self.norms[self.num_layers - 1](h)
-            h = F.dropout(h, p=self.drop_ratio, training=self.training)
+        h = self.norms[self.num_layers-1](h)
+        h = F.dropout(h, p=self.drop_ratio, training=self.training)
 
         if self.config.appnp_k is not None:
             h = self.appnp(g, h)
@@ -149,15 +116,14 @@ class DeeperGCN(paddle.nn.Layer):
         node_representation = h
         return node_representation
 
-
 class GNNVirt(paddle.nn.Layer):
     def __init__(self, config):
         super(GNNVirt, self).__init__()
         log.info("gnn_type is %s" % self.__class__.__name__)
         self.config = config
 
-        self.atom_encoder = getattr(ME, self.config.atom_enc_type,
-                                    ME.AtomEncoder)(self.config.emb_dim)
+        self.atom_encoder = getattr(ME, self.config.atom_enc_type, ME.AtomEncoder)(
+                self.config.emb_dim)
 
         self.virtualnode_embedding = self.create_parameter(
             shape=[1, self.config.emb_dim],
@@ -174,12 +140,13 @@ class GNNVirt(paddle.nn.Layer):
 
         for layer in range(self.config.num_layers - 1):
             self.mlp_virtualnode_list.append(
-                nn.Sequential(
-                    L.Linear(self.config.emb_dim, self.config.emb_dim),
-                    L.batch_norm_1d(self.config.emb_dim),
-                    nn.Swish(),
-                    L.Linear(self.config.emb_dim, self.config.emb_dim),
-                    L.batch_norm_1d(self.config.emb_dim), nn.Swish()))
+                    nn.Sequential(L.Linear(self.config.emb_dim, self.config.emb_dim), 
+                        L.batch_norm_1d(self.config.emb_dim), 
+                        nn.Swish(),
+                        L.Linear(self.config.emb_dim, self.config.emb_dim), 
+                        L.batch_norm_1d(self.config.emb_dim), 
+                        nn.Swish())
+                    )
 
         self.pool = gnn.GraphPool(pool_type="sum")
 
@@ -187,11 +154,11 @@ class GNNVirt(paddle.nn.Layer):
         g = feed_dict["graph"]
         x = g.node_feat["feat"]
         edge_feat = g.edge_feat["feat"]
-
+        
         h_list = [self.atom_encoder(x)]
 
         virtualnode_embedding = self.virtualnode_embedding.expand(
-            [g.num_graph, self.virtualnode_embedding.shape[-1]])
+                [g.num_graph, self.virtualnode_embedding.shape[-1]])
 
         for layer in range(self.config.num_layers):
             h_list[layer] = h_list[layer] + \
@@ -202,11 +169,9 @@ class GNNVirt(paddle.nn.Layer):
             h = self.batch_norms[layer](h)
             if layer == self.config.num_layers - 1:
                 #remove relu for the last layer
-                h = F.dropout(
-                    h, self.config.drop_ratio, training=self.training)
+                h = F.dropout(h, self.config.drop_ratio, training = self.training)
             else:
-                h = F.dropout(
-                    F.swish(h), self.config.drop_ratio, training=self.training)
+                h = F.dropout(F.swish(h), self.config.drop_ratio, training = self.training)
 
             if self.config.residual:
                 h = h + h_list[layer]
@@ -216,22 +181,15 @@ class GNNVirt(paddle.nn.Layer):
             ### update the virtual nodes
             if layer < self.config.num_layers - 1:
                 ### add message from graph nodes to virtual nodes
-                virtualnode_embedding_temp = self.pool(
-                    g, h_list[layer]) + virtualnode_embedding
+                virtualnode_embedding_temp = self.pool(g, h_list[layer]) + virtualnode_embedding
                 ### transform virtual nodes using MLP
 
                 if self.config.residual:
-                    virtualnode_embedding = virtualnode_embedding + F.dropout(
-                        self.mlp_virtualnode_list[layer](
-                            virtualnode_embedding_temp),
-                        self.config.drop_ratio,
-                        training=self.training)
+                    virtualnode_embedding = virtualnode_embedding + F.dropout(self.mlp_virtualnode_list[layer](virtualnode_embedding_temp),
+                        self.config.drop_ratio, training = self.training)
                 else:
-                    virtualnode_embedding = F.dropout(
-                        self.mlp_virtualnode_list[layer](
-                            virtualnode_embedding_temp),
-                        self.config.drop_ratio,
-                        training=self.training)
+                    virtualnode_embedding = F.dropout(self.mlp_virtualnode_list[layer](virtualnode_embedding_temp),
+                        self.config.drop_ratio, training = self.training)
 
         ### Different implementations of Jk-concat
         if self.config.JK == "last":
@@ -240,8 +198,9 @@ class GNNVirt(paddle.nn.Layer):
             node_representation = 0
             for layer in range(self.config.num_layers):
                 node_representation += h_list[layer]
-
+        
         return node_representation
+
 
 
 ### Virtual GNN to generate node embedding
@@ -250,7 +209,6 @@ class JuncGNNVirt(paddle.nn.Layer):
     Output:
         node representations
     """
-
     def __init__(self, config):
         super(JuncGNNVirt, self).__init__()
         log.info("gnn_type is %s" % self.__class__.__name__)
@@ -266,8 +224,8 @@ class JuncGNNVirt(paddle.nn.Layer):
         if self.num_layers < 2:
             raise ValueError("Number of GNN layers must be greater than 1.")
 
-        self.atom_encoder = getattr(ME, self.config.atom_enc_type,
-                                    ME.AtomEncoder)(self.emb_dim)
+        self.atom_encoder = getattr(ME, self.config.atom_enc_type, ME.AtomEncoder)(
+                self.emb_dim)
 
         self.junc_embed = paddle.nn.Embedding(6000, self.emb_dim)
 
@@ -297,14 +255,16 @@ class JuncGNNVirt(paddle.nn.Layer):
 
         for layer in range(self.num_layers - 1):
             self.mlp_virtualnode_list.append(
-                nn.Sequential(
-                    L.Linear(self.emb_dim, self.emb_dim),
-                    L.batch_norm_1d(self.emb_dim),
-                    nn.Swish(),
-                    L.Linear(self.emb_dim, self.emb_dim),
-                    L.batch_norm_1d(self.emb_dim), nn.Swish()))
+                    nn.Sequential(L.Linear(self.emb_dim, self.emb_dim), 
+                        L.batch_norm_1d(self.emb_dim), 
+                        nn.Swish(),
+                        L.Linear(self.emb_dim, self.emb_dim), 
+                        L.batch_norm_1d(self.emb_dim), 
+                        nn.Swish())
+                    )
 
         self.pool = gnn.GraphPool(pool_type="sum")
+
 
     def forward(self, feed_dict):
         g = feed_dict['graph']
@@ -315,14 +275,13 @@ class JuncGNNVirt(paddle.nn.Layer):
 
         ### virtual node embeddings for graphs
         virtualnode_embedding = self.virtualnode_embedding.expand(
-            [g.num_graph, self.virtualnode_embedding.shape[-1]])
+                [g.num_graph, self.virtualnode_embedding.shape[-1]])
 
         junc_feat = self.junc_embed(feed_dict['junc_graph'].node_feat['feat'])
         junc_feat = paddle.squeeze(junc_feat, axis=1)
         for layer in range(self.num_layers):
             ### add message from virtual nodes to graph nodes
-            h_list[layer] = h_list[layer] + paddle.gather(
-                virtualnode_embedding, g.graph_node_id)
+            h_list[layer] = h_list[layer] + paddle.gather(virtualnode_embedding, g.graph_node_id)
 
             ### Message passing among graph nodes
             h = self.convs[layer](g, h_list[layer], edge_feat)
@@ -330,10 +289,9 @@ class JuncGNNVirt(paddle.nn.Layer):
             h = self.batch_norms[layer](h)
             if layer == self.num_layers - 1:
                 #remove relu for the last layer
-                h = F.dropout(h, self.drop_ratio, training=self.training)
+                h = F.dropout(h, self.drop_ratio, training = self.training)
             else:
-                h = F.dropout(
-                    F.swish(h), self.drop_ratio, training=self.training)
+                h = F.dropout(F.swish(h), self.drop_ratio, training = self.training)
 
             if self.residual:
                 h = h + h_list[layer]
@@ -345,16 +303,14 @@ class JuncGNNVirt(paddle.nn.Layer):
             out_dim = gather_h.shape[-1]
             num = feed_dict['junc_graph'].num_nodes
             init_h = paddle.zeros(shape=[num, out_dim], dtype=gather_h.dtype)
-            junc_h = paddle.scatter(
-                init_h, junc_index, gather_h, overwrite=False)
+            junc_h = paddle.scatter(init_h, junc_index, gather_h, overwrite=False)
             # node feature of junction tree
             junc_h = junc_feat + junc_h
 
             junc_h = self.junc_convs[layer](feed_dict['junc_graph'], junc_h)
 
             junc_h = paddle.gather(junc_h, junc_index)
-            init_h = paddle.zeros(
-                shape=[feed_dict['graph'].num_nodes, out_dim], dtype=h.dtype)
+            init_h = paddle.zeros(shape=[feed_dict['graph'].num_nodes, out_dim], dtype=h.dtype)
             sct_h = paddle.scatter(init_h, atom_index, junc_h, overwrite=False)
             h = h + sct_h
 
@@ -363,22 +319,13 @@ class JuncGNNVirt(paddle.nn.Layer):
             ### update the virtual nodes
             if layer < self.num_layers - 1:
                 ### add message from graph nodes to virtual nodes
-                virtualnode_embedding_temp = self.pool(
-                    g, h_list[layer]) + virtualnode_embedding
+                virtualnode_embedding_temp = self.pool(g, h_list[layer]) + virtualnode_embedding
                 ### transform virtual nodes using MLP
 
                 if self.residual:
-                    virtualnode_embedding = virtualnode_embedding + F.dropout(
-                        self.mlp_virtualnode_list[layer](
-                            virtualnode_embedding_temp),
-                        self.drop_ratio,
-                        training=self.training)
+                    virtualnode_embedding = virtualnode_embedding + F.dropout(self.mlp_virtualnode_list[layer](virtualnode_embedding_temp), self.drop_ratio, training = self.training)
                 else:
-                    virtualnode_embedding = F.dropout(
-                        self.mlp_virtualnode_list[layer](
-                            virtualnode_embedding_temp),
-                        self.drop_ratio,
-                        training=self.training)
+                    virtualnode_embedding = F.dropout(self.mlp_virtualnode_list[layer](virtualnode_embedding_temp), self.drop_ratio, training = self.training)
 
         ### Different implementations of Jk-concat
         if self.JK == "last":
@@ -387,9 +334,8 @@ class JuncGNNVirt(paddle.nn.Layer):
             node_representation = 0
             for layer in range(self.num_layers):
                 node_representation += h_list[layer]
-
+        
         return node_representation
-
 
 if __name__ == "__main__":
     pass
