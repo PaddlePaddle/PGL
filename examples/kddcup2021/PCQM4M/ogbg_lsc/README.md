@@ -13,7 +13,9 @@ pgl>=2.1.4
 ```
 
 ## Data preparation
-Under the root directory, please run following command to downlaod the pretrain and pcqm4m datasets.
+Under the root directory, please run following command to downlaod the original pcqm4m dataset,
+DFT results for auxiliary tasks, and cross-validation split indexes.
+
 ```
 mkdir dataset && cd dataset
 wget http://ogb-data.stanford.edu/data/lsc/pcqm4m_kddcup2021.zip
@@ -21,6 +23,7 @@ unzip pcqm4m_kddcup2021.zip
 wget https://baidu-nlp.bj.bcebos.com/PaddleHelix/datasets/PCQM_pretrain/sdf.tar.gz
 mv sdf.tar.gz pcqm_pyscf_sdf.tar.gz
 tar -xzvf pcqm_pyscf_sdf.tar.gz
+wget https://baidu-nlp.bj.bcebos.com/PaddleHelix/datasets/PCQM_pretrain/cross_split.pkl
 cd ..
 ```
 
