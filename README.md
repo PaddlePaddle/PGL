@@ -6,7 +6,25 @@
 [DOC](https://pgl.readthedocs.io/en/latest/) | [Quick Start](https://pgl.readthedocs.io/en/latest/quick_start/instruction.html) | [中文](./README.zh.md)
 
 ## Breaking News !!
-PGL v2.1 20210202
+&#x1F525; &#x1F525; &#x1F525; **OGB-LSC KDD CUP 2021 winners announced!!**  (2021.06.17)
+
+
+Super excited to announce our PGL team won <font color=Red>**TWO FIRST**</font> place and <font color=Red>**ONE SECOND**</font> place in a total of three track in OGB-LSC KDD CUP 2021.
+Leaderboards can be found [here](https://ogb.stanford.edu/kddcup2021/results/).
+
+- **First place in MAG240M-LSC track**: Code and Technical Report can be found [here](./examples/kddcup2021/MAG240M/r_unimp).
+
+- **First place in WikiKG90M-LSC track**: Code and Technical Report can be found [here](./examples/kddcup2021/WikiKG90M).
+
+- **Second place in PCQM4M-LSC track**: Code and Technical Report can be found [here](./examples/kddcup2021/PCQM4M).
+
+**Two amazing paper using PGL are accepted:** (2021.06.17)
+
+- Masked Label Prediction: Unified Message Passing Model for Semi-Supervised Classification, to appear in **IJCAI2021**.
+- HGAMN: Heterogeneous Graph Attention Matching Network for Multilingual POI Retrieval at Baidu Maps, to appear in **KDD2021**.
+
+
+PGL v2.1 2021.02.02
 
 - We are now support dygraph version of PaddlePaddle 2.0, and release PGL v2.1.
 - You can find the stable staic version of PGL in the branch "static_stable"
