@@ -24,6 +24,7 @@ import six
 import warnings
 import glob
 from collections import defaultdict
+from pgl.utils.logger import log
 
 
 class AttrDict(dict):
@@ -131,6 +132,14 @@ def get_files(edge_file_or_dir):
     if os.path.isdir(edge_file_or_dir):
         ret_files = []
         files = glob.glob(os.path.join(edge_file_or_dir, "*"))
+        for file_ in files:
+            if os.path.isdir(file_):
+                log.info("%s is a directory, not a file" % file_)
+            else:
+                ret_files.append(file_)
+    elif "*" in edge_file_or_dir:
+        ret_files = []
+        files = glob.glob(edge_file_or_dir)
         for file_ in files:
             if os.path.isdir(file_):
                 log.info("%s is a directory, not a file" % file_)
