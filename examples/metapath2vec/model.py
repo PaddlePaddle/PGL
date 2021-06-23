@@ -51,7 +51,8 @@ class SkipGramModel(nn.Layer):
         self.neg_num = self.config.neg_num
 
         embed_init = nn.initializer.Uniform(
-            low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
+            low=-1. / math.sqrt(self.embed_size),
+            high=1. / math.sqrt(self.embed_size))
         emb_attr = paddle.ParamAttr(
             name="node_embedding", initializer=embed_init)
 
