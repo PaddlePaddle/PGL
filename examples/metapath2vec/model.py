@@ -50,7 +50,8 @@ class SkipGramModel(nn.Layer):
         self.embed_size = self.config.embed_size
         self.neg_num = self.config.neg_num
 
-        embed_init = nn.initializer.Uniform(low=-1.0, high=1.0)
+        embed_init = nn.initializer.Uniform(
+            low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
         emb_attr = paddle.ParamAttr(
             name="node_embedding", initializer=embed_init)
 
@@ -61,7 +62,6 @@ class SkipGramModel(nn.Layer):
             self.embedding = nn.Embedding(
                 self.config.num_nodes, self.embed_size, weight_attr=emb_attr)
 
-        self.cos_sim = paddle.nn.CosineSimilarity(axis=2)
         self.loss_fn = paddle.nn.BCEWithLogitsLoss()
 
     def forward(self, feed_dict):
@@ -83,12 +83,9 @@ class SkipGramModel(nn.Layer):
         pos_embed = paddle.reshape(pos_embed, [-1, 1, self.embed_size])
 
         # [batch_size, 1, 1]
-        #  pos_logits = paddle.matmul(src_embed, pos_embed, transpose_y=True)
-        pos_logits = self.cos_sim(src_embed, pos_embed)
-        #  pos_cos_sim = self.cos_sim(src_embed, pos_embed)
+        pos_logits = paddle.matmul(src_embed, pos_embed, transpose_y=True)
         # [batch_size, 1, neg_num]
-        #  neg_logits = paddle.matmul(src_embed, neg_embed, transpose_y=True)
-        neg_logits = self.cos_sim(src_embed, neg_embed)
+        neg_logits = paddle.matmul(src_embed, neg_embed, transpose_y=True)
 
         ones_label = paddle.ones_like(pos_logits)
         pos_loss = self.loss_fn(pos_logits, ones_label)
