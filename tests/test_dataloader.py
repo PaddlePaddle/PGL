@@ -36,7 +36,7 @@ class ListDataset(Dataset):
         return len(self.dataset)
 
     def _transform(self, example):
-        time.sleep(0.05 + random.random() * 0.1)
+        #  time.sleep(0.05 + random.random() * 0.1)
         return example
 
 
@@ -48,7 +48,7 @@ class IterDataset(StreamDataset):
         for count, data in enumerate(self.dataset):
             if count % self._worker_info.num_workers != self._worker_info.fid:
                 continue
-            time.sleep(0.1)
+            #  time.sleep(0.1)
             yield data
 
 
@@ -105,40 +105,61 @@ class DataloaderTest(unittest.TestCase):
             self.assertEqual(set([i for i in range(DATA_SIZE)]), set(res))
 
     def test_IterDataset(self):
-        config = {
-            'batch_size': 3,
-            'drop_last': True,
-            'num_workers': 2,
-        }
-        collate_fn = Collate_fn(config)
-        ds = IterDataset()
-        loader = Dataloader(
-            ds,
-            batch_size=config['batch_size'],
-            drop_last=config['drop_last'],
-            num_workers=config['num_workers'],
-            collate_fn=collate_fn)
 
         epochs = 1
-        for e in range(epochs):
-            res = []
-            for batch_data in loader:
-                res.extend(batch_data['data'])
-                self.assertEqual(len(batch_data['data']), config['batch_size'])
+        bs_list = [1, 3, 100]
+        workers_list = [1, 4, 40]
+        shuf_list = [0, 1, 10, 100]
 
-        # test shuffle
-        loader = Dataloader(
-            ds,
-            batch_size=3,
-            drop_last=False,
-            num_workers=1,
-            collate_fn=collate_fn)
+        collate_fn = Collate_fn(None)
+        ds = IterDataset()
 
-        for e in range(epochs):
-            res = []
-            for batch_data in loader:
-                res.extend(batch_data['data'])
-            self.assertEqual(set([i for i in range(DATA_SIZE)]), set(res))
+        for shuf_size in shuf_list:
+            for batch_size in bs_list:
+                for workers in workers_list:
+                    msg = "batch_size: %s | " % batch_size
+                    msg += "num_workers: %s | " % workers
+                    msg += "shuf_size: %s | " % shuf_size
+                    print(msg)
+
+                    loader = Dataloader(
+                        ds,
+                        batch_size=batch_size,
+                        drop_last=False,
+                        num_workers=workers,
+                        stream_shuffle_size=shuf_size,
+                        collate_fn=collate_fn)
+
+                    for e in range(epochs):
+                        res = []
+                        for batch_data in loader:
+                            res.extend(batch_data['data'])
+                    self.assertEqual(
+                        set([i for i in range(DATA_SIZE)]), set(res))
+
+        # test drop_last
+        for shuf_size in shuf_list:
+            for batch_size in bs_list:
+                for workers in workers_list:
+                    msg = "batch_size: %s | " % batch_size
+                    msg += "num_workers: %s | " % workers
+                    msg += "shuf_size: %s | " % shuf_size
+                    print(msg)
+
+                    loader = Dataloader(
+                        ds,
+                        batch_size=batch_size,
+                        drop_last=True,
+                        num_workers=workers,
+                        stream_shuffle_size=0,
+                        collate_fn=collate_fn)
+
+                    for e in range(epochs):
+                        res = []
+                        for batch_data in loader:
+                            res.extend(batch_data['data'])
+                            self.assertEqual(
+                                len(batch_data['data']), batch_size)
 
     def test_ListDataset_Order(self):
         config = {

@@ -89,10 +89,14 @@ class Dataloader(object):
                     "You might want to set [stream_shuffle_size] with StreamDataset."
             warnings.warn(warn_msg)
 
-        if self.stream_shuffle_size > 0 and self.batch_size >= stream_shuffle_size:
-            raise ValueError("stream_shuffle_size must be larger than batch_size," \
-                    "but got [stream_shuffle_size=%s] smaller than [batch_size=%s]" \
-                    % (self.stream_shuffle_size, self.batch_size))
+        if self.stream_shuffle_size > 0 and self.batch_size > stream_shuffle_size:
+            warn_msg = "stream_shuffle_size should be larger than batch_size, "
+            warn_msg += "but got [stream_shuffle_size=%s] " % (
+                self.stream_shuffle_size)
+            warn_msg += "smaller than [batch_size=%s]. " % (self.batch_size)
+            warn_msg += "stream_shuffle_size will be set to %s." % (
+                self.batch_size)
+            warnings.warn(warn_msg)
 
         if self.stream_shuffle_size > 0 and isinstance(self.dataset, Dataset):
             warn_msg = "[stream_shuffle_size] should not be set with Dataset. " \
@@ -196,45 +200,58 @@ class _DataLoaderIter(object):
                 yield batch_data
 
     def _stream_shuffle_data_generator(self):
-        def _stream_shuffle_index_generator():
-            shuffle_size = [i for i in range(self.stream_shuffle_size)]
-            while True:
-                yield shuffle_size
-
-        def _data_generator():
+        def _batch_stream_data_generator():
             dataset = iter(self.dataset)
-            for shuffle_size in _stream_shuffle_index_generator():
-                shuffle_size_data = []
-                for idx in shuffle_size:
-                    try:
-                        shuffle_size_data.append(next(dataset))
-                    except StopIteration:
-                        break
-
-                if len(shuffle_size_data) == 0:
+            batch_data = []
+            while True:
+                try:
+                    batch_data.append(next(dataset))
+                except StopIteration:
                     break
 
-                yield shuffle_size_data
+                if len(batch_data) == self.batch_size:
+                    yield batch_data
+                    batch_data = []
 
-        def _batch_data_generator():
+            if not self.drop_last and len(batch_data) > 0:
+                yield batch_data
+                batch_data = []
+
+        def _batch_stream_shuffle_generator():
+            buffer_list = []
             batch_data = []
-            for shuffle_size_data in _data_generator():
-                np.random.shuffle(shuffle_size_data)
+            for examples in _batch_stream_data_generator():
+                if len(buffer_list) < self.stream_shuffle_size:
+                    buffer_list.extend(examples)
+                else:
+                    rand_idx = np.random.randint(0,
+                                                 len(buffer_list),
+                                                 len(examples))
+                    for idx, e in zip(rand_idx, examples):
+                        batch_data.append(buffer_list[idx])
+                        buffer_list[idx] = e
 
-                for d in shuffle_size_data:
-                    batch_data.append(d)
+                    yield batch_data
+                    batch_data = []
+
+            if len(buffer_list) > 0:
+                np.random.shuffle(buffer_list)
+                batch_data = []
+                for e in buffer_list:
+                    batch_data.append(e)
                     if len(batch_data) == self.batch_size:
                         yield batch_data
                         batch_data = []
 
-            if not self.drop_last and len(batch_data) > 0:
-                yield batch_data
+                if not self.drop_last and len(batch_data) > 0:
+                    yield batch_data
+                    batch_data = []
 
         self._worker_info = WorkerInfo(
             num_workers=self.num_workers, fid=self.fid)
         self.dataset._set_worker_info(self._worker_info)
 
-        for batch_data in _batch_data_generator():
+        for batch_data in _batch_stream_shuffle_generator():
             if self.collate_fn is not None:
                 yield self.collate_fn(batch_data)
             else:
