@@ -1,0 +1,43 @@
+task_name: distributed_metapath2vec
+
+# ---------------------------数据配置-------------------------------------------------#
+# for data preprocessing
+data_path: ./data/net_aminer
+author_label_file: ./data/label/googlescholar.8area.author.label.txt
+venue_label_file: ./data/label/googlescholar.8area.venue.label.txt
+processed_path: ./graph_data
+
+# for pgl graph engine
+etype2files: "p2a:./graph_data/paper2author_edges.txt,p2c:./graph_data/paper2conf_edges.txt"
+ntype2files: "p:./graph_data/node_types.txt,a:./graph_data/node_types.txt,c:./graph_data/node_types.txt"
+symmetry: True
+meta_path: "c2p-p2a-a2p-p2c"
+first_node_type: "c"
+
+shard_num: 100
+
+walk_len: 24
+win_size: 3
+neg_num: 5
+walk_times: 20
+
+
+# ---------------------------模型参数配置---------------------------------------------#
+model_type: SkipGramModel
+warm_start_from: null
+num_nodes: 5000000
+embed_size: 64
+sparse_embed: False
+
+# ---------------------------训练参数配置---------------------------------------------#
+epochs: 1
+num_workers: 4
+lr: 0.001
+lazy_mode: False
+batch_node_size: 200
+batch_pair_size: 1000
+pair_stream_shuffle_size: 100000
+log_dir: ./logs
+output_dir: ./outputs
+save_dir: ./checkpoints
+log_steps: 1000

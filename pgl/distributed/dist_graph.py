@@ -76,7 +76,14 @@ class DistGraphServer(object):
                  is_block=False):
         """
         Args:
-            config: a yaml configure file or a dict of parameters
+            config: a yaml configure file or a dict of parameters.
+            Below are some necessary hyper-parameters:
+            ```
+                etype2files: "u2e2t:./your_path/edges.txt"
+                symmetry: True
+                ntype2files: "u:./your_path/node_types.txt,t:./your_path/node_types.txt"
+
+            ```
 
             shard_num: int, the sharding number of graph data
 
@@ -128,6 +135,13 @@ class DistGraphClient(object):
         """
         Args:
             config: a yaml configure file or a dict of parameters
+            Below are some necessary hyper-parameters:
+            ```
+                etype2files: "u2e2t:./your_path/edges.txt"
+                symmetry: True
+                ntype2files: "u:./your_path/node_types.txt,t:./your_path/node_types.txt"
+
+            ```
 
             shard_num: int, the sharding number of graph data
 
@@ -196,7 +210,7 @@ class DistGraphClient(object):
             log.info("load nodes of type %s from %s" % (ntype, filepath))
             self._client.load_node_file(ntype, filepath)
 
-    def sample_predecessor(self, nodes, max_degree, edge_type):
+    def sample_predecessor(self, nodes, max_degree, edge_type=None):
         """
         Args:
             nodes: list of node ID
@@ -205,6 +219,16 @@ class DistGraphClient(object):
 
             edge_type: str, edge type
         """
+
+        if edge_type is None:
+            if len(self.edge_type_list) > 1:
+                msg = "There are %s (%s) edge types in the Graph, " \
+                        % (len(self.edge_type_list), self.edge_type_list)
+                msg += "The argument of edge_type should be specified, "
+                msg += "but got [None]."
+                raise ValueError(msg)
+            else:
+                edge_type = self.edge_type_list[0]
 
         res = self._client.batch_sample_neighboors(edge_type, nodes,
                                                    max_degree)
@@ -214,7 +238,7 @@ class DistGraphClient(object):
                 neighs[idx].append(pair[0])
         return neighs
 
-    def sample_successor(self, nodes, max_degree, edge_type):
+    def sample_successor(self, nodes, max_degree, edge_type=None):
         """
         Args:
             nodes: list of node ID
@@ -223,6 +247,16 @@ class DistGraphClient(object):
 
             edge_type: str, edge type
         """
+        if edge_type is None:
+            if len(self.edge_type_list) > 1:
+                msg = "There are %s (%s) edge types in the Graph, " \
+                        % (len(self.edge_type_list), self.edge_type_list)
+                msg += "The argument of edge_type should be specified, "
+                msg += "but got [None]."
+                raise ValueError(msg)
+            else:
+                edge_type = self.edge_type_list[0]
+
         res = self._client.batch_sample_neighboors(edge_type, nodes,
                                                    max_degree)
         neighs = [[] for _ in range(len(res))]
@@ -238,10 +272,20 @@ class DistGraphClient(object):
 
             size: int
         """
-        server_idx = np.random.choice(self.server_num)
-        nodes = self._client.random_sample_nodes(node_type, server_idx, size)
+        sampled_nodes = []
+        server_list = list(range(self.server_num))
+        np.random.shuffle(server_list)
+        left_size = size
+        for server_idx in server_list:
+            nodes = self._client.random_sample_nodes(node_type, server_idx,
+                                                     left_size)
+            sampled_nodes.extend(nodes)
+            if len(sampled_nodes) >= size:
+                break
+            else:
+                left_size = size - len(sampled_nodes)
 
-        return nodes
+        return sampled_nodes
 
     def node_batch_iter(self,
                         batch_size,

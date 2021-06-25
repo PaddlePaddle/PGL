@@ -23,6 +23,10 @@ Leaderboards can be found [here](https://ogb.stanford.edu/kddcup2021/results/).
 - Masked Label Prediction: Unified Message Passing Model for Semi-Supervised Classification, to appear in **IJCAI2021**.
 - HGAMN: Heterogeneous Graph Attention Matching Network for Multilingual POI Retrieval at Baidu Maps, to appear in **KDD2021**.
 
+**PGL Dstributed Graph Engine API released!!**
+
+- Our Dstributed Graph Engine API has been released and we developed a [tutorial](./tutorial/working_with_distributed_graph_engine.ipynb) to show how to launch a graph engine and a [demo](./examples/metapath2vec) for training model using graph engine.
+
 
 PGL v2.1 2021.02.02
 
