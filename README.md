@@ -25,7 +25,7 @@ Leaderboards can be found [here](https://ogb.stanford.edu/kddcup2021/results/).
 
 **PGL Dstributed Graph Engine API released!!**
 
-- Our Dstributed Graph Engine API has been released and we developed a [tutorial](./tutorial/working_with_distributed_graph_engine.ipynb) to show how to launch a graph engine and a [demo](./examples/metapath2vec) for training model using graph engine.
+- Our Dstributed Graph Engine API has been released and we developed a [tutorial](./tutorials/working_with_distributed_graph_engine.ipynb) to show how to launch a graph engine and a [demo](./examples/metapath2vec) for training model using graph engine.
 
 
 PGL v2.1 2021.02.02
