@@ -17,7 +17,7 @@ repos:
         entry: python ./.copyright.hook
         language: system
         files: \.(c|cc|cxx|cpp|cu|h|hpp|hxx|proto|py)$
-        exclude: (?!.*third_party)^.*$ | (?!.*book)^.*$ | (?!.*pgl/third_party)^.*$
+        exclude: (?!.*third_party)^.*$ | (?!.*book)^.*$
 
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     sha: 5bf6c09bfa1297d3692cadd621ef95f1284e33c0
