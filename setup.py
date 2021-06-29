@@ -16,6 +16,7 @@ import os
 import sys
 import re
 import codecs
+import glob
 from setuptools import setup, find_packages
 from setuptools import Extension
 from setuptools import dist
@@ -78,10 +79,24 @@ def find_version(*file_paths):
     raise RuntimeError("Unable to find version string.")
 
 
+def get_metis_source():
+    return glob.glob("pgl/third_party/metis/GKlib/*.c") \
+           + glob.glob("pgl/third_party/metis/*.c") \
+           + glob.glob("pgl/third_party/metis/libmetis/*.c")
+
+
+def get_metis_inc():
+    return [
+        "pgl/third_party/metis/include", "pgl/third_party/metis/GKlib",
+        "pgl/third_party/metis/include", "pgl/third_party/metis/libmetis"
+    ]
+
+
 extensions = [
     Extension(
         "pgl.graph_kernel",
-        ["pgl/graph_kernel.pyx"],
+        sources=["pgl/graph_kernel.pyx"] + get_metis_source(),
+        include_dirs=get_metis_inc(),
         language="c++",
         extra_compile_args=compile_extra_args,
         extra_link_args=link_extra_args, ),
