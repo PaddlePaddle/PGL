@@ -23,6 +23,8 @@ from libcpp.unordered_set cimport unordered_set
 from libcpp.unordered_map cimport unordered_map
 from libcpp.vector cimport vector
 from libc.stdlib cimport rand, RAND_MAX
+from libcpp cimport bool
+
 cdef extern from "stdint.h":
     ctypedef signed int int64_t
 
