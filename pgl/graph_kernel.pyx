@@ -23,6 +23,23 @@ from libcpp.unordered_set cimport unordered_set
 from libcpp.unordered_map cimport unordered_map
 from libcpp.vector cimport vector
 from libc.stdlib cimport rand, RAND_MAX
+cdef extern from "stdint.h":
+    ctypedef signed int int64_t
+
+cdef extern from "third_party/metis/include/metis.h":
+    cdef int METIS_PartGraphRecursive(int64_t *nvtxs, int64_t *ncon, int64_t *xadj, 
+                  int64_t *adjncy, int64_t *vwgt, int64_t *vsize, int64_t *adjwgt, 
+                  int64_t *nparts, float *tpwgts, float *ubvec, int64_t *options, 
+                  int64_t *edgecut, int64_t *part) nogil
+
+    cdef int METIS_PartGraphKway(int64_t *nvtxs, int64_t *ncon, int64_t *xadj, 
+                  int64_t *adjncy, int64_t *vwgt, int64_t *vsize, int64_t *adjwgt, 
+                  int64_t *nparts, float *tpwgts, float *ubvec, int64_t *options, 
+                  int64_t *edgecut, int64_t *part) nogil
+
+
+    cdef int METIS_SetDefaultOptions(int64_t *options)
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -410,3 +427,32 @@ def extract_edges_from_nodes(
                 j = j + 1
             i = i + 1
     return ret_edge_index
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def metis_partition(
+    int64_t num_nodes,
+    np.ndarray[np.int64_t, ndim=1] adj_indptr,
+    np.ndarray[np.int64_t, ndim=1] sorted_v,
+    int64_t nparts,
+    bool recursive=True,
+):
+    cdef int64_t edgecut = -1
+    cdef int64_t ncon = 1
+
+    cdef np.ndarray part = np.zeros((num_nodes, ), dtype="int64")
+
+    with nogil:
+        if recursive:
+            METIS_PartGraphRecursive(&num_nodes, &ncon, <int64_t *> adj_indptr.data,
+                             <int64_t *> sorted_v.data, NULL, NULL, NULL,
+                             &nparts, NULL, NULL, NULL,
+                             &edgecut, <int64_t *> part.data)
+        else:
+            METIS_PartGraphKway(&num_nodes, &ncon, <int64_t *> adj_indptr.data,
+                             <int64_t *> sorted_v.data, NULL, NULL, NULL,
+                             &nparts, NULL, NULL, NULL,
+                             &edgecut, <int64_t *> part.data)
+    return part
+    
+
