@@ -49,7 +49,7 @@ class TransEScore(object):
         a_s = paddle.norm(a, p=2, axis=-1).pow(2)
         b_s = paddle.norm(b, p=2, axis=-1).pow(2)
         dist_score = -2 * paddle.bmm(a, b.transpose(
-            [0, 2, 1])) + a_s.unsqueeze(-1)
+            [0, 2, 1])) + b_s.unsqueeze(-2) + a_s.unsqueeze(-1)
         dist_score = paddle.sqrt(paddle.clip(dist_score, min=1e-30))
         return dist_score
 

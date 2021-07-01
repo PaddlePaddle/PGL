@@ -69,4 +69,5 @@ class LossFunc(object):
         """
         adv_score = self.adv_temp_value * score
         adv_softmax = nn.functional.softmax(adv_score)
+        adv_softmax.stop_gradient = True
         return adv_softmax
