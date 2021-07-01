@@ -62,6 +62,8 @@ class NumpyEmbedding():
         return self.forward(*args, **kwargs)
 
     def forward(self, index):
+        self.index_name_dict = []
+        self.tensor_name_dict = []
         if type(index) is paddle.Tensor:
             index = index.numpy()
         # assert len(self.index_name_dict) == 0, "Error, you can only call forward step once in program."
@@ -94,7 +96,8 @@ class NumpyEmbedding():
         grad_square = grad * grad
         self.moment[index] += grad_square.numpy()
         std = paddle.to_tensor(self.moment[index])
-        std_values = std.sqrt() + 1e-6
+        std_values = std.sqrt(
+        ) + 1e-10  # default paddle 1e-6, 1e-10 for torch.
         update = -lr * grad / std_values
         self.weight[index] += update.numpy()
 
@@ -120,12 +123,8 @@ def embedding_layer(num_embedding,
     embedding = nn.Embedding(
         num_embedding, embedding_dim, weight_attr=paddle.ParamAttr(name=name))
     if init_value is not None:
-        # init1 = paddle.uniform(
-        #     shape=[num_embedding, embedding_dim],
-        #     min=-init_value,
-        #     max=init_value)
         if use_scale:
-            init_value = 1. / math.sqrt(self.embedding_di)
+            init_value = 1. / math.sqrt(embedding_dim)
             value = np.random.uniform(
                 -init_value, init_value,
                 [num_embedding, embedding_dim]).astype(np.float32)
@@ -252,26 +251,37 @@ class BaseKEModel(nn.Layer):
             adv_temp_value=args.adversarial_temperature,
             pairwise=args.pairwise)
 
-    def head_forward(self, pos_triplets, neg_triplets, real_ent_ids):
+    def forward(self,
+                pos_triplets,
+                neg_triplets,
+                real_ent_ids,
+                neg_head_mode=True):
         entity_emb = self.entity_embedding(real_ent_ids)
         if not self.args.cpu_emb:
             self.entity_embedding.curr_emb = entity_emb
         entity_feat = paddle.to_tensor(self.entity_feat[real_ent_ids.numpy()]
                                        .astype('float32'))
-        emb = paddle.concat([entity_emb, entity_feat], axis=-1)
+        emb = paddle.concat([entity_feat, entity_emb], axis=-1)
 
         pos_head = self.transform_net.embed_entity(
             F.embedding(pos_triplets[0], emb))
         pos_tail = self.transform_net.embed_entity(
             F.embedding(pos_triplets[2], emb))
+
         neg_head = self.transform_net.embed_entity(
             F.embedding(neg_triplets[0], emb))
         neg_tail = self.transform_net.embed_entity(
             F.embedding(neg_triplets[2], emb))
-        pos_rel = self.transform_net.embed_relation(paddle.concat([self.relation_embedding(pos_triplets[1]), \
-                                 paddle.to_tensor(self.relation_feat[pos_triplets[1].numpy()].astype('float32'))], axis=-1))
-        neg_rel = self.transform_net.embed_relation(paddle.concat([self.relation_embedding(neg_triplets[1]), \
-                                 paddle.to_tensor(self.relation_feat[neg_triplets[1].numpy()].astype('float32'))], axis=-1))
+
+        pos_rel = self.transform_net.embed_relation(
+            paddle.concat(
+                [
+                    paddle.to_tensor(self.relation_feat[pos_triplets[1].numpy(
+                    )].astype('float32')), self.relation_embedding(
+                        pos_triplets[1])
+                ],
+                axis=-1))
+
         batch_size = pos_head.shape[0]
         if batch_size < self.args.neg_sample_size:
             neg_sample_size = batch_size
@@ -279,42 +289,8 @@ class BaseKEModel(nn.Layer):
             neg_sample_size = self.args.neg_sample_size
         pos_score = self.score_function.get_score(pos_head, pos_rel, pos_tail)
         neg_score = self.score_function.get_neg_score(
-            pos_head, pos_rel, pos_tail, batch_size, neg_sample_size,
-            neg_sample_size, True)
-        loss = self.loss_func.get_total_loss(pos_score, neg_score)
-        return loss
-
-    def tail_forward(self, pos_triplets, neg_triplets, real_ent_ids):
-        entity_emb = self.entity_embedding(real_ent_ids)
-        if not self.args.cpu_emb:
-            self.entity_embedding.curr_emb = entity_emb
-
-        entity_feat = paddle.to_tensor(self.entity_feat[real_ent_ids.numpy()]
-                                       .astype('float32'))
-        emb = paddle.concat([entity_emb, entity_feat], axis=-1)
-
-        pos_head = self.transform_net.embed_entity(
-            F.embedding(pos_triplets[0], emb))
-        pos_tail = self.transform_net.embed_entity(
-            F.embedding(pos_triplets[2], emb))
-        neg_head = self.transform_net.embed_entity(
-            F.embedding(neg_triplets[0], emb))
-        neg_tail = self.transform_net.embed_entity(
-            F.embedding(neg_triplets[2], emb))
-
-        pos_rel = self.transform_net.embed_relation(paddle.concat([self.relation_embedding(pos_triplets[1]), \
-                                 paddle.to_tensor(self.relation_feat[pos_triplets[1].numpy()].astype('float32'))], axis=-1))
-        neg_rel = self.transform_net.embed_relation(paddle.concat([self.relation_embedding(neg_triplets[1]), \
-                                 paddle.to_tensor(self.relation_feat[neg_triplets[1].numpy()].astype('float32'))], axis=-1))
-        batch_size = pos_head.shape[0]
-        if batch_size < self.args.neg_sample_size:
-            neg_sample_size = batch_size
-        else:
-            neg_sample_size = self.args.neg_sample_size
-        pos_score = self.score_function.get_score(pos_head, pos_rel, pos_tail)
-        neg_score = self.score_function.get_neg_score(
-            pos_head, pos_rel, pos_tail, batch_size, neg_sample_size,
-            neg_sample_size, False)
+            neg_head, pos_rel, neg_tail, batch_size, neg_sample_size,
+            neg_sample_size, neg_head_mode)
         loss = self.loss_func.get_total_loss(pos_score, neg_score)
         return loss
 
@@ -331,16 +307,22 @@ class BaseKEModel(nn.Layer):
             neg_tail_entity_feat = paddle.to_tensor(self.entity_feat[
                 paddle.reshape(candidate, [-1]).numpy()].astype('float32'))
             neg_tail = self.transform_net.embed_entity(
-                paddle.concat([neg_tail_entity_emb, neg_tail_entity_feat], -1))
+                paddle.concat([neg_tail_entity_feat, neg_tail_entity_emb], -1))
 
             head_emb = self.entity_embedding(query[:, 0])
             head_feat = paddle.to_tensor(self.entity_feat[query[:, 0].numpy()]
                                          .astype('float32'))
             head = self.transform_net.embed_entity(
-                paddle.concat([head_emb, head_feat], -1))
+                paddle.concat([head_feat, head_emb], -1))
 
-            rel = self.transform_net.embed_relation(paddle.concat([self.relation_embedding(query[:, 1]), \
-                                 paddle.to_tensor(self.relation_feat[query[:, 1].numpy()].astype('float32'))], axis=-1))
+            rel = self.transform_net.embed_relation(
+                paddle.concat(
+                    [
+                        paddle.to_tensor(self.relation_feat[query[:, 1].numpy(
+                        )].astype('float32')),
+                        self.relation_embedding(query[:, 1]),
+                    ],
+                    axis=-1))
             neg_score = self.score_function.get_neg_score(
                 head,
                 rel,
