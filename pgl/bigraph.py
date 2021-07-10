@@ -26,7 +26,7 @@ import pgl.graph_kernel as graph_kernel
 
 from pgl.message import Message
 from collections import defaultdict
-from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes
+from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes, unique_segment
 from pgl.utils.edge_index import EdgeIndex
 import paddle.distributed as dist
 import warnings
@@ -173,8 +173,7 @@ class BiGraph(object):
         self._adj_dst_index = kwargs.get("adj_dst_index", None)
 
         if check_is_tensor(self._src_num_nodes, self._dst_num_nodes,
-                           self._edges,
-                           *list(self._src_node_feat.values()),
+                           self._edges, *list(self._src_node_feat.values()),
                            *list(self._dst_node_feat.values()),
                            *list(self._edge_feat.values())):
             self._is_tensor = True
@@ -191,7 +190,7 @@ class BiGraph(object):
             # ensure all variable is tenosr
             if not check_is_tensor(self._src_num_nodes):
                 self._src_num_nodes = paddle.to_tensor(self._src_num_nodes)
-            
+
             if not check_is_tensor(self._dst_num_nodes):
                 self._dst_num_nodes = paddle.to_tensor(self._dst_num_nodes)
 
@@ -200,13 +199,13 @@ class BiGraph(object):
 
             for key in self._src_node_feat:
                 if not check_is_tensor(self._src_node_feat[key]):
-                    self._src_node_feat[key] = paddle.to_tensor(self._src_node_feat[
-                        key])
-            
+                    self._src_node_feat[key] = paddle.to_tensor(
+                        self._src_node_feat[key])
+
             for key in self._dst_node_feat:
                 if not check_is_tensor(self._dst_node_feat[key]):
-                    self._dst_node_feat[key] = paddle.to_tensor(self._dst_node_feat[
-                        key])
+                    self._dst_node_feat[key] = paddle.to_tensor(
+                        self._dst_node_feat[key])
 
             for key in self._edge_feat:
                 if not check_is_tensor(self._edge_feat[key]):
@@ -281,7 +280,7 @@ class BiGraph(object):
 
         dst_num_nodes = np.load(
             os.path.join(path, 'dst_num_nodes.npy'), mmap_mode=mmap_mode)
-            
+
         edges = np.load(os.path.join(path, 'edges.npy'), mmap_mode=mmap_mode)
         num_graph = np.load(
             os.path.join(path, 'num_graph.npy'), mmap_mode=mmap_mode)
@@ -489,8 +488,10 @@ class BiGraph(object):
             if not os.path.exists(path):
                 os.makedirs(path)
 
-            np.save(os.path.join(path, 'src_num_nodes.npy'), self._src_num_nodes)
-            np.save(os.path.join(path, 'dst_num_nodes.npy'), self._dst_num_nodes)
+            np.save(
+                os.path.join(path, 'src_num_nodes.npy'), self._src_num_nodes)
+            np.save(
+                os.path.join(path, 'dst_num_nodes.npy'), self._dst_num_nodes)
             np.save(os.path.join(path, 'edges.npy'), self._edges)
             np.save(os.path.join(path, 'num_graph.npy'), self._num_graph)
 
@@ -592,7 +593,6 @@ class BiGraph(object):
         """Return the number of dst nodes.
         """
         return self._dst_num_nodes
-
 
     @property
     def edges(self):
@@ -1098,8 +1098,7 @@ class BiGraph(object):
             message_func,
             src_feat=None,
             dst_feat=None,
-            edge_feat=None,
-            ):
+            edge_feat=None, ):
         """Send message from all src nodes to dst nodes.
 
         The UDF message function should has the following format.
@@ -1136,13 +1135,13 @@ class BiGraph(object):
             src_feat_temp = {}
             dst_feat_temp = {}
             if src_feat is not None:
-                assert isinstance(
-                    src_feat, dict), "The input src_feat must be a dict"
+                assert isinstance(src_feat,
+                                  dict), "The input src_feat must be a dict"
                 src_feat_temp.update(src_feat)
 
             if dst_feat is not None:
-                assert isinstance(
-                    dst_feat, dict), "The input dst_feat must be a dict"
+                assert isinstance(dst_feat,
+                                  dict), "The input dst_feat must be a dict"
                 dst_feat_temp.update(dst_feat)
 
             edge_feat_temp = {}
@@ -1165,7 +1164,6 @@ class BiGraph(object):
             return msg
         else:
             raise ValueError("You must call BiGraph.tensor() first")
-
 
     def recv(self, reduce_func, msg, recv_mode="dst"):
         """Recv message and aggregate the message by reduce_func
@@ -1212,10 +1210,15 @@ class BiGraph(object):
 
         msg = op.RowReader(msg, eid)
 
+        if (recv_mode == "dst") and (not hasattr(self, "_dst_uniq_ind")):
+            self._dst_uniq_ind, self._dst_segment_ids = unique_segment(dst)
+        if (recv_mode == "src") and (not hasattr(self, "_src_uniq_ind")):
+            self._src_uniq_ind, self._src_segment_ids = unique_segment(src)
+
         if recv_mode == "dst":
-            uniq_ind, segment_ids = paddle.unique(dst, return_inverse=True)
+            uniq_ind, segment_ids = self._dst_uniq_ind, self._dst_segment_ids
         elif recv_mode == "src":
-            uniq_ind, segment_ids = paddle.unique(src, return_inverse=True)
+            uniq_ind, segment_ids = self._src_uniq_ind, self._src_segment_ids
 
         bucketed_msg = Message(msg, segment_ids)
         output = reduce_func(bucketed_msg)
@@ -1231,7 +1234,6 @@ class BiGraph(object):
 
         return final_output
 
-
     def _process_graph_info(self, **kwargs):
         if ("_graph_src_node_index" in kwargs) and (
                 kwargs["_graph_src_node_index"] is not None):
@@ -1244,7 +1246,6 @@ class BiGraph(object):
             self._graph_dst_node_index = kwargs["_graph_dst_node_index"]
         else:
             self._graph_dst_node_index = None
-
 
         if ("_graph_edge_index" in kwargs) and (
                 kwargs["_graph_edge_index"] is not None):
@@ -1357,8 +1358,10 @@ class BiGraph(object):
         else:
             num_graph = paddle.to_tensor([len(graph_list)], "int64") \
                     if is_tensor else len(graph_list)
-            graph_src_node_index = cls._join_graph_index(graph_list, mode="src_node")
-            graph_dst_node_index = cls._join_graph_index(graph_list, mode="dst_node")
+            graph_src_node_index = cls._join_graph_index(
+                graph_list, mode="src_node")
+            graph_dst_node_index = cls._join_graph_index(
+                graph_list, mode="dst_node")
             graph_edge_index = cls._join_graph_index(graph_list, mode="edge")
 
         graph = cls(src_num_nodes=src_num_nodes,
@@ -1389,8 +1392,8 @@ class BiGraph(object):
             counts = [g.num_edges for g in graph_list]
         else:
             raise ValueError(
-                "mode must be in ['src_node', 'dst_node',  'edge']. But received model=%s" %
-                mode)
+                "mode must be in ['src_node', 'dst_node',  'edge']. But received model=%s"
+                % mode)
 
         if is_tensor:
             counts = paddle.concat(counts)
@@ -1410,8 +1413,8 @@ class BiGraph(object):
             return dst_num_nodes
         else:
             raise ValueError(
-                "mode must be in ['src_node', 'dst_node']. But received mode=%s" % mode
-            )
+                "mode must be in ['src_node', 'dst_node']. But received mode=%s"
+                % mode)
 
     @staticmethod
     def _join_feature(graph_list, mode="src_node"):
@@ -1432,8 +1435,8 @@ class BiGraph(object):
                     feat[key].append(graph.edge_feat[key])
         else:
             raise ValueError(
-                "mode must be in ['src_node', 'dst_node', 'edge']. But received model=%s" %
-                mode)
+                "mode must be in ['src_node', 'dst_node', 'edge']. But received model=%s"
+                % mode)
 
         ret_feat = {}
         for key in feat:
@@ -1510,5 +1513,3 @@ class BiGraph(object):
         self.dump(path)
         graph = BiGraph.load(path, mmap_mode="r")
         return graph
-
-

@@ -26,7 +26,7 @@ import pgl.graph_kernel as graph_kernel
 
 from pgl.message import Message
 from collections import defaultdict
-from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes
+from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes, unique_segment
 from pgl.utils.edge_index import EdgeIndex
 import paddle.distributed as dist
 import warnings
@@ -235,10 +235,15 @@ class Graph(object):
 
         msg = op.RowReader(msg, eid)
 
+        if (recv_mode == "dst") and (not hasattr(self, "_dst_uniq_ind")):
+            self._dst_uniq_ind, self._dst_segment_ids = unique_segment(dst)
+        if (recv_mode == "src") and (not hasattr(self, "_src_uniq_ind")):
+            self._src_uniq_ind, self._src_segment_ids = unique_segment(src)
+
         if recv_mode == "dst":
-            uniq_ind, segment_ids = paddle.unique(dst, return_inverse=True)
+            uniq_ind, segment_ids = self._dst_uniq_ind, self._dst_segment_ids
         elif recv_mode == "src":
-            uniq_ind, segment_ids = paddle.unique(src, return_inverse=True)
+            uniq_ind, segment_ids = self._src_uniq_ind, self._src_segment_ids
 
         bucketed_msg = Message(msg, segment_ids)
         output = reduce_func(bucketed_msg)

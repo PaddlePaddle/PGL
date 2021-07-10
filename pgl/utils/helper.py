@@ -17,7 +17,8 @@ import paddle
 from paddle.fluid.layers import core
 from paddle.fluid.layer_helper import LayerHelper
 from paddle.fluid.data_feeder import convert_dtype, check_variable_and_dtype, check_type, check_dtype
-from paddle.fluid.framework import Variable, in_dygraph_mode
+from paddle.fluid.framework import Variable, in_dygraph_mode, convert_np_dtype_to_dtype_
+import paddle.fluid.layers as L
 
 
 def check_is_tensor(*data):
@@ -154,3 +155,13 @@ def maybe_num_nodes(edges):
         return np.max(edges) + 1
 
 
+def unique_segment(data, dtype="int64"):
+    """Return Segment Id from data
+    """
+    if in_dygraph_mode():
+        attr_dtype = convert_np_dtype_to_dtype_(dtype)
+        unique, index, _ = core.ops.unique_with_counts(data, "dtype",
+                                                       attr_dtype)
+        return unique, index
+    else:
+        unqiue, index, _ = L.unique_with_counts(data)
