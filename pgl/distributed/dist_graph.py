@@ -22,6 +22,7 @@ import time
 import argparse
 import warnings
 import numpy as np
+from functools import partial
 
 from paddle.fluid.core import GraphPyService, GraphPyServer, GraphPyClient
 from pgl.utils.logger import log
@@ -287,6 +288,30 @@ class DistGraphClient(object):
 
         return sampled_nodes
 
+    def _node_batch_iter_from_server(self,
+                                     server_idx,
+                                     batch_size,
+                                     node_type,
+                                     rank=0,
+                                     nrank=1):
+        assert batch_size > 0, \
+                "batch_size should be larger than 0, but got %s <= 0" % batch_size
+        assert server_idx >= 0 and server_idx < self.server_num, \
+                "server_idx should be in range 0 <= server_idx < server_num, but got %s" \
+                % server_idx
+        start = rank
+        step = nrank
+        while True:
+            res = self._client.pull_graph_list(node_type, server_idx, start,
+                                               batch_size, step)
+            start += (nrank * batch_size)
+            nodes = [x.get_id() for x in res]
+
+            if len(nodes) > 0:
+                yield nodes
+            if len(nodes) != batch_size:
+                break
+
     def node_batch_iter(self,
                         batch_size,
                         node_type,
@@ -306,29 +331,23 @@ class DistGraphClient(object):
             nrank: int
         """
 
-        def _batch_data_generator(server_idx):
-            start = rank * batch_size
-            while True:
-                res = self._client.pull_graph_list(node_type, server_idx,
-                                                   start, batch_size, 1)
-                start += (nrank * batch_size)
-                nodes = [x.get_id() for x in res]
-
-                if len(nodes) > 0:
-                    yield nodes
-                if len(nodes) != batch_size:
-                    break
+        node_iter = partial(
+            self._node_batch_iter_from_server,
+            batch_size=batch_size,
+            node_type=node_type,
+            rank=rank,
+            nrank=nrank)
 
         server_idx_list = list(range(self.server_num))
         np.random.shuffle(server_idx_list)
         for server_idx in server_idx_list:
             if shuffle:
                 for nodes in stream_shuffle_generator(
-                        _batch_data_generator, server_idx, batch_size,
+                        node_iter, server_idx, batch_size,
                         self.stream_shuffle_size):
                     yield nodes
             else:
-                for nodes in _batch_data_generator(server_idx):
+                for nodes in node_iter(server_idx):
                     yield nodes
 
     def get_node_feat(self, nodes, node_type, feat_names):
