@@ -22,6 +22,7 @@ import time
 import argparse
 import warnings
 import numpy as np
+from functools import partial
 
 from paddle.fluid.core import GraphPyService, GraphPyServer, GraphPyClient
 from pgl.utils.logger import log
@@ -76,7 +77,14 @@ class DistGraphServer(object):
                  is_block=False):
         """
         Args:
-            config: a yaml configure file or a dict of parameters
+            config: a yaml configure file or a dict of parameters.
+            Below are some necessary hyper-parameters:
+            ```
+                etype2files: "u2e2t:./your_path/edges.txt"
+                symmetry: True
+                ntype2files: "u:./your_path/node_types.txt,t:./your_path/node_types.txt"
+
+            ```
 
             shard_num: int, the sharding number of graph data
 
@@ -128,6 +136,13 @@ class DistGraphClient(object):
         """
         Args:
             config: a yaml configure file or a dict of parameters
+            Below are some necessary hyper-parameters:
+            ```
+                etype2files: "u2e2t:./your_path/edges.txt"
+                symmetry: True
+                ntype2files: "u:./your_path/node_types.txt,t:./your_path/node_types.txt"
+
+            ```
 
             shard_num: int, the sharding number of graph data
 
@@ -196,7 +211,7 @@ class DistGraphClient(object):
             log.info("load nodes of type %s from %s" % (ntype, filepath))
             self._client.load_node_file(ntype, filepath)
 
-    def sample_predecessor(self, nodes, max_degree, edge_type):
+    def sample_predecessor(self, nodes, max_degree, edge_type=None):
         """
         Args:
             nodes: list of node ID
@@ -205,6 +220,16 @@ class DistGraphClient(object):
 
             edge_type: str, edge type
         """
+
+        if edge_type is None:
+            if len(self.edge_type_list) > 1:
+                msg = "There are %s (%s) edge types in the Graph, " \
+                        % (len(self.edge_type_list), self.edge_type_list)
+                msg += "The argument of edge_type should be specified, "
+                msg += "but got [None]."
+                raise ValueError(msg)
+            else:
+                edge_type = self.edge_type_list[0]
 
         res = self._client.batch_sample_neighboors(edge_type, nodes,
                                                    max_degree)
@@ -214,7 +239,7 @@ class DistGraphClient(object):
                 neighs[idx].append(pair[0])
         return neighs
 
-    def sample_successor(self, nodes, max_degree, edge_type):
+    def sample_successor(self, nodes, max_degree, edge_type=None):
         """
         Args:
             nodes: list of node ID
@@ -223,6 +248,16 @@ class DistGraphClient(object):
 
             edge_type: str, edge type
         """
+        if edge_type is None:
+            if len(self.edge_type_list) > 1:
+                msg = "There are %s (%s) edge types in the Graph, " \
+                        % (len(self.edge_type_list), self.edge_type_list)
+                msg += "The argument of edge_type should be specified, "
+                msg += "but got [None]."
+                raise ValueError(msg)
+            else:
+                edge_type = self.edge_type_list[0]
+
         res = self._client.batch_sample_neighboors(edge_type, nodes,
                                                    max_degree)
         neighs = [[] for _ in range(len(res))]
@@ -238,10 +273,44 @@ class DistGraphClient(object):
 
             size: int
         """
-        server_idx = np.random.choice(self.server_num)
-        nodes = self._client.random_sample_nodes(node_type, server_idx, size)
+        sampled_nodes = []
+        server_list = list(range(self.server_num))
+        np.random.shuffle(server_list)
+        left_size = size
+        for server_idx in server_list:
+            nodes = self._client.random_sample_nodes(node_type, server_idx,
+                                                     left_size)
+            sampled_nodes.extend(nodes)
+            if len(sampled_nodes) >= size:
+                break
+            else:
+                left_size = size - len(sampled_nodes)
 
-        return nodes
+        return sampled_nodes
+
+    def _node_batch_iter_from_server(self,
+                                     server_idx,
+                                     batch_size,
+                                     node_type,
+                                     rank=0,
+                                     nrank=1):
+        assert batch_size > 0, \
+                "batch_size should be larger than 0, but got %s <= 0" % batch_size
+        assert server_idx >= 0 and server_idx < self.server_num, \
+                "server_idx should be in range 0 <= server_idx < server_num, but got %s" \
+                % server_idx
+        start = rank
+        step = nrank
+        while True:
+            res = self._client.pull_graph_list(node_type, server_idx, start,
+                                               batch_size, step)
+            start += (nrank * batch_size)
+            nodes = [x.get_id() for x in res]
+
+            if len(nodes) > 0:
+                yield nodes
+            if len(nodes) != batch_size:
+                break
 
     def node_batch_iter(self,
                         batch_size,
@@ -262,29 +331,23 @@ class DistGraphClient(object):
             nrank: int
         """
 
-        def _batch_data_generator(server_idx):
-            start = rank * batch_size
-            while True:
-                res = self._client.pull_graph_list(node_type, server_idx,
-                                                   start, batch_size, 1)
-                start += (nrank * batch_size)
-                nodes = [x.get_id() for x in res]
-
-                if len(nodes) > 0:
-                    yield nodes
-                if len(nodes) != batch_size:
-                    break
+        node_iter = partial(
+            self._node_batch_iter_from_server,
+            batch_size=batch_size,
+            node_type=node_type,
+            rank=rank,
+            nrank=nrank)
 
         server_idx_list = list(range(self.server_num))
         np.random.shuffle(server_idx_list)
         for server_idx in server_idx_list:
             if shuffle:
                 for nodes in stream_shuffle_generator(
-                        _batch_data_generator, server_idx, batch_size,
+                        node_iter, server_idx, batch_size,
                         self.stream_shuffle_size):
                     yield nodes
             else:
-                for nodes in _batch_data_generator(server_idx):
+                for nodes in node_iter(server_idx):
                     yield nodes
 
     def get_node_feat(self, nodes, node_type, feat_names):

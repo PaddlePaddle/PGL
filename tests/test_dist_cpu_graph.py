@@ -49,7 +49,7 @@ edges_file = """37	45	0.34
 34	121	0.21
 39	131	0.21"""
 
-node_file = """u	98	a 0.21	b 13 14	c hello1	d 
+node_file = """u	98	a 0.21	b 13 14	c hello1	
 u	97	a 0.22	b 13 14	c hello2	d 23:0,23:1,24:10,24:1
 u	96	a 0.23	b 13 14	c hello3	d 23:0,23:1,24:10,24:2
 u	7	a 0.24	b 13 14	c hello4	d 23:0,23:1,24:10,24:3
@@ -74,6 +74,32 @@ t	113	a 0.61	b 213 14	d 23:0,23:1,24:23,24:9
 t	112	a 0.71	b 213 14	d 23:0,23:1,24:24,24:9
 t	111	a 0.81	b 213 14	d 23:0,23:1,24:25,24:9"""
 
+#  node_file = """u	98
+#  u	97
+#  u	96
+#  u	7
+#  u	59
+#  t	48
+#  u	47
+#  t	45
+#  u	39
+#  u	37
+#  u	34
+#  t	333
+#  t	247
+#  t	234
+#  t	222
+#  t	211
+#  t	191
+#  t	145
+#  t	131
+#  t	122
+#  t	121
+#  t	113
+#  t	112
+#  t	111"""
+#
+
 tmp_path = "./tmp_distgraph_test"
 if not os.path.exists(tmp_path):
     os.makedirs(tmp_path)
@@ -89,7 +115,7 @@ with open(os.path.join(tmp_path, "node_types.txt"), 'w') as f:
 
 
 def get_server_ip_addr():
-    ip_addr_list = ["127.0.0.1:8243", "127.0.0.1:8242"]
+    ip_addr_list = ["127.0.0.1:8543", "127.0.0.1:8542"]
     return ip_addr_list
 
 
@@ -139,8 +165,20 @@ class DistGraphTest(unittest.TestCase):
         self.assertEqual(set(nodes) | set(g_u_nodes), set(g_u_nodes))
         self.assertEqual(len(set(nodes)), len(nodes))
 
+        node_type = "u"
+        size = 3
+        nodes = self.c1.random_sample_nodes(node_type, size)
+        self.assertEqual(set(nodes) | set(g_u_nodes), set(g_u_nodes))
+        self.assertEqual(len(set(nodes)), len(nodes))
+
         node_type = "t"
         size = 3
+        nodes = self.c1.random_sample_nodes(node_type, size)
+        self.assertEqual(set(nodes) | set(g_t_nodes), set(g_t_nodes))
+        self.assertEqual(len(set(nodes)), len(nodes))
+
+        node_type = "t"
+        size = 300
         nodes = self.c1.random_sample_nodes(node_type, size)
         self.assertEqual(set(nodes) | set(g_t_nodes), set(g_t_nodes))
         self.assertEqual(len(set(nodes)), len(nodes))
@@ -245,6 +283,7 @@ class DistGraphTest(unittest.TestCase):
                     break
             res.append(f)
 
+        #  print(res)
         for req, gf in zip(res, g_feat):
             self.assertEqual(req, gf)
 

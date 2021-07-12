@@ -224,20 +224,17 @@ def main():
     global_step = 0
     tic_train = time.time()
     log = {}
-    log["loss"] = []
-    log["regularization"] = []
+    log["loss"] = 0.0
+    log["regularization"] = 0.0
     for step in range(0, args.max_step):
         pos_triples, neg_triples, ids, neg_head = next(train_sampler)
-        if neg_head:
-            loss = model.head_forward(pos_triples, neg_triples, ids)
-        else:
-            loss = model.tail_forward(pos_triples, neg_triples, ids)
+        loss = model.forward(pos_triples, neg_triples, ids, neg_head)
 
-        log["loss"].append(loss.numpy()[0])
+        log["loss"] = loss.numpy()[0]
         if args.regularization_coef > 0.0 and args.regularization_norm > 0:
             coef, nm = args.regularization_coef, args.regularization_norm
             reg = coef * norm(model.entity_embedding.curr_emb, nm)
-            log['regularization'].append(reg.numpy()[0])
+            log['regularization'] = reg.numpy()[0]
             loss = loss + reg
 
         loss.backward()
@@ -249,9 +246,8 @@ def main():
             speed = args.log_interval / (time.time() - tic_train)
             logging.info(
                 "step: %d, train loss: %.5f, regularization: %.4e, speed: %.2f steps/s"
-                % (step, sum(log["loss"]) / args.log_interval,
-                   sum(log["regularization"]) / args.log_interval, speed))
-            log["loss"] = []
+                % (step, log["loss"], log["regularization"], speed))
+            log["loss"] = 0.0
             tic_train = time.time()
 
         if args.valid and (
