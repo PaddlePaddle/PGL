@@ -62,7 +62,9 @@ class MAG240M(object):
             edge_index = dataset.edge_index('author', 'institution')
             edge_index = edge_index.T
             log.info(edge_index.shape)
-            institution_graph = Graph(edge_index, num_nodes=dataset.num_institutions)
+            N = (dataset.num_papers + dataset.num_authors +
+                 dataset.num_institutions)
+            institution_graph = Graph(edge_index, num_nodes=N)
             institution_graph.tensor()
             log.info('finish institution graph')
             

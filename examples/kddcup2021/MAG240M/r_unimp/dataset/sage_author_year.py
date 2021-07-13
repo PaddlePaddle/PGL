@@ -56,7 +56,9 @@ class MAG240M(object):
             row, col = edge_index[:, 0], edge_index[:, 1]
             edge_index = np.stack([col, row], axis=1)
             log.info(edge_index.shape)
-            author_graph = Graph(edge_index, num_nodes=dataset.num_authors)
+            N = (dataset.num_papers + dataset.num_authors +
+                 dataset.num_institutions)
+            author_graph = Graph(edge_index, num_nodes=N)
             author_graph.tensor()
             log.info('finish author graph')
             
