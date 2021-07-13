@@ -34,8 +34,6 @@ class MAG240M(object):
         paper_edge_path = f'{dataset.dir}/paper_to_paper_symmetric_pgl_split'
         graph_file_list.append(paper_edge_path)
         t = time.perf_counter()
-        N = (dataset.num_papers + dataset.num_authors +
-                 dataset.num_institutions)
         if not osp.exists(paper_edge_path):
             log.info('Converting adjacency matrix...')
             edge_index = dataset.edge_index('paper', 'cites', 'paper')
@@ -47,7 +45,7 @@ class MAG240M(object):
             edge_index = np.vstack((edge_index, edges_new))
             edge_types = np.full([edge_index.shape[0], ], 0, dtype='int32')
             
-            graph = Graph(edge_index, num_nodes=N, edge_feat={'edge_type': edge_types})
+            graph = Graph(edge_index, num_nodes=dataset.num_papers, edge_feat={'edge_type': edge_types})
             graph.adj_dst_index
             graph.dump(paper_edge_path)
             log.info(f'Done! [{time.perf_counter() - t:.2f}s]')
@@ -69,7 +67,7 @@ class MAG240M(object):
             edge_types = np.full(row.shape, 1, dtype='int32')
             edge_index = np.stack([row, col], axis=1)
             
-            graph = Graph(edge_index, num_nodes=N, edge_feat={'edge_type': edge_types})
+            graph = Graph(edge_index, edge_feat={'edge_type': edge_types})
             graph.adj_dst_index
             graph.dump(author_edge_path)
             log.info(f'Done! finish author_edge [{time.perf_counter() - t:.2f}s]')
@@ -92,7 +90,7 @@ class MAG240M(object):
             edge_types = np.full(row.shape, 2, dtype='int32')
             edge_index = np.stack([col, row], axis=1)
             
-            graph = Graph(edge_index, num_nodes=N, edge_feat={'edge_type': edge_types})
+            graph = Graph(edge_index, edge_feat={'edge_type': edge_types})
             graph.adj_dst_index
             graph.dump(author_edge_path)
             log.info(f'Done! finish author_edge [{time.perf_counter() - t:.2f}s]')
@@ -118,7 +116,7 @@ class MAG240M(object):
             edge_types = np.full(row.shape, 3, dtype='int32')
             edge_index = np.stack([row, col], axis=1)
             
-            graph = Graph(edge_index, num_nodes=N, edge_feat={'edge_type': edge_types})
+            graph = Graph(edge_index, edge_feat={'edge_type': edge_types})
             graph.adj_dst_index
             graph.dump(institution_edge_path)
             log.info(f'Done! finish institution_edge [{time.perf_counter() - t:.2f}s]')
@@ -144,7 +142,7 @@ class MAG240M(object):
             edge_types = np.full(row.shape, 4, dtype='int32')
             edge_index = np.stack([col, row], axis=1)
             
-            graph = Graph(edge_index, num_nodes=N, edge_feat={'edge_type': edge_types})
+            graph = Graph(edge_index, edge_feat={'edge_type': edge_types})
             graph.adj_dst_index
             graph.dump(institution_edge_path)
             log.info(f'Done! finish institution_edge [{time.perf_counter() - t:.2f}s]')

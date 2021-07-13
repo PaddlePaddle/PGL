@@ -6,7 +6,7 @@ import copy
 import numpy as np
 import os.path as osp
 from pgl.utils.logger import log
-from pgl.graph import Graph
+from pgl.bigraph import BiGraph
 from pgl import graph_kernel
 from pgl.sampling.custom import subgraph
 from ogb.lsc import MAG240MDataset, MAG240MEvaluator
@@ -60,9 +60,7 @@ class MAG240M(object):
             row, col = edge_index[:, 0], edge_index[:, 1]
             edge_index = np.stack([col, row], axis=1)
             log.info(edge_index.shape)
-            N = (dataset.num_papers + dataset.num_authors +
-                 dataset.num_institutions)
-            author_graph = Graph(edge_index, num_nodes=N)
+            author_graph = BiGraph(edge_index, dst_num_nodes=dataset.num_authors)
 
             author_graph.tensor()
             log.info('finish author graph')
