@@ -6,7 +6,7 @@ import copy
 import numpy as np
 import os.path as osp
 from pgl.utils.logger import log
-from pgl.graph import Graph
+from pgl.bigraph import BiGraph
 from pgl import graph_kernel
 from pgl.sampling.custom import subgraph
 from ogb.lsc import MAG240MDataset, MAG240MEvaluator
@@ -62,7 +62,7 @@ class MAG240M(object):
             edge_index = dataset.edge_index('author', 'institution')
             edge_index = edge_index.T
             log.info(edge_index.shape)
-            institution_graph = Graph(edge_index, num_nodes=dataset.num_institutions)
+            institution_graph = BiGraph(edge_index, dst_num_nodes=dataset.num_institutions)
             institution_graph.tensor()
             log.info('finish institution graph')
             
