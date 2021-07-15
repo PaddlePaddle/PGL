@@ -49,8 +49,8 @@ def get_neighbor_list(data_path):
         nb[2].extend([1] * len(t_index[0]))
         entity_neighbors.append(nb)
     return entity_neighbors, edges
-               
-    
+
+           
 def ppnp_transe(entity_feat, relation_feat, entity_neighbors, alpha): 
     new_entity_feat = np.zeros(entity_feat.shape, dtype="float32")
     for i, efeat in tqdm(enumerate(entity_feat)):
@@ -80,8 +80,8 @@ def ppnp_rotate(entity_feat, relation_feat, entity_neighbors, alpha, gamma=10):
             
             head = entity_feat[src_or_dst]
             re_head, im_head = np.split(head, 2, -1)
-            re_score = re_head * re_rel + ((im_head * im_rel).T * direct).T
-            im_score = im_head * re_rel - ((re_head * im_rel).T * direct).T
+            re_score = re_head * re_rel - ((im_head * im_rel).T * direct).T
+            im_score = im_head * re_rel + ((re_head * im_rel).T * direct).T
             src_nfeat_value = np.concatenate([re_score, im_score], -1)
             aggr_nfeat = np.mean(src_nfeat_value, axis=0)
             new_nfeat = entity_feat[i] * alpha + aggr_nfeat * (1 - alpha)
@@ -101,9 +101,9 @@ def ppnp_ote(entity_feat, relation_feat, entity_neighbors, alpha,
         tmp_nfeat_list = np.zeros((len(src_or_dst), entity_feat.shape[1]))
         for j, nfeat in enumerate(src_nfeat_value):
             if direct[j] == 1:
-                inputs_rel = r_emb_mat[r_type[j]]
-            elif direct[j] == -1:
                 inputs_rel = r_emb[r_type[j]]
+            elif direct[j] == -1:
+                inputs_rel = r_emb_mat[r_type[j]]
             else:
                 raise ValueError
             inputs_size = nfeat.shape
@@ -216,9 +216,13 @@ if __name__ == "__main__":
     relation_feat = np.load(relation_feat_path)
     entity_neighbors, edges = get_neighbor_list(data_path)
     
+    get_indegree(len(entity_neighbors), edges)
+    
+    '''
     for alpha in [0.96, 0.97, 0.98, 0.985, 0.99, 0.995, 0.998]: # TODO: alpha改为衰减学习率 
         main(args.model_name, args.dataset, edges, entity_feat, relation_feat, 
              entity_neighbors, alpha=alpha, k_hop=args.khop, 
              gamma=args.gamma, r_emb=r_emb, r_emb_mat=r_emb_mat, 
              ote_size=args.ote_size, 
              relation_appnp=args.relation_appnp)
+    '''
