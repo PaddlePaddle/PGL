@@ -9,7 +9,6 @@ from pgl.contrib.ogb.nodeproppred.dataset_pgl import PglNodePropPredDataset
 from ogb.nodeproppred import Evaluator
 from utils import to_undirected, add_self_loop, linear_warmup_decay
 from model_large import Arxiv_baseline_model, Arxiv_label_embedding_model
-from optimization import optimization
 import argparse
 from tqdm import tqdm
 evaluator = Evaluator(name='ogbn-arxiv')
