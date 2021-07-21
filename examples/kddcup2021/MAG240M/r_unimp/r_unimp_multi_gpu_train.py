@@ -79,8 +79,10 @@ def train(config, do_eval=False):
        batch_size=config.batch_size,
        num_workers=config.num_workers,
        data_type="eval")
-    
-    model = getattr(models, config.model.name).GNNModel(**dict(config.model.items()))
+
+    model_params = dict(config.model.items())
+    model_params['m2v_dim'] = config.m2v_dim
+    model = getattr(models, config.model.name).GNNModel(**model_params)
     
     if paddle.distributed.get_world_size() > 1:
         model = paddle.DataParallel(model)
@@ -195,4 +197,4 @@ if __name__ == "__main__":
         predict(config)
     else:
         train(config, args.do_eval)
-
+    
