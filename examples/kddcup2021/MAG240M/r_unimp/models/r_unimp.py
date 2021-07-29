@@ -54,7 +54,12 @@ class GNNModel(nn.Layer):
         self.path_norms = nn.LayerList()
 
         self.label_embed = nn.Embedding(num_class, input_size)
-        self.m2v_fc = linear_init(128, input_size, init_type='linear')
+        if 'm2v_dim' in kwargs:
+            self.m2v_dim = kwargs['m2v_dim']
+        else:
+            self.m2v_dim = 128
+        self.m2v_fc = linear_init(self.m2v_dim, input_size, init_type='linear')
+
 
         fc_w_attr = paddle.ParamAttr(initializer=nn.initializer.Constant(1.0))
         fc_bias_attr = paddle.ParamAttr(initializer=nn.initializer.Constant(0.0))

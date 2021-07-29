@@ -23,7 +23,7 @@
 - Masked Label Prediction: Unified Message Passing Model for Semi-Supervised Classification, to appear in **IJCAI2021**.
 - HGAMN: Heterogeneous Graph Attention Matching Network for Multilingual POI Retrieval at Baidu Maps, to appear in **KDD2021**.
 
-PGL v2.1 2020.02.02
+PGL v2.1 2021.02.02
 
 - 更易用了！正式发布PGL 2.1版本，正式支持PaddlePaddle 2.0
 - 之前静态图版本（<2.0）的PGL放在“static_stable”分支
