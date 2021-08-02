@@ -234,7 +234,7 @@ class BiGraph(object):
             dst_num_nodes = self.dst_num_nodes.numpy()
         else:
             src_num_nodes = self.src_num_nodes
-            dst_num_nodes = sefl.dst_num_nodes
+            dst_num_nodes = self.dst_num_nodes
         repr_dict["src_num_nodes"] = int(src_num_nodes)
         repr_dict["dst_num_nodes"] = int(dst_num_nodes)
         repr_dict["edges_shape"] = self.edges.shape
