@@ -1,0 +1,54 @@
+# configuration for graphsage
+
+task_name: gnn.0712
+
+# ---------------------------数据配置-------------------------------------------------#
+etype2files: "u2buy2t:./Rec15/u2buy2i.txt,u2click2i:./Rec15/u2click2i.txt"
+ntype2files: "u:./Rec15/node_types.txt,i:./Rec15/node_types.txt"
+symmetry: True
+shard_num: 1000
+
+meta_path: "u2buy2i-i2buy2u;u2click2i-i2click2u;i2buy2u-u2buy2i;i2click2u-u2click2i"
+
+
+walk_len: 4
+win_size: 2
+neg_num: 10
+walk_times: 10
+
+slots: []
+
+# ---------------------------模型参数配置---------------------------------------------#
+dataset_type: SageDataset
+collatefn: SageCollateFn
+model_type: SageModel
+warm_start_from: null
+num_nodes: 550000
+embed_size: 64
+hidden_size: 64
+res_alpha: 0.9
+
+sage_mode: True
+sample_num_list: [5]
+infer_sample_num_list: [5]
+
+# ---------------------------训练参数配置---------------------------------------------#
+epochs: 10
+num_workers: 1
+lr: 0.001
+lazy_mode: True
+batch_node_size: 20
+batch_pair_size: 100
+pair_stream_shuffle_size: 10000
+log_dir: ../logs_custom
+output_dir: ../outputs_custom
+save_dir: ../ckpt_custom
+files2saved: ["*.yaml", "*.py", "*.sh", "./models", "./datasets", "./utils"]
+log_steps: 100
+
+# ----------------------分布式CPU训练参数配置-----------------------------------------#
+
+# if you want to save model per epoch, then save_steps will be set by below equation
+# save_steps = num_nodes * walk_len * win_size * walk_times / batch_pair_size / worker_num
+# but the equation is not very precise since the neighbors of each node is not the same.
+save_steps: 100000
