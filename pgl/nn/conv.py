@@ -1054,8 +1054,6 @@ class LightGCNConv(nn.Layer):
 
             feature: A tensor with shape (num_nodes, input_size)
 
-            norm: (default None). If :code:`norm` is not None, then the feature will be normalized by given norm. If :code:`norm` is None, then we use `lapacian degree norm`.
-     
         Return:
 
             A tensor with shape (num_nodes, output_size)
