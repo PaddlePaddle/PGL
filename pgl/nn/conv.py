@@ -1039,7 +1039,9 @@ class LightGCNConv(nn.Layer):
     
     Implementation of LightGCN
     
-    This is an implementation of the paper LightGCN: Simplifying and Powering Graph Convolution Network for Recommendation (https://dl.acm.org/doi/10.1145/3397271.3401063).
+    This is an implementation of the paper LightGCN: Simplifying 
+    and Powering Graph Convolution Network for Recommendation 
+    (https://dl.acm.org/doi/10.1145/3397271.3401063).
 
     """
 
