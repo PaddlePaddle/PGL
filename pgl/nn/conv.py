@@ -1012,7 +1012,19 @@ class NGCFConv(nn.Layer):
         self.leaky_relu = nn.LeakyReLU(negative_slope=0.2)
 
     def forward(self, graph, feature):
+        """
+         
+        Args:
+ 
+            graph: `pgl.Graph` instance.
 
+            feature: A tensor with shape (num_nodes, input_size)
+     
+        Return:
+
+            A tensor with shape (num_nodes, output_size)
+
+        """
         norm = GF.degree_norm(graph)
         output = graph.send_recv(feature, "sum")
         output = output + feature
@@ -1037,6 +1049,21 @@ class LightGCNConv(nn.Layer):
         super(LightGCNConv, self).__init__()
 
     def forward(self, graph, feature):
+        """
+        Args:
+ 
+            graph: `pgl.Graph` instance.
+
+            feature: A tensor with shape (num_nodes, input_size)
+
+            norm: (default None). If :code:`norm` is not None, then the feature will be normalized by given norm. If :code:`norm` is None, then we use `lapacian degree norm`.
+     
+        Return:
+
+            A tensor with shape (num_nodes, output_size)
+
+        """
+
         norm = GF.degree_norm(graph)
         output = feature * norm
         output = graph.send_recv(output, "sum")
