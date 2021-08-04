@@ -1026,13 +1026,11 @@ class NGCFConv(nn.Layer):
 
         """
         norm = GF.degree_norm(graph)
-        output = graph.send_recv(feature, "sum")
-        output = output + feature
+        neigh_feature = graph.send_recv(feature, "sum")
+        output = neigh_feature + feature
         output = output * norm
-        sum_embeddings = self.linear(output)
-        bi_embeddings = paddle.multiply(feature, output)
-        bi_embeddings = self.linear2(bi_embeddings)
-        output = self.leaky_relu(sum_embeddings + bi_embeddings)
+        output = self.linear(output) + self.linear2(feature * output)
+        output = self.leaky_relu(output)
         return output
 
 
@@ -1065,7 +1063,7 @@ class LightGCNConv(nn.Layer):
         """
 
         norm = GF.degree_norm(graph)
-        output = feature * norm
-        output = graph.send_recv(output, "sum")
-        output = output * norm
-        return output
+        feature = feature * norm
+        feature = graph.send_recv(feature, "sum")
+        feature = feature * norm
+        return feature
