@@ -132,16 +132,14 @@ class Dataloader(object):
         # so set seed explicitly every time
         np.random.seed()
         if self.num_workers == 1:
-            r = paddle.reader.buffered(_DataLoaderIter(self, 0), self.buf_size)
+            workers = mp_reader.multiprocess_reader([_DataLoaderIter(self, 0)])
         else:
             worker_pool = [
                 _DataLoaderIter(self, wid) for wid in range(self.num_workers)
             ]
-            workers = mp_reader.multiprocess_reader(
-                worker_pool, use_pipe=True, queue_size=1000)
-            r = paddle.reader.buffered(workers, self.buf_size)
+            workers = mp_reader.multiprocess_reader(worker_pool)
 
-        for batch in r():
+        for batch in workers():
             yield batch
 
     def __call__(self):

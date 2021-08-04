@@ -93,15 +93,12 @@ class StreamDataset(object):
             class MyStreamDataset(StreamDataset):
                 def __init__(self):
                     self.data = list(range(0, 40))
-                    self.count = 0
 
                 def __iter__(self):
-                     for data in self.dataset:
-                        self.count += 1
-                        if self.count % self._worker_info.num_workers != self._worker_info.fid:
+                     for count, data in enumerate(self.dataset):
+                        if count % self._worker_info.num_workers != self._worker_info.fid:
                             continue
                         # do something (like parse data)  of your data
-                        time.sleep(0.1)
                         yield data
     """
 
