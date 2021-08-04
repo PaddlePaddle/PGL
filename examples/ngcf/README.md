@@ -18,3 +18,6 @@ For examples, use gpu to train lightgcn on gowalla dataset.
 # Run on GPU
 python train.py --dataset gowalla
 ```
+### Contributor
+
+AI Studio用户: 白马非马, Maple天狗
