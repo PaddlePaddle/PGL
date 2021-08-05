@@ -77,7 +77,7 @@ class Loader(BasicDataset):
     gowalla dataset
     """
 
-    def __init__(self, args, path="../data/gowalla"):
+    def __init__(self, args, path="./gowalla"):
         # train or test
         print(f'loading [{path}]')
         print(args)

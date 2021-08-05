@@ -6,6 +6,8 @@
 
 The datasets contain three citation networks: Gowalla, amazon-book. The details for these datasets can be found in the [paper](https://arxiv.org/abs/2002.02126).
 
+You can download datasets from [here](https://github.com/kuandeng/LightGCN) and place the whole folder (e.g., "gowalla") at the root directory.
+
 ### Dependencies
 
 - paddlepaddle >= 2.0 
