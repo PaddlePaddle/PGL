@@ -34,6 +34,8 @@ __all__ = [
     "RGCNConv",
     "SGCConv",
     "SSGCConv",
+    "NGCFConv",
+    "LightGCNConv",
 ]
 
 
@@ -978,3 +980,90 @@ class SSGCConv(nn.Layer):
         if self.activation is not None:
             output = self.activation(output)
         return output
+
+
+class NGCFConv(nn.Layer):
+    """
+    Implementation of Neural Graph Collaborative Filtering (NGCF)
+
+    This is an implementation of the paper Neural Graph Collaborative Filtering  
+    (https://arxiv.org/pdf/1905.08108.pdf).
+
+    Args:
+
+        input_size: The size of the inputs. 
+
+        output_size: The size of outputs
+
+    """
+
+    def __init__(self, input_size, output_size):
+        super(NGCFConv, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        weight_attr = paddle.ParamAttr(
+            initializer=nn.initializer.XavierUniform())
+        bias_attr = paddle.ParamAttr(initializer=nn.initializer.XavierUniform(
+            fan_in=1, fan_out=output_size))
+        self.linear = nn.Linear(input_size, output_size, weight_attr,
+                                bias_attr)
+        self.linear2 = nn.Linear(input_size, output_size, weight_attr,
+                                 bias_attr)
+        self.leaky_relu = nn.LeakyReLU(negative_slope=0.2)
+
+    def forward(self, graph, feature):
+        """
+         
+        Args:
+ 
+            graph: `pgl.Graph` instance.
+
+            feature: A tensor with shape (num_nodes, input_size)
+     
+        Return:
+
+            A tensor with shape (num_nodes, output_size)
+
+        """
+        norm = GF.degree_norm(graph)
+        neigh_feature = graph.send_recv(feature, "sum")
+        output = neigh_feature + feature
+        output = output * norm
+        output = self.linear(output) + self.linear2(feature * output)
+        output = self.leaky_relu(output)
+        return output
+
+
+class LightGCNConv(nn.Layer):
+    """
+    
+    Implementation of LightGCN
+    
+    This is an implementation of the paper LightGCN: Simplifying 
+    and Powering Graph Convolution Network for Recommendation 
+    (https://dl.acm.org/doi/10.1145/3397271.3401063).
+
+    """
+
+    def __init__(self):
+        super(LightGCNConv, self).__init__()
+
+    def forward(self, graph, feature):
+        """
+        Args:
+ 
+            graph: `pgl.Graph` instance.
+
+            feature: A tensor with shape (num_nodes, input_size)
+
+        Return:
+
+            A tensor with shape (num_nodes, output_size)
+
+        """
+
+        norm = GF.degree_norm(graph)
+        feature = feature * norm
+        feature = graph.send_recv(feature, "sum")
+        feature = feature * norm
+        return feature
