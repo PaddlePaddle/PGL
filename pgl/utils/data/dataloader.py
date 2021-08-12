@@ -137,7 +137,8 @@ class Dataloader(object):
             worker_pool = [
                 _DataLoaderIter(self, wid) for wid in range(self.num_workers)
             ]
-            workers = mp_reader.multiprocess_reader(worker_pool)
+            workers = mp_reader.multiprocess_reader(
+                worker_pool, use_pipe=True, queue_size=self.buf_size)
 
         for batch in workers():
             yield batch
