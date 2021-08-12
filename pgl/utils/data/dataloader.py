@@ -132,7 +132,7 @@ class Dataloader(object):
         # so set seed explicitly every time
         np.random.seed()
         if self.num_workers == 1:
-            workers = mp_reader.multiprocess_reader([_DataLoaderIter(self, 0)])
+            workers = _DataLoaderIter(self, 0)
         else:
             worker_pool = [
                 _DataLoaderIter(self, wid) for wid in range(self.num_workers)
