@@ -429,7 +429,7 @@ def extract_edges_from_nodes(
                 j = j + 1
             i = i + 1
     return ret_edge_index
-
+   
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def metis_partition(
@@ -437,6 +437,8 @@ def metis_partition(
     np.ndarray[np.int64_t, ndim=1] adj_indptr,
     np.ndarray[np.int64_t, ndim=1] sorted_v,
     int64_t nparts,
+    np.ndarray[np.int64_t, ndim=1] node_weights=None,
+    np.ndarray[np.int64_t, ndim=1] edge_weights=None,
     bool recursive=True,
 ):
     cdef int64_t edgecut = -1
@@ -444,15 +446,25 @@ def metis_partition(
 
     cdef np.ndarray part = np.zeros((num_nodes, ), dtype="int64")
 
+    cdef int64_t * node_weight_ptr = NULL
+
+    if node_weights is not None:
+        node_weight_ptr = <int64_t *> node_weights.data
+
+    cdef int64_t * edge_weight_ptr = NULL
+    if edge_weights is not None:
+        edge_weight_ptr = <int64_t *> edge_weights.data
+
+
     with nogil:
         if recursive:
             METIS_PartGraphRecursive(&num_nodes, &ncon, <int64_t *> adj_indptr.data,
-                             <int64_t *> sorted_v.data, NULL, NULL, NULL,
+                             <int64_t *> sorted_v.data, node_weight_ptr, NULL, edge_weight_ptr,
                              &nparts, NULL, NULL, NULL,
                              &edgecut, <int64_t *> part.data)
         else:
             METIS_PartGraphKway(&num_nodes, &ncon, <int64_t *> adj_indptr.data,
-                             <int64_t *> sorted_v.data, NULL, NULL, NULL,
+                             <int64_t *> sorted_v.data, node_weight_ptr, NULL, edge_weight_ptr,
                              &nparts, NULL, NULL, NULL,
                              &edgecut, <int64_t *> part.data)
     return part
