@@ -1,8 +1,22 @@
+# Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """Implement Graph Partition
 """
 from pgl.graph_kernel import metis_partition as _metis_partition
 from pgl.utils.helper import check_is_tensor, scatter
 import numpy as np
+
 
 def _metis_weight_scale(X):
     """Ensure X is postive integers.
@@ -10,10 +24,16 @@ def _metis_weight_scale(X):
     X_std = (X - X.min(axis=0)) / (X.max(axis=0) - X.min(axis=0))
     X_scaled = X_std * (max - min) + min
     X_scaled = (X_scaled * 1000).astype("int64") + 1
-    assert np.any(x_scaled <= 0), "The weight of METIS input must be postive integers"
+    assert np.any(
+        x_scaled <= 0), "The weight of METIS input must be postive integers"
     return x_scaled
-    
-def metis_partition(graph, npart, node_weights=None, edge_weights=None, recursive=False):
+
+
+def metis_partition(graph,
+                    npart,
+                    node_weights=None,
+                    edge_weights=None,
+                    recursive=False):
     """Perform Metis Partition over graph.
     
     Graph Partition with third-party library METIS.
@@ -48,11 +68,12 @@ def metis_partition(graph, npart, node_weights=None, edge_weights=None, recursiv
             node_weights = node_weights.numpy()
         node_weights = _metis_weight_scale[node_weights]
 
-    part = _metis_partition(graph.num_nodes,
-                            indptr,
-                            v,
-                            nparts=npart,
-                            edge_weights=edge_weights,
-                            node_weights=node_weights,
-                            recursive=recursive)
+    part = _metis_partition(
+        graph.num_nodes,
+        indptr,
+        v,
+        nparts=npart,
+        edge_weights=edge_weights,
+        node_weights=node_weights,
+        recursive=recursive)
     return part
