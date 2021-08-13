@@ -52,6 +52,9 @@ def metis_partition(graph,
 
         edge_weights (optional): The edge weights for each node. We will automatically use (MinMaxScaler + 1) * 1000
                                 to convert the array into postive integers 
+
+    Returns:
+        part_id: An int64 numpy array with shape [num_nodes, ] denotes the cluster id.
     """
     csr = graph.adj_dst_index.numpy(inplace=False)
     indptr = csr._indptr
