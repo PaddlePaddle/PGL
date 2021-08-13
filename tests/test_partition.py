@@ -44,12 +44,22 @@ class GraphPartitionTest(unittest.TestCase):
         # Merge Graph
         multi_graph = pgl.Graph.batch(glist)
         # Check Graph Index
+        # K-Way MERTIS
         cluster_id = metis_partition(multi_graph, npart=npart)
         ori_graph_id = multi_graph.graph_node_id
         for i in range(npart):
             cluster = cluster_id[ori_graph_id == i]
             # The partition should be in same within a cluster
             self.assertTrue(np.any(cluster != cluster[0]))
+
+        # can run
+        node_weight = np.random.randn(multi_graph.num_nodes)
+        edge_weight = np.random.randn(multi_graph.num_edges)
+        cluster_id = metis_partition(
+            multi_graph,
+            npart=npart,
+            node_weights=node_weight,
+            edge_weights=edge_weight)
 
 
 if __name__ == "__main__":

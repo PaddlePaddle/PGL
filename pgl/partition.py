@@ -21,19 +21,16 @@ import numpy as np
 def _metis_weight_scale(X):
     """Ensure X is postive integers.
     """
-    X_std = (X - X.min(axis=0)) / (X.max(axis=0) - X.min(axis=0))
-    X_scaled = X_std * (max - min) + min
+    X_min = np.min(X)
+    X_max = np.max(X)
+    X_scaled = (X - X_min) / (X_max - X_min + 1e-5)
     X_scaled = (X_scaled * 1000).astype("int64") + 1
     assert np.any(
-        x_scaled <= 0), "The weight of METIS input must be postive integers"
-    return x_scaled
+        X_scaled > 0), "The weight of METIS input must be postive integers"
+    return X_scaled
 
 
-def metis_partition(graph,
-                    npart,
-                    node_weights=None,
-                    edge_weights=None,
-                    recursive=False):
+def metis_partition(graph, npart, node_weights=None, edge_weights=None):
     """Perform Metis Partition over graph.
     
     Graph Partition with third-party library METIS.
@@ -64,13 +61,15 @@ def metis_partition(graph,
         if check_is_tensor(edge_weights):
             edge_weights = edge_weights.numpy()
         edge_weights = edge_weights[sorted_eid.tolist()]
-        edge_weights = _metis_weight_scale[edge_weights]
+        edge_weights = _metis_weight_scale(edge_weights)
 
     if node_weights is not None:
         if check_is_tensor(node_weights):
             node_weights = node_weights.numpy()
-        node_weights = _metis_weight_scale[node_weights]
+        node_weights = _metis_weight_scale(node_weights)
 
+    # TODO: @Yelrose support recursive METIS
+    # use K-way metis; recursive metis always core dump 
     part = _metis_partition(
         graph.num_nodes,
         indptr,
@@ -78,5 +77,5 @@ def metis_partition(graph,
         nparts=npart,
         edge_weights=edge_weights,
         node_weights=node_weights,
-        recursive=recursive)
+        recursive=False)
     return part
