@@ -100,6 +100,7 @@ class StreamDataset(object):
                             continue
                         # do something (like parse data)  of your data
                         yield data
+
     """
 
     def __iter__(self):
