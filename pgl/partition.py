@@ -53,6 +53,10 @@ def metis_partition(graph, npart, node_weights=None, edge_weights=None):
     Returns:
         part_id: An int64 numpy array with shape [num_nodes, ] denotes the cluster id.
     """
+
+    if npart == 1:
+        return np.zeros(graph.num_nodes, dtype=np.int64)
+
     csr = graph.adj_dst_index.numpy(inplace=False)
     indptr = csr._indptr
     v = csr._sorted_v
