@@ -60,6 +60,9 @@ if sys.platform == "darwin":
     compile_extra_args = ['-std=c++11', "-mmacosx-version-min=10.9"]
     link_extra_args = ["-stdlib=libc++", "-mmacosx-version-min=10.9"]
 
+if sys.platform == "win32":
+    compile_extra_args.append("-DUSE_GKREGEX")  # Enable METIS in Windows
+
 
 def read(*parts):
     with codecs.open(os.path.join(cur_dir, *parts), 'r') as fp:
