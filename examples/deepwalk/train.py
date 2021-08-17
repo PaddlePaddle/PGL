@@ -98,7 +98,8 @@ def main(args):
         graph.num_nodes,
         args.embed_size,
         args.neg_num,
-        sparse=not args.use_cuda)
+        sparse=not args.use_cuda,
+        shared_embedding=args.shared_embedding)
     model = paddle.DataParallel(model)
 
     train_ds = ShardedDataset(graph.nodes, repeat=args.epoch)
@@ -122,6 +123,7 @@ def main(args):
         collate_fn=collate_fn)
 
     train_loss = train(model, data_loader, optim)
+    print(model.state_dict())
     paddle.save(model.state_dict(), "model.pdparams")
 
 

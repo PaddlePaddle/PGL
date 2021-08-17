@@ -28,11 +28,13 @@ class SkipGramModel(nn.Layer):
                  neg_num=5,
                  num_emb_part=1,
                  sparse=False,
-                 sparse_embedding=False):
+                 sparse_embedding=False,
+                 shared_embedding=False):
         super(SkipGramModel, self).__init__()
 
         self.num_nodes = num_nodes
         self.neg_num = neg_num
+        self.shared_embedding = shared_embedding
 
         # embed_init = nn.initializer.Uniform(
         # low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
@@ -96,7 +98,10 @@ class SkipGramModel(nn.Layer):
         # dsts [b, 1+neg]
 
         src_embed = self.u_emb(src)
-        dsts_embed = self.v_emb(dsts)
+        if self.shared_embedding:
+            dsts_embed = self.u_emb(dsts)
+        else:
+            dsts_embed = self.v_emb(dsts)
 
         pos_embed = dsts_embed[:, 0:1]
         neg_embed = dsts_embed[:, 1:]

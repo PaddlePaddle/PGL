@@ -80,7 +80,8 @@ def StaticSkipGramModel(num_nodes,
                         neg_num,
                         embed_size,
                         sparse=False,
-                        sparse_embedding=False):
+                        sparse_embedding=False,
+                        shared_embedding=False):
     src = F.data("src", shape=[-1, 1], dtype="int64")
     dsts = F.data("dsts", shape=[-1, neg_num + 1], dtype="int64")
     py_reader = paddle.fluid.io.DataLoader.from_generator(
@@ -89,7 +90,8 @@ def StaticSkipGramModel(num_nodes,
         iterable=False,
         use_double_buffer=False)
     model = SkipGramModel(num_nodes, embed_size, neg_num, sparse=sparse,
-                          sparse_embedding=sparse_embedding)
+                          sparse_embedding=sparse_embedding,
+                          shared_embedding=shared_embedding)
     loss = model(src, dsts)
     return py_reader, loss
 
@@ -102,7 +104,8 @@ def main(args):
 
     fake_num_nodes = 1
     py_reader, loss = StaticSkipGramModel(
-        fake_num_nodes, args.neg_num, args.embed_size, sparse_embedding=True)
+        fake_num_nodes, args.neg_num, args.embed_size, sparse_embedding=True,
+        shared_embedding=args.shared_embedding)
 
     optimizer = F.optimizer.Adam(args.learning_rate, lazy_mode=True)
     dist_strategy = fleet.DistributedStrategy()
