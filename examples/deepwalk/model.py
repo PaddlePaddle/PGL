@@ -42,7 +42,7 @@ class SkipGramModel(nn.Layer):
         u_emb_attr = paddle.ParamAttr(
             name="u_node_embedding", initializer=u_embed_init)
 
-        if self.shared_embedding:
+        if not self.shared_embedding:
             v_embed_init = nn.initializer.Uniform(low=-1e-8, high=1e-8)
             v_emb_attr = paddle.ParamAttr(
                 name="v_node_embedding", initializer=v_embed_init)
@@ -56,7 +56,7 @@ class SkipGramModel(nn.Layer):
                 return paddle.reshape(x_emb,
                                       [d_shape[0], d_shape[1], embed_size])
             self.u_emb = u_emb_func
-            if self.shared_embedding:
+            if not self.shared_embedding:
                 def v_emb_func(x):
                     d_shape = paddle.shape(x)
                     x_emb = paddle.static.nn.sparse_embedding(
@@ -78,7 +78,7 @@ class SkipGramModel(nn.Layer):
                 u_emb_list.append(u_emb)
             self.u_emb_list = nn.LayerList(u_emb_list)
             self.u_emb = lambda x: paddle.concat([emb(x) for emb in u_emb_list], -1)
-            if self.shared_embedding:
+            if not self.shared_embedding:
                 v_emb_list = []
                 for i in range(num_emb_part):
                     v_emb_attr = paddle.ParamAttr(
@@ -93,7 +93,7 @@ class SkipGramModel(nn.Layer):
         else:
             self.u_emb = nn.Embedding(
                 num_nodes, embed_size, sparse=sparse, weight_attr=u_emb_attr)
-            if self.shared_embedding:
+            if not self.shared_embedding:
                 self.v_emb = nn.Embedding(
                     num_nodes, embed_size, sparse=sparse, weight_attr=v_emb_attr)
         self.loss = paddle.nn.BCEWithLogitsLoss()
