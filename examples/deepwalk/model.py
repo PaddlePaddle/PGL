@@ -42,12 +42,12 @@ class SkipGramModel(nn.Layer):
         u_emb_attr = paddle.ParamAttr(
             name="u_node_embedding", initializer=u_embed_init)
 
-        v_embed_init = nn.initializer.Uniform(low=-1e-8, high=1e-8)
-        v_emb_attr = paddle.ParamAttr(
-            name="v_node_embedding", initializer=v_embed_init)
+        if self.shared_embedding:
+            v_embed_init = nn.initializer.Uniform(low=-1e-8, high=1e-8)
+            v_emb_attr = paddle.ParamAttr(
+                name="v_node_embedding", initializer=v_embed_init)
 
         if sparse_embedding:
-
             def u_emb_func(x):
                 d_shape = paddle.shape(x)
                 x_emb = paddle.static.nn.sparse_embedding(
@@ -55,18 +55,19 @@ class SkipGramModel(nn.Layer):
                     param_attr=u_emb_attr)
                 return paddle.reshape(x_emb,
                                       [d_shape[0], d_shape[1], embed_size])
-            def v_emb_func(x):
-                d_shape = paddle.shape(x)
-                x_emb = paddle.static.nn.sparse_embedding(
-                    paddle.reshape(x, [-1, 1]), [num_nodes, embed_size],
-                    param_attr=v_emb_attr)
-                return paddle.reshape(x_emb,
-                                      [d_shape[0], d_shape[1], embed_size])
             self.u_emb = u_emb_func
-            self.v_emb = v_emb_func
+            if self.shared_embedding:
+                def v_emb_func(x):
+                    d_shape = paddle.shape(x)
+                    x_emb = paddle.static.nn.sparse_embedding(
+                        paddle.reshape(x, [-1, 1]), [num_nodes, embed_size],
+                        param_attr=v_emb_attr)
+                    return paddle.reshape(x_emb,
+                                          [d_shape[0], d_shape[1], embed_size])
+                self.v_emb = v_emb_func
         elif num_emb_part > 1:
             assert embed_size % num_emb_part == 0
-            u_emb_list, v_emb_list = [], []
+            u_emb_list = []
             for i in range(num_emb_part):
                 u_emb_attr = paddle.ParamAttr(
                     name="u_node_embedding_part%s" % i, initializer=u_embed_init)
@@ -75,22 +76,26 @@ class SkipGramModel(nn.Layer):
                     embed_size // num_emb_part,
                     weight_attr=u_emb_attr)
                 u_emb_list.append(u_emb)
-                v_emb_attr = paddle.ParamAttr(
-                    name="v_node_embedding_part%s" % i, initializer=v_embed_init)
-                v_emb = nn.Embedding(
-                    num_nodes,
-                    embed_size // num_emb_part,
-                    weight_attr=v_emb_attr)
-                v_emb_list.append(v_emb)
             self.u_emb_list = nn.LayerList(u_emb_list)
             self.u_emb = lambda x: paddle.concat([emb(x) for emb in u_emb_list], -1)
-            self.v_emb_list = nn.LayerList(v_emb_list)
-            self.v_emb = lambda x: paddle.concat([emb(x) for emb in v_emb_list], -1)
+            if self.shared_embedding:
+                v_emb_list = []
+                for i in range(num_emb_part):
+                    v_emb_attr = paddle.ParamAttr(
+                        name="v_node_embedding_part%s" % i, initializer=v_embed_init)
+                    v_emb = nn.Embedding(
+                        num_nodes,
+                        embed_size // num_emb_part,
+                        weight_attr=v_emb_attr)
+                    v_emb_list.append(v_emb)
+                self.v_emb_list = nn.LayerList(v_emb_list)
+                self.v_emb = lambda x: paddle.concat([emb(x) for emb in v_emb_list], -1)
         else:
             self.u_emb = nn.Embedding(
                 num_nodes, embed_size, sparse=sparse, weight_attr=u_emb_attr)
-            self.v_emb = nn.Embedding(
-                num_nodes, embed_size, sparse=sparse, weight_attr=v_emb_attr)
+            if self.shared_embedding:
+                self.v_emb = nn.Embedding(
+                    num_nodes, embed_size, sparse=sparse, weight_attr=v_emb_attr)
         self.loss = paddle.nn.BCEWithLogitsLoss()
 
     def forward(self, src, dsts):
