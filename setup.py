@@ -57,7 +57,7 @@ compile_extra_args = ["-std=c++11"]
 link_extra_args = []
 
 if sys.platform == "darwin":
-    compile_extra_args = ['-std=c++11', "-mmacosx-version-min=10.9"]
+    compile_extra_args = ["-mmacosx-version-min=10.9"]
     link_extra_args = ["-stdlib=libc++", "-mmacosx-version-min=10.9"]
 
 if sys.platform == "win32":
