@@ -61,7 +61,7 @@ if sys.platform == "darwin":
     link_extra_args = ["-stdlib=libc++", "-mmacosx-version-min=10.9"]
 
 if sys.platform == "win32":
-    compile_extra_args.append("-DUSE_GKREGEX")  # Enable METIS in Windows
+    compile_extra_args = ["-DUSE_GKREGEX"]  # Enable METIS in Windows
 
 
 def read(*parts):
@@ -83,22 +83,24 @@ def find_version(*file_paths):
 
 
 def get_metis_source():
-    return glob.glob("pgl/third_party/metis/GKlib/*.c") \
-           + glob.glob("pgl/third_party/metis/*.c") \
-           + glob.glob("pgl/third_party/metis/libmetis/*.c")
+    metis_dir = os.path.join("pgl", "third_party", "metis")
+    return glob.glob(os.path.join(metis_dir, "GKlib", "*.c")) \
+           + glob.glob(os.path.join(metis_dir, "*.c")) \
+           + glob.glob(os.path.join(metis_dir, "libmetis", "*.c"))
 
 
 def get_metis_inc():
+    metis_dir = os.path.join("pgl", "third_party", "metis")
     return [
-        "pgl/third_party/metis/include", "pgl/third_party/metis/GKlib",
-        "pgl/third_party/metis/include", "pgl/third_party/metis/libmetis"
+        os.path.join(metis_dir, "include"), os.path.join(metis_dir, "GKlib"),
+        os.path.join(metis_dir, "include"), os.path.join(metis_dir, "libmetis")
     ]
 
 
 extensions = [
     Extension(
         "pgl.graph_kernel",
-        sources=["pgl/graph_kernel.pyx"] + get_metis_source(),
+        sources=[os.path.join("pgl", "graph_kernel.pyx")] + get_metis_source(),
         include_dirs=get_metis_inc(),
         language="c++",
         extra_compile_args=compile_extra_args,
