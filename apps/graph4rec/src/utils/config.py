@@ -173,6 +173,7 @@ def prepare_config(config_file,
         create_necessary_dirs(config, worker_index)
 
     if isSave:
-        save_files(config)
+        if worker_index is None or worker_index == 0:
+            save_files(config)
 
     return config
