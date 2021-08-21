@@ -112,4 +112,6 @@ CPU_NUM=12 fleetrun --log_dir /your/path/to/fleet_logs_infer \
                                       --infer_from /your/path/of/trained_model
 ```
 
+Note that the `worker_num` and `server_num` in inference stage should be the same as in training stage.
+
 The training log will be saved in `/your/path/to/fleet_logs`.
