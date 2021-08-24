@@ -1,0 +1,97 @@
+task_name: train.ogb_kdd_pcqm4m
+
+use_cuda: True
+metrics: mae
+debug: False
+to_robot: 10
+split_mode: null # cross1 cross2
+aux_alpha: 0.2
+pretrain_tasks: "Bl,Ba,Con"
+pretrain_epoch: 10
+warm_start_from: null
+infer_from: null
+
+# ip_address: for fleet run
+# ip_address: "127.0.0.1:6180,127.0.0.1:6181,127.0.0.1:6182,127.0.0.1:6183"
+# ip_address: "127.0.0.1:6554,127.0.0.1:6555,127.0.0.1:6556,127.0.0.1:6557"
+# ip_address: "127.0.0.1:6180,127.0.0.1:6181,127.0.0.1:6182,127.0.0.1:6183,127.0.0.1:6554,127.0.0.1:6555,127.0.0.1:6556,127.0.0.1:6557"
+ip_address: "127.0.0.1:6280,127.0.0.1:6281,127.0.0.1:6282,127.0.0.1:6283,127.0.0.1:6654,127.0.0.1:6655,127.0.0.1:6656,127.0.0.1:6657"
+
+# dataset config
+base_data_path: ../dataset
+# load preprocess data (and maybe dump to pkl) so that can speed up training stage
+# null; "junc_graph_data.pkl"; dense_junc_graph_data.pkl; merge_junc_3d_graph_data.pkl
+preprocess_file: "../dataset/aux_processed_data"
+pretrian_path: "../dataset/aux_processed_data/mol_tree_aux.pkl"
+# MolDataset; OnlineDataset
+dataset_type: AuxDataset
+transform: graph_transform
+collate_type: aux_collatefn
+
+# model config
+# GNN;
+model_type: GNN
+
+# JuncGNNVirt; GNNVirt; LiteGEM
+gnn_type: LiteGEM
+
+# GINConv; CatGINConv; NormGINConv; LiteGEMConv
+layer_type: LiteGEMConv
+# AtomEncoder; CatAtomEncoder
+atom_enc_type: AtomEncoder
+# BondEncoder; CatBondEncoder
+bond_enc_type: BondEncoder
+
+mlp_layers: 1
+clf_layers: 3
+num_tasks: 1
+num_layers: 11
+block_num: 1
+emb_dim: 1024
+virtual_node: True
+residual: False
+drop_ratio: 0.2
+JK: last
+# bisop; 
+graph_pooling: mean
+appnp_k: null    # K hop of appnp, if not use appnp, set null
+appnp_a: 0.8  # alpha of appnp
+graphnorm: False
+exfeat: True
+
+# LiteGEMConv
+aggr: "softmax"
+learn_t: False
+init_t: 1.0
+learn_p: False
+init_p: 1.0
+# batch; layer
+norm: "batch"
+concat: True
+
+# runconfig
+epochs: 150
+batch_size: 256
+valid_batch_size: 256
+num_workers: 1
+shuffle: True
+log_step: 100
+to_valid_step: 0
+optim: Adam # SGD # Adam
+
+lr: 0.0001
+# null; step_decay; multistep; piecewise
+lr_mode: multistep
+boundery: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130]
+lr_value: [0.0008, 0.00100714, 0.00126791, 0.0015962, 0.0020095, 0.00252981, 0.00318484, 0.00400948, 0.00504764, 0.0063546, 0.00799997, 0.00559998, 0.00391999, 0.00274399, 0.00192079, 0.00134455, 0.00094118, 0.00065883, 0.00046118, 0.00032283, 0.00022598, 0.00015819]
+milestones: [30, 50, 90, 130]  # for multistep
+gamma: 0.96  # for multistep and stepdecay
+step_size: 1  # stepdecay
+
+# logger
+stdout: True
+log_dir: ../logs
+log_filename: log.txt
+save_dir: ../checkpoints
+output_dir: ../outputs
+files2saved: ["*.yaml", "*.py", "*.sh", "../models"]

@@ -224,13 +224,9 @@ def subset_choose_index(long long s_size,
     cdef unordered_map[long long, long long] m
     with nogil:
         for i in xrange(s_size):
-            j = rnd[offset + i] % n_size
-            if j >= i:
-                buff_nid[offset + i] = nid[j] if m.find(j) == m.end() else nid[m[j]]
-                m[j] = i if m.find(i) == m.end() else m[i]
-            else:
-                buff_nid[offset + i] = buff_nid[offset + j]
-                buff_nid[offset + j] = nid[i] if m.find(i) == m.end() else nid[m[i]]
+            j = rnd[offset + i] % (n_size - i)
+            buff_nid[offset + i] = nid[j] if m.find(j) == m.end() else nid[m[j]]
+            m[j] = n_size - i - 1 if m.find(n_size - i - 1) == m.end() else m[n_size - i -1]
 
 
 @cython.boundscheck(False)
@@ -248,19 +244,11 @@ def subset_choose_index_eid(long long s_size,
     cdef unordered_map[long long, long long] m
     with nogil:
         for i in xrange(s_size):
-            j = rnd[offset + i] % n_size
-            if j >= i:
-                if m.find(j) == m.end():
-                    buff_nid[offset + i], buff_eid[offset + i] = nid[j], eid[j]
-                else:
-                    buff_nid[offset + i], buff_eid[offset + i] = nid[m[j]], eid[m[j]]
-                m[j] = i if m.find(i) == m.end() else m[i]
-            else:
-                buff_nid[offset + i], buff_eid[offset + i] = buff_nid[offset + j], buff_eid[offset + j]
-                if m.find(i) == m.end():
-                    buff_nid[offset + j], buff_eid[offset + j] = nid[i], eid[i]
-                else:
-                    buff_nid[offset + j], buff_eid[offset + j] = nid[m[i]], eid[m[i]]
+            j = rnd[offset + i] % (n_size - i)
+            buff_nid[offset + i] = nid[j] if m.find(j) == m.end() else nid[m[j]]
+            buff_eid[offset + i] = eid[j] if m.find(j) == m.end() else eid[m[j]]
+            m[j] = n_size - i - 1 if m.find(n_size - i - 1) == m.end() else m[n_size - i -1]
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)

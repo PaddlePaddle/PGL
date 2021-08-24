@@ -7,7 +7,23 @@
 
 ## 最新消息
 
-PGL v2.1 2020.02.02
+&#x1F525; &#x1F525; &#x1F525; **OGB-LSC KDD CUP 2021 冠军宣布!!**  (2021.06.17)
+
+非常兴奋地宣布，我们PGL团队在 OGB-LSC KDD CUP 2021 的三个赛道中获得了<font color=Red>**两个冠军**</font>和<font color=Red>**一个亚军**</font>。官方排行榜可以参考[这里](https://ogb.stanford.edu/kddcup2021/results/).
+
+
+- **MAG240M-LSC 赛道第一名**: 代码和技术报告可以参考[这里](./examples/kddcup2021/MAG240M/r_unimp).
+
+- **WikiKG90M-LSC 赛道第一名**: 代码和技术报告可以参考[这里](./examples/kddcup2021/WikiKG90M).
+
+- **PCQM4M-LSC 赛道第二名**: 代码和技术报告可以参考[这里](./examples/kddcup2021/PCQM4M).
+
+**两篇使用PGL的论文被接收！！** (2021.06.17)
+
+- Masked Label Prediction: Unified Message Passing Model for Semi-Supervised Classification, to appear in **IJCAI2021**.
+- HGAMN: Heterogeneous Graph Attention Matching Network for Multilingual POI Retrieval at Baidu Maps, to appear in **KDD2021**.
+
+PGL v2.1 2021.02.02
 
 - 更易用了！正式发布PGL 2.1版本，正式支持PaddlePaddle 2.0
 - 之前静态图版本（<2.0）的PGL放在“static_stable”分支
