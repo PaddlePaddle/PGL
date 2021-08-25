@@ -1088,7 +1088,7 @@ class Graph(object):
 
     @classmethod
     def disjoint(cls, graph_list, merged_graph_index=False):
-        """This method disjoint list of graph into a big graph.
+        """This method disjoint list of graphs into a big graph.
 
         Args:
 
@@ -1152,7 +1152,7 @@ class Graph(object):
 
     @classmethod
     def split(cls, graph):
-        """This method split graph according to graph_node_id into list of graph.
+        """This method split graph according to graph_node_id into list of graphs.
 
         Args:
 
