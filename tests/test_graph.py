@@ -435,6 +435,79 @@ class GraphTest(unittest.TestCase):
                         batch_size=3, shuffle=shuffle):
                     break
 
+    def test_batch_and_unbatch(self):
+        graph_1 = create_random_graph().numpy()
+        graph_2 = create_random_graph().numpy()
+        joint_graph = pgl.Graph.batch([graph_1, graph_2])
+        graph_list = pgl.Graph.unbatch(joint_graph)
+
+        self.assertTrue((graph_list[0].graph_node_id == graph_1.graph_node_id
+                         ).all())
+        self.assertTrue((graph_list[1].graph_node_id == graph_2.graph_node_id
+                         ).all())
+        self.assertTrue((graph_list[0].graph_edge_id == graph_1.graph_edge_id
+                         ).all())
+        self.assertTrue((graph_list[1].graph_edge_id == graph_2.graph_edge_id
+                         ).all())
+
+        self.assertTrue((graph_list[0].node_feat["nfeat"] == graph_1.node_feat[
+            "nfeat"]).all())
+        self.assertTrue((graph_list[1].node_feat["nfeat"] == graph_2.node_feat[
+            "nfeat"]).all())
+        self.assertTrue((graph_list[0].edge_feat["efeat"] == graph_1.edge_feat[
+            "efeat"]).all())
+        self.assertTrue((graph_list[1].edge_feat["efeat"] == graph_2.edge_feat[
+            "efeat"]).all())
+
+        graph_1 = create_random_graph().tensor()
+        graph_2 = create_random_graph().tensor()
+        joint_graph = pgl.Graph.batch([graph_1, graph_2])
+        graph_list = pgl.Graph.unbatch(joint_graph)
+
+        self.assertTrue((graph_list[0].graph_node_id == graph_1.graph_node_id
+                         ).all())
+        self.assertTrue((graph_list[1].graph_node_id == graph_2.graph_node_id
+                         ).all())
+        self.assertTrue((graph_list[0].graph_edge_id == graph_1.graph_edge_id
+                         ).all())
+        self.assertTrue((graph_list[1].graph_edge_id == graph_2.graph_edge_id
+                         ).all())
+
+        self.assertTrue((graph_list[0].node_feat["nfeat"].numpy() ==
+                         graph_1.node_feat["nfeat"].numpy()).all())
+        self.assertTrue((graph_list[1].node_feat["nfeat"].numpy() ==
+                         graph_2.node_feat["nfeat"].numpy()).all())
+        self.assertTrue((graph_list[0].edge_feat["efeat"].numpy() ==
+                         graph_1.edge_feat["efeat"].numpy()).all())
+        self.assertTrue((graph_list[1].edge_feat["efeat"].numpy() ==
+                         graph_2.edge_feat["efeat"].numpy()).all())
+
+        graph_1 = create_random_graph()
+        joint_graph = pgl.Graph.batch([graph_1])
+        graph_list = pgl.Graph.unbatch(joint_graph)
+
+        self.assertTrue((graph_list[0].graph_node_id == graph_1.graph_node_id
+                         ).all())
+        self.assertTrue((graph_list[0].graph_edge_id == graph_1.graph_edge_id
+                         ).all())
+        self.assertTrue((graph_list[0].node_feat["nfeat"] == graph_1.node_feat[
+            "nfeat"]).all())
+        self.assertTrue((graph_list[0].edge_feat["efeat"] == graph_1.edge_feat[
+            "efeat"]).all())
+
+        graph_1 = create_random_graph().tensor()
+        joint_graph = pgl.Graph.batch([graph_1])
+        graph_list = pgl.Graph.unbatch(joint_graph)
+
+        self.assertTrue((graph_list[0].graph_node_id == graph_1.graph_node_id
+                         ).all())
+        self.assertTrue((graph_list[0].graph_edge_id == graph_1.graph_edge_id
+                         ).all())
+        self.assertTrue((graph_list[0].node_feat["nfeat"].numpy() ==
+                         graph_1.node_feat["nfeat"].numpy()).all())
+        self.assertTrue((graph_list[0].edge_feat["efeat"].numpy() ==
+                         graph_1.edge_feat["efeat"].numpy()).all())
+
 
 if __name__ == "__main__":
     unittest.main()
