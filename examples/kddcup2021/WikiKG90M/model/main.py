@@ -13,43 +13,29 @@
 # limitations under the License.
 
 import os
-import logging
 import time
-import pdb
-
-from models.base_model import BaseKEModel
-from dataloader import TrainDataset, EvalDataset, NewBidirectionalOneShotIterator
-from dataloader import get_dataset
-from optimizer import NumpySgdOptimizer, NumpyAdagradOptimizer
-from utils import get_compatible_batch_size, CommonArgParser
+import random
+import logging
+from math import ceil
+from collections import defaultdict
 
 import paddle
-import random
-from math import ceil
-from tqdm import tqdm
 import numpy as np
-from collections import defaultdict
+from tqdm import tqdm
+import paddle.distributed as dist
 from ogb.lsc import WikiKG90MDataset, WikiKG90MEvaluator
+
+from kgdataset import get_dataset
+from models.base_model import BaseKEModel, NumpyEmbedding
+from utils import get_compatible_batch_size, CommonArgParser
+from utils import prepare_save_path, get_save_path
+from dataloader import TrainDataset, EvalDataset, NewBidirectionalOneShotIterator
 
 
 def set_global_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
     paddle.seed(seed)
-
-
-def prepare_save_path(args):
-    if not os.path.exists(args.save_path):
-        os.mkdir(args.save_path)
-
-    folder = '{}_{}_d_{}_g_{}'.format(args.model_name, args.dataset,
-                                      args.hidden_dim, args.gamma)
-    n = len([x for x in os.listdir(args.save_path) if x.startswith(folder)])
-    folder += str(n)
-    args.save_path = os.path.join(args.save_path, folder)
-
-    if not os.path.exists(args.save_path):
-        os.makedirs(args.save_path)
 
 
 def set_logger(args):
@@ -116,7 +102,11 @@ norm = lambda x, p: x.norm(p=p)**p
 
 def main():
     args = ArgParser().parse_args()
-    prepare_save_path(args)
+    # initialize the parallel environment
+    if dist.get_world_size() > 1:
+        dist.init_parallel_env()
+    args.save_path = get_save_path(args)
+
     args.neg_sample_size_eval = 1000
     set_global_seed(args.seed)
 
@@ -129,6 +119,19 @@ def main():
     args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval,
                                                      args.neg_sample_size_eval)
 
+    args.weight_path = os.path.join(args.save_path, '__cpu_embedding.npy')
+    if dist.get_rank() == 0:
+        prepare_save_path(args)
+        init_value = (args.gamma + 2.0) / args.hidden_dim
+        NumpyEmbedding.create_emb(dataset.n_entities, args.hidden_dim,
+                                  init_value, args.scale_type,
+                                  args.weight_path)
+    else:
+        while True:
+            if os.path.exists(args.weight_path):
+                break
+            time.sleep(5)
+
     #print(args)
     set_logger(args)
 
@@ -138,20 +141,28 @@ def main():
         dataset, args, has_importance=args.has_edge_importance)
     print("Training dataset built, it takes %s seconds" % (time.time() - t1))
     args.num_workers = 8  # fix num_worker to 8
+
     print("Building training sampler")
     t1 = time.time()
-    train_sampler_head = train_data.create_sampler(
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        neg_sample_size=args.neg_sample_size,
-        neg_mode='head')
-    train_sampler_tail = train_data.create_sampler(
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        neg_sample_size=args.neg_sample_size,
-        neg_mode='tail')
-    train_sampler = NewBidirectionalOneShotIterator(train_sampler_head,
-                                                    train_sampler_tail)
+    train_samplers = []
+    if dist.get_world_size() > 1:
+        indexs = train_data.random_partition(dist.get_world_size())
+        for i, x in enumerate(indexs):
+            sampler = train_data.create_sampler(
+                batch_size=args.batch_size,
+                num_workers=args.num_workers,
+                neg_sample_size=args.neg_sample_size,
+                neg_mode='bi-oneshot',
+                edge_index=x)
+            train_samplers.append(sampler)
+            print('sampler %d created!' % i)
+    else:
+        sampler = train_data.create_sampler(
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            neg_sample_size=args.neg_sample_size,
+            neg_mode='bi-oneshot')
+        train_samplers.append(sampler)
     print("Training sampler created, it takes %s seconds" % (time.time() - t1))
 
     if args.valid or args.test:
@@ -191,6 +202,15 @@ def main():
                 ranks=1)
             valid_samplers = [valid_sampler_tail]
 
+    if args.test:
+        test_sampler_tail = eval_dataset.create_sampler(
+            'test',
+            args.batch_size_eval,
+            mode='tail',
+            num_workers=args.num_workers,
+            rank=0,
+            ranks=1)
+
     for arg in vars(args):
         logging.info('{:20}:{}'.format(arg, getattr(args, arg)))
 
@@ -202,8 +222,10 @@ def main():
         n_relations=dataset.n_relations,
         model_name=args.model_name,
         hidden_size=args.hidden_dim,
-        entity_feat_dim=dataset.entity_feat.shape[1],
-        relation_feat_dim=dataset.relation_feat.shape[1],
+        entity_feat_dim=dataset.entity_feat.shape[1]
+        if dataset.entity_feat is not None else 0,
+        relation_feat_dim=dataset.relation_feat.shape[1]
+        if dataset.relation_feat is not None else 0,
         gamma=args.gamma,
         double_entity_emb=args.double_ent,
         relation_times=args.ote_size,
@@ -213,41 +235,76 @@ def main():
     model.relation_feat = dataset.relation_feat
     print(len(model.parameters()))
 
+    if dist.get_world_size() > 1:
+        model = paddle.DataParallel(model)
+
     if args.cpu_emb:
         print("using cpu emb\n" * 5)
     else:
         print("using gpu emb\n" * 5)
     optimizer = paddle.optimizer.Adam(
         learning_rate=args.mlp_lr, parameters=model.parameters())
-    lr_tensor = paddle.to_tensor(args.lr)
 
     global_step = 0
-    tic_train = time.time()
     log = {}
     log["loss"] = 0.0
     log["regularization"] = 0.0
+    t_sample = 0
+    t_forward = 0
+    t_backward = 0
+    t_update = 0
+    tic_train = time.time()
     for step in range(0, args.max_step):
-        pos_triples, neg_triples, ids, neg_head = next(train_sampler)
-        loss = model.forward(pos_triples, neg_triples, ids, neg_head)
+        ts = time.time()
+        index = dist.get_rank()
+        pos_triples, neg_ents, ids, neg_head = next(train_samplers[index])
+        t_sample += (time.time() - ts)
+
+        ts = time.time()
+        loss = model.forward(pos_triples, neg_ents, ids, neg_head)
 
         log["loss"] = loss.numpy()[0]
         if args.regularization_coef > 0.0 and args.regularization_norm > 0:
             coef, nm = args.regularization_coef, args.regularization_norm
-            reg = coef * norm(model.entity_embedding.curr_emb, nm)
+            if type(model) is paddle.DataParallel:
+                curr_emb = model._layers.entity_embedding.curr_emb
+            else:
+                curr_emb = model.entity_embedding.curr_emb
+            reg = coef * norm(curr_emb, nm)
             log['regularization'] = reg.numpy()[0]
             loss = loss + reg
+        t_forward += (time.time() - ts)
 
+        ts = time.time()
         loss.backward()
+        t_backward += (time.time() - ts)
+
+        ts = time.time()
         optimizer.step()
         if args.cpu_emb:
-            model.entity_embedding.step(lr_tensor)
+            if type(model) is paddle.DataParallel:
+                model._layers.entity_embedding.step(args.lr)
+            else:
+                model.entity_embedding.step(args.lr)
+        t_update += (time.time() - ts)
         optimizer.clear_grad()
+
         if (step + 1) % args.log_interval == 0:
-            speed = args.log_interval / (time.time() - tic_train)
+            alltime = (time.time() - tic_train)
+            speed = args.log_interval / alltime
             logging.info(
                 "step: %d, train loss: %.5f, regularization: %.4e, speed: %.2f steps/s"
                 % (step, log["loss"], log["regularization"], speed))
+            logging.info(
+                "step: %d, sample: %f, forward: %f, backward: %f, update: %f" %
+                (step, t_sample, t_forward, t_backward, t_update))
+            logging.info("%d steps take %f seconds" %
+                         (args.log_interval, time.time() - tic_train))
             log["loss"] = 0.0
+            t_sample = 0
+            t_forward = 0
+            t_backward = 0
+            t_update = 0
             tic_train = time.time()
 
         if args.valid and (
@@ -260,12 +317,24 @@ def main():
             paddle.save(valid_input_dict,
                         os.path.join(args.save_path,
                                      "valid_{}.pkl".format(step)))
+
             # Save the model for the inference
         if (step + 1) % args.save_step == 0:
             print("The step:{}, save model path:{}".format(step + 1,
                                                            args.save_path))
             model.save_model()
             print("Save model done.")
+
+    if args.test and test_sampler_tail is not None:
+        print("Test begin")
+        test_start = time.time()
+        test_input_dict = test(
+            args,
+            model, [test_sampler_tail],
+            args.max_step,
+            rank=0,
+            mode='Test')
+        paddle.save(test_input_dict, os.path.join(args.save_path, "test.pkl"))
 
 
 def test(args, model, test_samplers, step, rank=0, mode='Test'):
@@ -279,8 +348,12 @@ def test(args, model, test_samplers, step, rank=0, mode='Test'):
                     sampler,
                     disable=not args.print_on_screen,
                     total=ceil(sampler.num_edges / sampler.batch_size)):
-                log, score = model.forward_test_wikikg(query, ans, candidate,
-                                                       sampler.mode)
+                if type(model) is paddle.DataParallel:
+                    log, score = model._layers.forward_test_wikikg(
+                        query, ans, candidate, sampler.mode)
+                else:
+                    log, score = model.forward_test_wikikg(
+                        query, ans, candidate, sampler.mode)
                 log = log.cpu()
                 score = score.cpu()
                 logs[sampler.mode].append(log)

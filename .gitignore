@@ -68,3 +68,5 @@ tutorials/.ipynb_checkpoints/
 pgl/tests/local*
 jupyter
 .gitignore.bak
+
+.DS_Store

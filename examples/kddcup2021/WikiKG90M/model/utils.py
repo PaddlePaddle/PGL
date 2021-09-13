@@ -13,11 +13,49 @@
 # limitations under the License.
 
 import math
+import time
 import os
 import csv
 import argparse
 import json
 import numpy as np
+
+from functools import wraps
+
+
+def timer_wrapper(name):
+    def decorate(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            print('[{}] start...'.format(name))
+            ts = time.time()
+            result = func(*args, **kwargs)
+            te = time.time()
+            print('[{}] finished! It takes {:.4f} sec'.format(name, te - ts))
+            return result
+
+        return wrapper
+
+    return decorate
+
+
+def get_save_path(args):
+    if not os.path.exists(args.save_path):
+        os.mkdir(args.save_path)
+
+    folder = '{}_{}_d_{}_g_{}_{}'.format(args.model_name, args.dataset,
+                                         args.hidden_dim, args.gamma, args.tag)
+    n = len([x for x in os.listdir(args.save_path) if x.startswith(folder)])
+    folder += str(n)
+    save_path = os.path.join(args.save_path, folder)
+    return save_path
+
+
+def prepare_save_path(args):
+    if not os.path.exists(args.save_path):
+        os.makedirs(args.save_path)
+    else:
+        raise IOError('model path %s already exists' % args.save_path)
 
 
 def get_compatible_batch_size(batch_size, neg_sample_size):
@@ -393,3 +431,16 @@ class CommonArgParser(argparse.ArgumentParser):
             '--lr_decay_interval', type=int, default=10000, help='')
         self.add_argument(
             '--cpu_emb', action='store_true', help='Whether use cpu embedding')
+        self.add_argument(
+            '--use_feature',
+            action='store_true',
+            help='Whether use RoBERTa embedding')
+
+        self.add_argument(
+            '--filter',
+            action='store_true',
+            help='Whether filter out true triplets')
+
+        # numpy embedding mmap_mode
+        self.add_argument(
+            '--tag', type=str, default=0, help='Distinguish save path')

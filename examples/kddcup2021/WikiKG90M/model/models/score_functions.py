@@ -15,10 +15,14 @@
 Score functions of different knowledge graph embedding models.
 """
 
+import numpy as np
 import paddle
 import paddle.nn as nn
 from paddle.nn.functional import log_sigmoid
-import numpy as np
+
+
+def pnorm(x, epsolon=1e-12):
+    return paddle.sqrt(x * x + epsolon)
 
 
 class TransEScore(object):
@@ -41,7 +45,7 @@ class TransEScore(object):
     def get_test_score(self, entity_embedding, head, rel, tail):
         head_score = paddle.sum(paddle.abs(entity_embedding + rel - tail),
                                 axis=1)
-        tail_score = paddle.sum(paddle.abs(entity_embedding - rel - tail),
+        tail_score = paddle.sum(paddle.abs(entity_embedding - rel - head),
                                 axis=1)
         return head_score, tail_score
 
@@ -51,6 +55,19 @@ class TransEScore(object):
         dist_score = -2 * paddle.bmm(a, b.transpose(
             [0, 2, 1])) + b_s.unsqueeze(-2) + a_s.unsqueeze(-1)
         dist_score = paddle.sqrt(paddle.clip(dist_score, min=1e-30))
+        return dist_score
+
+    def cdist_1(self, a, b):
+        a_s = a * a
+        b_s = b * b
+        dist_score = -2 * paddle.bmm(a, b.transpose(
+            [0, 2, 1])) + b_s.unsqueeze(-2) + a_s.unsqueeze(-1)
+        dist_score = paddle.sqrt(paddle.clip(dist_score, min=1e-30))
+        return dist_score
+
+    def cdist_2(self, a, b):
+        c = a.unsqueeze(-1) - b.unsqueeze(-2)
+        dist_score = paddle.sqrt(c * c + 1e-12)
         return dist_score
 
     def get_neg_score(self,
@@ -99,10 +116,9 @@ class RotatEScore(object):
         re_score = re_score - re_head
         im_score = im_score - im_head
 
-        score = paddle.stack([re_score, im_score], axis=0)
-        score = self.gamma - paddle.sum(paddle.norm(
-            score, p=2, axis=0),
-                                        axis=-1)
+        score = paddle.sqrt(re_score * re_score + im_score * im_score +
+                            self.epsilon)
+        score = self.gamma - paddle.sum(score, axis=-1)
         return score
 
     def get_test_score(self, entity_embedding, head, rel, tail):
@@ -164,10 +180,9 @@ class RotatEScore(object):
             score = emb_complex.reshape([mini_batch_num, -1, 1, hidden_dim])
             heads = heads.reshape([mini_batch_num, 1, -1, hidden_dim])
             score = score - heads
-            re_score, im_score = paddle.chunk(score, chunks=2, axis=1)
-            score = paddle.stack(
-                [re_score, im_score], axis=-1).norm(
-                    p=2, axis=-1)
+            re_score, im_score = paddle.chunk(score, chunks=2, axis=-1)
+            score = paddle.sqrt(re_score * re_score + im_score * im_score +
+                                self.epsilon)
             return self.gamma - score.sum(-1)
         else:
             hidden_dim = heads.shape[-1]
@@ -182,10 +197,9 @@ class RotatEScore(object):
             score = emb_complex.reshape([mini_batch_num, -1, 1, hidden_dim])
             tails = tails.reshape([mini_batch_num, 1, -1, hidden_dim])
             score = score - tails
-            re_score, im_score = paddle.chunk(score, chunks=2, axis=1)
-            score = paddle.stack(
-                [re_score, im_score], axis=-1).norm(
-                    p=2, axis=-1)
+            re_score, im_score = paddle.chunk(score, chunks=2, axis=-1)
+            score = paddle.sqrt(re_score * re_score + im_score * im_score +
+                                self.epsilon)
 
             return self.gamma - score.sum(-1)
 

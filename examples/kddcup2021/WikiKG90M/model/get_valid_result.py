@@ -23,9 +23,8 @@ import pdb
 from collections import defaultdict
 import paddle
 
-if __name__ == '__main__':
-    path = sys.argv[1]
 
+def get_valid_result(path):
     all_file_names = os.listdir(path)
     valid_file_names = [
         name for name in all_file_names if '.pkl' in name and 'valid' in name
@@ -62,3 +61,34 @@ if __name__ == '__main__':
         if metrics[metric] > best_valid_mrr:
             best_valid_mrr = metrics[metric]
             best_valid_idx = i
+
+
+def get_test_result(path):
+    evaluator = WikiKG90MEvaluator()
+    test_result_dict = defaultdict(lambda: defaultdict(list))
+    num_proc = 1
+    for proc in range(num_proc):
+        test_result_dict_proc = paddle.load(os.path.join(path, "test.pkl"))
+        for result_dict_proc, result_dict in zip([test_result_dict_proc],
+                                                 [test_result_dict]):
+            for key in result_dict_proc['h,r->t']:
+                result_dict['h,r->t'][key].append(result_dict_proc['h,r->t'][
+                    key].numpy())
+    for result_dict in [test_result_dict]:
+        for key in result_dict['h,r->t']:
+            result_dict['h,r->t'][key] = np.concatenate(
+                result_dict['h,r->t'][key], 0)
+    metrics = evaluator.eval(test_result_dict)
+    metric = 'mrr'
+    print("Test-{}: {}".format(metric, metrics[metric]))
+    print("Test Metrics:")
+    print(metrics)
+
+
+if __name__ == '__main__':
+    path = sys.argv[1]
+    mode = sys.argv[2]
+    if mode == 'test':
+        get_test_result(path)
+    else:
+        get_valid_result(path)

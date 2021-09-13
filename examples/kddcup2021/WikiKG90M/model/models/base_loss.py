@@ -17,7 +17,8 @@ Base loss function.
 
 import paddle
 import paddle.nn as nn
-from .loss_functions import *
+import paddle.fluid as fluid
+from paddle.nn.functional import log_sigmoid, sigmoid
 
 
 class LossFunc(object):
@@ -28,19 +29,12 @@ class LossFunc(object):
                  adv_temp_value=0.0,
                  pairwise=False):
         super(LossFunc, self).__init__()
+        self.margin = args.margin
         self.loss_type = loss_type
         self.neg_adv_sampling = neg_adv_sampling
         self.adv_temp_value = adv_temp_value
         self.pairwise = pairwise
-        if self.loss_type == 'Hinge':
-            self.neg_label = -1
-            self.loss_criterion = HingeLoss(args.margin)
-        elif self.loss_type == 'Logsigmoid':
-            self.neg_label = -1
-            self.loss_criterion = LogSigmoidLoss()
-        elif self.loss_type == 'BCE':
-            self.neg_label = 0
-            self.loss_criterion = BCELoss()
+        self.get_loss_criterion()
 
     def get_total_loss(self, pos_score, neg_score):
         # ipdb.set_trace()
@@ -71,3 +65,48 @@ class LossFunc(object):
         adv_softmax = nn.functional.softmax(adv_score)
         adv_softmax.stop_gradient = True
         return adv_softmax
+
+    def get_loss_criterion(self):
+        if self.loss_type == 'Hinge':
+            self.hinge_loss()
+        elif self.loss_type == 'Logsigmoid':
+            self.log_sigmoid_loss()
+        elif self.loss_type == 'BCE':
+            self.bce_loss()
+
+    def hinge_loss(self):
+        class HingeLoss(object):
+            def __init__(self, margin):
+                super(HingeLoss, self).__init__()
+                self.margin = margin
+
+            def __call__(self, score, label):
+                loss = self.margin - label * score
+                loss = fluid.layers.relu(loss)
+                return loss
+
+        self.loss_criterion = HingeLoss(self.margin)
+        self.neg_label = -1
+
+    def log_sigmoid_loss(self):
+        class LogSigmoidLoss(object):
+            def __init__(self):
+                super(LogSigmoidLoss, self).__init__()
+
+            def __call__(self, score, label):
+                return -log_sigmoid(label * score)
+
+        self.loss_criterion = LogSigmoidLoss()
+        self.neg_label = -1
+
+    def bce_loss(self):
+        class BCELoss(object):
+            def __init__(self):
+                super(BCELoss, self).__init__()
+
+            def __call__(self, score, label):
+                return -(label * paddle.log(sigmoid(score)) +
+                         (1 - label) * paddle.log(1 - sigmoid(score)))
+
+        self.loss_criterion = BCELoss()
+        self.neg_label = 0
