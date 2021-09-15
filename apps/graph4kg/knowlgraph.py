@@ -66,20 +66,22 @@ class KnowlGraph(object):
             self._num_rels = num_rels
 
         def remap_test_data(data):
+            """Reformulate validation and test
+            """
             if isinstance(data, dict):
                 data = {
                     'mode': 'tail',
-                    'h': data['hr'][:,0],
-                    'r': data['hr'][:,1],
+                    'h': data['hr'][:, 0],
+                    'r': data['hr'][:, 1],
                     'candidate': data['t_candidate'],
                     'correct_index': data['t_correct_index']
                 }
             elif isinstance(data, np.ndarray):
                 data = {
                     'mode': 'both',
-                    'h': data[:,0],
-                    'r': data[:,1],
-                    't': data[:,2],
+                    'h': data[:, 0],
+                    'r': data[:, 1],
+                    't': data[:, 2],
                     'candidate':self._num_ents
                 }
             elif data is not None:
@@ -113,23 +115,27 @@ class KnowlGraph(object):
             repr_dict['ent_feat'].append({
                 'name':key,
                 'shape':list(value.shape),
-                'dtype'=str(value.dtype)})
+                'dtype':str(value.dtype)})
         repr_dict['rel_feat'] = []
         for key, value in self._rel_feat.items():
             repr_dict['rel_feat'].append({
                 'name':key,
                 'shape':list(value.shape),
-                'dtype'=str(value.dtype)})
+                'dtype':str(value.dtype)})
         return json.dumps(repr_dict, ensure_ascii=False)
 
     def maybe_num_ents(self):
+        """Count the number of entities
+        """
         ents = []
         def extract_ents(data):
+            """Extract entities from data
+            """
             if isinstance(data, dict):
-                ents.append(np.unique(data['hr'][:,0]))
+                ents.append(np.unique(data['hr'][:, 0]))
                 ents.append(np.unique(data['t_candidate'].reshape(-1)))
             elif isinstance(data, np.ndarray):
-                ents_data = np.concatenate([data[:,0], data[:2]])
+                ents_data = np.concatenate([data[:, 0], data[:, 2]])
                 ents.append(np.unique(ents_data))
         extract_ents(self._train)
         extract_ents(self._valid)
@@ -138,12 +144,16 @@ class KnowlGraph(object):
         return num_ents
     
     def maybe_num_rels(self):
+        """Count the number of relations
+        """
         rels = []
         def extract_rels(data):
+            """Extract relations from data
+            """
             if isinstance(data, dict):
-                rels.append(np.unique(data['hr'][:,1]))
+                rels.append(np.unique(data['hr'][:, 1]))
             elif isinstance(data, np.ndarray):
-                rels.append(np.unique(data[:,1]))
+                rels.append(np.unique(data[:, 1]))
         extract_rels(self._train)
         extract_rels(self._valid)
         extract_rels(self._test)
@@ -207,7 +217,7 @@ class KnowlGraph(object):
             if not os.path.exists(feat_path):
                 os.mkdirs(feat_path)
             for key, value in feat.items():
-                np.save(os.path.join(feat_path, key+'.npy'), value)
+                np.save(os.path.join(feat_path, key + '.npy'), value)
 
         _dump_feat(path, 'ent_feat')
         _dump_feat(path, 'rel_feat')
@@ -409,9 +419,9 @@ class KnowlGraph(object):
         assert k > 0 and k <= self.num_train
         p_size = self.num_train // k
         p_more = self.num_train % k
-        indexs = np.random.permutation(num_train)
-        l_part = self.indexs[:p_more*(p_size+1)].reshape(p_more, -1)
-        r_part = self.indexs[p_more*(p_size+1):].reshape(-1, p_size)
+        indexs = np.random.permutation(self.num_train)
+        l_part = indexs[:p_more * (p_size + 1)].reshape(p_more, -1)
+        r_part = indexs[p_more * (p_size + 1):].reshape(-1, p_size)
         indexs = list(l_part) + list(r_part)
 
         return indexs

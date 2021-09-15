@@ -80,7 +80,7 @@ class TripletDataset(object):
             self._ent_dict = self.load_dictionary(
                 ent_dict_path, self._kv, self._delimiter, self._skip_head)
             self._rel_dict = self.load_dictionary(
-                rel_dict_path, self._hrt, self._delimiter, self._skip_head)
+                rel_dict_path, self._kv, self._delimiter, self._skip_head)
             self.num_ents = len(self._ent_dict)
             self.num_rels = len(self._rel_dict)
         else:
@@ -151,15 +151,16 @@ class TripletDataset(object):
         """Return the knowledge graph as a KnowlGraph object
         """
         triplets = {
-            'train': self._train,
-            'valid': self._valid,
-            'test': self._test
+            'train': self.train,
+            'valid': self.valid,
+            'test': self.test
         }
         graph = KnowlGraph(triplets, 
                            self.num_ents, 
                            self.num_rels, 
                            self.ent_feat, 
                            self.rel_feat)
+        graph.sampled_subgraph(percent=0.01)
         return graph
 
 
@@ -190,6 +191,6 @@ def load_dataset(data_path,
     if data_name == "wikikg90m":
         dataset = WikiKG90MDataset(data_path)
     elif data_name in ['FB15k', 'WN18', 'FB15k-237', 'WN18RR']:
-        dataset = TripletDataset(data_path, data_name, map_to_id=True)
+        dataset = TripletDataset(data_path, data_name, kv_mode='vk', map_to_id=True)
 
     return dataset

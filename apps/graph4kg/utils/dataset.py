@@ -16,9 +16,9 @@ import os
 
 import numpy as np
 import paddle
-from paddle.io import Dataset, DataLoader
+from paddle.io import Dataset
 
-from helper import timer_wrapper
+from utils.helper import timer_wrapper
 
 
 class KGDataset(Dataset):
@@ -62,12 +62,14 @@ class KGDataset(Dataset):
             assert self._filter_dict is not None
             assert 'head' in self._filter_dict
             assert 'tail' in self._filter_dict
+        self._step = 0
 
     def __len__(self):
         return len(self._triplets)
 
     def __getitem__(self, index):
-        return self._triplets[index]
+        h, r, t = self._triplets[index]
+        return h, r, t
 
     def head_collate_fn(self, data):
         """Collate_fn to corrupt heads
@@ -79,6 +81,15 @@ class KGDataset(Dataset):
         """
         return self._collate_fn(data, 'tail', self._filter_dict['tail'])
 
+    def mixed_collate_fn(self, data):
+        """Collate_fn to corrupt heads and tails by turns
+        """
+        self._step += 1
+        if self._step % 2 == 0:
+            return self._collate_fn(data, 'head', self._filter_dict['head'])
+        else:
+            return self._collate_fn(data, 'tail', self._filter_dict['tail'])
+
     def _collate_fn(self, data, mode, fl_set):
         h, r, t = np.array(data).T
         if self._neg_mode == 'batch':
@@ -87,18 +98,20 @@ class KGDataset(Dataset):
         elif self._neg_mode == 'full':
             cand = self._num_ents
         else:
-            raise ValueError('neg_mode % not supported!' % self._neg_mode)
+            raise ValueError('neg_mode %s not supported!' % self._neg_mode)
 
         neg_ents = []
         if mode == 'head':
             for hi, ri, ti in data:
+                fl_set_i = fl_set[(ti, ri)] if fl_set else None
                 neg_ents.append(self.uniform_sampler(
-                    self._num_negs, cand, fl_set[(ti, ri)] 
+                    self._num_negs, cand, fl_set_i
                 ))
         else:
             for hi, ri, ti in data:
+                fl_set_i = fl_set[(hi, ri)] if fl_set else None
                 neg_ents.append(self.uniform_sampler(
-                    self._num_negs, cand, fl_set[(hi, ri)] 
+                    self._num_negs, cand, fl_set_i
                 ))
 
         if self._neg_mode == 'full':
@@ -167,7 +180,7 @@ class TestKGDataset(Dataset):
                  triplets,
                  num_ents):
         self._num_ents = num_ents
-        self._mode = self.triplets['mode']
+        self._mode = triplets['mode']
         assert self._mode in ['tail', 'both']
         self._h = triplets['h']
         self._r = triplets['r']
@@ -176,98 +189,38 @@ class TestKGDataset(Dataset):
         self._corr_idx = triplets.get('correct_index', None)
 
     def __len__(self):
-        return len(self.triplets['r'])
+        return len(self._r)
 
     def __getitem__(self, index):
-        sample = {}
-        sample['h'] = self._h[index]
-        sample['r'] = self._r[index]
-        sample['t'] = self._t[index] if self._t else None
-        if self.mode == 'both':
-            sample['cand'] = self._cand
+        h = self._h[index]
+        r = self._r[index]
+        t = self._t[index] if self._t is not None else None
+        if self._mode == 'both':
+            cand = self._cand
         else:
-            sample['cand'] = self._cand[index]
+            cand = self._cand[index]
             if self._corr_idx:
-                sample['corr_idx'] = self._corr_idx[index]
+                corr_idx = self._corr_idx[index]
             else:
-                sample['corr_idx'] = None
-        return sample
+                corr_idx = None
+        return (h, r, t), cand, corr_idx
 
     def collate_fn(self, data):
         """Collate_fn for validation and test set
         """
         mode = self._mode
-        h = paddle.to_tensor([x['h'] for x in data])
-        r = paddle.to_tensor([x['r'] for x in data])
+        h = paddle.to_tensor([x[0][0] for x in data])
+        r = paddle.to_tensor([x[0][1] for x in data])
         if mode == 'both':
-            t = paddle.to_tensor([x['t'] for x in data])
-            cand = paddle.reshape(paddle.arange(data[0]['cand']), (1, -1))
+            t = paddle.to_tensor([x[0][2] for x in data])
+            cand = paddle.reshape(paddle.arange(data[0][1]), (1, -1))
             corr_idx = None
         else:
             t = None
-            cand = paddle.to_tensor(np.stack([x['cand'] for x in data]))
+            cand = paddle.to_tensor(np.stack([x[1] for x in data]))
             if self._corr_idx:
                 corr_idx = paddle.to_tensor(
-                    np.stack([x['corr_idx'] for x in data]))
+                    np.stack([x[2] for x in data]))
             else:
                 corr_idx = None
         return mode, (h, r, t, cand), corr_idx
-
-
-class KGDataLoader(object):
-    """Implementation of DataLoader for knowledge graphs
-
-    Args:
-
-        dataset: a KGDataset object storing triplets
-
-        batch_size: Batch size for loading samples
-
-        num_workers: Number of processes for loading samples
-
-        sample_mode (optional: 'head', 'tail', 'bi-oneshot'): The way to corrupt triplets
-
-    """ 
-
-    def __init__(self,
-                 dataset,
-                 batch_size,
-                 shuffle=True,
-                 num_workers=4,
-                 drop_last=True,
-                 sample_mode='tail'):
-        def _create_loader(collate_fn):
-            return DataLoader(
-                dataset,
-                batch_size=batch_size,
-                shuffle=shuffle,
-                drop_last=drop_last,
-                num_workers=num_workers,
-                collate_fn=collate_fn
-            )
-        self.mode = sample_mode
-        if self.mode == 'bi-oneshot':
-            self.loader = [_create_loader(dataset.head_collate_fn),
-                           _create_loader(dataset.tail_collate_fn)]
-        else:
-            if self.mode == 'head':
-                collate_fn = dataset.head_collate_fn
-            elif self.mode == 'tail':
-                collate_fn = dataset.tail_collate_fn
-            elif self.mode == 'test':
-                collate_fn = dataset.collate_fn
-            else:
-                raise ValueError('%d sample mode not supported!' % self.mode)
-            self.loader = _create_loader(collate_fn)
-            
-        self.step = 0
-
-    def __next__(self):
-        if self.mode == 'head' or self.mode == 'tail':
-            return next(self.loader)
-        else:
-            self.step += 1
-            return next(self.loader[self.step % 2])
-
-    def __iter__(self):
-        return self

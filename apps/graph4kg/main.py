@@ -24,12 +24,13 @@ import numpy as np
 from tqdm import tqdm
 import paddle.distributed as dist
 from ogb.lsc import WikiKG90MDataset, WikiKG90MEvaluator
+from paddle.io import DataLoader
 
 from models.base_model import BaseKEModel, NumpyEmbedding
 from utils.helper import get_compatible_batch_size, CommonArgParser
 from utils.helper import prepare_save_path, get_save_path
 from dataset import load_dataset
-from utils.dataset import KGDataset, KGDataLoader, TestKGDataset
+from utils.dataset import KGDataset, TestKGDataset
 
 
 def set_global_seed(seed):
@@ -147,13 +148,16 @@ def main():
                            neg_mode='full',
                            filter_mode=False)
     print("Training dataset built, it takes %s seconds" % (time.time() - t1))
-    args.num_workers = 8  # fix num_worker to 8
+    args.num_workers = 0  # fix num_worker to 8
 
     print("Building training sampler")
     t1 = time.time()
-    train_sampler = KGDataLoader(train_data, 
-                                 batch_size=args.batch_size,
-                                 sample_mode='bi-oneshot')
+    train_sampler = DataLoader(train_data, 
+                               batch_size=args.batch_size,
+                               shuffle=True,
+                               drop_last=True,
+                               num_workers=args.num_workers,
+                               collate_fn=train_data.mixed_collate_fn)
     print("Training sampler created, it takes %s seconds" % (time.time() - t1))
 
     if args.valid or args.test:
@@ -164,20 +168,26 @@ def main():
             args.num_test_proc = args.num_proc
         print("To create eval_dataset")
         t1 = time.time()
-        eval_dataset = TestKGDataset(dataset.graph.valid, dataset.graph.num_ents)
-        test_dataset = TestKGDataset(dataset.graph.test, dataset.graph.num_ents)
+        eval_data = TestKGDataset(dataset.graph.valid, dataset.graph.num_ents)
+        test_data = TestKGDataset(dataset.graph.test, dataset.graph.num_ents)
         print("eval_dataset created, it takes %d seconds" % (time.time() - t1))
 
     if args.valid:
-        valid_sampler = KGDataLoader(eval_dataset, 
-                                     batch_size=args.batch_size_eval,
-                                     sample_mode='test')
+        valid_sampler = DataLoader(eval_data, 
+                                   batch_size=args.batch_size_eval,
+                                   shuffle=True,
+                                   drop_last=True,
+                                   num_workers=args.num_workers,
+                                   collate_fn=eval_data.collate_fn)
         print("Valid sampler created, it takes %f seconds" % (time.time() - t1))
 
     if args.test:
-        test_sampler = KGDataLoader(test_dataset, 
-                                     batch_size=args.batch_size_eval,
-                                     sample_mode='test')
+        test_sampler = DataLoader(test_data, 
+                                  batch_size=args.batch_size_eval,
+                                  shuffle=True,
+                                  drop_last=True,
+                                  num_workers=args.num_workers,
+                                  collate_fn=test_data.collate_fn)
         print("Test sampler created, it takes %f seconds" % (time.time() - t1))
 
     for arg in vars(args):
@@ -191,10 +201,8 @@ def main():
         n_relations=dataset.graph.num_rels,
         model_name=args.model_name,
         hidden_size=args.hidden_dim,
-        entity_feat_dim=dataset.graph.ent_feat.shape[1]
-        if dataset.graph.ent_feat is not None else 0,
-        relation_feat_dim=dataset.graph.rel_feat.shape[1]
-        if dataset.graph.rel_feat is not None else 0,
+        entity_feat_dim=0,
+        relation_feat_dim=0,
         gamma=args.gamma,
         double_entity_emb=args.double_ent,
         relation_times=args.ote_size,
@@ -224,38 +232,41 @@ def main():
     t_update = 0
     tic_train = time.time()
     for step in range(0, args.max_step):
-        ts = time.time()
-        pos_triples, neg_ents, ids, neg_head = next(train_sampler)
-        t_sample += (time.time() - ts)
+        for ents, ids, neg_head in train_sampler:
+            ts = time.time()
+            t_sample += (time.time() - ts)
 
-        ts = time.time()
-        loss = model.forward(pos_triples, neg_ents, ids, neg_head)
+            pos_triples = ents[:3]
+            neg_ents = ents[3]
 
-        log["loss"] = loss.numpy()[0]
-        if args.regularization_coef > 0.0 and args.regularization_norm > 0:
-            coef, nm = args.regularization_coef, args.regularization_norm
-            if type(model) is paddle.DataParallel:
-                curr_emb = model._layers.entity_embedding.curr_emb
-            else:
-                curr_emb = model.entity_embedding.curr_emb
-            reg = coef * norm(curr_emb, nm)
-            log['regularization'] = reg.numpy()[0]
-            loss = loss + reg
-        t_forward += (time.time() - ts)
+            ts = time.time()
+            loss = model.forward(pos_triples, neg_ents, ids, neg_head)
 
-        ts = time.time()
-        loss.backward()
-        t_backward += (time.time() - ts)
+            log["loss"] = loss.numpy()[0]
+            if args.regularization_coef > 0.0 and args.regularization_norm > 0:
+                coef, nm = args.regularization_coef, args.regularization_norm
+                if type(model) is paddle.DataParallel:
+                    curr_emb = model._layers.entity_embedding.curr_emb
+                else:
+                    curr_emb = model.entity_embedding.curr_emb
+                reg = coef * norm(curr_emb, nm)
+                log['regularization'] = reg.numpy()[0]
+                loss = loss + reg
+            t_forward += (time.time() - ts)
 
-        ts = time.time()
-        optimizer.step()
-        if args.cpu_emb:
-            if type(model) is paddle.DataParallel:
-                model._layers.entity_embedding.step(args.lr)
-            else:
-                model.entity_embedding.step(args.lr)
-        t_update += (time.time() - ts)
-        optimizer.clear_grad()
+            ts = time.time()
+            loss.backward()
+            t_backward += (time.time() - ts)
+
+            ts = time.time()
+            optimizer.step()
+            if args.cpu_emb:
+                if type(model) is paddle.DataParallel:
+                    model._layers.entity_embedding.step(args.lr)
+                else:
+                    model.entity_embedding.step(args.lr)
+            t_update += (time.time() - ts)
+            optimizer.clear_grad()
 
         if (step + 1) % args.log_interval == 0:
             alltime = (time.time() - tic_train)
