@@ -13,341 +13,183 @@
 # limitations under the License.
 
 import os
-from collections import defaultdict
 
 import pdb
 import numpy as np
-from ogb.lsc import WikiKG90MDataset, WikiKG90MEvaluator
+from ogb.lsc import WikiKG90MDataset as LSCDataset
 
+from knowlgraph import KnowlGraph
+from utils.helper import timer_wrapper
 
-class KGDataset:
-    '''Load a knowledge graph
+__all__ = [
+    'TripletDataset',
+    'WikiKG90MDataset'
+]
 
-    The folder with a knowledge graph has five files:
-    * entities stores the mapping between entity Id and entity name.
-    * relations stores the mapping between relation Id and relation name.
-    * train stores the triples in the training set.
-    * valid stores the triples in the validation set.
-    * test stores the triples in the test set.
+class TripletDataset(object):
+    """ Load a knowledge graph in triplets
 
-    The mapping between entity (relation) Id and entity (relation) name is stored as 'id\tname'.
-
-    The triples are stored as 'head_name\trelation_name\ttail_name'.
-    '''
+    Attributes:
+        ent_dict: store data values - {entity:id}
+        rel_dict: store data values - {relation:id}
+        n_ents: number of entities - int
+        n_rels: number of relations - int
+        train: a triplet per sample - [[h, r, t]]
+        valid: query, candidate, answer per sample - ([[h,r]],[[e]],[[t]])
+        test: query, candidate, answer per sample - ([[h,r]],[[e]],[[t]])
+        head_pair: set of h appear with (t, r) pair - {(t,r):set(h)}
+        tail_pair: set of t appear with (h, r) pair - {(h,r):set(t)}
+        entity_feat: n-dim features for entities - [[x1, x2, ..., xn]]
+        relation_feat: n-dim features for relations - [[x1, x2, ..., xn]]
+    """
 
     def __init__(self,
-                 entity_path,
-                 relation_path,
-                 train_path,
-                 valid_path=None,
-                 test_path=None,
-                 format=[0, 1, 2],
+                 path,
+                 data_name,
+                 hrt_mode='hrt',
+                 kv_mode='kv',
+                 train_file='train.txt',
+                 valid_file='valid.txt',
+                 test_file='test.txt',
+                 ent_file='entities.dict',
+                 rel_file='relations.dict',
+                 ent_feat_path=None,
+                 rel_feat_path=None,
                  delimiter='\t',
-                 skip_first_line=False,
-                 kv_mode=False,
-                 filter_mode=False):
-        self.kv_mode = kv_mode
-        self.delimiter = delimiter
-        self.skip_first_line = skip_first_line
-        self.format = format
+                 map_to_id=False,
+                 skip_head=False):
+        super(TripletDataset, self).__init__()
+        self._path = os.path.join(path, data_name)
+        hrt_dict = dict([x, i] for i, x in enumerate(hrt_mode))
+        self._hrt = [hrt_dict[x] for x in ['h', 'r', 't']]
+        self._kv = True if kv_mode == 'kv' else False
+        self._name = data_name
+        self._data_list = [train_file, valid_file, test_file]
+        self._feat_path = [ent_feat_path, rel_feat_path]
+        self._delimiter = delimiter
+        self._map_to_id = map_to_id
+        self._skip_head = skip_head
 
-        self.entity2id, self.n_entities = self.read_dict(entity_path)
-        self.relation2id, self.n_relations = self.read_dict(relation_path)
-        self.train = self.read_triple(train_path, "train")
-        self.valid = self.read_triple(valid_path, "valid")
-        self.test = self.read_triple(test_path, "test")
-        self.head_pair = None
-        self.tail_pair = None
-        if filter_mode:
-            self.head_pair, self.tail_pair = self.construct_true_pair()
+        if not os.path.exists(self._path):
+            raise ValueError('data path %s not exists!' % self._path)
 
-    def construct_true_pair(self):
-        head_pair = defaultdict(set)
-        tail_pair = defaultdict(set)
+        # TODO(Huijuan): No dictionary
+        if self._map_to_id:
+            ent_dict_path = os.path.join(self._path, ent_file)
+            rel_dict_path = os.path.join(self._path, rel_file)
+            self._ent_dict = self.load_dictionary(
+                ent_dict_path, self._kv, self._delimiter, self._skip_head)
+            self._rel_dict = self.load_dictionary(
+                rel_dict_path, self._hrt, self._delimiter, self._skip_head)
+            self.num_ents = len(self._ent_dict)
+            self.num_rels = len(self._rel_dict)
+        else:
+            self.num_ents=None
+            self.num_rels=None
 
-        def add_pair(data):
-            for h, r, t in zip(*data):
-                head_pair[(t, r)].add(h)
-                tail_pair[(h, r)].add(t)
+        self.ent_feat = None
+        self.rel_feat = None
+        self.train, self.valid, self.test = self.load_dataset()
+        self.graph = self.create_knowlgraph()
 
-        add_pair(self.train)
-        if self.valid is not None:
-            add_pair(self.valid)
-        if self.test is not None:
-            add_pair(self.test)
-        return head_pair, tail_pair
-
-    def read_dict(self, data_path):
-        with open(data_path, 'r') as rp:
-            step = 1 if self.kv_mode else -1
-            items = {}
-            for line in rp.readlines():
-                k, v = line.strip().split(self.delimiter)[::step]
-                items[k] = int(v)
-        return items, len(items)
-
-    def read_triple(self, path, mode):
+    @staticmethod
+    def load_dictionary(path, kv_mode, delimiter='\t', skip_head=False):
+        """Function to load dictionary from file, an item per line.
         """
-        mode: train/valid/test
+        if not os.path.exists(path):
+            raise ValueError('there is no dictionary file in %s' % path)
+        step = 1 if kv_mode else -1
+        map_fn = lambda x: [x[::step][0], int(x[::step][1])]
+        with open(path, 'r') as rp:
+            rp.readline() if skip_head else None
+            data = [map_fn(l.strip().split(delimiter)) for l in rp.readlines()]
+        return dict(data)
+
+    @staticmethod
+    def load_triplet(path, hrt_idx, delimiter='\t', skip_head=False):
+        """Function to load triplets from file, a triplet per line.
         """
-        if path is None:
-            return None
-
-        skip_first_line = self.skip_first_line
-        format = self.format
-
-        print('Reading {} triples....'.format(mode))
-        heads = []
-        tails = []
-        rels = []
-        with open(path) as f:
-            if skip_first_line:
-                f.readline()
-            for line in f:
-                triple = line.strip().split(self.delimiter)
-                h, r, t = triple[format[0]], triple[format[1]], triple[format[
-                    2]]
-                heads.append(self.entity2id[h])
-                rels.append(self.relation2id[r])
-                tails.append(self.entity2id[t])
-
-        heads = np.array(heads, dtype=np.int64)
-        tails = np.array(tails, dtype=np.int64)
-        rels = np.array(rels, dtype=np.int64)
-        print('Finished. Read {} {} triples.'.format(len(heads), mode))
-        return (heads, rels, tails)
-
-
-class KGDatasetToWiki(KGDataset):
-    def __init__(self, args):
-        data_path = os.path.join(args.data_path, args.dataset)
-        super(KGDatasetToWiki, self).__init__(
-            os.path.join(data_path, 'entities.dict'),
-            os.path.join(data_path, 'relations.dict'),
-            os.path.join(data_path, 'train.txt'),
-            os.path.join(data_path, 'valid.txt'),
-            os.path.join(data_path, 'test.txt'),
-            filter_mode=args.filter)
-        self.valid = self.get_percent(self.valid, args.eval_percent)
-        self.test = self.get_percent(self.test, args.test_percent)
-        self.valid_dict = self.convert_to_wiki_dict(self.valid)
-        self.test_dict = self.convert_to_wiki_dict(self.test)
-        self.train = np.stack(self.train)
-        self.valid = None
-        self.test = None
-        self.entity_feat = None
-        self.relation_feat = None
-
-    def get_percent(self, data, percent):
-        if percent != 1:
-            num_percent = int(len(data[0]) * percent)
-            data = tuple([x[:num_percent] for x in data])
+        if not os.path.exists(path):
+            raise ValueError('there is no triplet file in %s' % path)
+        map_fn = lambda x: [x[hrt_idx[i]] for i in range(3)]
+        with open(path, 'r') as rp:
+            rp.readline() if skip_head else None
+            data = [map_fn(l.strip().split(delimiter)) for l in rp.readlines()]
         return data
 
-    def convert_to_wiki_dict(self, data):
-        data_dict = {
-            'h,r->t': {
-                'hr': np.stack(data[:2]).T,
-                't_candidate': np.tile(
-                    np.arange(self.n_entities).reshape(1, -1),
-                    (len(data[2]), 1)),
-                't_correct_index': data[2]
-            }
-        }
-        return data_dict
+    @timer_wrapper('dataset loading')
+    def load_dataset(self):
+        """Function to load datasets from files, including train, value, test
+        """
+        data = []
+        for file in self._data_list:
+            path = os.path.join(self._path, file)
+            data.append(self.load_triplet(
+                path, self._hrt, self._delimiter, self._skip_head))
 
-    def get_random_partition(self, k):
-        '''k: number of partitions'''
-
-    @property
-    def emap_fname(self):
-        return None
-
-    @property
-    def rmap_fname(self):
-        return None
-
-
-class KGDatasetWiki(KGDataset):
-    '''Load a knowledge graph wikikg
-    '''
-
-    def __init__(self, args, path, name='wikikg90m'):
-        self.name = name
-        self.dataset = WikiKG90MDataset(path)
-        if args.eval_percent != 1.:
-            num_valid = len(self.dataset.valid_dict['h,r->t']['hr'])
-            num_valid = int(num_valid * args.eval_percent)
-            self.dataset.valid_dict['h,r->t']['hr'] = self.dataset.valid_dict[
-                'h,r->t']['hr'][:num_valid]
-            self.dataset.valid_dict['h,r->t'][
-                't_candidate'] = self.dataset.valid_dict['h,r->t'][
-                    't_candidate'][:num_valid]
-            self.dataset.valid_dict['h,r->t'][
-                't_correct_index'] = self.dataset.valid_dict['h,r->t'][
-                    't_correct_index'][:num_valid]
-            print("num_valid", num_valid)
-        if args.test_percent != 1.:
-            num_test = len(self.dataset.test_dict['h,r->t']['hr'])
-            num_test = int(num_test * args.test_percent)
-            self.dataset.test_dict['h,r->t']['hr'] = self.dataset.test_dict[
-                'h,r->t']['hr'][:num_test]
-            self.dataset.test_dict['h,r->t'][
-                't_candidate'] = self.dataset.test_dict['h,r->t'][
-                    't_candidate'][:num_test]
-            print("num_test", num_test)
-        if args.train_percent != 1.:
-            num_train = self.dataset.train_hrt.shape[0]
-            num_train = int(num_train * args.train_percent)
-            print("num_train", num_train)
-            self.train = self.dataset.train_hrt.T[:, :num_train]
+        if self._map_to_id:
+            def map_fn(x):
+                """Map entities and relations into ids.
+                """
+                h = self._ent_dict[x[0]]
+                r = self._rel_dict[x[1]]
+                t = self._ent_dict[x[2]]
+                return [h, r, t]
         else:
-            self.train = self.dataset.train_hrt.T
+            def map_fn(x):
+                """Case ids of entities and relations into int.
+                """
+                return [int(i) for i in x]
 
-        self.n_entities = self.dataset.num_entities
-        self.n_relations = self.dataset.num_relations
-        self.valid = None
-        self.test = None
-        self.valid_dict = self.dataset.valid_dict
-        self.test_dict = self.dataset.test_dict
-        self.entity_feat = self.dataset.entity_feat
-        self.relation_feat = self.dataset.relation_feat
-        if 't,r->h' in self.valid_dict:
-            del self.valid_dict['t,r->h']
-        if 't,r->h' in self.test_dict:
-            del self.valid_dict['t,r->h']
+        for i, sub_data in enumerate(data):
+            sub_data = [map_fn(x) for x in sub_data]
+            data[i] = np.array(sub_data, dtype=np.int64)
 
-    @property
-    def emap_fname(self):
-        return None
+        return data
 
-    @property
-    def rmap_fname(self):
-        return None
-
-
-class KGDatasetCN31(KGDataset):
-    def __init__(self, path, name='toy'):
-        self.name = name
-        # self.dataset = WikiKG90MDataset(path)
-        self.train = np.fromfile(
-            os.path.join(path, "train_triple_id.txt"),
-            sep="\t").astype("int32").reshape([-1, 3]).T
-        self.valid = np.fromfile(
-            os.path.join(path, "valid_triple_id.txt"),
-            sep="\t").astype("int32").reshape([-1, 3]).T
-        self.test = np.fromfile(
-            os.path.join(path, "test_triple_id.txt"),
-            sep="\t").astype("int32").reshape([-1, 3]).T
-
-        self.n_entities = self.train.max() + 1
-        self.n_relations = self.train[1, :].max() + 1
-        self.feat_dim = 768
-        self.entity_feat = np.random.randn(
-            self.n_entities,
-            self.feat_dim)  #np.load(os.path.join(path, "entity_feat.npy"))
-        self.relation_feat = np.random.randn(
-            self.n_relations,
-            self.feat_dim)  #np.load(os.path.join(path, "relation_feat.npy"))
-        self.entity_degree = np.ones((self.n_entities, 2))
-        self.valid_dict = {
-            'h,r->t': {
-                'hr': np.random.randint(
-                    15, size=(50, 2)),
-                't_candidate': np.random.randint(
-                    15, size=(50, 10)),
-                't_correct_index': np.random.randint(
-                    5, size=(50, ))
-            }
+    def create_knowlgraph(self):
+        """Return the knowledge graph as a KnowlGraph object
+        """
+        triplets = {
+            'train': self._train,
+            'valid': self._valid,
+            'test': self._test
         }
-        self.test_dict = {
-            'h,r->t': {
-                'hr': np.random.randint(
-                    15, size=(50, 2)),
-                't_candidate': np.random.randint(
-                    15, size=(50, 10)),
-                't_correct_index': np.random.randint(
-                    5, size=(50, ))
-            }
+        graph = KnowlGraph(triplets, 
+                           self.num_ents, 
+                           self.num_rels, 
+                           self.ent_feat, 
+                           self.rel_feat)
+        return graph
+
+
+class WikiKG90MDataset(object):
+    """WikiKG90M dataset implementation
+    """
+    def __init__(self, path):
+        super(WikiKG90MDataset, self).__init__()
+        self.name = 'WikiKG90M-LSC'
+        data = LSCDataset(path)
+        triplets = {
+            'train': data.train_hrt,
+            'valid': data.valid_dict['h,r->t'],
+            'test': data.test_dict['h,r->t']
         }
-
-    @property
-    def emap_fname(self):
-        return None
-
-    @property
-    def rmap_fname(self):
-        return None
+        num_ents = data.num_entities
+        num_rels = data.num_relations
+        ent_feat = {'text': data.entity_feat}
+        rel_feat = {'text': data.relation_feat}
+        self.graph = KnowlGraph(
+            triplets, num_ents, num_rels, ent_feat, rel_feat)
 
 
-class KGDatasetToy(KGDataset):
-    def __init__(self, path, name='toy'):
-        self.name = name
-        # self.dataset = WikiKG90MDataset(path)
-        self.n_entities = 10000
-        self.n_relations = 15
-        self.feat_dim = 768
-        self.train = np.random.randint(
-            15,
-            size=(3, 100000))  # np.load(os.path.join(path, "train_hrt.npy")).T
-        self.valid = None
-        self.test = None
-        self.entity_feat = np.random.randn(
-            self.n_entities,
-            self.feat_dim)  #np.load(os.path.join(path, "entity_feat.npy"))
-        self.relation_feat = np.random.randn(
-            self.n_relations,
-            self.feat_dim)  #np.load(os.path.join(path, "relation_feat.npy"))
-        self.entity_degree = np.ones((self.n_entities, 2))
-        self.valid_dict = {
-            'h,r->t': {
-                'hr': np.random.randint(
-                    15, size=(50, 2)),
-                't_candidate': np.random.randint(
-                    15, size=(50, 10)),
-                't_correct_index': np.random.randint(
-                    5, size=(50, ))
-            }
-        }
-        self.test_dict = {
-            'h,r->t': {
-                'hr': np.random.randint(
-                    15, size=(50, 2)),
-                't_candidate': np.random.randint(
-                    15, size=(50, 10)),
-                't_correct_index': np.random.randint(
-                    5, size=(50, ))
-            }
-        }
-
-    @property
-    def emap_fname(self):
-        return None
-
-    @property
-    def rmap_fname(self):
-        return None
-
-
-def get_dataset(args,
-                data_path,
-                data_name,
-                format_str='built_in',
-                delimiter='\t',
-                files=None,
-                has_edge_importance=False):
-    if format_str == 'built_in':
-        if data_name == "wikikg90m":
-            dataset = KGDatasetWiki(args=args, path=data_path)
-        elif data_name == "toy":
-            dataset = KGDatasetToy(data_path)
-        elif data_name == "cn31":
-            dataset = KGDatasetCN31(data_path)
-        elif data_name in ["FB15k-237", "FB15k", "wikikg2"]:
-            dataset = KGDatasetToWiki(args=args)
-        else:
-            assert False, "Unknown dataset {}".format(data_name)
-    else:
-        dataset = KGDatasetToy(data_path, args=args)
+def load_dataset(data_path,
+                 data_name):
+    """Load datasets from files
+    """
+    if data_name == "wikikg90m":
+        dataset = WikiKG90MDataset(data_path)
+    elif data_name in ['FB15k', 'WN18', 'FB15k-237', 'WN18RR']:
+        dataset = TripletDataset(data_path, data_name, map_to_id=True)
 
     return dataset

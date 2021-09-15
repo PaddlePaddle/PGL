@@ -25,23 +25,24 @@ from tqdm import tqdm
 import paddle.distributed as dist
 from ogb.lsc import WikiKG90MDataset, WikiKG90MEvaluator
 
-from kgdataset import get_dataset
 from models.base_model import BaseKEModel, NumpyEmbedding
-from utils import get_compatible_batch_size, CommonArgParser
-from utils import prepare_save_path, get_save_path
-from dataloader import TrainDataset, EvalDataset, NewBidirectionalOneShotIterator
+from utils.helper import get_compatible_batch_size, CommonArgParser
+from utils.helper import prepare_save_path, get_save_path
+from dataset import load_dataset
+from utils.dataset import KGDataset, KGDataLoader, TestKGDataset
 
 
 def set_global_seed(seed):
+    """seed"""
     random.seed(seed)
     np.random.seed(seed)
     paddle.seed(seed)
 
 
 def set_logger(args):
-    '''
+    """
     Write logs to console and log file
-    '''
+    """
     log_file = os.path.join(args.save_path, 'train.log')
     logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',
@@ -59,6 +60,7 @@ def set_logger(args):
 
 
 class ArgParser(CommonArgParser):
+    """parser"""
     def __init__(self):
         super(ArgParser, self).__init__()
 
@@ -101,6 +103,8 @@ norm = lambda x, p: x.norm(p=p)**p
 
 
 def main():
+    """main
+    """
     args = ArgParser().parse_args()
     # initialize the parallel environment
     if dist.get_world_size() > 1:
@@ -111,9 +115,7 @@ def main():
     set_global_seed(args.seed)
 
     init_time_start = time.time()
-    dataset = get_dataset(args, args.data_path, args.dataset, args.format,
-                          args.delimiter, args.data_files,
-                          args.has_edge_importance)
+    dataset = load_dataset(args.data_path, args.dataset)
     args.batch_size = get_compatible_batch_size(args.batch_size,
                                                 args.neg_sample_size)
     args.batch_size_eval = get_compatible_batch_size(args.batch_size_eval,
@@ -123,7 +125,7 @@ def main():
     if dist.get_rank() == 0:
         prepare_save_path(args)
         init_value = (args.gamma + 2.0) / args.hidden_dim
-        NumpyEmbedding.create_emb(dataset.n_entities, args.hidden_dim,
+        NumpyEmbedding.create_emb(dataset.graph.num_ents, args.hidden_dim,
                                   init_value, args.scale_type,
                                   args.weight_path)
     else:
@@ -137,32 +139,21 @@ def main():
 
     print("To build training dataset")
     t1 = time.time()
-    train_data = TrainDataset(
-        dataset, args, has_importance=args.has_edge_importance)
+    # train_data = TrainDataset(
+    #     dataset, args, has_importance=args.has_edge_importance)
+    train_data = KGDataset(dataset.graph.train,
+                           dataset.graph.num_ents,
+                           args.neg_sample_size,
+                           neg_mode='full',
+                           filter_mode=False)
     print("Training dataset built, it takes %s seconds" % (time.time() - t1))
     args.num_workers = 8  # fix num_worker to 8
 
     print("Building training sampler")
     t1 = time.time()
-    train_samplers = []
-    if dist.get_world_size() > 1:
-        indexs = train_data.random_partition(dist.get_world_size())
-        for i, x in enumerate(indexs):
-            sampler = train_data.create_sampler(
-                batch_size=args.batch_size,
-                num_workers=args.num_workers,
-                neg_sample_size=args.neg_sample_size,
-                neg_mode='bi-oneshot',
-                edge_index=x)
-            train_samplers.append(sampler)
-            print('sampler %d created!' % i)
-    else:
-        sampler = train_data.create_sampler(
-            batch_size=args.batch_size,
-            num_workers=args.num_workers,
-            neg_sample_size=args.neg_sample_size,
-            neg_mode='bi-oneshot')
-        train_samplers.append(sampler)
+    train_sampler = KGDataLoader(train_data, 
+                                 batch_size=args.batch_size,
+                                 sample_mode='bi-oneshot')
     print("Training sampler created, it takes %s seconds" % (time.time() - t1))
 
     if args.valid or args.test:
@@ -173,43 +164,21 @@ def main():
             args.num_test_proc = args.num_proc
         print("To create eval_dataset")
         t1 = time.time()
-        eval_dataset = EvalDataset(dataset, args)
+        eval_dataset = TestKGDataset(dataset.graph.valid, dataset.graph.num_ents)
+        test_dataset = TestKGDataset(dataset.graph.test, dataset.graph.num_ents)
         print("eval_dataset created, it takes %d seconds" % (time.time() - t1))
 
     if args.valid:
-        if args.num_proc > 1:
-            valid_samplers = []
-            for i in range(args.num_proc):
-                print("creating valid sampler for proc %d" % i)
-                t1 = time.time()
-                valid_sampler_tail = eval_dataset.create_sampler(
-                    'valid',
-                    args.batch_size_eval,
-                    mode='tail',
-                    num_workers=args.num_workers,
-                    rank=i,
-                    ranks=args.num_proc)
-                valid_samplers.append(valid_sampler_tail)
-                print("Valid sampler for proc %d created, it takes %s seconds"
-                      % (i, time.time() - t1))
-        else:
-            valid_sampler_tail = eval_dataset.create_sampler(
-                'valid',
-                args.batch_size_eval,
-                mode='tail',
-                num_workers=args.num_workers,
-                rank=0,
-                ranks=1)
-            valid_samplers = [valid_sampler_tail]
+        valid_sampler = KGDataLoader(eval_dataset, 
+                                     batch_size=args.batch_size_eval,
+                                     sample_mode='test')
+        print("Valid sampler created, it takes %f seconds" % (time.time() - t1))
 
     if args.test:
-        test_sampler_tail = eval_dataset.create_sampler(
-            'test',
-            args.batch_size_eval,
-            mode='tail',
-            num_workers=args.num_workers,
-            rank=0,
-            ranks=1)
+        test_sampler = KGDataLoader(test_dataset, 
+                                     batch_size=args.batch_size_eval,
+                                     sample_mode='test')
+        print("Test sampler created, it takes %f seconds" % (time.time() - t1))
 
     for arg in vars(args):
         logging.info('{:20}:{}'.format(arg, getattr(args, arg)))
@@ -218,21 +187,21 @@ def main():
     t1 = time.time()
     model = BaseKEModel(
         args=args,
-        n_entities=dataset.n_entities,
-        n_relations=dataset.n_relations,
+        n_entities=dataset.graph.num_ents,
+        n_relations=dataset.graph.num_rels,
         model_name=args.model_name,
         hidden_size=args.hidden_dim,
-        entity_feat_dim=dataset.entity_feat.shape[1]
-        if dataset.entity_feat is not None else 0,
-        relation_feat_dim=dataset.relation_feat.shape[1]
-        if dataset.relation_feat is not None else 0,
+        entity_feat_dim=dataset.graph.ent_feat.shape[1]
+        if dataset.graph.ent_feat is not None else 0,
+        relation_feat_dim=dataset.graph.rel_feat.shape[1]
+        if dataset.graph.rel_feat is not None else 0,
         gamma=args.gamma,
         double_entity_emb=args.double_ent,
         relation_times=args.ote_size,
         scale_type=args.scale_type)
 
-    model.entity_feat = dataset.entity_feat
-    model.relation_feat = dataset.relation_feat
+    model.entity_feat = dataset.graph.ent_feat
+    model.relation_feat = dataset.graph.rel_feat
     print(len(model.parameters()))
 
     if dist.get_world_size() > 1:
@@ -256,8 +225,7 @@ def main():
     tic_train = time.time()
     for step in range(0, args.max_step):
         ts = time.time()
-        index = dist.get_rank()
-        pos_triples, neg_ents, ids, neg_head = next(train_samplers[index])
+        pos_triples, neg_ents, ids, neg_head = next(train_sampler)
         t_sample += (time.time() - ts)
 
         ts = time.time()
@@ -309,11 +277,11 @@ def main():
 
         if args.valid and (
                 step + 1
-        ) % args.eval_interval == 0 and step > 1 and valid_samplers is not None:
+        ) % args.eval_interval == 0 and step > 1 and valid_sampler is not None:
             print("Valid begin")
             valid_start = time.time()
             valid_input_dict = test(
-                args, model, valid_samplers, step, rank=0, mode='Valid')
+                args, model, [valid_sampler], step, rank=0, mode='Valid')
             paddle.save(valid_input_dict,
                         os.path.join(args.save_path,
                                      "valid_{}.pkl".format(step)))
@@ -325,12 +293,12 @@ def main():
             model.save_model()
             print("Save model done.")
 
-    if args.test and test_sampler_tail is not None:
+    if args.test and test_sampler is not None:
         print("Test begin")
         test_start = time.time()
         test_input_dict = test(
             args,
-            model, [test_sampler_tail],
+            model, [test_sampler],
             args.max_step,
             rank=0,
             mode='Test')
@@ -338,6 +306,8 @@ def main():
 
 
 def test(args, model, test_samplers, step, rank=0, mode='Test'):
+    """test
+    """
     with paddle.no_grad():
         logs = defaultdict(list)
         answers = defaultdict(list)
