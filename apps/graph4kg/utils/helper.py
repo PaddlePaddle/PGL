@@ -39,23 +39,21 @@ def timer_wrapper(name):
     return decorate
 
 
-def get_save_path(args):
+def prepare_save_path(args):
     if not os.path.exists(args.save_path):
         os.mkdir(args.save_path)
 
-    folder = '{}_{}_d_{}_g_{}_{}'.format(args.model_name, args.dataset,
-                                         args.hidden_dim, args.gamma, args.tag)
+    folder = '{}_{}_d_{}_g_{}_{}'.format(args.score, args.dataset,
+                                         args.embed_dim, args.gamma, args.tag)
     n = len([x for x in os.listdir(args.save_path) if x.startswith(folder)])
     folder += str(n)
-    save_path = os.path.join(args.save_path, folder)
-    return save_path
+    args.save_path = os.path.join(args.save_path, folder)
 
-
-def prepare_save_path(args):
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     else:
         raise IOError('model path %s already exists' % args.save_path)
+    return args.save_path
 
 
 def get_compatible_batch_size(batch_size, neg_sample_size):
@@ -229,9 +227,7 @@ class CommonArgParser(argparse.ArgumentParser):
         super(CommonArgParser, self).__init__()
 
         self.add_argument(
-            '--model_name',
-            default='TransE',
-            choices=['TransE', 'RotatE', 'OTE'])
+            '--score', default='TransE', choices=['TransE', 'RotatE', 'OTE'])
         self.add_argument(
             '--data_path',
             type=str,
@@ -275,7 +271,7 @@ class CommonArgParser(argparse.ArgumentParser):
             '--no_save_emb',
             action='store_true',
             help='Disable saving the embeddings under save_path.')
-        self.add_argument('--max_step', type=int, default=1000000,
+        self.add_argument('--num_epoch', type=int, default=1000000,
                           help='The maximal number of steps to train the model.'\
                                   'A step trains the model with a batch of data.')
         self.add_argument(
@@ -284,16 +280,17 @@ class CommonArgParser(argparse.ArgumentParser):
             default=1000,
             help='The batch size for training.')
         self.add_argument(
-            '--batch_size_eval',
+            '--test_batch_size',
             type=int,
             default=50,
             help='The batch size used for validation and test.')
         self.add_argument(
-            '--neg_sample_size',
+            '--num_negs',
             type=int,
             default=1000,
             help='The number of negative samples we use for each positive sample in the training.'
         )
+        self.add_argument('--neg_mode', type=str, default='full')
         self.add_argument('--neg_deg_sample', action='store_true',
                           help='Construct negative samples proportional to vertex degree in the training.'\
                                   'When this option is turned on, the number of negative samples per positive edge'\
@@ -344,6 +341,9 @@ class CommonArgParser(argparse.ArgumentParser):
             action='store_true',
             help='Evaluate the model on the test set after the model is trained.'
         )
+        self.add_argument('--num_workers', type=int, default=4)
+        self.add_argument('--ent_times', type=int, default=1)
+        self.add_argument('--rel_times', type=int, default=1)
         self.add_argument('--num_proc', type=int, default=1,
                           help='The number of processes to train the model in parallel.'\
                                   'In multi-GPU training, the number of processes by default is set to match the number of GPUs.'\
@@ -356,7 +356,7 @@ class CommonArgParser(argparse.ArgumentParser):
                                   'multiprocessing training. This potentially stablizes the training process'
                                   'to get a better performance. For multiprocessing training, it is set to 1000 by default.')
         self.add_argument(
-            '--hidden_dim',
+            '--embed_dim',
             type=int,
             default=200,
             help='The embedding size of relation and entity')
@@ -396,13 +396,13 @@ class CommonArgParser(argparse.ArgumentParser):
             help='The temperature used for negative adversarial sampling.')
         self.add_argument(
             '-rc',
-            '--regularization_coef',
+            '--reg_coef',
             type=float,
             default=0.000002,
             help='The coefficient for regularization.')
         self.add_argument(
             '-rn',
-            '--regularization_norm',
+            '--reg_norm',
             type=int,
             default=3,
             help='norm used in regularization.')
@@ -413,7 +413,7 @@ class CommonArgParser(argparse.ArgumentParser):
             help='Indicate whether to use pairwise loss function. '
             'It compares the scores of a positive triple and a negative triple')
         self.add_argument(
-            '--loss_genre',
+            '--loss_type',
             default='Logsigmoid',
             choices=['Hinge', 'Logistic', 'Logsigmoid', 'BCE'],
             help='The loss function used to train KGEM.')
@@ -437,10 +437,44 @@ class CommonArgParser(argparse.ArgumentParser):
             help='Whether use RoBERTa embedding')
 
         self.add_argument(
-            '--filter',
+            '--filter_mode',
             action='store_true',
             help='Whether filter out true triplets')
 
         # numpy embedding mmap_mode
         self.add_argument(
             '--tag', type=str, default=0, help='Distinguish save path')
+
+        self.add_argument(
+            '--gpu',
+            type=int,
+            default=[-1],
+            nargs='+',
+            help='A list of gpu ids, e.g. 0 1 2 4')
+        self.add_argument('--mix_cpu_gpu', action='store_true',
+                          help='Training a knowledge graph embedding model with both CPUs and GPUs.'\
+                                  'The embeddings are stored in CPU memory and the training is performed in GPUs.'\
+                                  'This is usually used for training a large knowledge graph embeddings.')
+        self.add_argument(
+            '--valid',
+            action='store_true',
+            help='Evaluate the model on the validation set in the training.')
+        self.add_argument(
+            '--rel_part',
+            action='store_true',
+            help='Enable relation partitioning for multi-GPU training.')
+        self.add_argument('--async_update', action='store_true',
+                          help='Allow asynchronous update on node embedding for multi-GPU training.'\
+                                  'This overlaps CPU and GPU computation to speed up.')
+        self.add_argument('--has_edge_importance', action='store_true',
+                          help='Allow providing edge importance score for each edge during training.'\
+                                  'The positive score will be adjusted '\
+                                  'as pos_score = pos_score * edge_importance')
+
+        self.add_argument('--print_on_screen', action='store_true')
+        self.add_argument(
+            '--mlp_lr',
+            type=float,
+            default=0.0001,
+            help='The learning rate of optimizing mlp')
+        self.add_argument('--seed', type=int, default=0, help='random seed')

@@ -52,8 +52,8 @@ class TransEScore(object):
     def cdist(self, a, b):
         a_s = paddle.norm(a, p=2, axis=-1).pow(2)
         b_s = paddle.norm(b, p=2, axis=-1).pow(2)
-        dist_score = -2 * paddle.bmm(a, b.transpose(
-            [0, 2, 1])) + b_s.unsqueeze(-2) + a_s.unsqueeze(-1)
+        dist_score = -2 * paddle.matmul(a, b.transpose([0, 2, 1]))
+        dist_score = dist_score + b_s.unsqueeze(-2) + a_s.unsqueeze(-1)
         dist_score = paddle.sqrt(paddle.clip(dist_score, min=1e-30))
         return dist_score
 
@@ -78,18 +78,14 @@ class TransEScore(object):
                       mini_batch_size,
                       neg_sample_size,
                       neg_head=True):
-        mini_batch_num = int(batch_size / mini_batch_size)
+        mini_batch_num = batch_size
         if neg_head:
             hidden_dim = heads.shape[-1]
             tails = tails - relations
-            tails = tails.reshape([mini_batch_num, -1, hidden_dim])
-            heads = heads.reshape([mini_batch_num, -1, hidden_dim])
             return self.gamma - self.cdist(tails, heads)
         else:
             hidden_dim = heads.shape[-1]
             heads = heads + relations
-            heads = heads.reshape([mini_batch_num, -1, hidden_dim])
-            tails = tails.reshape([mini_batch_num, -1, hidden_dim])
             return self.gamma - self.cdist(heads, tails)
 
 

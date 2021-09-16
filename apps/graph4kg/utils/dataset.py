@@ -43,6 +43,7 @@ class KGDataset(Dataset):
                     {'head': {(t, r):set(h)}, 'tail': {(h, r):set(t)}}
 
     """
+
     def __init__(self,
                  triplets,
                  num_ents,
@@ -104,15 +105,13 @@ class KGDataset(Dataset):
         if mode == 'head':
             for hi, ri, ti in data:
                 fl_set_i = fl_set[(ti, ri)] if fl_set else None
-                neg_ents.append(self.uniform_sampler(
-                    self._num_negs, cand, fl_set_i
-                ))
+                neg_ents.append(
+                    self.uniform_sampler(self._num_negs, cand, fl_set_i))
         else:
             for hi, ri, ti in data:
                 fl_set_i = fl_set[(hi, ri)] if fl_set else None
-                neg_ents.append(self.uniform_sampler(
-                    self._num_negs, cand, fl_set_i
-                ))
+                neg_ents.append(
+                    self.uniform_sampler(self._num_negs, cand, fl_set_i))
 
         if self._neg_mode == 'full':
             ents_list = [h, t, np.concatenate(neg_ents)]
@@ -176,12 +175,11 @@ class TestKGDataset(Dataset):
         num_ents: Number of entities in a knowledge graph, int
 
     """
-    def __init__(self,
-                 triplets,
-                 num_ents):
+
+    def __init__(self, triplets, num_ents):
         self._num_ents = num_ents
         self._mode = triplets['mode']
-        assert self._mode in ['tail', 'both']
+        assert self._mode in ['wiki', 'normal']
         self._h = triplets['h']
         self._r = triplets['r']
         self._t = triplets.get('t', None)
@@ -195,14 +193,14 @@ class TestKGDataset(Dataset):
         h = self._h[index]
         r = self._r[index]
         t = self._t[index] if self._t is not None else None
-        if self._mode == 'both':
+        if self._mode == 'normal':
             cand = self._cand
         else:
             cand = self._cand[index]
-            if self._corr_idx:
-                corr_idx = self._corr_idx[index]
-            else:
-                corr_idx = None
+        if self._corr_idx:
+            corr_idx = self._corr_idx[index]
+        else:
+            corr_idx = None
         return (h, r, t), cand, corr_idx
 
     def collate_fn(self, data):
@@ -211,16 +209,15 @@ class TestKGDataset(Dataset):
         mode = self._mode
         h = paddle.to_tensor([x[0][0] for x in data])
         r = paddle.to_tensor([x[0][1] for x in data])
-        if mode == 'both':
-            t = paddle.to_tensor([x[0][2] for x in data])
-            cand = paddle.reshape(paddle.arange(data[0][1]), (1, -1))
-            corr_idx = None
-        else:
+        if mode == 'wiki':
             t = None
             cand = paddle.to_tensor(np.stack([x[1] for x in data]))
             if self._corr_idx:
-                corr_idx = paddle.to_tensor(
-                    np.stack([x[2] for x in data]))
+                corr_idx = paddle.to_tensor(np.stack([x[2] for x in data]))
             else:
                 corr_idx = None
+        elif mode == 'normal':
+            t = paddle.to_tensor([x[0][2] for x in data])
+            cand = paddle.reshape(paddle.arange(data[0][1]), (1, -1))
+            corr_idx = None
         return mode, (h, r, t, cand), corr_idx

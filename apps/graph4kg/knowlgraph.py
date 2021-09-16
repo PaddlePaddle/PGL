@@ -50,7 +50,9 @@ class KnowlGraph(object):
                  ent_feat=None,
                  rel_feat=None,
                  **kwargs):
-        assert isinstance(triplets, dict), 'triplets should be a directionary with keys "train", "valid" and "test"'
+        assert isinstance(
+            triplets, dict
+        ), 'triplets should be a directionary with keys "train", "valid" and "test"'
         self._train = triplets.get('train', None)
         self._valid = triplets.get('valid', None)
         self._test = triplets.get('test', None)
@@ -70,7 +72,7 @@ class KnowlGraph(object):
             """
             if isinstance(data, dict):
                 data = {
-                    'mode': 'tail',
+                    'mode': 'wiki',
                     'h': data['hr'][:, 0],
                     'r': data['hr'][:, 1],
                     'candidate': data['t_candidate'],
@@ -78,16 +80,16 @@ class KnowlGraph(object):
                 }
             elif isinstance(data, np.ndarray):
                 data = {
-                    'mode': 'both',
+                    'mode': 'normal',
                     'h': data[:, 0],
                     'r': data[:, 1],
                     't': data[:, 2],
-                    'candidate':self._num_ents
+                    'candidate': self._num_ents
                 }
             elif data is not None:
                 raise ValueError('Unsupported format for validation or test!')
             return data
-        
+
         self._valid = remap_test_data(self._valid)
         self._test = remap_test_data(self._test)
 
@@ -104,7 +106,7 @@ class KnowlGraph(object):
     def __repr__(self):
         """Pretty Print the KnowledgeGraph
         """
-        repr_dict = {'class': sef.__class__.__name__}
+        repr_dict = {'class': self.__class__.__name__}
         repr_dict['num_ents'] = self._num_ents
         repr_dict['num_rels'] = self._num_rels
         repr_dict['ent_feat'] = []
@@ -113,21 +115,24 @@ class KnowlGraph(object):
         repr_dict['num_test'] = self._test['r'].shape[0]
         for key, value in self._ent_feat.items():
             repr_dict['ent_feat'].append({
-                'name':key,
-                'shape':list(value.shape),
-                'dtype':str(value.dtype)})
+                'name': key,
+                'shape': list(value.shape),
+                'dtype': str(value.dtype)
+            })
         repr_dict['rel_feat'] = []
         for key, value in self._rel_feat.items():
             repr_dict['rel_feat'].append({
-                'name':key,
-                'shape':list(value.shape),
-                'dtype':str(value.dtype)})
+                'name': key,
+                'shape': list(value.shape),
+                'dtype': str(value.dtype)
+            })
         return json.dumps(repr_dict, ensure_ascii=False)
 
     def maybe_num_ents(self):
         """Count the number of entities
         """
         ents = []
+
         def extract_ents(data):
             """Extract entities from data
             """
@@ -137,16 +142,18 @@ class KnowlGraph(object):
             elif isinstance(data, np.ndarray):
                 ents_data = np.concatenate([data[:, 0], data[:, 2]])
                 ents.append(np.unique(ents_data))
+
         extract_ents(self._train)
         extract_ents(self._valid)
         extract_ents(self._test)
         num_ents = np.unique(np.concatenate(ents)).shape[0]
         return num_ents
-    
+
     def maybe_num_rels(self):
         """Count the number of relations
         """
         rels = []
+
         def extract_rels(data):
             """Extract relations from data
             """
@@ -154,6 +161,7 @@ class KnowlGraph(object):
                 rels.append(np.unique(data['hr'][:, 1]))
             elif isinstance(data, np.ndarray):
                 rels.append(np.unique(data[:, 1]))
+
         extract_rels(self._train)
         extract_rels(self._valid)
         extract_rels(self._test)
@@ -173,7 +181,7 @@ class KnowlGraph(object):
         """
         num_ents = np.load(os.path.join(path, 'num_ents.npy'))
         num_rels = np.load(os.path.join(path, 'num_rels.npy'))
-        train =  np.load(os.path.join(path, 'train.npy'), mmap_mode=mmap_mode)
+        train = np.load(os.path.join(path, 'train.npy'), mmap_mode=mmap_mode)
         valid = np.load(os.path.join(path, 'valid.npy'), mmap_mode=mmap_mode)
         test = np.load(os.path.join(path, 'test.npy'), mmap_mode=mmap_mode)
 
@@ -182,13 +190,13 @@ class KnowlGraph(object):
             if os.path.isdir(feat_path):
                 for feat_name in os.listdir(feat_path):
                     feat[os.path.splitext(feat_name)[0]] = np.load(
-                        os.path.join(feat_path, feat_name), 
+                        os.path.join(feat_path, feat_name),
                         mmap_mode=mmap_mode)
             return feat
 
         ent_feat = _load_feat(os.path.join(path, 'ent_feat'))
         rel_feat = _load_feat(os.path.join(path, 'rel_feat'))
-        triplets = {'train':train, 'valid':valid, 'test':test}
+        triplets = {'train': train, 'valid': valid, 'test': test}
         return cls(triplets, num_ents, num_rels, ent_feat, rel_feat)
 
     def dump(self, path):
@@ -229,6 +237,8 @@ class KnowlGraph(object):
         true_pairs = defaultdict(set)
         for h, r, t in self.triplets:
             true_pairs[(h, r)].add(t)
+        for k, v in true_pairs.items():
+            true_pairs[k] = np.array(list(v))
         return true_pairs
 
     @property
@@ -238,6 +248,8 @@ class KnowlGraph(object):
         true_pairs = defaultdict(set)
         for h, r, t in self.triplets:
             true_pairs[(t, r)].add(h)
+        for k, v in true_pairs.items():
+            true_pairs[k] = np.array(list(v))
         return true_pairs
 
     @property
@@ -332,7 +344,9 @@ class KnowlGraph(object):
     def triplets(self):
         """Return all triplets in numpy.ndarray with shape (num_triplets, 3).
         """
-        unempty = [x for x in [self._train, self._valid, self._test] if x is not None]
+        unempty = [
+            x for x in [self._train, self._valid, self._test] if x is not None
+        ]
         return np.concatenate(unempty)
 
     def sorted_triplets(self, sort_by='h', train_only=True):
@@ -395,17 +409,23 @@ class KnowlGraph(object):
             dataset (optional: 'train', 'valid', 'test', 'all'): The key of triplets to be sampled.
 
         """
+
         def _sample_subgraph(data):
-            max_index = len(data)
-            index = np.random.permutation(max_index)
-            index = index[:int(max_index * percent)]
-            return data[index]
+            if isinstance(data, dict):
+                for key in data:
+                    data[key] = _sample_subgraph(data[key])
+            elif isinstance(data, np.ndarray):
+                max_index = data.shape[0]
+                index = np.random.permutation(max_index)
+                index = index[:int(max_index * percent)]
+                data = data[index]
+            return data
 
         if dataset == 'train' or dataset == 'all':
             self._train = _sample_subgraph(self._train)
-        elif dataset == 'valid' or dataset == 'all':
+        if dataset == 'valid' or dataset == 'all':
             self._valid = _sample_subgraph(self._valid)
-        elif dataset == 'test' or dataset == 'all':
+        if dataset == 'test' or dataset == 'all':
             self._test = _sample_subgraph(self._test)
 
     def random_partition(self, k, mode='train'):

@@ -21,10 +21,8 @@ from ogb.lsc import WikiKG90MDataset as LSCDataset
 from knowlgraph import KnowlGraph
 from utils.helper import timer_wrapper
 
-__all__ = [
-    'TripletDataset',
-    'WikiKG90MDataset'
-]
+__all__ = ['TripletDataset', 'WikiKG90MDataset']
+
 
 class TripletDataset(object):
     """ Load a knowledge graph in triplets
@@ -84,13 +82,16 @@ class TripletDataset(object):
             self.num_ents = len(self._ent_dict)
             self.num_rels = len(self._rel_dict)
         else:
-            self.num_ents=None
-            self.num_rels=None
+            self.num_ents = None
+            self.num_rels = None
 
         self.ent_feat = None
         self.rel_feat = None
         self.train, self.valid, self.test = self.load_dataset()
         self.graph = self.create_knowlgraph()
+
+    def __call__(self):
+        return self.graph
 
     @staticmethod
     def load_dictionary(path, kv_mode, delimiter='\t', skip_head=False):
@@ -117,17 +118,18 @@ class TripletDataset(object):
             data = [map_fn(l.strip().split(delimiter)) for l in rp.readlines()]
         return data
 
-    @timer_wrapper('dataset loading')
     def load_dataset(self):
         """Function to load datasets from files, including train, value, test
         """
         data = []
         for file in self._data_list:
             path = os.path.join(self._path, file)
-            data.append(self.load_triplet(
-                path, self._hrt, self._delimiter, self._skip_head))
+            data.append(
+                self.load_triplet(path, self._hrt, self._delimiter,
+                                  self._skip_head))
 
         if self._map_to_id:
+
             def map_fn(x):
                 """Map entities and relations into ids.
                 """
@@ -136,6 +138,7 @@ class TripletDataset(object):
                 t = self._ent_dict[x[2]]
                 return [h, r, t]
         else:
+
             def map_fn(x):
                 """Case ids of entities and relations into int.
                 """
@@ -155,18 +158,16 @@ class TripletDataset(object):
             'valid': self.valid,
             'test': self.test
         }
-        graph = KnowlGraph(triplets, 
-                           self.num_ents, 
-                           self.num_rels, 
-                           self.ent_feat, 
-                           self.rel_feat)
-        graph.sampled_subgraph(percent=0.01)
+        graph = KnowlGraph(triplets, self.num_ents, self.num_rels,
+                           self.ent_feat, self.rel_feat)
+        # graph.sampled_subgraph(percent=0.01)
         return graph
 
 
 class WikiKG90MDataset(object):
     """WikiKG90M dataset implementation
     """
+
     def __init__(self, path):
         super(WikiKG90MDataset, self).__init__()
         self.name = 'WikiKG90M-LSC'
@@ -180,17 +181,18 @@ class WikiKG90MDataset(object):
         num_rels = data.num_relations
         ent_feat = {'text': data.entity_feat}
         rel_feat = {'text': data.relation_feat}
-        self.graph = KnowlGraph(
-            triplets, num_ents, num_rels, ent_feat, rel_feat)
+        self.graph = KnowlGraph(triplets, num_ents, num_rels, ent_feat,
+                                rel_feat)
 
 
-def load_dataset(data_path,
-                 data_name):
+@timer_wrapper('dataset loading')
+def load_dataset(data_path, data_name):
     """Load datasets from files
     """
     if data_name == "wikikg90m":
         dataset = WikiKG90MDataset(data_path)
     elif data_name in ['FB15k', 'WN18', 'FB15k-237', 'WN18RR']:
-        dataset = TripletDataset(data_path, data_name, kv_mode='vk', map_to_id=True)
+        dataset = TripletDataset(
+            data_path, data_name, kv_mode='vk', map_to_id=True)
 
     return dataset

@@ -26,7 +26,7 @@ import paddle.nn.functional as F
 
 # import ipdb
 from .score_functions import TransEScore, RotatEScore, OTEScore
-from .base_loss import LossFunc
+from utils.helper import timer_wrapper
 
 
 def uniform(low, high, size, dtype=np.float32):
@@ -40,7 +40,7 @@ class NumpyEmbedding():
                  num_embedding,
                  embedding_dim,
                  init_value=None,
-                 relation_times=1,
+                 rel_times=1,
                  scale_type=0,
                  weight_path=None):
         self.weight_path = weight_path
@@ -127,8 +127,9 @@ class NumpyEmbedding():
                 init_value = 1. / math.sqrt(embedding_dim)
                 weight = uniform(-init_value, init_value,
                                  [num_embedding, embedding_dim])
-                weight.reshape((-1, relation_times + 1
-                                ))[:, -1] = 1.0 if scale_type == 1 else 0.0
+                weight.reshape(
+                    (-1,
+                     rel_times + 1))[:, -1] = 1.0 if scale_type == 1 else 0.0
                 weight.reshape([num_embedding, embedding_dim])
 
             else:
@@ -143,7 +144,7 @@ class NumpyEmbedding():
 
 def embedding_layer(num_embedding,
                     embedding_dim,
-                    relation_times=1,
+                    rel_times=1,
                     init_value=None,
                     is_cpu=False,
                     scale_type=0,
@@ -153,8 +154,7 @@ def embedding_layer(num_embedding,
     use_scale = True if scale_type > 0 else False
     if is_cpu:
         embedding = NumpyEmbedding(num_embedding, embedding_dim, init_value,
-                                   relation_times, scale_type, weight_path)
-        print("in cpu embedding.")
+                                   rel_times, scale_type, weight_path)
         return embedding
     embedding = nn.Embedding(
         num_embedding, embedding_dim, weight_attr=paddle.ParamAttr(name=name))
@@ -164,7 +164,7 @@ def embedding_layer(num_embedding,
             value = uniform(-init_value, init_value,
                             [num_embedding, embedding_dim])
             scale_value = 1.0 if scale_type == 1 else 0.0
-            value.reshape((-1, relation_times + 1))[:, -1] = scale_value
+            value.reshape((-1, rel_times + 1))[:, -1] = scale_value
 
         else:
             value = uniform(-init_value, init_value,
@@ -209,32 +209,33 @@ class MLP(nn.Layer):
         pass
 
 
-class BaseKEModel(nn.Layer):
+class KGEModel(nn.Layer):
     """
     Base knowledge graph embedding model.
     """
 
+    @timer_wrapper('model construction')
     def __init__(self,
                  args,
-                 n_entities,
-                 n_relations,
-                 model_name,
-                 hidden_size,
-                 entity_feat_dim,
-                 relation_feat_dim,
+                 num_ents,
+                 num_rels,
+                 score,
+                 embed_dim,
+                 ent_feat,
+                 rel_feat,
                  gamma=None,
-                 double_entity_emb=False,
-                 relation_times=1,
+                 ent_times=False,
+                 rel_times=1,
                  scale_type=0):
-        super(BaseKEModel, self).__init__()
+        super(KGEModel, self).__init__()
         self.args = args
-        self.n_entities = n_entities
-        self.n_relations = n_relations
-        self.model_name = model_name
-        self.hidden_size = hidden_size
-        self.entity_feat_dim = entity_feat_dim
-        self.relation_feat_dim = relation_feat_dim
-        self.relation_times = relation_times
+        self.num_ents = num_ents
+        self.num_rels = num_rels
+        self.score = score
+        self.embed_dim = embed_dim
+        self.ent_feat = ent_feat
+        self.rel_feat = rel_feat
+        self.rel_times = rel_times
 
         # TODO: Optional parameters
         self.gamma = gamma
@@ -242,66 +243,56 @@ class BaseKEModel(nn.Layer):
         self.eps = 2.0
         self.use_scale = True if scale_type > 0 else False
 
-        self.entity_dim = 2 * self.hidden_size if double_entity_emb else self.hidden_size
-        self.relation_dim = hidden_size * (
-            self.relation_times + int(self.use_scale))
-        self.emb_init = (gamma + self.eps) / self.hidden_size
+        self.entity_dim = 2 * self.embed_dim if ent_times else self.embed_dim
+        self.relation_dim = embed_dim * (self.rel_times + int(self.use_scale))
+        self.emb_init = (gamma + self.eps) / self.embed_dim
 
         self.entity_embedding = embedding_layer(
-            self.n_entities,
+            self.num_ents,
             self.entity_dim,
             init_value=self.emb_init,
             is_cpu=args.cpu_emb,
             name="entity_embedding",
-            weight_path=args.weight_path)
+            weight_path=args.embs_path)
         self.entity_feat = None
 
         self.relation_embedding = embedding_layer(
-            self.n_relations,
+            self.num_rels,
             self.relation_dim,
             init_value=self.emb_init,
             is_cpu=False,
-            relation_times=relation_times,
+            rel_times=rel_times,
             scale_type=scale_type,
             name="relation_embedding")
         self.relation_feat = None
 
         if self.args.use_feature:
             self.transform_net = MLP(
-                self.entity_dim + entity_feat_dim, self.entity_dim,
-                self.relation_dim + relation_feat_dim, self.relation_dim)
+                self.entity_dim + ent_feat, self.entity_dim,
+                self.relation_dim + rel_feat, self.relation_dim)
 
-        if self.model_name == "TransE":
+        if self.score == "TransE":
             self.score_function = TransEScore(self.gamma)
-        elif self.model_name == "RotatE":
+        elif self.score == "RotatE":
             self.score_function = RotatEScore(self.gamma, self.emb_init)
-        elif self.model_name == "OTE":
-            self.score_function = OTEScore(self.gamma, relation_times,
-                                           scale_type)
+        elif self.score == "OTE":
+            self.score_function = OTEScore(self.gamma, rel_times, scale_type)
             if self.use_scale:
                 scale_value = 1.0 if scale_type == 1 else 0.0
                 self.relation_embedding.weight.reshape(
-                    [-1, relation_times + 1])[:, -1] = scale_value
+                    [-1, rel_times + 1])[:, -1] = scale_value
             orth_embedding = self.score_function.orth_rel_embedding(
                 self.relation_embedding.weight)
             self.relation_embedding.weight.set_value(orth_embedding)
 
-        self.loss_func = LossFunc(
-            args,
-            loss_type=args.loss_genre,
-            neg_adv_sampling=args.neg_adversarial_sampling,
-            adv_temp_value=args.adversarial_temperature,
-            pairwise=args.pairwise)
-
-    def forward(self, pos_triplets, neg_ents, real_ent_ids,
-                neg_head_mode=True):
-        entity_emb = self.entity_embedding(real_ent_ids)
+    def forward(self, pos_triplets, neg_ents, all_ids, neg_head_mode=True):
+        ent_emb = self.entity_embedding(all_ids)
         if not self.args.cpu_emb:
-            self.entity_embedding.curr_emb = entity_emb
+            self.entity_embedding.curr_emb = ent_emb
         if self.args.use_feature:
-            entity_feat = paddle.to_tensor(self.entity_feat[real_ent_ids.numpy(
-            )].astype('float32'))
-            emb = paddle.concat([entity_feat, entity_emb], axis=-1)
+            ent_feat = paddle.to_tensor(self.entity_feat[all_ids.numpy()]
+                                        .astype('float32'))
+            emb = paddle.concat([ent_feat, ent_emb], axis=-1)
 
             pos_head = self.transform_net.embed_entity(
                 F.embedding(pos_triplets[0], emb))
@@ -320,16 +311,20 @@ class BaseKEModel(nn.Layer):
                     ],
                     axis=-1))
         else:
-            pos_head = F.embedding(pos_triplets[0], entity_emb)
-            pos_tail = F.embedding(pos_triplets[2], entity_emb)
-            neg_ents = F.embedding(neg_ents, entity_emb)
+            pos_head = F.embedding(pos_triplets[0], ent_emb)
+            pos_tail = F.embedding(pos_triplets[2], ent_emb)
+            neg_ents = F.embedding(neg_ents, ent_emb)
             pos_rel = self.relation_embedding(pos_triplets[1])
 
+        pos_head = paddle.unsqueeze(pos_head, axis=1)
+        pos_tail = paddle.unsqueeze(pos_tail, axis=1)
+        pos_rel = paddle.unsqueeze(pos_rel, axis=1)
+
         batch_size = pos_head.shape[0]
-        if batch_size < self.args.neg_sample_size:
+        if batch_size < self.args.num_negs:
             neg_sample_size = batch_size
         else:
-            neg_sample_size = self.args.neg_sample_size
+            neg_sample_size = self.args.num_negs
         pos_score = self.score_function.get_score(pos_head, pos_rel, pos_tail)
         if neg_head_mode:
             neg_score = self.score_function.get_neg_score(
@@ -339,66 +334,55 @@ class BaseKEModel(nn.Layer):
             neg_score = self.score_function.get_neg_score(
                 pos_head, pos_rel, neg_ents, batch_size, neg_sample_size,
                 neg_sample_size, neg_head_mode)
-        loss = self.loss_func.get_total_loss(pos_score, neg_score)
-        return loss
+        return {'pos': pos_score, 'neg': neg_score}
 
-    def forward_test_wikikg(self, query, ans, candidate, mode='h,r->t'):
-        scores = self.predict_wikikg_score(query, candidate, mode)
-        argsort = paddle.argsort(scores, axis=1, descending=True)
-        return argsort[:, :10], scores
+    def predict(self, ent, rel, cand, mode='tail'):
+        num_cands = cand.shape[1]
+        if self.args.use_feature is True:
 
-    def predict_wikikg_score(self, query, candidate, mode):
-        if mode == 'h,r->t':
-            neg_sample_size = candidate.shape[1]
-            if self.args.use_feature:
-                neg_tail_entity_emb = self.entity_embedding(
-                    paddle.reshape(candidate, [-1]))
-                neg_tail_entity_feat = paddle.to_tensor(self.entity_feat[
-                    paddle.reshape(candidate, [-1]).numpy()].astype('float32'))
-                neg_tail = self.transform_net.embed_entity(
-                    paddle.concat([neg_tail_entity_feat, neg_tail_entity_emb],
-                                  -1))
+            def mlp_emb(index, embs, feats, trans_net):
+                index = paddle.reshape(index, (-1, ))
+                emb = embs(index)
+                feat = paddle.to_tensor(feats[index.numpy()].astype('float32'))
+                emb = trans_net(paddle.concat([feat, emb], axis=-1))
+                return emb
 
-                head_emb = self.entity_embedding(query[:, 0])
-                head_feat = paddle.to_tensor(self.entity_feat[
-                    query[:, 0].numpy()].astype('float32'))
-                head = self.transform_net.embed_entity(
-                    paddle.concat([head_feat, head_emb], -1))
-
-                rel = self.transform_net.embed_relation(
-                    paddle.concat(
-                        [
-                            paddle.to_tensor(self.relation_feat[
-                                query[:, 1].numpy()].astype('float32')),
-                            self.relation_embedding(query[:, 1]),
-                        ],
-                        axis=-1))
-            else:
-                head = self.entity_embedding(query[:, 0])
-                neg_tail = self.entity_embedding(
-                    paddle.reshape(candidate, [-1]))
-                rel = self.relation_embedding(query[:, 1])
-            neg_score = self.score_function.get_neg_score(
-                head,
-                rel,
-                neg_tail,
-                batch_size=query.shape[0],
-                mini_batch_size=1,
-                neg_sample_size=neg_sample_size,
-                neg_head=False)
+            ent = mlp_emb(ent, self.entity_embedding, self.entity_feat,
+                          self.transform_net.embed_entity)
+            rel = mlp_emb(rel, self.relation_embedding, self.relation_feat,
+                          self.transform_net.embed_relation)
+            cand = mlp_emb(cand, self.entity_embedding, self.entity_feat,
+                           self.transform_net.embed_entity)
         else:
-            assert False
-        return paddle.squeeze(neg_score, axis=1)
+            ent = self.entity_embedding(ent)
+            rel = self.relation_embedding(rel)
+            cand = self.entity_embedding(paddle.reshape(cand, (-1, )))
 
-    def predict(self, test_triplet):
-        test_triplet = paddle.to_tensor(test_triplet[0])
-        head_vec = self.entity_embedding(test_triplet[0])
-        rel_vec = self.relation_embedding(test_triplet[1])
-        tail_vec = self.entity_embedding(test_triplet[2])
+        ent = paddle.unsqueeze(ent, axis=1)
+        rel = paddle.unsqueeze(rel, axis=1)
+        cand = paddle.reshape(cand, (1, num_cands, -1))
 
-        head_score, tail_score = self.score_function.get_test_score(
-            self.entity_embedding.weight, head_vec, rel_vec, tail_vec)
-        return head_score, tail_score
+        if mode == 'head':
+            scores = self.score_function.get_neg_score(
+                cand,
+                rel,
+                ent,
+                batch_size=ent.shape[0],
+                mini_batch_size=1,
+                neg_sample_size=num_cands,
+                neg_head=True)
+        else:
+            scores = self.score_function.get_neg_score(
+                ent,
+                rel,
+                cand,
+                batch_size=ent.shape[0],
+                mini_batch_size=1,
+                neg_sample_size=num_cands,
+                neg_head=False)
+
+        scores = paddle.squeeze(scores, axis=1)
+        return scores
 
     def save_model(self):
         """
