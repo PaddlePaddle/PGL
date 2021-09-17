@@ -22,6 +22,8 @@ from tqdm import tqdm
 def get_metric(ranks, corr_idx):
     """Get metric values
     """
+    ranks = paddle.to_tensor(ranks)
+    corr_idx = paddle.to_tensor(corr_idx)
     max_index = ranks.shape[1]
     corr_ranks = paddle.ones(corr_idx.shape) * max_index
     x = paddle.nonzero(ranks == corr_idx.unsqueeze(-1))
@@ -86,7 +88,9 @@ if __name__ == '__main__':
         evaluator = None
 
     files = [x for x in os.listdir(path) if x.endswith('.pkl')]
-    steps = [int(x.strip('.pkl').split('_')[-1]) for x in files]
+    steps = [
+        int(x.strip('.pkl').split('_')[-1]) for x in files if 'valid' in x
+    ]
     steps.sort()
     for step in steps:
         step_path = os.path.join(path, 'valid_%d.pkl' % step)

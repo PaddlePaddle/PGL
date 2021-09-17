@@ -105,7 +105,9 @@ def test(model, loader, pos_dict=None, save_path='./tmp/'):
     """test
     """
     with paddle.no_grad():
-        output = defaultdict(defaultdict(list))
+        h_output = defaultdict(list)
+        t_output = defaultdict(list)
+        output = {'h,r->t': {}, 't,r->h': {}}
 
         if isinstance(model, paddle.DataParallel):
             model = model._layers
@@ -114,9 +116,8 @@ def test(model, loader, pos_dict=None, save_path='./tmp/'):
             if mode == 'wiki':
                 score = model.predict(h, r, cand)
                 rank = paddle.argsort(score, axis=1, descending=True)
-                output['h,r->t']['t_pred_top10'].append(rank.cpu().numpy())
-                output['h,r->t']['t_correct_index'].append(corr_idx.cpu()
-                                                           .numpy())
+                t_output['t_pred_top10'].append(rank.cpu().numpy())
+                t_output['t_correct_index'].append(corr_idx.cpu().numpy())
             else:
                 t_score = model.predict(h, r, cand, mode='tail')
                 h_score = model.predict(t, r, cand, mode='head')
@@ -135,16 +136,17 @@ def test(model, loader, pos_dict=None, save_path='./tmp/'):
                     h_score = h_score * h_mask
                 t_rank = paddle.argsort(t_score, axis=1, descending=True)
                 h_rank = paddle.argsort(h_score, axis=1, descending=True)
-                output['h,r->t']['rank'].append(t_rank.cpu().numpy())
-                output['t,r->h']['rank'].append(h_rank.cpu().numpy())
-                output['h,r->t']['corr'].append(t.cpu().numpy())
-                output['t,r->h']['corr'].append(h.cpu().numpy())
+                t_output['rank'].append(t_rank.cpu().numpy())
+                h_output['rank'].append(h_rank.cpu().numpy())
+                t_output['corr'].append(t.cpu().numpy())
+                h_output['corr'].append(h.cpu().numpy())
 
-        for mode, rst in output.items():
-            for key, value in rst.items():
-                output[mode][key] = np.concatenate(value, axis=0)
+        for key, value in h_output.items():
+            output['t,r->h'][key] = np.concatenate(value, axis=0)
+        for key, value in t_output.items():
+            output['h,r->t'][key] = np.concatenate(value, axis=0)
 
-        paddle.save(dict(output), save_path)
+        paddle.save(output, save_path)
 
 
 def main():
@@ -235,18 +237,18 @@ def main():
             timer['sample'] += (time.time() - ts)
 
             ts = time.time()
-            scores = model((h, r, t), neg_ents, all_ents, mode)
+            scores = model((h, r, t), neg_ents, all_ents, mode == 'head')
             loss = loss_func(scores['pos'], scores['neg'])
             log['loss'] += loss.numpy()[0]
-            if args.reg_coef > 0. and args.reg_norm > 0:
-                if isinstance(model, paddle.DataParallel):
-                    params = model._layer.entity_embedding.curr_emb
-                else:
-                    params = model.entity_embedding.curr_emb
-                reg = paddle.norm(params, p=args.reg_norm).pow(args.reg_norm)
-                reg = args.reg_coef * reg
-                log['reg'] += reg.numpy()[0]
-                loss = loss + reg
+            # if args.reg_coef > 0. and args.reg_norm > 0:
+            #     if isinstance(model, paddle.DataParallel):
+            #         params = model._layer.entity_embedding.curr_emb
+            #     else:
+            #         params = model.entity_embedding.curr_emb
+            #     reg = paddle.norm(params, p=args.reg_norm).pow(args.reg_norm)
+            #     reg = args.reg_coef * reg
+            #     log['reg'] += reg.numpy()[0]
+            #     loss = loss + reg
             timer['forward'] += (time.time() - ts)
 
             ts = time.time()

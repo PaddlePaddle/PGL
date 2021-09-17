@@ -83,10 +83,12 @@ class TransEScore(object):
             hidden_dim = heads.shape[-1]
             tails = tails - relations
             return self.gamma - self.cdist(tails, heads)
+            # return self.gamma - paddle.norm(tails - heads, axis=-1).pow(2)
         else:
             hidden_dim = heads.shape[-1]
             heads = heads + relations
             return self.gamma - self.cdist(heads, tails)
+            # return self.gamma - paddle.norm(tails - heads, axis=-1).pow(2)
 
 
 class RotatEScore(object):
