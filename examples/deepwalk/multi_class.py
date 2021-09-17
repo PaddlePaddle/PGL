@@ -55,7 +55,7 @@ class Model(paddle.nn.Layer):
 
         embed_init = paddle.nn.initializer.Uniform(
             low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
-        emb_attr = paddle.ParamAttr(name="u_node_embedding")
+        emb_attr = paddle.ParamAttr(name="node_embedding")
         self.emb = paddle.nn.Embedding(
             num_nodes, embed_size, weight_attr=emb_attr)
         self.linear = paddle.nn.Linear(embed_size, num_classes)

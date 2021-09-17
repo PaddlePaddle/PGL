@@ -123,7 +123,6 @@ def main(args):
         collate_fn=collate_fn)
 
     train_loss = train(model, data_loader, optim)
-    print(model.state_dict())
     paddle.save(model.state_dict(), "model.pdparams")
 
 

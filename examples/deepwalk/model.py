@@ -38,9 +38,9 @@ class SkipGramModel(nn.Layer):
 
         # embed_init = nn.initializer.Uniform(
         # low=-1. / math.sqrt(embed_size), high=1. / math.sqrt(embed_size))
-        u_embed_init = nn.initializer.Uniform(low=-1.0, high=1.0)
-        u_emb_attr = paddle.ParamAttr(
-            name="u_node_embedding", initializer=u_embed_init)
+        embed_init = nn.initializer.Uniform(low=-1.0, high=1.0)
+        emb_attr = paddle.ParamAttr(
+            name="node_embedding", initializer=embed_init)
 
         if not self.shared_embedding:
             v_embed_init = nn.initializer.Uniform(low=-1e-8, high=1e-8)
@@ -48,14 +48,14 @@ class SkipGramModel(nn.Layer):
                 name="v_node_embedding", initializer=v_embed_init)
 
         if sparse_embedding:
-            def u_emb_func(x):
+            def emb_func(x):
                 d_shape = paddle.shape(x)
                 x_emb = paddle.static.nn.sparse_embedding(
                     paddle.reshape(x, [-1, 1]), [num_nodes, embed_size],
-                    param_attr=u_emb_attr)
+                    param_attr=emb_attr)
                 return paddle.reshape(x_emb,
                                       [d_shape[0], d_shape[1], embed_size])
-            self.u_emb = u_emb_func
+            self.emb = emb_func
             if not self.shared_embedding:
                 def v_emb_func(x):
                     d_shape = paddle.shape(x)
@@ -67,17 +67,17 @@ class SkipGramModel(nn.Layer):
                 self.v_emb = v_emb_func
         elif num_emb_part > 1:
             assert embed_size % num_emb_part == 0
-            u_emb_list = []
+            emb_list = []
             for i in range(num_emb_part):
-                u_emb_attr = paddle.ParamAttr(
-                    name="u_node_embedding_part%s" % i, initializer=u_embed_init)
-                u_emb = nn.Embedding(
+                emb_attr = paddle.ParamAttr(
+                    name="node_embedding_part%s" % i, initializer=embed_init)
+                emb = nn.Embedding(
                     num_nodes,
                     embed_size // num_emb_part,
-                    weight_attr=u_emb_attr)
-                u_emb_list.append(u_emb)
-            self.u_emb_list = nn.LayerList(u_emb_list)
-            self.u_emb = lambda x: paddle.concat([emb(x) for emb in u_emb_list], -1)
+                    weight_attr=emb_attr)
+                emb_list.append(emb)
+            self.emb_list = nn.LayerList(emb_list)
+            self.emb = lambda x: paddle.concat([emb(x) for emb in emb_list], -1)
             if not self.shared_embedding:
                 v_emb_list = []
                 for i in range(num_emb_part):
@@ -91,8 +91,8 @@ class SkipGramModel(nn.Layer):
                 self.v_emb_list = nn.LayerList(v_emb_list)
                 self.v_emb = lambda x: paddle.concat([emb(x) for emb in v_emb_list], -1)
         else:
-            self.u_emb = nn.Embedding(
-                num_nodes, embed_size, sparse=sparse, weight_attr=u_emb_attr)
+            self.emb = nn.Embedding(
+                num_nodes, embed_size, sparse=sparse, weight_attr=emb_attr)
             if not self.shared_embedding:
                 self.v_emb = nn.Embedding(
                     num_nodes, embed_size, sparse=sparse, weight_attr=v_emb_attr)
@@ -102,9 +102,9 @@ class SkipGramModel(nn.Layer):
         # src [b, 1]
         # dsts [b, 1+neg]
 
-        src_embed = self.u_emb(src)
+        src_embed = self.emb(src)
         if self.shared_embedding:
-            dsts_embed = self.u_emb(dsts)
+            dsts_embed = self.emb(dsts)
         else:
             dsts_embed = self.v_emb(dsts)
 
