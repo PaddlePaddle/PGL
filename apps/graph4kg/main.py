@@ -116,7 +116,7 @@ def test(model, loader, pos_dict=None, save_path='./tmp/'):
             if mode == 'wiki':
                 score = model.predict(h, r, cand)
                 rank = paddle.argsort(score, axis=1, descending=True)
-                t_output['t_pred_top10'].append(rank.cpu().numpy())
+                t_output['t_pred_top10'].append(rank[:, :10].cpu().numpy())
                 t_output['t_correct_index'].append(corr_idx.cpu().numpy())
             else:
                 t_score = model.predict(h, r, cand, mode='tail')
@@ -240,15 +240,15 @@ def main():
             scores = model((h, r, t), neg_ents, all_ents, mode == 'head')
             loss = loss_func(scores['pos'], scores['neg'])
             log['loss'] += loss.numpy()[0]
-            # if args.reg_coef > 0. and args.reg_norm > 0:
-            #     if isinstance(model, paddle.DataParallel):
-            #         params = model._layer.entity_embedding.curr_emb
-            #     else:
-            #         params = model.entity_embedding.curr_emb
-            #     reg = paddle.norm(params, p=args.reg_norm).pow(args.reg_norm)
-            #     reg = args.reg_coef * reg
-            #     log['reg'] += reg.numpy()[0]
-            #     loss = loss + reg
+            if args.reg_coef > 0. and args.reg_norm > 0:
+                if isinstance(model, paddle.DataParallel):
+                    params = model._layer.entity_embedding.curr_emb
+                else:
+                    params = model.entity_embedding.curr_emb
+                reg = paddle.norm(params, p=args.reg_norm).pow(args.reg_norm)
+                reg = args.reg_coef * reg
+                log['reg'] += reg.numpy()[0]
+                loss = loss + reg
             timer['forward'] += (time.time() - ts)
 
             ts = time.time()
