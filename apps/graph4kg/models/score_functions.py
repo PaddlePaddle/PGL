@@ -50,8 +50,6 @@ class TransEScore(ScoreFunc):
         self.gamma = gamma
 
     def __call__(self, head, rel, tail):
-        # score = tail - (head + rel)
-        # return self.gamma - paddle.norm(score, p=2, axis=-1)
         head = head + rel
         return self.gamma - self.cdist(head, tail)
 

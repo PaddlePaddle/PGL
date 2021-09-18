@@ -28,7 +28,7 @@ from dataset import load_dataset
 from utils.dataset import KGDataset, TestKGDataset
 from models.models import KGEModel
 from models.base_loss import LossFunction
-from utils.helper import CommonArgParser, prepare_save_path, timer_wrapper
+from utils.helper import KGEArgParser, prepare_save_path, timer_wrapper
 
 
 def set_seed(seed):
@@ -139,7 +139,7 @@ def test(model, loader, pos_dict=None, save_path='./tmp/'):
 def main():
     """Main function for knowledge representation learning
     """
-    args = CommonArgParser().parse_args()
+    args = KGEArgParser().parse_args()
     args = adjust_args(args)
     set_seed(args.seed)
     set_logger(args)
