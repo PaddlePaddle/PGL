@@ -22,22 +22,23 @@ from tqdm import tqdm
 def get_metric(ranks, corr_idx):
     """Get metric values
     """
-    ranks = paddle.to_tensor(ranks)
-    corr_idx = paddle.to_tensor(corr_idx)
-    max_index = ranks.shape[1]
-    corr_ranks = paddle.ones(corr_idx.shape) * max_index
-    x = paddle.nonzero(ranks == corr_idx.unsqueeze(-1))
-    corr_ranks[x[:, 0]] = x[:, 1] + 1
-    metric = {
-        'MRR': paddle.mean(1.0 / corr_ranks),
-        'MR': paddle.mean(corr_ranks),
-        'HITS@1': paddle.mean((corr_ranks <= 1).astype('float')),
-        'HITS@3': paddle.mean((corr_ranks <= 3).astype('float')),
-        'HITS@10': paddle.mean((corr_ranks <= 10).astype('float'))
-    }
-    for k in metric:
-        metric[k] = metric[k].cpu().numpy()
-    return metric
+    with paddle.no_grad():
+        ranks = paddle.to_tensor(ranks)
+        corr_idx = paddle.to_tensor(corr_idx)
+        max_index = ranks.shape[1]
+        corr_ranks = paddle.ones(corr_idx.shape) * max_index
+        x = paddle.nonzero(ranks == corr_idx.unsqueeze(-1))
+        corr_ranks[x[:, 0]] = x[:, 1] + 1
+        metric = {
+            'MRR': paddle.mean(1.0 / corr_ranks),
+            'MR': paddle.mean(corr_ranks),
+            'HITS@1': paddle.mean((corr_ranks <= 1).astype('float')),
+            'HITS@3': paddle.mean((corr_ranks <= 3).astype('float')),
+            'HITS@10': paddle.mean((corr_ranks <= 10).astype('float'))
+        }
+        for k in metric:
+            metric[k] = metric[k].cpu().numpy()
+        return metric
 
 
 def link_prediction(path, label, mode='normal', evaluator=None):

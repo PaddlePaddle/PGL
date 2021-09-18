@@ -213,7 +213,7 @@ class TestKGDataset(Dataset):
             t = None
             cand = paddle.to_tensor(np.stack([x[1] for x in data]))
             if self._corr_idx:
-                corr_idx = paddle.to_tensor(np.stack([x[2] for x in data]))
+                corr_idx = np.stack([x[2] for x in data])
             else:
                 corr_idx = None
         elif mode == 'normal':

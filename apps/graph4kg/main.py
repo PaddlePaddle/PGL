@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 from dataset import load_dataset
 from utils.dataset import KGDataset, TestKGDataset
-from models.base_model import NumpyEmbedding, KGEModel
+from models.models import KGEModel
 from models.base_loss import LossFunction
 from utils.helper import CommonArgParser, prepare_save_path, timer_wrapper
 
@@ -70,25 +70,6 @@ def adjust_args(args):
     return args
 
 
-@timer_wrapper('NumPy embedding initialization')
-def prepare_cpu_embeddings(args, data):
-    """Create NumPy Embedding with main process
-    """
-    if dist.get_rank() == 0:
-        init_value = (args.gamma + 2.0) / args.embed_dim
-        NumpyEmbedding.create_emb(
-            data.num_ents,
-            args.embed_dim,
-            init_value,
-            weight_path=args.embs_path,
-            scale_type=args.scale_type)
-    else:
-        while True:
-            if os.path.exists(args.embs_path):
-                break
-            time.sleep(5)
-
-
 def print_log(step, interval, log, timer, t_step):
     """Print log
     """
@@ -104,6 +85,7 @@ def print_log(step, interval, log, timer, t_step):
 def test(model, loader, pos_dict=None, save_path='./tmp/'):
     """test
     """
+    model.eval()
     with paddle.no_grad():
         h_output = defaultdict(list)
         t_output = defaultdict(list)
@@ -116,14 +98,17 @@ def test(model, loader, pos_dict=None, save_path='./tmp/'):
             if mode == 'wiki':
                 score = model.predict(h, r, cand)
                 rank = paddle.argsort(score, axis=1, descending=True)
-                t_output['t_pred_top10'].append(rank[:, :10].cpu().numpy())
-                t_output['t_correct_index'].append(corr_idx.cpu().numpy())
+                t_output['t_pred_top10'].append(rank[:, :10].cpu())
+                t_output['t_correct_index'].append(corr_idx.cpu())
             else:
                 t_score = model.predict(h, r, cand, mode='tail')
                 h_score = model.predict(t, r, cand, mode='head')
+                h = h.numpy()
+                r = r.numpy()
+                t = t.numpy()
                 if pos_dict is not None:
-                    t_mask = np.ones(t_rank.shape)
-                    h_mask = np.ones(h_rank.shape)
+                    t_mask = np.ones(t_score.shape)
+                    h_mask = np.ones(h_score.shape)
                     h_dict = pos_dict['head']
                     t_dict = pos_dict['tail']
                     for i, (hi, ri, ti,
@@ -132,14 +117,16 @@ def test(model, loader, pos_dict=None, save_path='./tmp/'):
                         h_mask[i][h_dict[(ti, ri)]] = 0.
                         t_mask[i][ci] = 1.
                         h_mask[i][ci] = 1.
-                    t_score = t_score * t_mask
-                    h_score = h_score * h_mask
+                    t_score = t_score * paddle.to_tensor(t_mask)
+                    h_score = h_score * paddle.to_tensor(h_mask)
                 t_rank = paddle.argsort(t_score, axis=1, descending=True)
                 h_rank = paddle.argsort(h_score, axis=1, descending=True)
-                t_output['rank'].append(t_rank.cpu().numpy())
-                h_output['rank'].append(h_rank.cpu().numpy())
-                t_output['corr'].append(t.cpu().numpy())
-                h_output['corr'].append(h.cpu().numpy())
+                del t_score
+                del h_score
+                t_output['rank'].append(t_rank.numpy())
+                h_output['rank'].append(h_rank.numpy())
+                t_output['corr'].append(t)
+                h_output['corr'].append(h)
 
         for key, value in h_output.items():
             output['t,r->h'][key] = np.concatenate(value, axis=0)
@@ -160,9 +147,6 @@ def main():
         logging.info('{:20}:{}'.format(arg, getattr(args, arg)))
 
     data = load_dataset(args.data_path, args.dataset).graph
-    if args.cpu_emb:
-        print(('=' * 30) + '\n using cpu embeddings\n' + ('=' * 30))
-        prepare_cpu_embeddings(args, data)
     if args.filter_mode:
         pos_dict = {'head': data.pos_h4tr, 'tail': data.pos_t4hr}
     else:
@@ -203,17 +187,21 @@ def main():
             collate_fn=test_data.collate_fn)
 
     model = KGEModel(
-        args=args,
         num_ents=data.num_ents,
         num_rels=data.num_rels,
-        score=args.score,
         embed_dim=args.embed_dim,
+        score=args.score,
+        cpu_emb=args.cpu_emb,
+        use_feat=args.use_feature,
         ent_feat=data.ent_feat,
         rel_feat=data.rel_feat,
         ent_times=args.ent_times,
         rel_times=args.rel_times,
         scale_type=args.scale_type,
-        gamma=args.gamma)
+        param_path=args.save_path,
+        optimizer='adagrad',
+        lr=args.lr,
+        args=args)
     if dist.get_world_size() > 1:
         model = paddle.DataParallel(model)
 
@@ -223,8 +211,12 @@ def main():
         margin=args.margin,
         neg_adv_spl=args.neg_adversarial_sampling,
         neg_adv_temp=args.adversarial_temperature)
-    optimizer = paddle.optimizer.Adam(
-        learning_rate=args.mlp_lr, parameters=model.parameters())
+
+    if len(model.parameters()) > 0:
+        optimizer = paddle.optimizer.Adam(
+            learning_rate=args.mlp_lr, parameters=model.parameters())
+    else:
+        optimizer = None
 
     timer = defaultdict(int)
     log = defaultdict(int)
@@ -232,13 +224,14 @@ def main():
     step = 1
     for epoch in range(args.num_epoch):
         # logging.info(('=' * 10) + 'epoch %d' % epoch + ('=' * 10))
-
+        model.train()
         for (h, r, t, neg_ents), all_ents, mode in train_loader:
             timer['sample'] += (time.time() - ts)
 
             ts = time.time()
-            scores = model((h, r, t), neg_ents, all_ents, mode == 'head')
-            loss = loss_func(scores['pos'], scores['neg'])
+            pos_score, neg_score = model(h, r, t, neg_ents, all_ents,
+                                         mode == 'head')
+            loss = loss_func(pos_score, neg_score)
             log['loss'] += loss.numpy()[0]
             if args.reg_coef > 0. and args.reg_norm > 0:
                 if isinstance(model, paddle.DataParallel):
@@ -256,13 +249,14 @@ def main():
             timer['backward'] += (time.time() - ts)
 
             ts = time.time()
-            optimizer.step()
-            if args.cpu_emb:
-                if isinstance(model, paddle.DataParallel):
-                    model._layer.entity_embedding.step(args.lr)
-                else:
-                    model.entity_embedding.step(args.lr)
-            optimizer.clear_grad()
+            if optimizer is not None:
+                optimizer.step()
+            if isinstance(model, paddle.DataParallel):
+                model._layer.step()
+            else:
+                model.step()
+            if optimizer is not None:
+                optimizer.clear_grad()
             timer['update'] += (time.time() - ts)
 
             if (step + 1) % args.log_interval == 0:

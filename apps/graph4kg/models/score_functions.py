@@ -21,11 +21,25 @@ import paddle.nn as nn
 from paddle.nn.functional import log_sigmoid
 
 
-def pnorm(x, epsolon=1e-12):
-    return paddle.sqrt(x * x + epsolon)
+class ScoreFunc(object):
+    """Abstract implementation of score function
+    """
+
+    def __init__(self):
+        super(ScoreFunc, self).__init__()
+
+    def __call__(self, head, rel, tail):
+        raise NotImplementedError(
+            'score function from head, relation to tail not implemented')
+
+    def inverse(self, head, rel, tail):
+        """Score function from tail, relation to head
+        """
+        raise NotImplementedError(
+            'score function from tail, relation to head not implemented')
 
 
-class TransEScore(object):
+class TransEScore(ScoreFunc):
     """
     TransE: Translating embeddings for modeling multi-relational data.
     https://www.utc.fr/~bordesan/dokuwiki/_media/en/transe_nips13.pdf
@@ -35,21 +49,19 @@ class TransEScore(object):
         super(TransEScore, self).__init__()
         self.gamma = gamma
 
-    def get_score(self, head, rel, tail, neg_head=True):
-        """
-        Score function of TransE
-        """
-        score = head + rel - tail
-        return self.gamma - paddle.norm(score, p=2, axis=-1)
+    def __call__(self, head, rel, tail):
+        # score = tail - (head + rel)
+        # return self.gamma - paddle.norm(score, p=2, axis=-1)
+        head = head + rel
+        return self.gamma - self.cdist(head, tail)
 
-    def get_test_score(self, entity_embedding, head, rel, tail):
-        head_score = paddle.sum(paddle.abs(entity_embedding + rel - tail),
-                                axis=1)
-        tail_score = paddle.sum(paddle.abs(entity_embedding - rel - head),
-                                axis=1)
-        return head_score, tail_score
+    def inverse(self, head, rel, tail):
+        tail = tail - rel
+        return self.gamma - self.cdist(tail, head)
 
     def cdist(self, a, b):
+        """Euclidean distance
+        """
         a_s = paddle.norm(a, p=2, axis=-1).pow(2)
         b_s = paddle.norm(b, p=2, axis=-1).pow(2)
         dist_score = -2 * paddle.matmul(a, b.transpose([0, 2, 1]))
@@ -57,41 +69,21 @@ class TransEScore(object):
         dist_score = paddle.sqrt(paddle.clip(dist_score, min=1e-30))
         return dist_score
 
-    def cdist_1(self, a, b):
-        a_s = a * a
-        b_s = b * b
-        dist_score = -2 * paddle.bmm(a, b.transpose(
-            [0, 2, 1])) + b_s.unsqueeze(-2) + a_s.unsqueeze(-1)
-        dist_score = paddle.sqrt(paddle.clip(dist_score, min=1e-30))
-        return dist_score
+    # def cdist_1(self, a, b):
+    #     a_s = a * a
+    #     b_s = b * b
+    #     dist_score = -2 * paddle.bmm(a, b.transpose(
+    #         [0, 2, 1])) + b_s.unsqueeze(-2) + a_s.unsqueeze(-1)
+    #     dist_score = paddle.sqrt(paddle.clip(dist_score, min=1e-30))
+    #     return dist_score
 
-    def cdist_2(self, a, b):
-        c = a.unsqueeze(-1) - b.unsqueeze(-2)
-        dist_score = paddle.sqrt(c * c + 1e-12)
-        return dist_score
-
-    def get_neg_score(self,
-                      heads,
-                      relations,
-                      tails,
-                      batch_size,
-                      mini_batch_size,
-                      neg_sample_size,
-                      neg_head=True):
-        mini_batch_num = batch_size
-        if neg_head:
-            hidden_dim = heads.shape[-1]
-            tails = tails - relations
-            return self.gamma - self.cdist(tails, heads)
-            # return self.gamma - paddle.norm(tails - heads, axis=-1).pow(2)
-        else:
-            hidden_dim = heads.shape[-1]
-            heads = heads + relations
-            return self.gamma - self.cdist(heads, tails)
-            # return self.gamma - paddle.norm(tails - heads, axis=-1).pow(2)
+    # def cdist_2(self, a, b):
+    #     c = a.unsqueeze(-1) - b.unsqueeze(-2)
+    #     dist_score = paddle.sqrt(c * c + 1e-12)
+    #     return dist_score
 
 
-class RotatEScore(object):
+class RotatEScore(ScoreFunc):
     """
     RotatE: Knowledge Graph Embedding by Relational Rotation in Complex Space.
     https://arxiv.org/abs/1902.10197
@@ -103,12 +95,28 @@ class RotatEScore(object):
         self.emb_init = emb_init
         self.epsilon = 1e-12
 
-    def get_score(self, head, rel, tail):
+    def __call__(self, head, rel, tail):
         re_head, im_head = paddle.chunk(head, chunks=2, axis=-1)
         re_tail, im_tail = paddle.chunk(tail, chunks=2, axis=-1)
-
         phase_rel = rel / (self.emb_init / np.pi)
         re_rel, im_rel = paddle.cos(phase_rel), paddle.sin(phase_rel)
+
+        re_score = re_rel * re_head - im_rel * im_tail
+        im_score = re_rel * im_head + im_rel * re_head
+        re_score = re_score - re_tail
+        im_score = im_score - im_tail
+
+        score = paddle.sqrt(re_score * re_score + im_score * im_score +
+                            self.epsilon)
+        score = self.gamma - paddle.sum(score, axis=-1)
+        return score
+
+    def inverse(self, head, rel, tail):
+        re_head, im_head = paddle.chunk(head, chunks=2, axis=-1)
+        re_tail, im_tail = paddle.chunk(tail, chunks=2, axis=-1)
+        phase_rel = rel / (self.emb_init / np.pi)
+        re_rel, im_rel = paddle.cos(phase_rel), paddle.sin(phase_rel)
+
         re_score = re_rel * re_tail + im_rel * im_tail
         im_score = re_rel * im_tail - im_rel * re_tail
         re_score = re_score - re_head
@@ -119,99 +127,28 @@ class RotatEScore(object):
         score = self.gamma - paddle.sum(score, axis=-1)
         return score
 
-    def get_test_score(self, entity_embedding, head, rel, tail):
-        re_entity_embedding, im_entity_embedding = paddle.chunk(
-            entity_embedding, chunks=2, axis=-1)
-        re_head, im_head = paddle.chunk(head, chunks=2, axis=-1)
-        re_tail, im_tail = paddle.chunk(tail, chunks=2, axis=-1)
-        phase_rel = rel / (self.emb_init / np.pi)
-        re_rel, im_rel = paddle.cos(phase_rel), paddle.sin(phase_rel)
 
-        re_score = re_rel * re_tail + im_rel * im_tail
-        im_score = re_rel * im_tail - im_rel * re_tail
-        re_score = re_entity_embedding - re_score
-        im_score = im_entity_embedding - im_score
+class OTEScore(ScoreFunc):
+    """OTE score
+    """
 
-        re_score = re_score * re_score
-        im_score = im_score * im_score
-        head_score = re_score + im_score
-        head_score += self.epsilon
-        head_score = paddle.sqrt(head_score)
-        head_score = paddle.sum(head_score, axis=-1)
-
-        re_score = re_head * re_rel - im_head * im_rel
-        im_score = re_head * im_rel + im_head * re_rel
-        re_score = re_entity_embedding - re_score
-        im_score = im_entity_embedding - im_score
-
-        re_score = re_score * re_score
-        im_score = im_score * im_score
-        tail_score = re_score + im_score
-        tail_score += self.epsilon
-        tail_score = paddle.sqrt(tail_score)
-        tail_score = paddle.sum(tail_score, axis=-1)
-
-        head_score = log_sigmoid(head_score)
-        tail_score = log_sigmoid(tail_score)
-
-        return head_score, tail_score
-
-    def get_neg_score(self,
-                      heads,
-                      relations,
-                      tails,
-                      batch_size,
-                      mini_batch_size,
-                      neg_sample_size,
-                      neg_head=True):
-        mini_batch_num = int(batch_size / mini_batch_size)
-        if neg_head:
-            hidden_dim = heads.shape[-1]
-            re_tail, im_tail = paddle.chunk(tails, chunks=2, axis=-1)
-
-            phase_rel = relations / (self.emb_init / np.pi)
-            re_rel, im_rel = paddle.cos(phase_rel), paddle.sin(phase_rel)
-            real = re_tail * re_rel + im_tail * im_rel
-            imag = -re_tail * im_rel + im_tail * re_rel
-
-            emb_complex = paddle.concat([real, imag], axis=-1)
-            score = emb_complex.reshape([mini_batch_num, -1, 1, hidden_dim])
-            heads = heads.reshape([mini_batch_num, 1, -1, hidden_dim])
-            score = score - heads
-            re_score, im_score = paddle.chunk(score, chunks=2, axis=-1)
-            score = paddle.sqrt(re_score * re_score + im_score * im_score +
-                                self.epsilon)
-            return self.gamma - score.sum(-1)
-        else:
-            hidden_dim = heads.shape[-1]
-            re_head, im_head = paddle.chunk(heads, chunks=2, axis=-1)
-
-            phase_rel = relations / (self.emb_init / np.pi)
-            re_rel, im_rel = paddle.cos(phase_rel), paddle.sin(phase_rel)
-            real = re_head * re_rel - im_head * im_rel
-            imag = re_head * im_rel + im_head * re_rel
-
-            emb_complex = paddle.concat([real, imag], axis=-1)
-            score = emb_complex.reshape([mini_batch_num, -1, 1, hidden_dim])
-            tails = tails.reshape([mini_batch_num, 1, -1, hidden_dim])
-            score = score - tails
-            re_score, im_score = paddle.chunk(score, chunks=2, axis=-1)
-            score = paddle.sqrt(re_score * re_score + im_score * im_score +
-                                self.epsilon)
-
-            return self.gamma - score.sum(-1)
-
-
-class OTEScore(object):
     def __init__(self, gamma, num_elem, scale_type=0):
         super(OTEScore, self).__init__()
         self.gamma = gamma
         self.num_elem = num_elem
         self.scale_type = scale_type
+        self.use_scale = self.scale_type > 0
 
-    @property
-    def use_scale(self):
-        return self.scale_type > 0
+    def __call__(self, head, rel, tail):
+        rel = self.orth_rel_embedding(rel)
+        score = self.score(head, rel, tail)
+        return self.gamma - score
+
+    def inverse(self, head, rel, tail):
+        rel = self.orth_rel_embedding(rel)
+        rel = self.orth_reverse_mat(rel)
+        score = self.score(tail, rel, head)
+        return self.gamma - score
 
     def score(self, inputs, inputs_rel, inputs_last):
         inputs_size = inputs.shape
@@ -340,34 +277,32 @@ class OTEScore(object):
                     [0, 2, 1]).reshape(rel_size)
         return rel_embeddings
 
-    def get_score(self, heads, relations, tails, neg_head=True):
-        relations = self.orth_rel_embedding(relations)
-        if neg_head:
-            relations = self.orth_reverse_mat(relations)
-            score_result = self.score(tails, relations, heads)
-        else:
-            score_result = self.score(heads, relations, tails)
-        score = self.gamma - score_result
-        return score
+    #     if neg_head:
+    #         relations = self.orth_reverse_mat(relations)
+    #         score_result = self.score(tails, relations, heads)
+    #     else:
+    #         score_result = self.score(heads, relations, tails)
+    #     score = self.gamma - score_result
+    #     return score
 
-    def get_neg_score(self,
-                      heads,
-                      relations,
-                      tails,
-                      batch_size,
-                      mini_batch_size,
-                      neg_sample_size,
-                      neg_head=True):
-        if neg_head:
-            relations = self.orth_rel_embedding(relations)
-            relations = self.orth_reverse_mat(relations)
-            score_result = self.neg_score(tails, relations, heads,
-                                          neg_sample_size, mini_batch_size)
-            score = self.gamma - score_result
-            return score
-        else:
-            relations = self.orth_rel_embedding(relations)
-            score_result = self.neg_score(heads, relations, tails,
-                                          neg_sample_size, mini_batch_size)
-            score = self.gamma - score_result
-            return score
+    # def get_neg_score(self,
+    #                   heads,
+    #                   relations,
+    #                   tails,
+    #                   batch_size,
+    #                   mini_batch_size,
+    #                   neg_sample_size,
+    #                   neg_head=True):
+    #     if neg_head:
+    #         relations = self.orth_rel_embedding(relations)
+    #         relations = self.orth_reverse_mat(relations)
+    #         score_result = self.neg_score(tails, relations, heads,
+    #                                       neg_sample_size, mini_batch_size)
+    #         score = self.gamma - score_result
+    #         return score
+    #     else:
+    #         relations = self.orth_rel_embedding(relations)
+    #         score_result = self.neg_score(heads, relations, tails,
+    #                                       neg_sample_size, mini_batch_size)
+    #         score = self.gamma - score_result
+    #         return score

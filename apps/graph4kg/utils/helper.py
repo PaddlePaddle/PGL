@@ -23,7 +23,18 @@ import numpy as np
 from functools import wraps
 
 
+def uniform(low, high, size, dtype=np.float32):
+    """Memory efficient uniform implementation
+    """
+    rng = np.random.default_rng()
+    out = (high - low) * rng.random(size, dtype=dtype) + low
+    return out
+
+
 def timer_wrapper(name):
+    """Time counter wrapper
+    """
+
     def decorate(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
