@@ -18,9 +18,13 @@ import math
 import json
 import time
 import functools
-from argparse import ArgumentParser
+import traceback
+from multiprocessing import Queue
+from _thread import start_new_thread
 
+import paddle
 import numpy as np
+from argparse import ArgumentParser
 
 
 def uniform(low, high, size, dtype=None):
@@ -38,8 +42,13 @@ def timer_wrapper(name):
     """
 
     def decorate(func):
+        """decorate func
+        """
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
+            """wrapper func
+            """
             print('[{}] start...'.format(name))
             ts = time.time()
             result = func(*args, **kwargs)
@@ -57,6 +66,54 @@ def timer_wrapper(name):
         return wrapper
 
     return decorate
+
+
+def thread_wrapper(func):
+    """Wrapped func for multiprocessing.Process
+    """
+
+    @functools.wraps(func)
+    def decorate(*args, **kwargs):
+        """decorate func
+        """
+        queue = Queue()
+
+        def _queue_func():
+            exception, trace, result = None, None, None
+            try:
+                result = func(*args, **kwargs)
+            except Exception as e:
+                exception = e
+                trace = traceback.format_exc()
+            queue.put((result, exception, trace))
+
+        start_new_thread(_queue_func, ())
+        result, exception, trace = queue.get()
+        if exception is None:
+            return result
+        else:
+            assert isinstance(exception, Exception)
+            raise exception.__class__(trace)
+
+    return decorate
+
+
+@thread_wrapper
+def async_update(embeds, queue):
+    """Update embeddings asynchronously
+    """
+    while True:
+        (grad_index, grad_value) = queue.get()
+        if grad_index is None:
+            return
+        try:
+            with paddle.no_grad():
+                value = grad_value.array
+                index = grad_index.array
+                embeds._update(value, index)
+        finally:
+            grad_index.unlink()
+            grad_value.unlink()
 
 
 def prepare_save_path(args):

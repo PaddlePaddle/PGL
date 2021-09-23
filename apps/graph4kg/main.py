@@ -202,6 +202,8 @@ def main():
         optimizer='adagrad',
         lr=args.lr,
         args=args)
+    if args.cpu_emb and args.async_update:
+        model.start_async_update()
     if dist.get_world_size() > 1:
         model = paddle.DataParallel(model)
 
@@ -271,6 +273,12 @@ def main():
 
             step += 1
             ts = time.time()
+
+    if args.cpu_emb and args.async_update:
+        if dist.get_world_size() > 1:
+            model._layer.finish_async_update()
+        else:
+            model.finish_async_update()
 
     if args.test:
         test(model, test_loader, pos_dict,

@@ -147,6 +147,18 @@ class KGEModel(nn.Layer):
             self.ent_embedding.step()
             self.rel_embedding.step()
 
+    def start_async_update(self):
+        """Initialize async update
+        """
+        self.ent_embedding.start_async_update()
+        self.rel_embedding.start_async_update()
+
+    def finish_async_update(self):
+        """Finish async update
+        """
+        self.ent_embedding.finish_async_update()
+        self.rel_embedding.finish_async_update()
+
     def _get_ent_embedding(self, index):
         emb = self.ent_embedding(index)
         if self._use_feat:

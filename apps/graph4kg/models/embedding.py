@@ -18,8 +18,10 @@ import time
 import paddle
 import numpy as np
 import paddle.distributed as dist
+import multiprocessing as mp
 
-from utils.helper import uniform
+from utils.helper import uniform, thread_wrapper, async_update
+from models.shared_numpy import SharedArray
 
 
 class NumPyEmbedding(object):
@@ -98,13 +100,32 @@ class NumPyEmbedding(object):
         assert isinstance(index, np.ndarray)
         return self.weight[index]
 
+    def start_async_update(self):
+        """initialize the async update
+        """
+        self._async_q = mp.Queue(1)
+        self._async_p = mp.Process(
+            target=async_update, args=(self, self._async_q))
+        self._async_p.start()
+
+    def finish_async_update(self):
+        """Notify the async update process to quit
+        """
+        self._async_q.put((None, None, None))
+        self._async_p.join()
+
     def step(self):
         """Update embeddings according to trace
         """
         with paddle.no_grad():
             for index, tensors in self.trace:
                 grad = tensors.grad.numpy()
-                self._update(grad, index)
+                if self._async_q is not None:
+                    grad_index = SharedArray.copy_from(index)
+                    grad_value = SharedArray.copy_from(grad)
+                    self._async_q.put((grad_index, grad_value))
+                else:
+                    self._update(grad, index)
         self.trace = []
 
     def _set_optimizer(self):
