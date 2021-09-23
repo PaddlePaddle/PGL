@@ -18,6 +18,7 @@ import math
 import paddle
 import paddle.nn as nn
 import numpy as np
+import paddle.nn.functional as F
 
 from models.embedding import NumPyEmbedding
 from models.score_functions import TransEScore, RotatEScore, OTEScore
@@ -103,8 +104,8 @@ class KGEModel(nn.Layer):
             self.rel_embedding.train()
         ent_emb = self._get_ent_embedding(all_idxs)
         pos_r = self._get_rel_embedding(r)
-        pos_h = paddle.unsqueeze(ent_emb[h], axis=1)
-        pos_t = paddle.unsqueeze(ent_emb[t], axis=1)
+        pos_h = paddle.unsqueeze(F.embedding(h, ent_emb), axis=1)
+        pos_t = paddle.unsqueeze(F.embedding(t, ent_emb), axis=1)
         pos_r = paddle.unsqueeze(pos_r, axis=1)
         neg_ents_shape = neg_ents.shape
         neg_ents = ent_emb[paddle.reshape(neg_ents, (-1, ))]
@@ -164,14 +165,16 @@ class KGEModel(nn.Layer):
     def _get_ent_embedding(self, index):
         emb = self.ent_embedding(index)
         if self._use_feat:
-            feat = paddle.to_tensor(self._ent_feat(index.numpy()))
+            feat = paddle.to_tensor(
+                self._ent_feat(index.numpy()).astype('float32'))
             emb = self.trans_ent(feat, emb)
         return emb
 
     def _get_rel_embedding(self, index):
         emb = self.rel_embedding(index)
         if self._use_feat:
-            feat = paddle.to_tensor(self._rel_feat(index.numpy()))
+            feat = paddle.to_tensor(
+                self._rel_feat(index.numpy()).astype('float32'))
             emb = self.trans_rel(feat, emb)
         return emb
 
