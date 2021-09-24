@@ -21,7 +21,9 @@ import paddle.distributed as dist
 import multiprocessing as mp
 
 from utils.helper import uniform, thread_wrapper, async_update
-from models.shared_numpy import SharedArray
+
+# from models.shared_numpy import SharedArray
+# from pgl.utils.mp_reader import serialize_data
 
 
 class NumPyEmbedding(object):
@@ -111,7 +113,7 @@ class NumPyEmbedding(object):
     def finish_async_update(self):
         """Notify the async update process to quit
         """
-        self._async_q.put((None, None, None))
+        self._async_q.put((None, None))
         self._async_p.join()
 
     def step(self):
@@ -121,9 +123,10 @@ class NumPyEmbedding(object):
             for index, tensors in self.trace:
                 grad = tensors.grad.numpy()
                 if self._async_q is not None:
-                    grad_index = SharedArray.copy_from(index)
-                    grad_value = SharedArray.copy_from(grad)
-                    self._async_q.put((grad_index, grad_value))
+                    # grad_index = SharedArray.copy_from(index)
+                    # grad_value = SharedArray.copy_from(grad)
+                    # self._async_q.put(serialize_data((index, grad)))
+                    self._async_q.put((index, grad))
                 else:
                     self._update(grad, index)
         self.trace = []

@@ -85,8 +85,8 @@ class KGDataset(Dataset):
     def mixed_collate_fn(self, data):
         """Collate_fn to corrupt heads and tails by turns
         """
-        self._step += 1
-        if self._step % 2 == 0:
+        self._step = self._step ^ 1
+        if self._step == 0:
             return self._collate_fn(data, 'head', self._filter_dict['head'])
         else:
             return self._collate_fn(data, 'tail', self._filter_dict['tail'])
@@ -101,27 +101,31 @@ class KGDataset(Dataset):
         else:
             raise ValueError('neg_mode %s not supported!' % self._neg_mode)
 
-        neg_ents = []
-        if mode == 'head':
-            for hi, ri, ti in data:
-                fl_set_i = fl_set[(ti, ri)] if fl_set else None
-                neg_ents.append(
-                    self.uniform_sampler(self._num_negs, cand, fl_set_i))
+        if fl_set is None:
+            neg_ents = self.uniform_sampler(self._num_negs * len(data), cand)
+            reindex_func, all_ents = self.group_index([h, t, neg_ents])
+            neg_ents = reindex_func(neg_ents).reshape(-1, self._num_negs)
         else:
-            for hi, ri, ti in data:
-                fl_set_i = fl_set[(hi, ri)] if fl_set else None
-                neg_ents.append(
-                    self.uniform_sampler(self._num_negs, cand, fl_set_i))
+            neg_ents = []
+            if mode == 'head':
+                for hi, ri, ti in data:
+                    fl_set_i = fl_set[(ti, ri)] if fl_set else None
+                    neg_ents.append(
+                        self.uniform_sampler(self._num_negs, cand, fl_set_i))
+            else:
+                for hi, ri, ti in data:
+                    fl_set_i = fl_set[(hi, ri)] if fl_set else None
+                    neg_ents.append(
+                        self.uniform_sampler(self._num_negs, cand, fl_set_i))
 
-        if self._neg_mode == 'full':
-            ents_list = [h, t, np.concatenate(neg_ents)]
-            reindex_func, all_ents = self.group_index(ents_list)
+            if self._neg_mode == 'full':
+                ents_list = [h, t, np.concatenate(neg_ents)]
+                reindex_func, all_ents = self.group_index(ents_list)
+            neg_ents = np.stack([reindex_func(x) for x in neg_ents])
 
         h = paddle.to_tensor(reindex_func(h), dtype='int64')
         r = paddle.to_tensor(r, dtype='int64')
         t = paddle.to_tensor(reindex_func(t), dtype='int64')
-        neg_ents = np.stack([reindex_func(x) for x in neg_ents])
-        neg_ents = paddle.to_tensor(neg_ents, dtype='int64')
         neg_ents = paddle.to_tensor(neg_ents, dtype='int64')
         all_ents = paddle.to_tensor(all_ents, dtype='int64')
 

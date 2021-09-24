@@ -108,7 +108,7 @@ class KGEModel(nn.Layer):
         pos_t = paddle.unsqueeze(F.embedding(t, ent_emb), axis=1)
         pos_r = paddle.unsqueeze(pos_r, axis=1)
         neg_ents_shape = neg_ents.shape
-        neg_ents = ent_emb[paddle.reshape(neg_ents, (-1, ))]
+        neg_ents = F.embedding(paddle.reshape(neg_ents, (-1, )), ent_emb)
         neg_ents = paddle.reshape(neg_ents, [*neg_ents_shape, -1])
 
         pos_score = self._score_func(pos_h, pos_r, pos_t)

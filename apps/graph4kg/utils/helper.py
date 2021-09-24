@@ -26,6 +26,8 @@ import paddle
 import numpy as np
 from argparse import ArgumentParser
 
+# from pgl.utils.mp_reader import deserialize_data
+
 
 def uniform(low, high, size, dtype=None):
     """Memory efficient uniform implementation
@@ -103,17 +105,19 @@ def async_update(embeds, queue):
     """Update embeddings asynchronously
     """
     while True:
+        # (grad_index, grad_value) = deserialize_data(queue.get())
         (grad_index, grad_value) = queue.get()
         if grad_index is None:
             return
         try:
             with paddle.no_grad():
-                value = grad_value.array
-                index = grad_index.array
+                value = grad_value  #.array
+                index = grad_index  #.array
                 embeds._update(value, index)
         finally:
-            grad_index.unlink()
-            grad_value.unlink()
+            # grad_index.unlink()
+            # grad_value.unlink()
+            pass
 
 
 def prepare_save_path(args):

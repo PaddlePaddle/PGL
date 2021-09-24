@@ -168,6 +168,7 @@ def main():
         shuffle=True,
         drop_last=True,
         num_workers=args.num_workers,
+        use_buffer_reader=True,
         collate_fn=train_data.mixed_collate_fn)
 
     if args.valid:
