@@ -109,15 +109,8 @@ def async_update(embeds, queue):
         (grad_index, grad_value) = queue.get()
         if grad_index is None:
             return
-        try:
-            with paddle.no_grad():
-                value = grad_value  #.array
-                index = grad_index  #.array
-                embeds._update(value, index)
-        finally:
-            # grad_index.unlink()
-            # grad_value.unlink()
-            pass
+        with paddle.no_grad():
+            embeds._update(grad_value, grad_index)
 
 
 def prepare_save_path(args):

@@ -45,14 +45,16 @@ class NumPyEmbedding(object):
     """
 
     def __init__(self,
-                 num_embeddings,
-                 embedding_dim,
+                 num_embeddings=1,
+                 embedding_dim=1,
                  low=1.,
                  high=None,
                  weight_path='./__np_embedding.npy',
                  optimizer='AdaGrad',
-                 learning_rate=1e-3):
+                 learning_rate=1e-3,
+                 load_mode=False):
         super(NumPyEmbedding, self).__init__()
+        self._load_mode = load_mode
         self._weight_path = weight_path
         self._moment_path = os.path.join(
             os.path.dirname(self._weight_path),
@@ -90,6 +92,12 @@ class NumPyEmbedding(object):
         self._stop_gradient = False
 
     @property
+    def weight_path(self):
+        """Return the path of mmap embeddings
+        """
+        return self._weight_path
+
+    @property
     def curr_emb(self):
         """Return current embeddings
         """
@@ -117,7 +125,7 @@ class NumPyEmbedding(object):
         self._async_p.join()
 
     def step(self):
-        """Update embeddings according to trace
+        """Update embeddings according to self.trace
         """
         with paddle.no_grad():
             for index, tensors in self.trace:
@@ -125,11 +133,21 @@ class NumPyEmbedding(object):
                 if self._async_q is not None:
                     # grad_index = SharedArray.copy_from(index)
                     # grad_value = SharedArray.copy_from(grad)
-                    # self._async_q.put(serialize_data((index, grad)))
-                    self._async_q.put((index, grad))
+                    # self._async_q.put(serialize_data([index, grad]))
+                    self._async_q.put([index, grad])
                 else:
                     self._update(grad, index)
         self.trace = []
+
+    def step_trace(self, trace):
+        """Update embeddings according to given trace
+        """
+        with paddle.no_grad():
+            index, grad = trace
+            if self._async_q is not None:
+                self._async_q.put([index, grad])
+            else:
+                self._update(grad, index)
 
     def _set_optimizer(self):
         if self._optim_mode == 'adagrad':
@@ -142,7 +160,7 @@ class NumPyEmbedding(object):
                              self._optim_mode)
 
     def _init_weight(self, num_embeddings, embedding_dim, low, high):
-        if dist.get_rank() == 0:
+        if dist.get_rank() == 0 and not self._load_mode:
             if high is None:
                 high = low
                 low = -low
@@ -155,7 +173,10 @@ class NumPyEmbedding(object):
                 if os.path.exists(self._weight_path):
                     break
                 time.sleep(5)
-        self.weight = np.load(self._weight_path, mmap_mode='r+')
+        if False:
+            self.weight = np.load(self._weight_path, mmap_mode='r')
+        else:
+            self.weight = np.load(self._weight_path, mmap_mode='r+')
 
     def _init_moment(self):
         if dist.get_rank() == 0:

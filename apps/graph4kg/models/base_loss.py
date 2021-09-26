@@ -72,7 +72,7 @@ class LossFunction(object):
         Adverarial the weight for softmax.
         """
         adv_score = self.neg_adv_temp * score
-        adv_softmax = softmax(adv_score)
+        adv_softmax = softmax(adv_score, axis=-1)
         adv_softmax.stop_gradient = True
         return adv_softmax
 

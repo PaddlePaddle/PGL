@@ -19,6 +19,7 @@ import paddle
 from paddle.io import Dataset
 
 from utils.helper import timer_wrapper
+from models.embedding import NumPyEmbedding
 
 
 class KGDataset(Dataset):
@@ -50,7 +51,9 @@ class KGDataset(Dataset):
                  num_negs,
                  neg_mode='batch',
                  filter_mode=False,
-                 filter_dict=None):
+                 filter_dict=None,
+                 shared_ent_path=None,
+                 shared_rel_path=None):
         self._triplets = triplets
         self._num_ents = num_ents
         self._num_negs = num_negs
@@ -64,6 +67,8 @@ class KGDataset(Dataset):
             assert 'head' in self._filter_dict
             assert 'tail' in self._filter_dict
         self._step = 0
+        self._ent_embedding = self._load_mmap_embedding(shared_ent_path)
+        self._rel_embedding = self._load_mmap_embedding(shared_rel_path)
 
     def __len__(self):
         return len(self._triplets)
@@ -71,6 +76,11 @@ class KGDataset(Dataset):
     def __getitem__(self, index):
         h, r, t = self._triplets[index]
         return h, r, t
+
+    def _load_mmap_embedding(self, path):
+        if path is not None:
+            return NumPyEmbedding(weight_path=path, load_mode=True)
+        return None
 
     def head_collate_fn(self, data):
         """Collate_fn to corrupt heads
@@ -87,9 +97,9 @@ class KGDataset(Dataset):
         """
         self._step = self._step ^ 1
         if self._step == 0:
-            return self._collate_fn(data, 'head', self._filter_dict['head'])
+            return self.head_collate_fn(data)
         else:
-            return self._collate_fn(data, 'tail', self._filter_dict['tail'])
+            return self.tail_collate_fn(data)
 
     def _collate_fn(self, data, mode, fl_set):
         h, r, t = np.array(data).T
@@ -102,9 +112,12 @@ class KGDataset(Dataset):
             raise ValueError('neg_mode %s not supported!' % self._neg_mode)
 
         if fl_set is None:
+            cand = len(cand) if self._neg_mode == 'batch' else cand
             neg_ents = self.uniform_sampler(self._num_negs * len(data), cand)
-            reindex_func, all_ents = self.group_index([h, t, neg_ents])
-            neg_ents = reindex_func(neg_ents).reshape(-1, self._num_negs)
+            if self._neg_mode == 'full':
+                reindex_func, all_ents = self.group_index([h, t, neg_ents])
+                neg_ents = reindex_func(neg_ents)
+            neg_ents = neg_ents.reshape(-1, self._num_negs)
         else:
             neg_ents = []
             if mode == 'head':
@@ -123,13 +136,22 @@ class KGDataset(Dataset):
                 reindex_func, all_ents = self.group_index(ents_list)
             neg_ents = np.stack([reindex_func(x) for x in neg_ents])
 
+        if self._ent_embedding is not None and self._rel_embedding is not None:
+            all_ents_emb = self._ent_embedding.get(all_ents).astype(np.float32)
+            all_ents_emb = paddle.to_tensor(all_ents_emb)
+            r_emb = self._rel_embedding.get(r).astype(np.float32)
+            r_emb = paddle.to_tensor(r_emb)
+        else:
+            all_ents_emb = None
+            r_emb = None
+
+        # all_ents = paddle.to_tensor(all_ents, dtype='int64')
         h = paddle.to_tensor(reindex_func(h), dtype='int64')
-        r = paddle.to_tensor(r, dtype='int64')
+        # r = paddle.to_tensor(r, dtype='int64')    
         t = paddle.to_tensor(reindex_func(t), dtype='int64')
         neg_ents = paddle.to_tensor(neg_ents, dtype='int64')
-        all_ents = paddle.to_tensor(all_ents, dtype='int64')
 
-        return (h, r, t, neg_ents), all_ents, mode
+        return (h, r, t, neg_ents, all_ents), (r_emb, all_ents_emb), mode
 
     @staticmethod
     def group_index(data):

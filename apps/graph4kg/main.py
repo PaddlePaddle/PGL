@@ -155,13 +155,35 @@ def main():
     if dist.get_world_size() > 1:
         dist.init_parallel_env()
 
+    model = KGEModel(
+        num_ents=data.num_ents,
+        num_rels=data.num_rels,
+        embed_dim=args.embed_dim,
+        score=args.score,
+        cpu_emb=args.cpu_emb,
+        use_feat=args.use_feature,
+        ent_feat=data.ent_feat,
+        rel_feat=data.rel_feat,
+        ent_times=args.ent_times,
+        rel_times=args.rel_times,
+        scale_type=args.scale_type,
+        param_path=args.save_path,
+        optimizer='adagrad',
+        lr=args.lr,
+        args=args)
+    if args.cpu_emb and args.async_update:
+        print('=' * 20 + '\n Async Update!\n' + '=' * 20)
+        model.start_async_update()
+
     train_data = KGDataset(
         triplets=data.train,
         num_ents=data.num_ents,
         num_negs=args.num_negs,
         neg_mode=args.neg_mode,
         filter_mode=args.filter_mode,
-        filter_dict=pos_dict)
+        filter_dict=pos_dict,
+        shared_ent_path=model.shared_ent_path,
+        shared_rel_path=model.shared_rel_path)
     train_loader = DataLoader(
         dataset=train_data,
         batch_size=args.batch_size,
@@ -187,33 +209,15 @@ def main():
             batch_size=args.test_batch_size,
             collate_fn=test_data.collate_fn)
 
-    model = KGEModel(
-        num_ents=data.num_ents,
-        num_rels=data.num_rels,
-        embed_dim=args.embed_dim,
-        score=args.score,
-        cpu_emb=args.cpu_emb,
-        use_feat=args.use_feature,
-        ent_feat=data.ent_feat,
-        rel_feat=data.rel_feat,
-        ent_times=args.ent_times,
-        rel_times=args.rel_times,
-        scale_type=args.scale_type,
-        param_path=args.save_path,
-        optimizer='adagrad',
-        lr=args.lr,
-        args=args)
-    if args.cpu_emb and args.async_update:
-        model.start_async_update()
-    if dist.get_world_size() > 1:
-        model = paddle.DataParallel(model)
-
     loss_func = LossFunction(
         name=args.loss_type,
         pairwise=args.pairwise,
         margin=args.margin,
         neg_adv_spl=args.neg_adversarial_sampling,
         neg_adv_temp=args.adversarial_temperature)
+
+    if dist.get_world_size() > 1:
+        model = paddle.DataParallel(model)
 
     if len(model.parameters()) > 0:
         optimizer = paddle.optimizer.Adam(
@@ -228,12 +232,19 @@ def main():
     for epoch in range(args.num_epoch):
         # logging.info(('=' * 10) + 'epoch %d' % epoch + ('=' * 10))
         model.train()
-        for (h, r, t, neg_ents), all_ents, mode in train_loader:
+        for (h, r, t, neg_ents, all_ents), (
+                r_emb, all_ents_emb), mode in train_loader:
+            if r_emb is not None:
+                r = r.numpy()
+                r_emb.stop_gradient = False
+            if all_ents_emb is not None:
+                all_ents = all_ents.numpy()
+                all_ents_emb.stop_gradient = False
             timer['sample'] += (time.time() - ts)
 
             ts = time.time()
-            pos_score, neg_score = model(h, r, t, neg_ents, all_ents,
-                                         mode == 'head')
+            pos_score, neg_score = model(h, r, t, neg_ents, all_ents, mode,
+                                         r_emb, all_ents_emb)
             loss = loss_func(pos_score, neg_score)
             log['loss'] += loss.numpy()[0]
             if args.reg_coef > 0. and args.reg_norm > 0:
@@ -254,10 +265,16 @@ def main():
             ts = time.time()
             if optimizer is not None:
                 optimizer.step()
-            if isinstance(model, paddle.DataParallel):
-                model._layer.step()
+            if r_emb is not None and all_ents_emb is not None:
+                ent_trace = (all_ents, all_ents_emb.grad.numpy())
+                rel_trace = (r, r_emb.grad.numpy())
             else:
-                model.step()
+                ent_trace = None
+                rel_trace = None
+            if isinstance(model, paddle.DataParallel):
+                model._layer.step(ent_trace, rel_trace)
+            else:
+                model.step(ent_trace, rel_trace)
             if optimizer is not None:
                 optimizer.clear_grad()
             timer['update'] += (time.time() - ts)

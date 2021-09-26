@@ -96,14 +96,38 @@ class KGEModel(nn.Layer):
 
         self._score_func = self._init_score_function(score.lower(), args)
 
-    def forward(self, h, r, t, neg_ents, all_idxs, neg_mode='tail'):
+    @property
+    def shared_ent_path(self):
+        if self._cpu_emb:
+            return self.ent_embedding.weight_path
+        return None
+
+    @property
+    def shared_rel_path(self):
+        if self._cpu_emb:
+            return self.rel_embedding.weight_path
+        return None
+
+    def forward(self,
+                h,
+                r,
+                t,
+                neg_ents,
+                all_idxs,
+                neg_mode='tail',
+                r_emb=None,
+                all_ent_emb=None):
         """function for training
         """
         if self._cpu_emb:
             self.ent_embedding.train()
             self.rel_embedding.train()
-        ent_emb = self._get_ent_embedding(all_idxs)
-        pos_r = self._get_rel_embedding(r)
+        if r_emb is not None and all_ent_emb is not None:
+            ent_emb = all_ent_emb
+            pos_r = r_emb
+        else:
+            ent_emb = self._get_ent_embedding(all_idxs)
+            pos_r = self._get_rel_embedding(r)
         pos_h = paddle.unsqueeze(F.embedding(h, ent_emb), axis=1)
         pos_t = paddle.unsqueeze(F.embedding(t, ent_emb), axis=1)
         pos_r = paddle.unsqueeze(pos_r, axis=1)
@@ -143,12 +167,18 @@ class KGEModel(nn.Layer):
         scores = paddle.squeeze(scores, axis=1)
         return scores
 
-    def step(self):
+    def step(self, ent_trace=None, rel_trace=None):
         """Update NumPyEmbeddings
         """
         if self._cpu_emb:
-            self.ent_embedding.step()
-            self.rel_embedding.step()
+            if ent_trace is None:
+                self.ent_embedding.step()
+            else:
+                self.ent_embedding.step_trace(ent_trace)
+            if rel_trace is None:
+                self.rel_embedding.step()
+            else:
+                self.rel_embedding.step_trace(rel_trace)
 
     def start_async_update(self):
         """Initialize async update
