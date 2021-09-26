@@ -81,7 +81,10 @@ def link_prediction(path, label, mode='normal', evaluator=None):
 
 if __name__ == '__main__':
     path = sys.argv[1]
+    # mode optional: normal, wiki
     mode = sys.argv[2] if len(sys.argv) > 2 else 'normal'
+    step_low = int(sys.argv[3]) if len(sys.argv) > 3 else 0
+
     if mode == 'wiki':
         from ogb.lsc import WikiKG90MEvaluator
         evaluator = WikiKG90MEvaluator()
@@ -94,6 +97,8 @@ if __name__ == '__main__':
     ]
     steps.sort()
     for step in steps:
+        if step < step_low:
+            continue
         step_path = os.path.join(path, 'valid_%d.pkl' % step)
         link_prediction(step_path, 'valid_%d' % step, evaluator)
 
