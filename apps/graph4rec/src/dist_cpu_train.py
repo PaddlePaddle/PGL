@@ -77,11 +77,6 @@ def main(config, ip_list_file):
             stream_shuffle_size=config.pair_stream_shuffle_size,
             collate_fn=getattr(DS, config.collatefn)(config, mode="distcpu"))
 
-        #  for idx, batch_data in enumerate(loader):
-        #      if idx % 1000 == 0:
-        #          print(batch_data[2])
-        #          print(batch_data[2].shape)
-
         fleet.init_worker()
         py_reader.set_batch_generator(lambda: loader)
         fleet.barrier_worker()
@@ -102,14 +97,10 @@ def train(config, exe, program, reader, loss):
     global_step = 0
     reader.start()
     start = time.time()
-    start_save = time.time()
-    save_flag = 0
-    save_iterval = 500
     try:
         while True:
             global_step += 1
             t_loss, = exe.run(program, fetch_list=[loss.name])
-            #  log.info(["loss shape", t_loss.shape])
             t_loss = t_loss.mean()
 
             total_loss += t_loss
@@ -121,21 +112,12 @@ def train(config, exe, program, reader, loss):
                 log.info("sec/batch: %.6f | step: %s | train_loss: %.6f" %
                          (sec_per_batch, global_step, avg_loss))
 
-            #  if fleet.is_first_worker(
-            #  ) and global_step % config.save_steps == 0:
-            if fleet.is_first_worker() and (
-                    time.time() - start_save - save_iterval) > 0:
-                start_save = time.time()
-                save_flag += save_iterval
-                save_path = os.path.join(config.save_dir,
-                                         "time_%s_sec" % save_flag)
+            if fleet.is_first_worker(
+            ) and global_step % config.save_steps == 0:
                 log.info("saving model on step %s to %s" %
-                         (global_step, save_path))
-                fleet.save_persistables(exe, save_path,
+                         (global_step, config.save_dir))
+                fleet.save_persistables(exe, config.save_dir,
                                         paddle.static.default_main_program())
-
-                if save_flag > (save_iterval * 30):
-                    break
     except paddle.fluid.core.EOFException:
         reader.reset()
 
