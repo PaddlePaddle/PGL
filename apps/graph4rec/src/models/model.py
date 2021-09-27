@@ -28,6 +28,7 @@ from pgl.distributed import helper
 from collections import OrderedDict
 
 import models.embedding as E
+import models.layers as Layer
 
 __all__ = ["WalkBasedModel", "SageModel"]
 
@@ -159,12 +160,7 @@ class SageModel(nn.Layer):
         for etype in self.all_etypes:
             self.convs_dict[etype] = nn.LayerList()
             for layer in range(len(self.config.sample_num_list)):
-                self.convs_dict[etype].append(
-                    pgl.nn.GCNConv(
-                        input_size if layer == 0 else self.hidden_size,
-                        self.hidden_size,
-                        activation="relu",
-                        norm=True, ))
+                self.convs_dict[etype].append(Layer.LightGCNConv())
         self.convs_dict = nn.LayerDict(sublayers=self.convs_dict)
 
     def get_static_input(self):

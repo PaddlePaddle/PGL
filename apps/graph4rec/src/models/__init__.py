@@ -14,9 +14,12 @@
 
 from models import model
 from models import embedding
+from models import layers
 from models.model import *
 from models.embedding import *
+from models.layers import *
 
 __all__ = []
 __all__ += model.__all__
 __all__ += embedding.__all__
+__all__ += layers.__all__
