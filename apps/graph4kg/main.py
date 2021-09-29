@@ -248,10 +248,13 @@ def main():
             loss = loss_func(pos_score, neg_score)
             log['loss'] += loss.numpy()[0]
             if args.reg_coef > 0. and args.reg_norm > 0:
-                if isinstance(model, paddle.DataParallel):
-                    params = model._layer.entity_embedding.curr_emb
+                if all_ents_emb is None:
+                    if isinstance(model, paddle.DataParallel):
+                        params = model._layer.ent_embedding.curr_emb
+                    else:
+                        params = model.ent_embedding.curr_emb
                 else:
-                    params = model.entity_embedding.curr_emb
+                    params = all_ents_emb
                 reg = paddle.norm(params, p=args.reg_norm).pow(args.reg_norm)
                 reg = args.reg_coef * reg
                 log['reg'] += reg.numpy()[0]

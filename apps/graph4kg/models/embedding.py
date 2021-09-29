@@ -101,6 +101,8 @@ class NumPyEmbedding(object):
     def curr_emb(self):
         """Return current embeddings
         """
+        if len(self.trace) == 0:
+            return None
         data = [x for _, x in self.trace]
         return paddle.concat(data, axis=0)
 
