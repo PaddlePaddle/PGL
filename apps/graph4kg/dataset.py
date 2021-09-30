@@ -16,7 +16,6 @@ import os
 
 import pdb
 import numpy as np
-from ogb.lsc import WikiKG90MDataset as LSCDataset
 
 from knowlgraph import KnowlGraph
 from utils.helper import timer_wrapper
@@ -171,6 +170,7 @@ class WikiKG90MDataset(object):
     def __init__(self, path):
         super(WikiKG90MDataset, self).__init__()
         self.name = 'WikiKG90M-LSC'
+        from ogb.lsc import WikiKG90MDataset as LSCDataset
         data = LSCDataset(path)
         triplets = {
             'train': data.train_hrt,
@@ -185,12 +185,43 @@ class WikiKG90MDataset(object):
                                 rel_feat)
 
 
+class WikiKG2Dataset(object):
+    """OGBL-WikiKG2 dataset implementation
+    """
+
+    def __init__(self, path):
+        super(WikiKG2Dataset, self).__init__()
+        self.name = 'OGBL-WikiKG2'
+        from ogb.linkproppred import LinkPropPredDataset
+        data = LinkPropPredDataset(name='ogbl-wikikg2', root=path)
+        split_idx = data.get_edge_split()
+        triplets = {
+            'train': np.stack([
+                split_idx['train']['head'], split_idx['train']['relation'],
+                split_idx['train']['tail']
+            ]).T,
+            'valid': np.stack([
+                split_idx['valid']['head'], split_idx['valid']['relation'],
+                split_idx['valid']['tail']
+            ]).T,
+            'test': np.stack([
+                split_idx['test']['head'], split_idx['test']['relation'],
+                split_idx['test']['tail']
+            ]).T
+        }
+        num_ents = data.graph['num_nodes']
+        num_rels = int(max(data.graph['edge_reltype'])[0]) + 1
+        self.graph = KnowlGraph(triplets, num_ents, num_rels)
+
+
 @timer_wrapper('dataset loading')
 def load_dataset(data_path, data_name):
     """Load datasets from files
     """
     if data_name == "wikikg90m":
         dataset = WikiKG90MDataset(data_path)
+    elif data_name == 'wikikg2':
+        dataset = WikiKG2Dataset(data_path)
     elif data_name in ['FB15k', 'WN18', 'FB15k-237', 'WN18RR']:
         dataset = TripletDataset(
             data_path, data_name, kv_mode='vk', map_to_id=True)
