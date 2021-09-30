@@ -235,10 +235,10 @@ def main():
         for (h, r, t, neg_ents, all_ents), (
                 r_emb, all_ents_emb), mode in train_loader:
             if r_emb is not None:
-                r = r.numpy()
+                # r = r.numpy()
                 r_emb.stop_gradient = False
             if all_ents_emb is not None:
-                all_ents = all_ents.numpy()
+                # all_ents = all_ents.numpy()
                 all_ents_emb.stop_gradient = False
             timer['sample'] += (time.time() - ts)
 
@@ -269,8 +269,8 @@ def main():
             if optimizer is not None:
                 optimizer.step()
             if r_emb is not None and all_ents_emb is not None:
-                ent_trace = (all_ents, all_ents_emb.grad.numpy())
-                rel_trace = (r, r_emb.grad.numpy())
+                ent_trace = (all_ents, all_ents_emb.grad)
+                rel_trace = (r, r_emb.grad)
             else:
                 ent_trace = None
                 rel_trace = None

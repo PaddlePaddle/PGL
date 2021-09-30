@@ -133,8 +133,8 @@ class NumPyEmbedding(object):
             for index, tensors in self.trace:
                 grad = tensors.grad.numpy()
                 if self._async_q is not None:
-                    # grad_index = SharedArray.copy_from(index)
-                    # grad_value = SharedArray.copy_from(grad)
+                    # index = SharedArray.copy_from(index)
+                    # grad = SharedArray.copy_from(grad)
                     # self._async_q.put(serialize_data([index, grad]))
                     self._async_q.put([index, grad])
                 else:
@@ -147,7 +147,16 @@ class NumPyEmbedding(object):
         with paddle.no_grad():
             index, grad = trace
             if self._async_q is not None:
+                index.detach()
+                grad.detach()
+                index = index.cpu()._share_memory()
+                grad = grad.cpu()._share_memory()
+                # grad_shape = grad.shape
+                # index = SharedArray.copy_from(index)
+                # grad = SharedArray.copy_from(grad.reshape((-1,)))
+                # self._async_q.put([index, grad, grad_shape])
                 self._async_q.put([index, grad])
+                paddle.fluid.core._remove_tensor_list_mmap_fds([index, grad])
             else:
                 self._update(grad, index)
 

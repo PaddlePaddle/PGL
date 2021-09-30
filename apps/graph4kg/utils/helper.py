@@ -29,11 +29,9 @@ from argparse import ArgumentParser
 # from pgl.utils.mp_reader import deserialize_data
 
 
-def uniform(low, high, size, dtype=None):
+def uniform(low, high, size, dtype=np.float32):
     """Memory efficient uniform implementation
     """
-    if dtype is None:
-        dtype = np.float32
     rng = np.random.default_rng()
     out = (high - low) * rng.random(size, dtype=dtype) + low
     return out
@@ -100,17 +98,30 @@ def thread_wrapper(func):
     return decorate
 
 
+def to_tensor(data, place):
+    return paddle.Tensor(
+        value=data,
+        place=paddle.fluid.core.CPUPlace(),
+        persistable=False,
+        zero_copy=True,
+        stop_gradient=True)
+
+
 @thread_wrapper
 def async_update(embeds, queue):
     """Update embeddings asynchronously
     """
     while True:
         # (grad_index, grad_value) = deserialize_data(queue.get())
+        # (grad_index, grad_value, grad_shape) = queue.get()
         (grad_index, grad_value) = queue.get()
+        grad_index = to_tensor(grad_index, place='cpu')
+        grad_value = to_tensor(grad_value, place='cpu')
         if grad_index is None:
             return
         with paddle.no_grad():
-            embeds._update(grad_value, grad_index)
+            # embeds._update(grad_value.array.reshape(grad_shape), grad_index.array)
+            embeds._update(grad_value.numpy(), grad_index.numpy())
 
 
 def prepare_save_path(args):
