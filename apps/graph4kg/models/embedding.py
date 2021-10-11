@@ -147,16 +147,16 @@ class NumPyEmbedding(object):
         with paddle.no_grad():
             index, grad = trace
             if self._async_q is not None:
-                index.detach()
-                grad.detach()
-                index = index.cpu()._share_memory()
-                grad = grad.cpu()._share_memory()
+                # index.detach()
+                # grad.detach()
+                # index = index.cpu()._share_memory()
+                # grad = grad.cpu()._share_memory()
                 # grad_shape = grad.shape
                 # index = SharedArray.copy_from(index)
                 # grad = SharedArray.copy_from(grad.reshape((-1,)))
                 # self._async_q.put([index, grad, grad_shape])
                 self._async_q.put([index, grad])
-                paddle.fluid.core._remove_tensor_list_mmap_fds([index, grad])
+                # paddle.fluid.core._remove_tensor_list_mmap_fds([index, grad])
             else:
                 self._update(grad, index)
 
@@ -191,7 +191,7 @@ class NumPyEmbedding(object):
 
     def _init_moment(self):
         if dist.get_rank() == 0:
-            moment = np.zeros_like(self.weight, dtype=np.float32)
+            moment = np.zeros(self.weight.shape[0], dtype=np.float32)
             np.save(self._moment_path, moment)
             del moment
         else:
@@ -202,10 +202,10 @@ class NumPyEmbedding(object):
         self._moment = np.load(self._moment_path, mmap_mode='r+')
 
     def _update_adagrad(self, grad, index):
-        grad_square = grad * grad
+        grad_square = (grad * grad).mean(1)
         self._moment[index] += grad_square
         std = np.sqrt(self._moment[index]) + 1e-6
-        grad = -self._lr * grad / std
+        grad = -self._lr * grad / std.reshape((-1, 1))
         self.weight[index] += grad
 
     def _update_sgd(self, grad, index):

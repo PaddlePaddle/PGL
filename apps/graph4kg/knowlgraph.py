@@ -71,12 +71,16 @@ class KnowlGraph(object):
             """Reformulate validation and test
             """
             if isinstance(data, dict):
+                if 't_correct_index' in data:
+                    correct_index = data['t_correct_index']
+                else:
+                    correct_index = None
                 data = {
                     'mode': 'wiki',
                     'h': data['hr'][:, 0],
                     'r': data['hr'][:, 1],
                     'candidate': data['t_candidate'],
-                    'correct_index': data['t_correct_index']
+                    'correct_index': correct_index
                 }
             elif isinstance(data, np.ndarray):
                 data = {
@@ -110,6 +114,7 @@ class KnowlGraph(object):
         repr_dict['num_ents'] = self._num_ents
         repr_dict['num_rels'] = self._num_rels
         repr_dict['ent_feat'] = []
+        repr_dict['rel_feat'] = []
         repr_dict['num_train'] = self._train.shape[0]
         repr_dict['num_valid'] = self._valid['r'].shape[0]
         repr_dict['num_test'] = self._test['r'].shape[0]
@@ -119,7 +124,6 @@ class KnowlGraph(object):
                 'shape': list(value.shape),
                 'dtype': str(value.dtype)
             })
-        repr_dict['rel_feat'] = []
         for key, value in self._rel_feat.items():
             repr_dict['rel_feat'].append({
                 'name': key,

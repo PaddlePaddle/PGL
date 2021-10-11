@@ -125,6 +125,13 @@ class KGEModel(nn.Layer):
         if r_emb is not None and all_ent_emb is not None:
             ent_emb = all_ent_emb
             pos_r = r_emb
+            if self._use_feat:
+                ent_feat = paddle.to_tensor(
+                    self._ent_feat(all_idxs.numpy()).astype('float32'))
+                ent_emb = self.trans_ent(ent_feat, ent_emb)
+                rel_feat = paddle.to_tensor(
+                    self._rel_feat(r.numpy()).astype('float32'))
+                pos_r = self.trans_rel(rel_feat, pos_r)
         else:
             ent_emb = self._get_ent_embedding(all_idxs)
             pos_r = self._get_rel_embedding(r)
@@ -224,7 +231,7 @@ class KGEModel(nn.Layer):
             assert len(init_value) == 2, 'invalid initialization range!'
             a, b = init_value
         else:
-            init_value = 2. / emb_dim
+            init_value = 2. / np.sqrt(emb_dim)
             a, b = -init_value, init_value
 
         if self._cpu_emb:

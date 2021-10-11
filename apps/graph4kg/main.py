@@ -21,7 +21,7 @@ from collections import defaultdict
 import paddle
 import numpy as np
 import paddle.distributed as dist
-from paddle.io import DataLoader
+from paddle.io import DataLoader, DistributedBatchSampler
 from tqdm import tqdm
 
 from dataset import load_dataset
@@ -29,6 +29,8 @@ from utils.dataset import KGDataset, TestKGDataset
 from models.models import KGEModel
 from models.base_loss import LossFunction
 from utils.helper import KGEArgParser, prepare_save_path, timer_wrapper
+
+EMB_INIT_EPSILON = 2.
 
 
 def set_seed(seed):
@@ -161,9 +163,10 @@ def main():
         embed_dim=args.embed_dim,
         score=args.score,
         cpu_emb=args.cpu_emb,
+        init_value=(args.gamma + EMB_INIT_EPSILON) / args.embed_dim,
         use_feat=args.use_feature,
-        ent_feat=data.ent_feat,
-        rel_feat=data.rel_feat,
+        ent_feat=data.ent_feat.get('text', None),
+        rel_feat=data.rel_feat.get('text', None),
         ent_times=args.ent_times,
         rel_times=args.rel_times,
         scale_type=args.scale_type,
@@ -186,9 +189,11 @@ def main():
         shared_rel_path=model.shared_rel_path)
     train_loader = DataLoader(
         dataset=train_data,
-        batch_size=args.batch_size,
-        shuffle=True,
-        drop_last=True,
+        batch_sampler=DistributedBatchSampler(
+            train_data,
+            batch_size=args.batch_size,
+            shuffle=False,  #True, 
+            drop_last=True),
         num_workers=args.num_workers,
         use_buffer_reader=True,
         collate_fn=train_data.mixed_collate_fn)
@@ -216,7 +221,7 @@ def main():
         neg_adv_spl=args.neg_adversarial_sampling,
         neg_adv_temp=args.adversarial_temperature)
 
-    if dist.get_world_size() > 1:
+    if dist.get_world_size() > 1 and len(model.parameters()) > 0:
         model = paddle.DataParallel(model)
 
     if len(model.parameters()) > 0:
@@ -235,10 +240,8 @@ def main():
         for (h, r, t, neg_ents, all_ents), (
                 r_emb, all_ents_emb), mode in train_loader:
             if r_emb is not None:
-                # r = r.numpy()
                 r_emb.stop_gradient = False
             if all_ents_emb is not None:
-                # all_ents = all_ents.numpy()
                 all_ents_emb.stop_gradient = False
             timer['sample'] += (time.time() - ts)
 
@@ -269,8 +272,12 @@ def main():
             if optimizer is not None:
                 optimizer.step()
             if r_emb is not None and all_ents_emb is not None:
-                ent_trace = (all_ents, all_ents_emb.grad)
-                rel_trace = (r, r_emb.grad)
+                # ent_grad = all_ents_emb.grad.cpu()._share_memory()
+                # rel_grad = r_emb.grad.cpu()._share_memory()
+                # ent_trace = (all_ents, ent_grad)
+                # rel_trace = (r, rel_grad)
+                ent_trace = (all_ents.numpy(), all_ents_emb.grad.numpy())
+                rel_trace = (r.numpy(), r_emb.grad.numpy())
             else:
                 ent_trace = None
                 rel_trace = None

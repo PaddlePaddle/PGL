@@ -32,7 +32,7 @@ from argparse import ArgumentParser
 def uniform(low, high, size, dtype=np.float32):
     """Memory efficient uniform implementation
     """
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(0)
     out = (high - low) * rng.random(size, dtype=dtype) + low
     return out
 
@@ -115,13 +115,14 @@ def async_update(embeds, queue):
         # (grad_index, grad_value) = deserialize_data(queue.get())
         # (grad_index, grad_value, grad_shape) = queue.get()
         (grad_index, grad_value) = queue.get()
-        grad_index = to_tensor(grad_index, place='cpu')
-        grad_value = to_tensor(grad_value, place='cpu')
+        # grad_index = to_tensor(grad_index, place='cpu')
+        # grad_value = to_tensor(grad_value, place='cpu')
         if grad_index is None:
             return
         with paddle.no_grad():
             # embeds._update(grad_value.array.reshape(grad_shape), grad_index.array)
-            embeds._update(grad_value.numpy(), grad_index.numpy())
+            # embeds._update(grad_value.numpy(), grad_index.numpy())
+            embeds._update(grad_value, grad_index)
 
 
 def prepare_save_path(args):

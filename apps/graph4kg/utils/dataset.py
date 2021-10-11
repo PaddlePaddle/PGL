@@ -17,6 +17,7 @@ import os
 import numpy as np
 import paddle
 from paddle.io import Dataset
+from numpy.random import default_rng
 
 from utils.helper import timer_wrapper
 from models.embedding import NumPyEmbedding
@@ -75,7 +76,17 @@ class KGDataset(Dataset):
 
     def __getitem__(self, index):
         h, r, t = self._triplets[index]
-        return h, r, t
+        # if self._filter_mode:
+        #     if self._step == 0:
+        #         filter_set = self._filter_dict['head'][(t, r)]
+        #     else:
+        #         filter_set = self._filter_dict['tail'][(h, r)]
+        #     negs = self.uniform_sampler(
+        #         self._num_negs, self._num_ents, filter_set)
+        # else:
+        #     negs = np.random.randint(0, self._num_ents, self._num_negs)
+        # negs = np.reshape(negs, -1)
+        return h, r, t  #, negs
 
     def _load_mmap_embedding(self, path):
         if path is not None:
@@ -100,6 +111,32 @@ class KGDataset(Dataset):
             return self.head_collate_fn(data)
         else:
             return self.tail_collate_fn(data)
+
+    def collate_fn(self, data):
+        """Collate_fn to corrupt heads and tails by turns through __getitem__
+        """
+        h = np.array([x[0] for x in data])
+        r = np.array([x[1] for x in data])
+        t = np.array([x[2] for x in data])
+        negs = np.concatenate([x[3] for x in data])
+        reindex_func, all_ents = self.group_index([h, t, negs])
+        if self._ent_embedding is not None and self._rel_embedding is not None:
+            all_ents_emb = self._ent_embedding.get(all_ents).astype(np.float32)
+            all_ents_emb = paddle.to_tensor(all_ents_emb)
+            r_emb = self._rel_embedding.get(r).astype(np.float32)
+            r_emb = paddle.to_tensor(r_emb)
+        else:
+            all_ents_emb = None
+            r_emb = None
+        neg_ents = paddle.to_tensor(reindex_func(negs), dtype='int64')
+        h = paddle.to_tensor(reindex_func(h), dtype='int64')
+        t = paddle.to_tensor(reindex_func(t), dtype='int64')
+        neg_ents = paddle.to_tensor(neg_ents, dtype='int64')
+        neg_ents = paddle.reshape(neg_ents, (-1, self._num_negs))
+        mode = 'head' if self._step == 0 else 'tail'
+        self._step = self._step ^ 1
+
+        return (h, r, t, neg_ents, all_ents), (r_emb, all_ents_emb), mode
 
     def _collate_fn(self, data, mode, fl_set):
         h, r, t = np.array(data).T
@@ -171,13 +208,14 @@ class KGDataset(Dataset):
         """Sampling negative samples uniformly.
         Args k: nagative sample size
         """
+        rng = default_rng(0)
         n_cand = cand if isinstance(cand, int) else len(cand)
         e_cand = None if isinstance(cand, int) else cand
         if filter_set is not None:
             new_e_list = []
             new_e_num = 0
             while new_e_num < k:
-                new_e = np.random.randint(0, n_cand, 2 * k)
+                new_e = rng.choice(n_cand, 2 * k, replace=False)
                 new_e = new_e if e_cand is None else e_cand[new_e]
                 mask = np.in1d(new_e, filter_set, invert=True)
                 new_e = new_e[mask]
@@ -185,7 +223,7 @@ class KGDataset(Dataset):
                 new_e_num += len(new_e)
             new_e = np.concatenate(new_e_list)[:k]
         else:
-            new_e = np.random.randint(0, n_cand, k)
+            new_e = rng.choice(n_cand, k, replace=False)
             new_e = new_e if e_cand is None else e_cand[new_e]
         return new_e
 
