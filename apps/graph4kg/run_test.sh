@@ -11,7 +11,7 @@ do
     python -m unittest mp_speed_test.py >> $LOG_NAME 2>&1
 done
 
-for name in "test_paddle" 'test_pickle' 'test_share_ndarray'
+for name in "test_paddle" 'test_pickle' 'test_share_ndarray' 'test_pure' 'test_deepcopy'
 do
     echo $name
     grep  $name $LOG_NAME | awk  '{print $4}' | awk '{x+=$0;y+=$0^2}END{printf "\t mean: %f std: %f\n", x/NR, sqrt((y-x^2/NR)/(NR-1)) }'
