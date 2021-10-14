@@ -87,12 +87,19 @@ class WalkBasedDataset(StreamDataset):
         rank = self._worker_info.fid
         nrank = self._worker_info.num_workers
 
-        pipeline = [
+        pipeline = []
+        pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank), WalkGenerator(
-                    self.config, graph, rank=rank, nrank=nrank), PairGenerator(
-                        self.config, graph, rank=rank, nrank=nrank)
-        ]
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            WalkGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            EgoGraphGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            PairGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
 
         self.generator = Generator()
         for p in pipeline:
@@ -146,12 +153,19 @@ class WalkBasedDataset(StreamDataset):
         )
         log.info("rank %s in total nrank %s" % (rank, nrank))
 
-        pipeline = [
+        pipeline = []
+        pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank), WalkGenerator(
-                    self.config, graph, rank=rank, nrank=nrank), PairGenerator(
-                        self.config, graph, rank=rank, nrank=nrank)
-        ]
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            WalkGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            EgoGraphGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            PairGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
 
         self.generator = Generator()
         for p in pipeline:
@@ -165,6 +179,17 @@ class WalkBasedDataset(StreamDataset):
                 cc += 1
 
 
+def index2segment_id(num_count):
+    index = np.cumsum(num_count, dtype="int64")
+    index = np.insert(index, 0, 0)
+
+    segments = np.zeros(index[-1] + 1, dtype="int64")
+    index = index[:-1]
+    segments[index] += 1
+    segments = np.cumsum(segments)[:-1] - 1
+    return segments
+
+
 class CollateFn(object):
     def __init__(self, config=None, mode="gpu"):
         self.config = config
@@ -172,25 +197,48 @@ class CollateFn(object):
 
     def __call__(self, batch_data):
         feed_dict = OrderedDict()
-        src_list = []
-        pos_list = []
+        for slot in self.config.slots:
+            feed_dict[slot] = []
+            feed_dict["%s_lod" % slot] = []
+
+        node_id_list = []
+        offset = 0
         for src, pos in batch_data:
-            src_list.append(src)
-            pos_list.append(pos)
+            node_id_list.extend(src.node_id)
+            node_id_list.extend(pos.node_id)
+
+            for slot in self.config.slots:
+                feed_dict[slot].extend(src.feature[slot][0])
+                # lod_id2segment_id
+                segments = index2segment_id(src.feature[slot][1])
+                segments = segments + offset
+                #  print(src.node_id, slot, src.feature[slot][1], segments)
+                feed_dict["%s_lod" % slot].append(segments)
+
+                feed_dict[slot].extend(pos.feature[slot][0])
+                # lod_id2segment_id
+                segments = index2segment_id(pos.feature[slot][1])
+                segments = segments + offset + 1
+                feed_dict["%s_lod" % slot].append(segments)
+
+            offset += 2
+
+        for slot in self.config.slots:
+            feed_dict[slot] = np.array(
+                feed_dict[slot], dtype="int64").reshape(-1, )
+            feed_dict["%s_lod" % slot] = np.concatenate(feed_dict[
+                "%s_lod" % slot]).reshape(-1, )
 
         if self.mode == "gpu":
-            src_list = np.array(src_list, dtype="int64").reshape(-1, )
-            pos_list = np.array(pos_list, dtype="int64").reshape(-1, )
+            node_id_list = np.array(node_id_list, dtype="int64").reshape(-1, )
         elif self.mode == "distcpu":
-            src_list = np.array(src_list, dtype="int64").reshape(-1, 1)
-            pos_list = np.array(pos_list, dtype="int64").reshape(-1, 1)
+            node_id_list = np.array(node_id_list, dtype="int64").reshape(-1, 1)
 
-        feed_dict['src'] = src_list
-        feed_dict['pos'] = pos_list
+        feed_dict['node_id'] = node_id_list
 
-        bs = len(src_list)
+        bs = len(batch_data)
         neg_idx = np.random.randint(
-            low=0, high=bs, size=[bs * self.config.neg_num], dtype="int64")
+            low=0, high=bs * 2, size=[bs * self.config.neg_num], dtype="int64")
         feed_dict['neg_idx'] = neg_idx
 
         if self.mode == "gpu":
@@ -220,14 +268,19 @@ class SageDataset(StreamDataset):
         rank = self._worker_info.fid
         nrank = self._worker_info.num_workers
 
-        pipeline = [
+        pipeline = []
+        pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank), WalkGenerator(
-                    self.config, graph, rank=rank, nrank=nrank),
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            WalkGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
             EgoGraphGenerator(
-                self.config, graph, rank=rank, nrank=nrank), PairGenerator(
-                    self.config, graph, rank=rank, nrank=nrank)
-        ]
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            PairGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
 
         self.generator = Generator()
         for p in pipeline:
@@ -297,14 +350,19 @@ class SageDataset(StreamDataset):
         )
         log.info("rank %s in total nrank %s" % (rank, nrank))
 
-        pipeline = [
+        pipeline = []
+        pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank), WalkGenerator(
-                    self.config, graph, rank=rank, nrank=nrank),
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            WalkGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
             EgoGraphGenerator(
-                self.config, graph, rank=rank, nrank=nrank), PairGenerator(
-                    self.config, graph, rank=rank, nrank=nrank)
-        ]
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            PairGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
 
         self.generator = Generator()
         for p in pipeline:
@@ -333,9 +391,6 @@ class SageCollateFn(object):
     def __call__(self, batch_data):
         # Pair of EgoGraphs
         feed_dict = OrderedDict()
-
-        src_list = []
-        pos_list = []
 
         center_id = []
         graphs = []

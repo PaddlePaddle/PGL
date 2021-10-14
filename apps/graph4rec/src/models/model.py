@@ -28,7 +28,7 @@ from pgl.distributed import helper
 from collections import OrderedDict
 
 import models.embedding as E
-import models.layers as Layer
+import models.layers as GNNLayers
 
 __all__ = ["WalkBasedModel", "SageModel"]
 
@@ -54,6 +54,18 @@ class WalkBasedModel(nn.Layer):
             sparse=self.config.lazy_mode,
             weight_attr=emb_attr)
 
+        if len(self.config.slots) > 0:
+            self.slot_embed_dict = OrderedDict()
+            for slot in self.config.slots:
+                self.slot_embed_dict[slot] = getattr(
+                    E, self.config.embed_type, "BaseEmbedding")(
+                        self.config.num_nodes,
+                        self.embed_size,
+                        sparse=self.config.lazy_mode,
+                        weight_attr=paddle.ParamAttr(name="slot_%s_embedding" %
+                                                     slot))
+            self.slot_embed_dict = paddle.nn.LayerDict(self.slot_embed_dict)
+
         self.loss_fn = paddle.nn.BCEWithLogitsLoss()
 
     def get_static_input(self):
@@ -64,6 +76,11 @@ class WalkBasedModel(nn.Layer):
         feed_dict["pos"] = F.data("pos", shape=[-1, 1], dtype="int64")
         feed_dict["neg_idx"] = F.data("neg_idx", shape=[-1, ], dtype="int64")
 
+        for slot in self.config.slots:
+            feed_dict[slot] = F.data(slot, shape=[-1, 1], dtype="int64")
+            feed_dict["%s_info" % slot] = F.data(
+                "%s_info" % slot, shape=[-1, ], dtype="int64")
+
         py_reader = F.io.DataLoader.from_generator(
             capacity=64,
             feed_list=list(feed_dict.values()),
@@ -73,29 +90,39 @@ class WalkBasedModel(nn.Layer):
         return feed_dict, py_reader
 
     def forward(self, feed_dict):
-        # [b, dim]
-        src_embed = self.embedding(feed_dict['src'])
-        self.embed = src_embed  # for inference
-        self.node_index = feed_dict['src']  # for inference
-        src_embed = paddle.unsqueeze(src_embed, axis=1)
+        # [2*b, dim]
+        embed = self.embedding(feed_dict['node_id'])
 
-        # [b, dim]
-        pos_embed = self.embedding(feed_dict['pos'])
+        if len(self.config.slots) > 0:
+            nfeat_list = [embed]
+            for slot in self.config.slots:
+                h = self.slot_embed_dict[slot](feed_dict[slot])
+                h = pgl.math.segment_sum(h, feed_dict["%s_lod" % slot])
+                h = paddle.nn.functional.softsign(h)
+                nfeat_list.append(h)
+            embed = paddle.stack(nfeat_list, axis=0)
+            embed = paddle.sum(embed, axis=0)
+            embed = paddle.nn.functional.softsign(embed)
 
-        pos_and_negs = [paddle.unsqueeze(pos_embed, axis=1)]
+        negs_embed = paddle.gather(embed, feed_dict['neg_idx'])
+        embed = paddle.reshape(embed, [-1, 2, self.embed_size])
 
-        negs_embed = paddle.gather(pos_embed, feed_dict['neg_idx'])
+        src_embed = embed[:, 0:1, :]
+        pos_embed = embed[:, 1:2, :]
         negs_embed = paddle.reshape(negs_embed,
-                                    [-1, self.neg_num, self.hidden_size])
-        pos_and_negs.append(negs_embed)
+                                    [-1, self.neg_num, self.embed_size])
 
         # [batch_size, 1 + neg_num, embed_size]
-        pos_and_neg_embed = paddle.concat(pos_and_negs, axis=1)
+        pos_and_neg_embed = paddle.concat([pos_embed, negs_embed], axis=1)
 
         # [batch_size, 1, 1 + neg_num]
         logits = paddle.matmul(src_embed, pos_and_neg_embed, transpose_y=True)
         # [batch_size, 1 + neg_num]
         logits = paddle.squeeze(logits, axis=1)
+
+        self.embed = paddle.squeeze(src_embed, axis=1)  # for inference
+        node_index = paddle.reshape(feed_dict['node_id'], [-1, 2])
+        self.node_index = node_index[:, 0]  # for inference
 
         return logits
 
@@ -160,7 +187,7 @@ class SageModel(nn.Layer):
         for etype in self.all_etypes:
             self.convs_dict[etype] = nn.LayerList()
             for layer in range(len(self.config.sample_num_list)):
-                self.convs_dict[etype].append(Layer.LightGCNConv())
+                self.convs_dict[etype].append(GNNLayers.LightGCNConv())
         self.convs_dict = nn.LayerDict(sublayers=self.convs_dict)
 
     def get_static_input(self):
