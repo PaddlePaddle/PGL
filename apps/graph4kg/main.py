@@ -68,6 +68,7 @@ def adjust_args(args):
     """Adjust arguments for compatiblity
     """
     args.save_path = prepare_save_path(args)
+    # set the path to shm, the performance will be batter.
     args.embs_path = os.path.join(args.save_path, '__cpu_embedding.npy')
     return args
 
@@ -77,7 +78,8 @@ def print_log(step, interval, log, timer, t_step):
     """
     time_sum = time.time() - t_step
     logging.info('step: %d, loss: %.5f, reg: %.4e, speed: %.2f steps/s' %
-                 (step, log['loss'], log['reg'], interval / time_sum))
+                 (step, log['loss'] / interval, log['reg'] / interval,
+                  interval / time_sum))
     logging.info('timer | sample: %f, forward: %f, backward: %f, update: %f' %
                  (timer['sample'], timer['forward'], timer['backward'],
                   timer['update']))
@@ -171,10 +173,14 @@ def main():
         rel_times=args.rel_times,
         scale_type=args.scale_type,
         param_path=args.save_path,
-        optimizer='adagrad',
-        lr=args.lr,
+        optimizer='adagrad' if args.cpu_emb else None,
+        lr=args.lr if args.cpu_emb else None,
         args=args)
-    if args.cpu_emb and args.async_update:
+
+    # The DataParallel will influence start_async_update or not
+    if args.async_update:
+        if not args.cpu_emb:
+            raise ValueError("We only support async_update in cpu_emb mode.")
         print('=' * 20 + '\n Async Update!\n' + '=' * 20)
         model.start_async_update()
 
@@ -185,8 +191,8 @@ def main():
         neg_mode=args.neg_mode,
         filter_mode=args.filter_mode,
         filter_dict=pos_dict,
-        shared_ent_path=model.shared_ent_path,
-        shared_rel_path=model.shared_rel_path)
+        shared_ent_path=model.shared_ent_path if args.cpu_emb else None,
+        shared_rel_path=None)
     train_loader = DataLoader(
         dataset=train_data,
         batch_sampler=DistributedBatchSampler(
@@ -195,7 +201,6 @@ def main():
             shuffle=False,  #True, 
             drop_last=True),
         num_workers=args.num_workers,
-        use_buffer_reader=True,
         collate_fn=train_data.mixed_collate_fn)
 
     if args.valid:
@@ -223,8 +228,11 @@ def main():
 
     if dist.get_world_size() > 1 and len(model.parameters()) > 0:
         model = paddle.DataParallel(model)
+        model.step = model._layer.step
+        model.finish_async_update = model._layer.finish_async_update()
 
     if len(model.parameters()) > 0:
+        # There will be some difference of lr / optimizer  on Relation Embedding
         optimizer = paddle.optimizer.Adam(
             learning_rate=args.mlp_lr, parameters=model.parameters())
     else:
@@ -237,17 +245,21 @@ def main():
     for epoch in range(args.num_epoch):
         # logging.info(('=' * 10) + 'epoch %d' % epoch + ('=' * 10))
         model.train()
-        for (h, r, t, neg_ents, all_ents), (
-                r_emb, all_ents_emb), mode in train_loader:
+        for indexes, prefetch_embeddings, mode in train_loader:
+            h, r, t, neg_ents, all_ents = indexes
+            all_ents_emb, r_emb = prefetch_embeddings
+
             if r_emb is not None:
                 r_emb.stop_gradient = False
             if all_ents_emb is not None:
                 all_ents_emb.stop_gradient = False
+
             timer['sample'] += (time.time() - ts)
 
             ts = time.time()
             pos_score, neg_score = model(h, r, t, neg_ents, all_ents, mode,
                                          r_emb, all_ents_emb)
+
             loss = loss_func(pos_score, neg_score)
             log['loss'] += loss.numpy()[0]
             if args.reg_coef > 0. and args.reg_norm > 0:
@@ -271,22 +283,17 @@ def main():
             ts = time.time()
             if optimizer is not None:
                 optimizer.step()
-            if r_emb is not None and all_ents_emb is not None:
-                # ent_grad = all_ents_emb.grad.cpu()._share_memory()
-                # rel_grad = r_emb.grad.cpu()._share_memory()
-                # ent_trace = (all_ents, ent_grad)
-                # rel_trace = (r, rel_grad)
-                ent_trace = (all_ents.numpy(), all_ents_emb.grad.numpy())
-                rel_trace = (r.numpy(), r_emb.grad.numpy())
-            else:
-                ent_trace = None
-                rel_trace = None
-            if isinstance(model, paddle.DataParallel):
-                model._layer.step(ent_trace, rel_trace)
-            else:
-                model.step(ent_trace, rel_trace)
+
+            ent_trace = (all_ents.numpy(), all_ents_emb.grad.numpy()) \
+                if all_ents_emb is not None else None
+            rel_trace = (r.numpy(), r_emb.grad.numpy()) \
+                if r_emb is not None else None
+
+            model.step(ent_trace, rel_trace)
+
             if optimizer is not None:
                 optimizer.clear_grad()
+
             timer['update'] += (time.time() - ts)
 
             if (step + 1) % args.log_interval == 0:
@@ -302,11 +309,8 @@ def main():
             step += 1
             ts = time.time()
 
-    if args.cpu_emb and args.async_update:
-        if dist.get_world_size() > 1:
-            model._layer.finish_async_update()
-        else:
-            model.finish_async_update()
+    if args.async_update:
+        model.finish_async_update()
 
     if args.test:
         test(model, test_loader, pos_dict,

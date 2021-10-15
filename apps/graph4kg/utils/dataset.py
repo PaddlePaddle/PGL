@@ -55,6 +55,9 @@ class KGDataset(Dataset):
                  filter_dict=None,
                  shared_ent_path=None,
                  shared_rel_path=None):
+        self._prefetch_ent = shared_ent_path is not None
+        self._prefetch_rel = shared_rel_path is not None
+
         self._triplets = triplets
         self._num_ents = num_ents
         self._num_negs = num_negs
@@ -68,6 +71,7 @@ class KGDataset(Dataset):
             assert 'head' in self._filter_dict
             assert 'tail' in self._filter_dict
         self._step = 0
+
         self._ent_embedding = self._load_mmap_embedding(shared_ent_path)
         self._rel_embedding = self._load_mmap_embedding(shared_rel_path)
 
@@ -120,14 +124,18 @@ class KGDataset(Dataset):
         t = np.array([x[2] for x in data])
         negs = np.concatenate([x[3] for x in data])
         reindex_func, all_ents = self.group_index([h, t, negs])
-        if self._ent_embedding is not None and self._rel_embedding is not None:
+        if self._prefetch_ent:
             all_ents_emb = self._ent_embedding.get(all_ents).astype(np.float32)
-            all_ents_emb = paddle.to_tensor(all_ents_emb)
-            r_emb = self._rel_embedding.get(r).astype(np.float32)
-            r_emb = paddle.to_tensor(r_emb)
+            # all_ents_emb = paddle.to_tensor(all_ents_emb)
         else:
             all_ents_emb = None
+
+        if self._prefetch_rel:
+            r_emb = self._rel_embedding.get(r).astype(np.float32)
+            # r_emb = paddle.to_tensor(r_emb)
+        else:
             r_emb = None
+
         neg_ents = paddle.to_tensor(reindex_func(negs), dtype='int64')
         h = paddle.to_tensor(reindex_func(h), dtype='int64')
         t = paddle.to_tensor(reindex_func(t), dtype='int64')
@@ -136,7 +144,7 @@ class KGDataset(Dataset):
         mode = 'head' if self._step == 0 else 'tail'
         self._step = self._step ^ 1
 
-        return (h, r, t, neg_ents, all_ents), (r_emb, all_ents_emb), mode
+        return (h, r, t, neg_ents, all_ents), (all_ents_emb, r_emb), mode
 
     def _collate_fn(self, data, mode, fl_set):
         h, r, t = np.array(data).T
@@ -173,13 +181,16 @@ class KGDataset(Dataset):
                 reindex_func, all_ents = self.group_index(ents_list)
             neg_ents = np.stack([reindex_func(x) for x in neg_ents])
 
-        if self._ent_embedding is not None and self._rel_embedding is not None:
+        if self._prefetch_ent:
             all_ents_emb = self._ent_embedding.get(all_ents).astype(np.float32)
-            all_ents_emb = paddle.to_tensor(all_ents_emb)
+            # all_ents_emb = paddle.to_tensor(all_ents_emb)
+        else:
+            all_ents_emb = None
+
+        if self._prefetch_rel:
             r_emb = self._rel_embedding.get(r).astype(np.float32)
             r_emb = paddle.to_tensor(r_emb)
         else:
-            all_ents_emb = None
             r_emb = None
 
         # all_ents = paddle.to_tensor(all_ents, dtype='int64')
@@ -188,7 +199,7 @@ class KGDataset(Dataset):
         t = paddle.to_tensor(reindex_func(t), dtype='int64')
         neg_ents = paddle.to_tensor(neg_ents, dtype='int64')
 
-        return (h, r, t, neg_ents, all_ents), (r_emb, all_ents_emb), mode
+        return (h, r, t, neg_ents, all_ents), (all_ents_emb, r_emb), mode
 
     @staticmethod
     def group_index(data):
