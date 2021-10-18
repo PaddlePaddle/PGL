@@ -43,7 +43,7 @@ fleet.init()
 def main(config, ip_list_file, save_dir, infer_from):
     config.embed_type = "SparseEmbedding"
     log.info("building model with embed_type (%s)" % config.embed_type)
-    model = getattr(M, config.model_type)(config)
+    model = getattr(M, config.model_type)(config, mode="distcpu")
     feed_dict, py_reader = model.get_static_input()
     pred = model(feed_dict)
     loss = model.loss(pred)

@@ -46,6 +46,7 @@ def data2tensor(batch_dict):
     return feed_dict
 
 
+@paddle.no_grad()
 def inference(model, loader, save_dir):
     model.eval()
     save_file = os.path.join(save_dir, "embedding.txt")
@@ -80,7 +81,7 @@ def main(config, ip_list_file, save_dir, infer_from):
     log.info("building model")
     config.embed_type = "BaseEmbedding"
     log.info("embed type is %s" % config.embed_type)
-    model = getattr(M, config.model_type)(config)
+    model = getattr(M, config.model_type)(config, mode="gpu")
 
     if os.path.exists(infer_from):
         log.info("infer from %s" % infer_from)

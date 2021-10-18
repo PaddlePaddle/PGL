@@ -41,6 +41,7 @@ class WalkGenerator(object):
         self.graph = graph
         self.rank = kwargs.get("rank", 0)
         self.nrank = kwargs.get("nrank", 1)
+        self.gen_mode = kwargs.get("gen_mode", "base_walk_generator")
 
         self.meta_path = self.config.meta_path
 
@@ -54,7 +55,7 @@ class WalkGenerator(object):
         """
         self.node_generator = generator
 
-        walk_generator = self.base_walk_generator
+        walk_generator = getattr(self, self.gen_mode)
         walk_generator = AsynchronousGenerator(walk_generator, maxsize=10000)
 
         walk_cc = 0
@@ -88,3 +89,7 @@ class WalkGenerator(object):
 
             yield walks
             #  log.info("walk generate time: %s" % (time.time() - start))
+
+    def infer_walk_generator(self):
+        for nodes, idx in self.node_generator():
+            yield [nodes]

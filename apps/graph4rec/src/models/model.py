@@ -34,10 +34,11 @@ __all__ = ["WalkBasedModel", "SageModel"]
 
 
 class WalkBasedModel(nn.Layer):
-    def __init__(self, config):
+    def __init__(self, config, mode="gpu"):
         super(WalkBasedModel, self).__init__()
 
         self.config = config
+        self.mode = mode
         self.embed_size = self.config.embed_size
         self.hidden_size = self.config.hidden_size
         self.neg_num = self.config.neg_num
@@ -64,7 +65,9 @@ class WalkBasedModel(nn.Layer):
                         sparse=self.config.lazy_mode,
                         weight_attr=paddle.ParamAttr(name="slot_%s_embedding" %
                                                      slot))
-            self.slot_embed_dict = paddle.nn.LayerDict(self.slot_embed_dict)
+            if self.mode == "gpu":
+                self.slot_embed_dict = nn.LayerDict(
+                    sublayers=self.slot_embed_dict)
 
         self.loss_fn = paddle.nn.BCEWithLogitsLoss()
 
@@ -72,14 +75,14 @@ class WalkBasedModel(nn.Layer):
         """handle static input
         """
         feed_dict = OrderedDict()
-        feed_dict["src"] = F.data("src", shape=[-1, 1], dtype="int64")
-        feed_dict["pos"] = F.data("pos", shape=[-1, 1], dtype="int64")
-        feed_dict["neg_idx"] = F.data("neg_idx", shape=[-1, ], dtype="int64")
 
         for slot in self.config.slots:
             feed_dict[slot] = F.data(slot, shape=[-1, 1], dtype="int64")
             feed_dict["%s_info" % slot] = F.data(
                 "%s_info" % slot, shape=[-1, ], dtype="int64")
+
+        feed_dict["node_id"] = F.data("node_id", shape=[-1, 1], dtype="int64")
+        feed_dict["neg_idx"] = F.data("neg_idx", shape=[-1, ], dtype="int64")
 
         py_reader = F.io.DataLoader.from_generator(
             capacity=64,
@@ -97,7 +100,7 @@ class WalkBasedModel(nn.Layer):
             nfeat_list = [embed]
             for slot in self.config.slots:
                 h = self.slot_embed_dict[slot](feed_dict[slot])
-                h = pgl.math.segment_sum(h, feed_dict["%s_lod" % slot])
+                h = pgl.math.segment_sum(h, feed_dict["%s_info" % slot])
                 h = paddle.nn.functional.softsign(h)
                 nfeat_list.append(h)
             embed = paddle.stack(nfeat_list, axis=0)
@@ -152,10 +155,11 @@ class WalkBasedModel(nn.Layer):
 
 
 class SageModel(nn.Layer):
-    def __init__(self, config):
+    def __init__(self, config, mode="gpu"):
         super(SageModel, self).__init__()
 
         self.config = config
+        self.mode = mode
         self.embed_size = self.config.embed_size
         self.neg_num = self.config.neg_num
         self.hidden_size = self.config.hidden_size

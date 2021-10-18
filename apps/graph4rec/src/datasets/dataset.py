@@ -118,11 +118,31 @@ class WalkBasedDataset(StreamDataset):
         rank = self._worker_info.fid
         nrank = self._worker_info.num_workers
 
-        generator = NodeGenerator(self.config, graph, rank=rank, nrank=nrank)
+        pipeline = []
+        pipeline.append(
+            NodeGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            WalkGenerator(
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_walk_generator"))
+        pipeline.append(
+            EgoGraphGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
 
-        for batch_nodes in generator():
-            for nid in batch_nodes[0]:
-                yield [nid, nid]
+        generator = Generator()
+        for p in pipeline:
+            generator = generator.apply(p)
+
+        cc = 0
+        for walks in generator():
+            for egos in walks:
+                for ego in egos:
+                    yield [ego, ego]
+                    cc += 1
 
     def _distcpu_infer(self):
         log.info("distcpu infer data generator")
@@ -136,11 +156,31 @@ class WalkBasedDataset(StreamDataset):
         )
         log.info("rank %s in total nrank %s" % (rank, nrank))
 
-        generator = NodeGenerator(self.config, graph, rank=rank, nrank=nrank)
+        pipeline = []
+        pipeline.append(
+            NodeGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            WalkGenerator(
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_walk_generator"))
+        pipeline.append(
+            EgoGraphGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
 
-        for batch_nodes in generator():
-            for nid in batch_nodes[0]:
-                yield [nid, nid]
+        generator = Generator()
+        for p in pipeline:
+            generator = generator.apply(p)
+
+        cc = 0
+        for walks in generator():
+            for egos in walks:
+                for ego in egos:
+                    yield [ego, ego]
+                    cc += 1
 
     def _distcpu_train(self):
         log.info("distcpu data generator")
@@ -199,7 +239,7 @@ class CollateFn(object):
         feed_dict = OrderedDict()
         for slot in self.config.slots:
             feed_dict[slot] = []
-            feed_dict["%s_lod" % slot] = []
+            feed_dict["%s_info" % slot] = []
 
         node_id_list = []
         offset = 0
@@ -213,21 +253,26 @@ class CollateFn(object):
                 segments = index2segment_id(src.feature[slot][1])
                 segments = segments + offset
                 #  print(src.node_id, slot, src.feature[slot][1], segments)
-                feed_dict["%s_lod" % slot].append(segments)
+                feed_dict["%s_info" % slot].append(segments)
 
                 feed_dict[slot].extend(pos.feature[slot][0])
                 # lod_id2segment_id
                 segments = index2segment_id(pos.feature[slot][1])
                 segments = segments + offset + 1
-                feed_dict["%s_lod" % slot].append(segments)
+                feed_dict["%s_info" % slot].append(segments)
 
             offset += 2
 
         for slot in self.config.slots:
-            feed_dict[slot] = np.array(
-                feed_dict[slot], dtype="int64").reshape(-1, )
-            feed_dict["%s_lod" % slot] = np.concatenate(feed_dict[
-                "%s_lod" % slot]).reshape(-1, )
+            if self.mode == "gpu":
+                feed_dict[slot] = np.array(
+                    feed_dict[slot], dtype="int64").reshape(-1, )
+            elif self.mode == "distcpu":
+                feed_dict[slot] = np.array(
+                    feed_dict[slot], dtype="int64").reshape(-1, 1)
+
+            feed_dict["%s_info" % slot] = np.concatenate(feed_dict[
+                "%s_info" % slot]).reshape(-1, )
 
         if self.mode == "gpu":
             node_id_list = np.array(node_id_list, dtype="int64").reshape(-1, )

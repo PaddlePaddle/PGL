@@ -88,7 +88,7 @@ def main(config, ip_list_file):
         collate_fn=getattr(DS, config.collatefn)(config, mode="gpu"))
 
     config.embed_type = "BaseEmbedding"
-    model = getattr(M, config.model_type)(config)
+    model = getattr(M, config.model_type)(config, mode="gpu")
 
     if config.warm_start_from:
         log.info("warm start from %s" % config.warm_start_from)
@@ -111,7 +111,7 @@ def main(config, ip_list_file):
         num_workers=config.num_workers,
         collate_fn=getattr(DS, config.collatefn)(config, mode="gpu"))
 
-    inference(model, infer_loader, config.save_dir)
+    inference(model, infer_loader, config.output_dir)
 
 
 if __name__ == "__main__":

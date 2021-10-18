@@ -43,7 +43,7 @@ START = time.time()
 
 def main(config, ip_list_file):
     config.embed_type = "SparseEmbedding"
-    model = getattr(M, config.model_type)(config)
+    model = getattr(M, config.model_type)(config, mode="distcpu")
     feed_dict, py_reader = model.get_static_input()
     pred = model(feed_dict)
     loss = model.loss(pred)

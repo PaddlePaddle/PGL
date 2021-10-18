@@ -15,6 +15,7 @@
 """
 
 import sys
+import time
 import datetime
 import os
 import yaml
@@ -121,6 +122,8 @@ def create_necessary_dirs(config, worker_index=None):
         make_dir(config.log_dir)
         make_dir(config.save_dir)
         make_dir(config.output_dir)
+
+    time.sleep(3)
 
 
 def save_files(config):
