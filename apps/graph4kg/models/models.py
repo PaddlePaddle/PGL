@@ -65,10 +65,16 @@ class KGEModel(nn.Layer):
                  lr=1e-3,
                  args=None):
         super(KGEModel, self).__init__()
+        mix_cpu_on_relation = True
+
         self._use_feat = use_feat
         self._ent_feat = ent_feat
         self._rel_feat = rel_feat
+
         self._cpu_emb = cpu_emb
+        self._rel_emb_on_cpu = self._cpu_emb and mix_cpu_on_relation
+        self._ent_emb_on_cpu = self._cpu_emb
+
         self._rel_times = rel_times
         self._optim = optimizer
         self._lr = lr
@@ -77,12 +83,16 @@ class KGEModel(nn.Layer):
 
         self._ent_dim = embed_dim * ent_times
         self._rel_dim = embed_dim * (rel_times + int(scale_type > 0))
+
         self.ent_embedding = self._init_embedding(
             num_ents, self._ent_dim, init_value,
-            os.path.join(param_path, '__ent_embedding.npy'))
+            os.path.join(param_path, '__ent_embedding.npy')
+            if self._ent_emb_on_cpu else None)
+
         self.rel_embedding = self._init_embedding(
             num_rels, self._rel_dim, init_value,
-            os.path.join(param_path, '__rel_embedding.npy'), scale_type)
+            os.path.join(param_path, '__rel_embedding.npy')
+            if self._rel_emb_on_cpu else None, scale_type)
 
         if self._use_feat:
             assert ent_feat is not None, 'entity features not given!'
@@ -108,6 +118,10 @@ class KGEModel(nn.Layer):
             return self.rel_embedding.weight_path
         return None
 
+    def forward(self, pos_h, pos_r, pos_t, neg_ents, neg_mode='tail'):
+
+        pass
+
     def forward(self,
                 h,
                 r,
@@ -119,12 +133,13 @@ class KGEModel(nn.Layer):
                 all_ent_emb=None):
         """function for training
         """
-        if self._cpu_emb:
+        if self._ent_emb_on_cpu:
             self.ent_embedding.train()
+        if self._rel_emb_on_cpu:
             self.rel_embedding.train()
-        if r_emb is not None and all_ent_emb is not None:
+
+        if all_ent_emb is not None:
             ent_emb = all_ent_emb
-            pos_r = r_emb
             if self._use_feat:
                 ent_feat = paddle.to_tensor(
                     self._ent_feat(all_idxs.numpy()).astype('float32'))
@@ -134,15 +149,19 @@ class KGEModel(nn.Layer):
                 pos_r = self.trans_rel(rel_feat, pos_r)
         else:
             ent_emb = self._get_ent_embedding(all_idxs)
-            pos_r = self._get_rel_embedding(r)
+
+        pos_r = self._get_rel_embedding(r)
+
         pos_h = paddle.unsqueeze(F.embedding(h, ent_emb), axis=1)
         pos_t = paddle.unsqueeze(F.embedding(t, ent_emb), axis=1)
         pos_r = paddle.unsqueeze(pos_r, axis=1)
+
         neg_ents_shape = neg_ents.shape
         neg_ents = F.embedding(paddle.reshape(neg_ents, (-1, )), ent_emb)
         neg_ents = paddle.reshape(neg_ents, [*neg_ents_shape, -1])
 
         pos_score = self._score_func(pos_h, pos_r, pos_t)
+
         if neg_mode == 'tail':
             neg_score = self._score_func(pos_h, pos_r, neg_ents)
         else:
@@ -154,9 +173,11 @@ class KGEModel(nn.Layer):
     def predict(self, ent, rel, cand, mode='tail'):
         """function for prediction
         """
-        if self._cpu_emb:
+        if self._ent_emb_on_cpu:
             self.ent_embedding.eval()
+        if self._rel_emb_on_cpu:
             self.rel_embedding.eval()
+
         num_cands = cand.shape[1]
         cand = paddle.reshape(cand, (-1, ))
         ent_emb = self._get_ent_embedding(ent)
@@ -177,27 +198,41 @@ class KGEModel(nn.Layer):
     def step(self, ent_trace=None, rel_trace=None):
         """Update NumPyEmbeddings
         """
-        if self._cpu_emb:
+        if self._ent_emb_on_cpu:
             if ent_trace is None:
                 self.ent_embedding.step()
             else:
                 self.ent_embedding.step_trace(ent_trace)
+        else:
+            if ent_trace is not None:
+                raise ValueError(
+                    "You are using gpu ent_emb, ent_trace must be None")
+
+        if self._rel_emb_on_cpu:
             if rel_trace is None:
                 self.rel_embedding.step()
             else:
                 self.rel_embedding.step_trace(rel_trace)
+        else:
+            if rel_trace is not None:
+                raise ValueError(
+                    "You are using gpu rel_emb, rel_trace must be None")
 
     def start_async_update(self):
         """Initialize async update
         """
-        self.ent_embedding.start_async_update()
-        self.rel_embedding.start_async_update()
+        if self._ent_emb_on_cpu:
+            self.ent_embedding.start_async_update()
+        if self._rel_emb_on_cpu:
+            self.rel_embedding.start_async_update()
 
     def finish_async_update(self):
         """Finish async update
         """
-        self.ent_embedding.finish_async_update()
-        self.rel_embedding.finish_async_update()
+        if self._ent_emb_on_cpu:
+            self.ent_embedding.finish_async_update()
+        if self._rel_emb_on_cpu:
+            self.rel_embedding.finish_async_update()
 
     def _get_ent_embedding(self, index):
         emb = self.ent_embedding(index)
@@ -219,7 +254,7 @@ class KGEModel(nn.Layer):
                         num_emb,
                         emb_dim,
                         init_value,
-                        emb_path,
+                        emb_path=None,
                         scale_type=-1,
                         name=None):
         if scale_type > 0:
@@ -234,7 +269,7 @@ class KGEModel(nn.Layer):
             init_value = 2. / np.sqrt(emb_dim)
             a, b = -init_value, init_value
 
-        if self._cpu_emb:
+        if self._cpu_emb and emb_path is not None:
             embs = NumPyEmbedding(num_emb, emb_dim, a, b, emb_path,
                                   self._optim, self._lr)
         else:
