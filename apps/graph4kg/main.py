@@ -76,8 +76,8 @@ def print_log(step, interval, log, timer, t_step):
     """Print log
     """
     time_sum = time.time() - t_step
-    logging.info('step: %d, loss: %.5f, reg: %.4e, speed: %.2f steps/s' %
-                 (step, log['loss'], log['reg'], interval / time_sum))
+    logging.info('step: %d, loss: %.5f, reg: %.4e, speed: %.2f steps/s' % (
+        step, log['loss'] / interval, log['reg'], interval / time_sum))
     logging.info('timer | sample: %f, forward: %f, backward: %f, update: %f' %
                  (timer['sample'], timer['forward'], timer['backward'],
                   timer['update']))
@@ -192,11 +192,11 @@ def main():
         batch_sampler=DistributedBatchSampler(
             train_data,
             batch_size=args.batch_size,
-            shuffle=False,  #True, 
+            shuffle=True,
             drop_last=True),
         num_workers=args.num_workers,
         use_buffer_reader=True,
-        collate_fn=train_data.mixed_collate_fn)
+        collate_fn=train_data.collate_fn)
 
     if args.valid:
         assert data.valid is not None, 'validation set is not given!'
@@ -253,9 +253,21 @@ def main():
             if args.reg_coef > 0. and args.reg_norm > 0:
                 if all_ents_emb is None:
                     if isinstance(model, paddle.DataParallel):
-                        params = model._layer.ent_embedding.curr_emb
+                        if args.cpu_emb:
+                            params = paddle.concat([
+                                model._layer.ent_embedding.curr_emb,
+                                model._layer.rel_embedding.curr_emb
+                            ])
+                        else:
+                            params = model._layer.ent_embedding.weight
                     else:
-                        params = model.ent_embedding.curr_emb
+                        if args.cpu_emb:
+                            params = paddle.concat([
+                                model.ent_embedding.curr_emb,
+                                model.rel_embedding.curr_emb
+                            ])
+                        else:
+                            params = model.ent_embedding.weight
                 else:
                     params = all_ents_emb
                 reg = paddle.norm(params, p=args.reg_norm).pow(args.reg_norm)

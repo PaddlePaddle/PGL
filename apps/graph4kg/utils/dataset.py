@@ -76,43 +76,37 @@ class KGDataset(Dataset):
 
     def __getitem__(self, index):
         h, r, t = self._triplets[index]
-        # if self._filter_mode:
-        #     if self._step == 0:
-        #         filter_set = self._filter_dict['head'][(t, r)]
-        #     else:
-        #         filter_set = self._filter_dict['tail'][(h, r)]
-        #     negs = self.uniform_sampler(
-        #         self._num_negs, self._num_ents, filter_set)
-        # else:
-        #     negs = np.random.randint(0, self._num_ents, self._num_negs)
-        # negs = np.reshape(negs, -1)
-        return h, r, t  #, negs
+        return h, r, t
+
+    def __getitem__1(self, index):
+        h, r, t = self._triplets[index]
+        if self._filter_mode:
+            if self._step == 0:
+                filter_set = self._filter_dict['head'][(t, r)]
+            else:
+                filter_set = self._filter_dict['tail'][(h, r)]
+            negs = self.uniform_sampler(self._num_negs, self._num_ents,
+                                        filter_set)
+        else:
+            negs = np.random.randint(0, self._num_ents, self._num_negs)
+        negs = np.reshape(negs, -1)
+        return h, r, t, negs
 
     def _load_mmap_embedding(self, path):
         if path is not None:
             return NumPyEmbedding(weight_path=path, load_mode=True)
         return None
 
-    def head_collate_fn(self, data):
-        """Collate_fn to corrupt heads
-        """
-        return self._collate_fn(data, 'head', self._filter_dict['head'])
-
-    def tail_collate_fn(self, data):
-        """Collate_fn to corrupt tails
-        """
-        return self._collate_fn(data, 'tail', self._filter_dict['tail'])
-
-    def mixed_collate_fn(self, data):
+    def collate_fn(self, data):
         """Collate_fn to corrupt heads and tails by turns
         """
         self._step = self._step ^ 1
         if self._step == 0:
-            return self.head_collate_fn(data)
+            return self._collate_fn(data, 'head', self._filter_dict['head'])
         else:
-            return self.tail_collate_fn(data)
+            return self._collate_fn(data, 'tail', self._filter_dict['tail'])
 
-    def collate_fn(self, data):
+    def collate_fn_1(self, data):
         """Collate_fn to corrupt heads and tails by turns through __getitem__
         """
         h = np.array([x[0] for x in data])
@@ -120,22 +114,45 @@ class KGDataset(Dataset):
         t = np.array([x[2] for x in data])
         negs = np.concatenate([x[3] for x in data])
         reindex_func, all_ents = self.group_index([h, t, negs])
-        if self._ent_embedding is not None and self._rel_embedding is not None:
+        if self._ent_embedding is not None:
             all_ents_emb = self._ent_embedding.get(all_ents).astype(np.float32)
-            all_ents_emb = paddle.to_tensor(all_ents_emb)
-            r_emb = self._rel_embedding.get(r).astype(np.float32)
-            r_emb = paddle.to_tensor(r_emb)
         else:
             all_ents_emb = None
+
+        if self._rel_embedding is not None:
+            r_emb = self._rel_embedding.get(r).astype(np.float32)
+        else:
             r_emb = None
-        neg_ents = paddle.to_tensor(reindex_func(negs), dtype='int64')
-        h = paddle.to_tensor(reindex_func(h), dtype='int64')
-        t = paddle.to_tensor(reindex_func(t), dtype='int64')
-        neg_ents = paddle.to_tensor(neg_ents, dtype='int64')
-        neg_ents = paddle.reshape(neg_ents, (-1, self._num_negs))
+        h = reindex_func(h)
+        t = reindex_func(t)
+        neg_ents = reindex_func(negs)
+        neg_ents = neg_ents.reshape((-1, self._num_negs))
         mode = 'head' if self._step == 0 else 'tail'
         self._step = self._step ^ 1
 
+        return (h, r, t, neg_ents, all_ents), (r_emb, all_ents_emb), mode
+
+    def _collate_fn_(self, data, mode, fl_set):
+        h = np.array([6984, 9882, 9378, 444, 3384])
+        t = np.array([3862, 6778, 6537, 7253, 5209])
+        neg_ents = np.array([13449, 10019, 2784, 5991, 9498])
+        r = np.array([118, 401, 236, 1236, 765])
+        index = np.argsort(np.concatenate([h, t, neg_ents]))
+        reindex_func, all_ents = self.group_index([h, t, neg_ents])
+        h = reindex_func(h)
+        t = reindex_func(t)
+
+        neg_ents = paddle.to_tensor(reindex_func(neg_ents), dtype='int64')
+        neg_ents = neg_ents.reshape((-1, self._num_negs))
+        all_ents_emb = np.concatenate([
+            np.load(
+                '/ssd2/wanghuijuan03/githubs/dgl-ke/python/dglke/p_ent_emb.npy'
+            ), np.load(
+                '/ssd2/wanghuijuan03/githubs/dgl-ke/python/dglke/neg_tail.npy')
+        ])[index]
+        r_emb = self._rel_embedding.get(r).astype(np.float32)
+        r_emb = np.load(
+            '/ssd2/wanghuijuan03/githubs/dgl-ke/python/dglke/rel_emb.npy')
         return (h, r, t, neg_ents, all_ents), (r_emb, all_ents_emb), mode
 
     def _collate_fn(self, data, mode, fl_set):
@@ -173,20 +190,18 @@ class KGDataset(Dataset):
                 reindex_func, all_ents = self.group_index(ents_list)
             neg_ents = np.stack([reindex_func(x) for x in neg_ents])
 
-        if self._ent_embedding is not None and self._rel_embedding is not None:
+        if self._ent_embedding is not None:
             all_ents_emb = self._ent_embedding.get(all_ents).astype(np.float32)
-            all_ents_emb = paddle.to_tensor(all_ents_emb)
-            r_emb = self._rel_embedding.get(r).astype(np.float32)
-            r_emb = paddle.to_tensor(r_emb)
         else:
             all_ents_emb = None
+
+        if self._rel_embedding is not None:
+            r_emb = self._rel_embedding.get(r).astype(np.float32)
+        else:
             r_emb = None
 
-        # all_ents = paddle.to_tensor(all_ents, dtype='int64')
-        h = paddle.to_tensor(reindex_func(h), dtype='int64')
-        # r = paddle.to_tensor(r, dtype='int64')    
-        t = paddle.to_tensor(reindex_func(t), dtype='int64')
-        neg_ents = paddle.to_tensor(neg_ents, dtype='int64')
+        h = reindex_func(h)
+        t = reindex_func(t)
 
         return (h, r, t, neg_ents, all_ents), (r_emb, all_ents_emb), mode
 

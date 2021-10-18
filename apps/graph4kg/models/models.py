@@ -135,18 +135,21 @@ class KGEModel(nn.Layer):
         else:
             ent_emb = self._get_ent_embedding(all_idxs)
             pos_r = self._get_rel_embedding(r)
-        pos_h = paddle.unsqueeze(F.embedding(h, ent_emb), axis=1)
-        pos_t = paddle.unsqueeze(F.embedding(t, ent_emb), axis=1)
-        pos_r = paddle.unsqueeze(pos_r, axis=1)
-        neg_ents_shape = neg_ents.shape
-        neg_ents = F.embedding(paddle.reshape(neg_ents, (-1, )), ent_emb)
-        neg_ents = paddle.reshape(neg_ents, [*neg_ents_shape, -1])
-
+        pos_h = F.embedding(h, ent_emb)
+        pos_t = F.embedding(t, ent_emb)
         pos_score = self._score_func(pos_h, pos_r, pos_t)
+
+        pos_h = paddle.unsqueeze(pos_h, axis=0)
+        pos_r = paddle.unsqueeze(pos_r, axis=0)
+        pos_t = paddle.unsqueeze(pos_t, axis=0)
+        num_negs = neg_ents.shape[0]
+        neg_ents = F.embedding(paddle.reshape(neg_ents, (-1, )), ent_emb)
+        neg_ents = paddle.reshape(neg_ents, [1, num_negs, -1])
+
         if neg_mode == 'tail':
-            neg_score = self._score_func(pos_h, pos_r, neg_ents)
+            neg_score = self._score_func.multi_t(pos_h, pos_r, neg_ents)
         else:
-            neg_score = self._score_func.inverse(neg_ents, pos_r, pos_t)
+            neg_score = self._score_func.multi_h(neg_ents, pos_r, pos_t)
 
         return pos_score, neg_score
 
@@ -166,11 +169,12 @@ class KGEModel(nn.Layer):
         ent_emb = paddle.unsqueeze(ent_emb, axis=1)
         rel_emb = paddle.unsqueeze(rel_emb, axis=1)
         cand_emb = paddle.reshape(cand_emb, (-1, num_cands, self._ent_dim))
+        cand_emb = cand_emb.tile((ent_emb.shape[0], 1, 1))
 
         if mode == 'tail':
-            scores = self._score_func(ent_emb, rel_emb, cand_emb)
+            scores = self._score_func.multi_t(ent_emb, rel_emb, cand_emb)
         else:
-            scores = self._score_func.inverse(cand_emb, rel_emb, ent_emb)
+            scores = self._score_func.multi_h(cand_emb, rel_emb, ent_emb)
         scores = paddle.squeeze(scores, axis=1)
         return scores
 

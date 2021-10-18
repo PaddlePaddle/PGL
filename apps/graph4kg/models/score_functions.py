@@ -48,9 +48,15 @@ class TransEScore(ScoreFunc):
 
     def __call__(self, head, rel, tail):
         head = head + rel
-        return self.gamma - self.cdist(head, tail)
+        score = self.gamma - paddle.norm(head - tail, p=2, axis=-1)
+        return score
 
-    def inverse(self, head, rel, tail):
+    def multi_t(self, head, rel, tail):
+        head = head + rel
+        score = self.gamma - self.cdist(head, tail)
+        return score
+
+    def multi_h(self, head, rel, tail):
         tail = tail - rel
         return self.gamma - self.cdist(tail, head)
 
@@ -59,7 +65,7 @@ class TransEScore(ScoreFunc):
         """
         a_s = paddle.norm(a, p=2, axis=-1).pow(2)
         b_s = paddle.norm(b, p=2, axis=-1).pow(2)
-        dist_score = -2 * paddle.matmul(a, b.transpose([0, 2, 1]))
+        dist_score = -2 * paddle.bmm(a, b.transpose([0, 2, 1]))
         dist_score = dist_score + b_s.unsqueeze(-2) + a_s.unsqueeze(-1)
         dist_score = paddle.sqrt(paddle.clip(dist_score, min=1e-30))
         return dist_score
