@@ -80,71 +80,21 @@ class KGDataset(Dataset):
 
     def __getitem__(self, index):
         h, r, t = self._triplets[index]
-        # if self._filter_mode:
-        #     if self._step == 0:
-        #         filter_set = self._filter_dict['head'][(t, r)]
-        #     else:
-        #         filter_set = self._filter_dict['tail'][(h, r)]
-        #     negs = self.uniform_sampler(
-        #         self._num_negs, self._num_ents, filter_set)
-        # else:
-        #     negs = np.random.randint(0, self._num_ents, self._num_negs)
-        # negs = np.reshape(negs, -1)
-        return h, r, t  #, negs
+        return h, r, t
 
     def _load_mmap_embedding(self, path):
         if path is not None:
             return NumPyEmbedding(weight_path=path, load_mode=True)
         return None
 
-    def head_collate_fn(self, data):
-        """Collate_fn to corrupt heads
-        """
-        return self._collate_fn(data, 'head', self._filter_dict['head'])
-
-    def tail_collate_fn(self, data):
-        """Collate_fn to corrupt tails
-        """
-        return self._collate_fn(data, 'tail', self._filter_dict['tail'])
-
-    def mixed_collate_fn(self, data):
+    def collate_fn(self, data):
         """Collate_fn to corrupt heads and tails by turns
         """
         self._step = self._step ^ 1
         if self._step == 0:
-            return self.head_collate_fn(data)
+            return self._collate_fn(data, 'head', self._filter_dict['head'])
         else:
-            return self.tail_collate_fn(data)
-
-    def collate_fn(self, data):
-        """Collate_fn to corrupt heads and tails by turns through __getitem__
-        """
-        h = np.array([x[0] for x in data])
-        r = np.array([x[1] for x in data])
-        t = np.array([x[2] for x in data])
-        negs = np.concatenate([x[3] for x in data])
-        reindex_func, all_ents = self.group_index([h, t, negs])
-        if self._prefetch_ent:
-            all_ents_emb = self._ent_embedding.get(all_ents).astype(np.float32)
-            # all_ents_emb = paddle.to_tensor(all_ents_emb)
-        else:
-            all_ents_emb = None
-
-        if self._prefetch_rel:
-            r_emb = self._rel_embedding.get(r).astype(np.float32)
-            # r_emb = paddle.to_tensor(r_emb)
-        else:
-            r_emb = None
-
-        neg_ents = paddle.to_tensor(reindex_func(negs), dtype='int64')
-        h = paddle.to_tensor(reindex_func(h), dtype='int64')
-        t = paddle.to_tensor(reindex_func(t), dtype='int64')
-        neg_ents = paddle.to_tensor(neg_ents, dtype='int64')
-        neg_ents = paddle.reshape(neg_ents, (-1, self._num_negs))
-        mode = 'head' if self._step == 0 else 'tail'
-        self._step = self._step ^ 1
-
-        return (h, r, t, neg_ents, all_ents), (all_ents_emb, r_emb), mode
+            return self._collate_fn(data, 'tail', self._filter_dict['tail'])
 
     def _collate_fn(self, data, mode, fl_set):
         h, r, t = np.array(data).T
@@ -183,21 +133,16 @@ class KGDataset(Dataset):
 
         if self._prefetch_ent:
             all_ents_emb = self._ent_embedding.get(all_ents).astype(np.float32)
-            # all_ents_emb = paddle.to_tensor(all_ents_emb)
         else:
             all_ents_emb = None
 
         if self._prefetch_rel:
             r_emb = self._rel_embedding.get(r).astype(np.float32)
-            r_emb = paddle.to_tensor(r_emb)
         else:
             r_emb = None
 
-        # all_ents = paddle.to_tensor(all_ents, dtype='int64')
-        h = paddle.to_tensor(reindex_func(h), dtype='int64')
-        # r = paddle.to_tensor(r, dtype='int64')    
-        t = paddle.to_tensor(reindex_func(t), dtype='int64')
-        neg_ents = paddle.to_tensor(neg_ents, dtype='int64')
+        h = reindex_func(h)
+        t = reindex_func(t)
 
         return (h, r, t, neg_ents, all_ents), (all_ents_emb, r_emb), mode
 
