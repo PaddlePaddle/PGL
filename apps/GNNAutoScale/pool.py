@@ -58,7 +58,7 @@ class StreamPool(paddle.nn.Layer):
             numpy_data = np.zeros(
                 (self.buffer_size, self.emb_dim), dtype=np.float32)
             self._cpu_buffers[idx] = paddle.to_tensor(
-                numpy_data, place=place.CUDAPinnedPlace())
+                numpy_data, place=paddle.CUDAPinnedPlace())
         return self._cpu_buffers[idx]
 
     def _gpu_buffer(self, idx):
@@ -99,7 +99,7 @@ class StreamPool(paddle.nn.Layer):
         idx = self._pull_queue[0][0]
         cuda.synchronize()
         self._pull_stream(idx).synchronize()
-        return self._cuda_buffer(idx)
+        return self._gpu_buffer(idx)
 
     @paddle.no_grad()
     def _sync_push(self, idx):

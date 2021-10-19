@@ -109,7 +109,6 @@ def eval(graph, model, feature, norm, label, mask):
 def main(args):
     log.info("Loading data...")
     data = load(args.dataset)
-    num_classes = data.num_classes
 
     log.info("Running into %d metis partitions..." % args.num_parts)
     permutation, split = metis_graph_partition(
@@ -136,6 +135,7 @@ def main(args):
         collate_fn=collate_fn)
     if args.gen_train_data_in_advance:
         train_loader = list(train_loader)
+
     if args.gcn_norm:
         degree = graph.indegree()
         gcn_norm = degree.astype(np.float32)
@@ -160,7 +160,7 @@ def main(args):
         num_layers=args.num_layers,
         input_size=feature.shape[1],
         hidden_size=args.hidden_size,
-        output_size=num_classes,
+        output_size=data.num_classes,
         dropout=0.,
         pool_size=args.num_layers - 1,
         buffer_size=buffer_size, )

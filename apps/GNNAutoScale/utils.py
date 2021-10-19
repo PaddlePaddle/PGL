@@ -16,11 +16,13 @@
 """
 
 import time
+import functools
 import numpy as np
 
 import paddle
 import pgl
 from paddle.fluid import core
+from pgl.utils.logger import log
 
 
 def check_device():
@@ -113,3 +115,33 @@ def compute_acc(logits, y, mask):
         y = paddle.gather(y, true_index)
 
     return paddle.metric.accuracy(logits, y)
+
+
+def time_wrapper(func_name):
+    """Time counter wrapper
+    """
+
+    def decorate(func):
+        """decorate func
+        """
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            """wrapper func
+            """
+            ts = time.time()
+            result = func(*args, **kwargs)
+            te = time.time()
+            costs = te - ts
+            if costs < 1e-4:
+                cost_str = '%f sec' % costs
+            elif costs > 3600:
+                cost_str = '%.4f sec (%.4f hours)' % (costs, costs / 3600.)
+            else:
+                cost_str = '%.4f sec' % costs
+            log.info('[%s] func takes %s' % (func_name, cost_str))
+            return result
+
+        return wrapper
+
+    return decorate

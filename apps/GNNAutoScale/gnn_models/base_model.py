@@ -49,6 +49,8 @@ class ScalableGNN(paddle.nn.Layer):
         self.histories = paddle.nn.LayerList(
             [History(num_nodes, hidden_dim) for _ in range(num_layers - 1)])
 
+        self._init_pool()
+
     @property
     def emb_device(self):
         if len(self.histories) == 0:
@@ -143,7 +145,7 @@ class ScalableGNN(paddle.nn.Layer):
                 np.zeros((self.num_nodes, self.output_size)),
                 place=paddle.CUDAPinnedPlace(),
                 dtype="float32")
-        return _fout
+        return self._fout
 
     @paddle.no_grad()
     def inference(self, loader, feature, norm):
@@ -183,7 +185,7 @@ class ScalableGNN(paddle.nn.Layer):
                 process_batch_data(sub_data)
             if batch_size < len(n_id):
                 cpu_nid = n_id[batch_size:].cpu()
-                self.pool.async_pull(self.histories[-1].emb, x_id, offset,
+                self.pool.async_pull(self.histories[-1].emb, cpu_nid, offset,
                                      count)
 
         # Compute final embeddings.
