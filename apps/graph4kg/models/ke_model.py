@@ -155,7 +155,6 @@ class KGEModel(nn.Layer):
         pos_t = F.embedding(t_index, ent_emb)
 
         if neg_ent_index is not None:
-            neg_ent_index = paddle.reshape(neg_ent_index, (-1, ))
             neg_ent_emb = F.embedding(neg_ent_index, ent_emb)
             neg_ent_emb = paddle.reshape(neg_ent_emb,
                                          (self._num_chunks, -1, self._ent_dim))
