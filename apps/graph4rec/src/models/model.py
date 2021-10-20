@@ -194,17 +194,29 @@ class SageModel(nn.Layer):
                 self.convs_dict[etype].append(GNNLayers.LightGCNConv())
         self.convs_dict = nn.LayerDict(sublayers=self.convs_dict)
 
+        if len(self.config.slots) > 0:
+            self.slot_embed_dict = OrderedDict()
+            for slot in self.config.slots:
+                self.slot_embed_dict[slot] = getattr(
+                    E, self.config.embed_type, "BaseEmbedding")(
+                        self.config.num_nodes,
+                        self.embed_size,
+                        sparse=self.config.lazy_mode,
+                        weight_attr=paddle.ParamAttr(name="slot_%s_embedding" %
+                                                     slot))
+            if self.mode == "gpu":
+                self.slot_embed_dict = nn.LayerDict(
+                    sublayers=self.slot_embed_dict)
+
     def get_static_input(self):
         """handle static input
         """
         feed_dict = OrderedDict()
 
-        # Sparse Slots
         for slot in self.config.slots:
-            feed_dict["slots_%s" % slot] = F.data(
-                "slot_%s" % slot, shape=[-1, 1], dtype="int64")
-            feed_dict["slots_%s" % slot] = F.data(
-                "slot_%s_size" % slot, shape=[-1, 1], dtype="int64")
+            feed_dict[slot] = F.data(slot, shape=[-1, 1], dtype="int64")
+            feed_dict["%s_info" % slot] = F.data(
+                "%s_info" % slot, shape=[-1, ], dtype="int64")
 
         # Graph 
         if self.config.sage_mode:
@@ -217,10 +229,10 @@ class SageModel(nn.Layer):
                 feed_dict["edges_%s" % etype] = F.data(
                     "edges_%s" % etype, shape=[-1, 2], dtype="int64")
 
-        feed_dict["batch_node_index"] = F.data(
-            "batch_node_index", shape=[-1, 1], dtype="int64")
-        feed_dict["center_node_index"] = F.data(
-            "center_node_index", shape=[-1, ], dtype="int64")
+        feed_dict["origin_node_id"] = F.data(
+            "origin_node_id", shape=[-1, 1], dtype="int64")
+        feed_dict["center_node_id"] = F.data(
+            "center_node_id", shape=[-1, ], dtype="int64")
 
         feed_dict["neg_idx"] = F.data("neg_idx", shape=[-1], dtype="int64")
 
@@ -241,7 +253,18 @@ class SageModel(nn.Layer):
                 edges=feed_dict["edges_%s" % etype])
 
         # [b, dim]
-        init_nfeat = self.embedding(feed_dict['batch_node_index'])
+        init_nfeat = self.embedding(feed_dict['origin_node_id'])
+
+        if len(self.config.slots) > 0:
+            nfeat_list = [init_nfeat]
+            for slot in self.config.slots:
+                h = self.slot_embed_dict[slot](feed_dict[slot])
+                h = pgl.math.segment_sum(h, feed_dict["%s_info" % slot])
+                h = paddle.nn.functional.softsign(h)
+                nfeat_list.append(h)
+            init_nfeat = paddle.stack(nfeat_list, axis=0)
+            init_nfeat = paddle.sum(init_nfeat, axis=0)
+            init_nfeat = paddle.nn.functional.softsign(init_nfeat)
 
         nfeat = init_nfeat
         for layer in range(len(self.config.sample_num_list)):
@@ -256,32 +279,26 @@ class SageModel(nn.Layer):
             nfeat = init_nfeat * self.config.res_alpha + nfeat * (
                 1 - self.config.res_alpha)
 
-        center_nfeat = paddle.gather(nfeat, feed_dict['center_node_index'])
+        center_nfeat = paddle.gather(nfeat, feed_dict['center_node_id'])
+        negs_embed = paddle.gather(center_nfeat, feed_dict['neg_idx'])
         src_and_pos = paddle.reshape(center_nfeat, [-1, 2, self.hidden_size])
-        src_embed = src_and_pos[:, 0, :]
-        pos_embed = src_and_pos[:, 1, :]
-
-        self.embed = src_embed
-        node_ids = paddle.reshape(feed_dict['batch_node_index'], [-1, 1])
-        src_center_idx = paddle.reshape(feed_dict['center_node_index'],
-                                        [-1, 2])[:, 0]
-        self.node_index = paddle.gather(node_ids, src_center_idx)
-
-        pos_and_negs = [paddle.reshape(pos_embed, [-1, 1, self.hidden_size])]
-
-        # batch neg sample
-        negs_embed = paddle.gather(pos_embed, feed_dict['neg_idx'])
+        src_embed = src_and_pos[:, 0:1, :]
+        pos_embed = src_and_pos[:, 1:2, :]
         negs_embed = paddle.reshape(negs_embed,
                                     [-1, self.neg_num, self.hidden_size])
-        pos_and_negs.append(negs_embed)
-        pos_and_neg_embed = paddle.concat(pos_and_negs, axis=1)
-
-        src_embed = paddle.reshape(src_embed, [-1, 1, self.embed_size])
+        pos_and_neg_embed = paddle.concat([pos_embed, negs_embed], axis=1)
 
         # [batch_size, 1, 1 + neg_num]
         logits = paddle.matmul(src_embed, pos_and_neg_embed, transpose_y=True)
         # [batch_size, 1 + neg_num]
         logits = paddle.squeeze(logits, axis=1)
+
+        # for inference
+        self.embed = paddle.squeeze(src_embed, axis=1)
+        node_ids = paddle.reshape(feed_dict['origin_node_id'], [-1, 1])
+        src_center_idx = paddle.reshape(feed_dict['center_node_id'],
+                                        [-1, 2])[:, 0]
+        self.node_index = paddle.gather(node_ids, src_center_idx)
 
         return logits
 

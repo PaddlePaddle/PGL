@@ -21,6 +21,7 @@ import warnings
 import numpy as np
 from collections import defaultdict
 
+import pgl
 from pgl.utils.logger import log
 from pgl.distributed import DistGraphClient, DistGraphServer
 
@@ -38,12 +39,14 @@ class EgoInfo(object):
                  feature=[],
                  edges=[],
                  edges_type=[],
-                 edges_weight=[]):
+                 edges_weight=[],
+                 graph=None):
         self.node_id = node_id
         self.feature = feature
         self.edges = edges
         self.edges_type = edges_type
         self.edges_weight = edges_weight
+        self.graph = graph
 
 
 def ego_graph_sample(graph, node_ids, samples, edge_types):
@@ -75,7 +78,7 @@ def ego_graph_sample(graph, node_ids, samples, edge_types):
 
     unique_nodes = set(node_ids)
 
-    ego_graph_dict = [
+    ego_graph_list = [
         EgoInfo(
             node_id=[n], edges=[], edges_type=[], edges_weight=[])
         for n in node_ids
@@ -96,7 +99,7 @@ def ego_graph_sample(graph, node_ids, samples, edge_types):
                     cur_succs, cur_node_ego_index, cur_node_index):
                 if len(succs) == 0:
                     succs = [0]
-                ego = ego_graph_dict[ego_index]
+                ego = ego_graph_list[ego_index]
 
                 for succ in succs:
                     unique_nodes.add(succ)
@@ -117,8 +120,7 @@ def ego_graph_sample(graph, node_ids, samples, edge_types):
         all_new_nodes_index.append(nxt_node_index)
         all_new_nodes_ego_index.append(nxt_node_ego_index)
 
-    pgl_ego_graph = []
-    for ego in ego_graph_dict:
+    for ego in ego_graph_list:
         pg = pgl.Graph(
             num_nodes=len(ego.node_id),
             edges=ego.edges,
@@ -130,8 +132,9 @@ def ego_graph_sample(graph, node_ids, samples, edge_types):
             },
             node_feat={"node_id": np.array(
                 ego.node_id, dtype="int64"), })
-        pgl_ego_graph.append(pg)
-    return pgl_ego_graph, list(unique_nodes)
+        ego.graph = pg
+
+    return ego_graph_list, list(unique_nodes)
 
 
 def get_slots_feat(graph, nodes, slots):
@@ -184,6 +187,9 @@ class EgoGraphGenerator(object):
         self.graph = graph
         self.kwargs = kwargs
         self.edge_types = self.graph.get_edge_types()
+        self.sample_num_list = kwargs.get("sample_list",
+                                          self.config.sample_num_list)
+        log.info("sample_num_list is %s" % repr(self.sample_num_list))
 
     def __call__(self, generator):
         """Input Batch of Walks
@@ -198,7 +204,7 @@ class EgoGraphGenerator(object):
                 ego_graphs, uniq_nodes = ego_graph_sample(
                     self.graph,
                     nodes,
-                    self.config.sample_num_list,
+                    self.sample_num_list,
                     edge_types=self.edge_types)
             else:  # walk-based
                 ego_graphs = [EgoInfo(node_id=[nid]) for nid in nodes]

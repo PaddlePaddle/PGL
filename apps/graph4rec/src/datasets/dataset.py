@@ -30,10 +30,9 @@ from pgl.utils.data import Dataloader, StreamDataset
 from pgl.distributed import helper
 
 from utils.config import prepare_config
-from utils.ego_sampling import graphsage_sampling
 from datasets.node import NodeGenerator
 from datasets.walk import WalkGenerator
-from datasets.ego_graph import EgoGraphGenerator
+from datasets.ego_graph import ego_graph_sample, EgoGraphGenerator
 from datasets.pair import PairGenerator
 
 __all__ = [
@@ -343,28 +342,42 @@ class SageDataset(StreamDataset):
                                 self.ip_list_file, client_id)
         rank = self._worker_info.fid
         nrank = self._worker_info.num_workers
-        self.edge_types = graph.get_edge_types()
-        self.ntype_list = graph.get_node_types()
 
-        for ntype in self.ntype_list:
-            for batch_nodes in graph.node_batch_iter(
-                    batch_size=100, node_type=ntype, rank=rank, nrank=nrank):
+        pipeline = []
+        pipeline.append(
+            NodeGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            WalkGenerator(
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_walk_generator"))
+        pipeline.append(
+            EgoGraphGenerator(
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                sample_list=self.config.infer_sample_num_list))
 
-                ego_graphs, _ = graphsage_sampling(
-                    graph,
-                    batch_nodes,
-                    self.config.infer_sample_num_list,
-                    edge_types=self.edge_types)
-                for ego in ego_graphs:
+        generator = Generator()
+        for p in pipeline:
+            generator = generator.apply(p)
+
+        cc = 0
+        for walks in generator():
+            for egos in walks:
+                for ego in egos:
                     yield [ego, ego]
+                    cc += 1
 
     def _distcpu_infer(self):
         log.info("distcpu infer data generator")
         client_id = os.getpid()
         graph = DistGraphClient(self.config, self.config.shard_num,
                                 self.ip_list_file, client_id)
-        self.edge_types = graph.get_edge_types()
-        self.ntype_list = graph.get_node_types()
 
         # total number rank = total fleet workers * dataloader workers
         nrank = self._worker_info.num_workers * fleet.worker_num()
@@ -372,17 +385,35 @@ class SageDataset(StreamDataset):
         )
         log.info("rank %s in total nrank %s" % (rank, nrank))
 
-        for ntype in self.ntype_list:
-            for batch_nodes in graph.node_batch_iter(
-                    batch_size=100, node_type=ntype, rank=rank, nrank=nrank):
+        pipeline = []
+        pipeline.append(
+            NodeGenerator(
+                self.config, graph, rank=rank, nrank=nrank))
+        pipeline.append(
+            WalkGenerator(
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_walk_generator"))
+        pipeline.append(
+            EgoGraphGenerator(
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                sample_list=self.config.infer_sample_num_list))
 
-                ego_graphs, _ = graphsage_sampling(
-                    graph,
-                    batch_nodes,
-                    self.config.infer_sample_num_list,
-                    edge_types=self.edge_types)
-                for ego in ego_graphs:
+        generator = Generator()
+        for p in pipeline:
+            generator = generator.apply(p)
+
+        cc = 0
+        for walks in generator():
+            for egos in walks:
+                for ego in egos:
                     yield [ego, ego]
+                    cc += 1
 
     def _distcpu_train(self):
         log.info("distcpu data generator")
@@ -436,19 +467,52 @@ class SageCollateFn(object):
     def __call__(self, batch_data):
         # Pair of EgoGraphs
         feed_dict = OrderedDict()
+        for slot in self.config.slots:
+            feed_dict[slot] = []
+            feed_dict["%s_info" % slot] = []
 
         center_id = []
         graphs = []
 
+        offset = 0
         total_num_nodes = 0
         for src, pos in batch_data:
             center_id.append(total_num_nodes)
-            graphs.append(src)
-            total_num_nodes += src.num_nodes
+            graphs.append(src.graph)
+            total_num_nodes += src.graph.num_nodes
 
             center_id.append(total_num_nodes)
-            graphs.append(pos)
-            total_num_nodes += pos.num_nodes
+            graphs.append(pos.graph)
+            total_num_nodes += pos.graph.num_nodes
+
+            for slot in self.config.slots:
+                feed_dict[slot].extend(src.feature[slot][0])
+                # lod_id2segment_id
+                segments = index2segment_id(src.feature[slot][1])
+                segments = segments + offset
+                #  print(src.node_id, slot, src.feature[slot][1], segments)
+                feed_dict["%s_info" % slot].append(segments)
+
+                feed_dict[slot].extend(pos.feature[slot][0])
+                # lod_id2segment_id
+                segments = index2segment_id(pos.feature[slot][1])
+                segments = segments + offset + len(
+                    src.node_id)  # for pos offset 
+                feed_dict["%s_info" % slot].append(segments)
+
+            # add src and pos ego graphs' length after all slot finished adding
+            offset = offset + len(src.node_id) + len(pos.node_id)
+
+        for slot in self.config.slots:
+            if self.mode == "gpu":
+                feed_dict[slot] = np.array(
+                    feed_dict[slot], dtype="int64").reshape(-1, )
+            elif self.mode == "distcpu":
+                feed_dict[slot] = np.array(
+                    feed_dict[slot], dtype="int64").reshape(-1, 1)
+
+            feed_dict["%s_info" % slot] = np.concatenate(feed_dict[
+                "%s_info" % slot]).reshape(-1, )
 
         graphs = pgl.Graph.batch(graphs)
 
@@ -462,21 +526,21 @@ class SageCollateFn(object):
 
         # the total node index of the subgraph
         if self.mode == "gpu":
-            feed_dict["batch_node_index"] = graphs.node_feat[
-                "node_id"].reshape(-1, )
+            feed_dict["origin_node_id"] = graphs.node_feat["node_id"].reshape(
+                -1, )
         elif self.mode == "distcpu":
-            feed_dict["batch_node_index"] = graphs.node_feat[
-                "node_id"].reshape(-1, 1)
+            feed_dict["origin_node_id"] = graphs.node_feat["node_id"].reshape(
+                -1, 1)
         else:
             raise ValueError(
                 "[%s] mode is not recognized, it should be [gpu] or [distcpu]")
 
         # the center node index of the subgraph
-        feed_dict['center_node_index'] = np.array(center_id, dtype="int64")
+        feed_dict['center_node_id'] = np.array(center_id, dtype="int64")
 
         bs = len(batch_data)
         neg_idx = np.random.randint(
-            low=0, high=bs, size=[bs * self.config.neg_num], dtype="int64")
+            low=0, high=bs * 2, size=[bs * self.config.neg_num], dtype="int64")
         feed_dict['neg_idx'] = neg_idx
 
         if self.mode == "gpu":
