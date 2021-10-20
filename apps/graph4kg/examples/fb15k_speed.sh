@@ -3,10 +3,10 @@ run these scripts while running fb15k.sh
 """
 
 # TransE single GPU
-python single_gpu_mem.py 'python -u main.py --score TransE --dataset FB15k' 100
+python single_gpu_mem.py 'python -u main.py --model_name TransE --data_name FB15k' 100
 
 # RotatE single GPU
-python single_gpu_mem.py 'python -u main.py --score RotatE --dataset FB15k' 100
+python single_gpu_mem.py 'python -u main.py --model_name RotatE --data_name FB15k' 100
 
 
 """
@@ -25,10 +25,10 @@ DGL-KE
 """
 
 # TransE single GPU
-python single_gpu_mem.py 'dglke_train --model_name TransE_l2 --dataset FB15k' 100
+python single_gpu_mem.py 'dglke_train --model_name TransE_l2 --data_name FB15k' 100
 
 # RotatE single GPU
-python single_gpu_mem.py 'dglke_train --model_name RotatE --dataset FB15k' 100
+python single_gpu_mem.py 'dglke_train --model_name RotatE --data_name FB15k' 100
 
 
 # TransE single GPU

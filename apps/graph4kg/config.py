@@ -12,159 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import csv
-import math
-import json
-import time
-import functools
-import traceback
-from multiprocessing import Queue
-from _thread import start_new_thread
-
-import paddle
-import numpy as np
 from argparse import ArgumentParser
-
-# from pgl.utils.mp_reader import deserialize_data
-
-
-def uniform(low, high, size, dtype=np.float32):
-    """Memory efficient uniform implementation
-    """
-    rng = np.random.default_rng(0)
-    out = (high - low) * rng.random(size, dtype=dtype) + low
-    return out
-
-
-def timer_wrapper(name):
-    """Time counter wrapper
-    """
-
-    def decorate(func):
-        """decorate func
-        """
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            """wrapper func
-            """
-            print('[{}] start...'.format(name))
-            ts = time.time()
-            result = func(*args, **kwargs)
-            te = time.time()
-            costs = te - ts
-            if costs < 1e-4:
-                cost_str = '%f sec' % costs
-            elif costs > 3600:
-                cost_str = '%.4f sec (%.4f hours)' % (costs, costs / 3600.)
-            else:
-                cost_str = '%.4f sec' % costs
-            print('[%s] finished! It takes %s' % (name, cost_str))
-            return result
-
-        return wrapper
-
-    return decorate
-
-
-def thread_wrapper(func):
-    """Wrapped func for multiprocessing.Process
-    """
-
-    @functools.wraps(func)
-    def decorate(*args, **kwargs):
-        """decorate func
-        """
-        queue = Queue()
-
-        def _queue_func():
-            exception, trace, result = None, None, None
-            try:
-                result = func(*args, **kwargs)
-            except Exception as e:
-                exception = e
-                trace = traceback.format_exc()
-            queue.put((result, exception, trace))
-
-        start_new_thread(_queue_func, ())
-        result, exception, trace = queue.get()
-        if exception is None:
-            return result
-        else:
-            assert isinstance(exception, Exception)
-            raise exception.__class__(trace)
-
-    return decorate
-
-
-def to_tensor(data, place):
-    return paddle.Tensor(
-        value=data,
-        place=paddle.fluid.core.CPUPlace(),
-        persistable=False,
-        zero_copy=True,
-        stop_gradient=True)
-
-
-@thread_wrapper
-def async_update(embeds, queue):
-    """Update embeddings asynchronously
-    """
-    while True:
-        # (grad_index, grad_value) = deserialize_data(queue.get())
-        # (grad_index, grad_value, grad_shape) = queue.get()
-        (grad_index, grad_value) = queue.get()
-        # grad_index = to_tensor(grad_index, place='cpu')
-        # grad_value = to_tensor(grad_value, place='cpu')
-        if grad_index is None:
-            return
-        with paddle.no_grad():
-            # embeds._update(grad_value.array.reshape(grad_shape), grad_index.array)
-            # embeds._update(grad_value.numpy(), grad_index.numpy())
-            embeds._update(grad_value, grad_index)
-
-
-def prepare_save_path(args):
-    """Get model specific save path and makedirs if not exists
-    """
-    if not os.path.exists(args.save_path):
-        os.mkdir(args.save_path)
-
-    folder = '{}_{}_d_{}_g_{}'.format(args.score, args.dataset, args.embed_dim,
-                                      args.gamma)
-    n = len([x for x in os.listdir(args.save_path) if x.startswith(folder)])
-    folder += str(n)
-    args.save_path = os.path.join(args.save_path, folder)
-
-    if not os.path.exists(args.save_path):
-        os.makedirs(args.save_path)
-    else:
-        raise IOError('model path %s already exists' % args.save_path)
-    return args.save_path
-
-
-def get_compatible_batch_size(batch_size, neg_sample_size):
-    """For chunk-based batch negative sampling (optitional)
-    """
-    if neg_sample_size < batch_size and batch_size % neg_sample_size != 0:
-        old_batch_size = batch_size
-        batch_size = int(
-            math.ceil(batch_size / neg_sample_size) * neg_sample_size)
-        print(
-            'batch size ({}) is incompatible to the negative sample size ({}). Change the batch size to {}'.
-            format(old_batch_size, neg_sample_size, batch_size))
-    return batch_size
-
-
-def load_model_config(config_f):
-    """Load configuration from config.yaml
-    """
-    with open(config_f, "r") as f:
-        config = json.loads(f.read())
-
-    print(config)
-    return config
 
 
 class KGEArgParser(ArgumentParser):
@@ -181,7 +29,7 @@ class KGEArgParser(ArgumentParser):
             default='~/data/',
             help='The path of knowledge graph dataset.')
         self.add_argument(
-            '--dataset',
+            '--data_name',
             type=str,
             default='FB15k',
             help='The name of directory where dataset files are')
@@ -226,7 +74,9 @@ class KGEArgParser(ArgumentParser):
 
         # device
         self.add_argument(
-            '--cpu_emb', action='store_true', help='Whether use cpu embedding')
+            '--mix_cpu_gpu',
+            action='store_true',
+            help='Whether use cpu embedding')
 
         # sampler
         self.add_argument(
@@ -240,16 +90,21 @@ class KGEArgParser(ArgumentParser):
             default=50,
             help='The batch size used for validation and test.')
         self.add_argument(
-            '--num_negs', type=int, default=1000, help='The number of '\
+            '--neg_sample_size', type=int, default=1000, help='The number of '\
                 'negative samples for each positive sample in the training.')
         self.add_argument(
-            '--neg_mode', type=str, default='batch', help='The range for '\
+            '--neg_sample_type', type=str, default='batch', help='The range for '\
                 'negative sampling. full: sampling from the whole entity set,'\
-                    ' batch: sampling from entities in a batch')
+                    ' batch: sampling from entities in a batch, chunk: sampling'\
+                        ' from the whole entity set as chunks')
         self.add_argument(
-            '--filter_mode',
+            '--filter_sample',
             action='store_true',
-            help='Whether filter out true triplets')
+            help='Whether filter out true triplets in negative samples')
+        self.add_argument(
+            '--filter_eval',
+            action='store_true',
+            help='Whether filter out true triplets in evaluation candidates')
         self.add_argument(
             '--num_workers',
             type=int,
@@ -347,7 +202,9 @@ class KGEArgParser(ArgumentParser):
 
         # score function
         self.add_argument(
-            '--score', default='TransE', choices=['TransE', 'RotatE', 'OTE'])
+            '--model_name',
+            default='TransE',
+            choices=['TransE', 'RotatE', 'OTE'])
         self.add_argument(
             '--embed_dim',
             type=int,

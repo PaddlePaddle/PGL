@@ -20,9 +20,9 @@ import paddle.nn as nn
 import numpy as np
 import paddle.nn.functional as F
 
-from models.embedding import NumPyEmbedding
-from models.score_functions import TransEScore, RotatEScore, OTEScore
-from utils.helper import uniform, timer_wrapper
+from models.numpy_embedding import NumPyEmbedding
+from models.score_funcs import TransEScore, RotatEScore, OTEScore
+from utils import uniform, timer_wrapper
 
 
 class Transform(nn.Layer):
@@ -41,62 +41,58 @@ class Transform(nn.Layer):
         return self.linear(x)
 
 
+EMB_INIT_EPSILON = 2.
+
+
 class KGEModel(nn.Layer):
     """
     Shallow model for knowledge representation learning.
     """
 
     @timer_wrapper('model construction')
-    def __init__(self,
-                 num_ents,
-                 num_rels,
-                 embed_dim,
-                 score,
-                 cpu_emb=False,
-                 ent_times=1,
-                 rel_times=1,
-                 use_feat=False,
-                 ent_feat=None,
-                 rel_feat=None,
-                 init_value=None,
-                 scale_type=-1,
-                 param_path='./',
-                 optimizer='adagrad',
-                 lr=1e-3,
-                 args=None):
+    def __init__(self, model_name, trigraph, args=None):
         super(KGEModel, self).__init__()
+        self._model_name = model_name
         mix_cpu_on_relation = True
 
-        self._use_feat = use_feat
-        self._ent_feat = ent_feat
-        self._rel_feat = rel_feat
+        self._use_feat = args.use_feature
+        self._ent_feat = None
+        self._rel_feat = None
+        if args.data_name == 'wikikg90m':
+            if self._use_feat:
+                self._ent_feat = trigraph.ent_feat.get('text')
+                self._rel_feat = trigraph.rel_feat.get('text')
 
-        self._cpu_emb = cpu_emb
-        self._rel_emb_on_cpu = self._cpu_emb and mix_cpu_on_relation
-        self._ent_emb_on_cpu = self._cpu_emb
+        self._mix_cpu_gpu = args.mix_cpu_gpu
+        self._rel_emb_on_cpu = self._mix_cpu_gpu and mix_cpu_on_relation
+        self._ent_emb_on_cpu = self._mix_cpu_gpu
 
-        self._rel_times = rel_times
-        self._optim = optimizer
-        self._lr = lr
-        if self._cpu_emb:
+        self._rel_times = args.rel_times
+        self._ent_times = args.ent_times
+        self._optim = 'adagrad' if args.mix_cpu_gpu else None
+        self._lr = args.lr if args.mix_cpu_gpu else None
+        if self._mix_cpu_gpu:
             print(('=' * 30) + '\n using cpu embeddings\n' + ('=' * 30))
 
-        self._ent_dim = embed_dim * ent_times
-        self._rel_dim = embed_dim * (rel_times + int(scale_type > 0))
+        self._ent_dim = args.embed_dim * self._ent_times
+        self._rel_dim = args.embed_dim * (
+            self._rel_times + int(args.scale_type > 0))
+
+        init_value = (args.gamma + EMB_INIT_EPSILON) / args.embed_dim
 
         self.ent_embedding = self._init_embedding(
-            num_ents, self._ent_dim, init_value,
-            os.path.join(param_path, '__ent_embedding.npy')
+            trigraph.num_ents, self._ent_dim, init_value,
+            os.path.join(args.save_path, '__ent_embedding.npy')
             if self._ent_emb_on_cpu else None)
 
         self.rel_embedding = self._init_embedding(
-            num_rels, self._rel_dim, init_value,
-            os.path.join(param_path, '__rel_embedding.npy')
-            if self._rel_emb_on_cpu else None, scale_type)
+            trigraph.num_rels, self._rel_dim, init_value,
+            os.path.join(args.save_path, '__rel_embedding.npy')
+            if self._rel_emb_on_cpu else None, args.scale_type)
 
         if self._use_feat:
-            assert ent_feat is not None, 'entity features not given!'
-            assert rel_feat is not None, 'relation features not given!'
+            assert trigraph.ent_feat is not None, 'entity features not given!'
+            assert trigraph.rel_feat is not None, 'relation features not given!'
             self._ent_feat_dim = self._ent_feat.shape[1]
             self._rel_feat_dim = self._rel_feat.shape[1]
             self.trans_ent = Transform(self._ent_feat_dim + self._ent_dim,
@@ -104,69 +100,94 @@ class KGEModel(nn.Layer):
             self.trans_rel = Transform(self._rel_feat_dim + self._rel_dim,
                                        self._rel_dim)
 
-        self._score_func = self._init_score_function(score.lower(), args)
+        self._score_func = self._init_score_function(self._model_name.lower(),
+                                                     args)
+
+        # set parameters for chunk negative sampling
+        self._num_chunks = 1
+        if args.neg_sample_type == 'chunk':
+            if args.neg_sample_size < args.batch_size:
+                self._num_chunks = args.batch_size // args.neg_sample_size
 
     @property
     def shared_ent_path(self):
-        if self._cpu_emb:
+        if self._mix_cpu_gpu:
             return self.ent_embedding.weight_path
         return None
 
     @property
     def shared_rel_path(self):
-        if self._cpu_emb:
+        if self._mix_cpu_gpu:
             return self.rel_embedding.weight_path
         return None
 
-    def forward(self, pos_h, pos_r, pos_t, neg_ents, neg_mode='tail'):
-
-        pass
-
-    def forward(self,
-                h,
-                r,
-                t,
-                neg_ents,
-                all_idxs,
-                neg_mode='tail',
-                r_emb=None,
-                all_ent_emb=None):
-        """function for training
-        """
+    def train(self):
         if self._ent_emb_on_cpu:
             self.ent_embedding.train()
         if self._rel_emb_on_cpu:
             self.rel_embedding.train()
 
-        if all_ent_emb is not None:
-            ent_emb = all_ent_emb
+    def prepare_inputs(self,
+                       h_index,
+                       r_index,
+                       t_index,
+                       all_ent_index,
+                       neg_ent_index=None,
+                       ent_emb=None,
+                       rel_emb=None):
+        if ent_emb is not None:
             if self._use_feat:
                 ent_feat = paddle.to_tensor(
-                    self._ent_feat(all_idxs.numpy()).astype('float32'))
+                    self._ent_feat(all_ent_index.numpy()).astype('float32'))
                 ent_emb = self.trans_ent(ent_feat, ent_emb)
+        else:
+            ent_emb = self._get_ent_embedding(all_ent_index)
+
+        if rel_emb is not None:
+            if self._use_feat:
                 rel_feat = paddle.to_tensor(
-                    self._rel_feat(r.numpy()).astype('float32'))
-                pos_r = self.trans_rel(rel_feat, pos_r)
+                    self._rel_feat(r_index.numpy()).astype('float32'))
+                pos_r = self.trans_rel(rel_feat, rel_emb)
         else:
-            ent_emb = self._get_ent_embedding(all_idxs)
-        pos_r = self._get_rel_embedding(r)
-        pos_h = F.embedding(h, ent_emb)
-        pos_t = F.embedding(t, ent_emb)
-        pos_score = self._score_func(pos_h, pos_r, pos_t)
+            pos_r = self._get_rel_embedding(r_index)
 
-        pos_h = paddle.unsqueeze(pos_h, axis=0)
-        pos_r = paddle.unsqueeze(pos_r, axis=0)
-        pos_t = paddle.unsqueeze(pos_t, axis=0)
-        num_negs = neg_ents.shape[0]
-        neg_ents = F.embedding(paddle.reshape(neg_ents, (-1, )), ent_emb)
-        neg_ents = paddle.reshape(neg_ents, [1, num_negs, -1])
+        pos_h = F.embedding(h_index, ent_emb)
+        pos_t = F.embedding(t_index, ent_emb)
 
-        if neg_mode == 'tail':
-            neg_score = self._score_func.multi_t(pos_h, pos_r, neg_ents)
+        if neg_ent_index is not None:
+            neg_ent_index = paddle.reshape(neg_ent_index, (-1, ))
+            neg_ent_emb = F.embedding(neg_ent_index, ent_emb)
+            neg_ent_emb = paddle.reshape(neg_ent_emb,
+                                         (self._num_chunks, -1, self._ent_dim))
         else:
-            neg_score = self._score_func.multi_h(neg_ents, pos_r, pos_t)
+            neg_ent_emb = None
 
-        return pos_score, neg_score
+        return pos_h, pos_r, pos_t, neg_ent_emb
+
+    def forward(self, h_emb, r_emb, t_emb):
+        """function for training
+        """
+        self.train()
+
+        score = self._score_func(h_emb, r_emb, t_emb)
+        return score
+
+    def get_neg_score(self, ent_emb, rel_emb, neg_emb, neg_head=False):
+        """function to calculate scores of negative samples
+        """
+        ent_emb = ent_emb.reshape((self._num_chunks, -1, self._ent_dim))
+        rel_emb = rel_emb.reshape((self._num_chunks, -1, self._rel_dim))
+        neg_emb = neg_emb.reshape((self._num_chunks, -1, self._ent_dim))
+
+        if neg_head:
+            h_emb = neg_emb
+            t_emb = ent_emb
+        else:
+            h_emb = ent_emb
+            t_emb = neg_emb
+
+        score = self._score_func.get_neg_score(h_emb, rel_emb, t_emb, neg_head)
+        return score
 
     @paddle.no_grad()
     def predict(self, ent, rel, cand, mode='tail'):
@@ -189,9 +210,11 @@ class KGEModel(nn.Layer):
         cand_emb = cand_emb.tile((ent_emb.shape[0], 1, 1))
 
         if mode == 'tail':
-            scores = self._score_func.multi_t(ent_emb, rel_emb, cand_emb)
+            scores = self._score_func.get_neg_score(ent_emb, rel_emb, cand_emb,
+                                                    False)
         else:
-            scores = self._score_func.multi_h(cand_emb, rel_emb, ent_emb)
+            scores = self._score_func.get_neg_score(cand_emb, rel_emb, ent_emb,
+                                                    True)
         scores = paddle.squeeze(scores, axis=1)
         return scores
 
@@ -269,7 +292,7 @@ class KGEModel(nn.Layer):
             init_value = 2. / np.sqrt(emb_dim)
             a, b = -init_value, init_value
 
-        if self._cpu_emb and emb_path is not None:
+        if self._mix_cpu_gpu and emb_path is not None:
             embs = NumPyEmbedding(num_emb, emb_dim, a, b, emb_path,
                                   self._optim, self._lr)
         else:
@@ -284,13 +307,14 @@ class KGEModel(nn.Layer):
 
         return embs
 
-    def _init_score_function(self, score, args):
-        if score == 'transe':
+    def _init_score_function(self, model_name, args):
+        if model_name == 'transe':
             score_func = TransEScore(args.gamma)
-        elif score == 'rotate':
+        elif model_name == 'rotate':
             score_func = RotatEScore(args.gamma, 2. / self._ent_dim)
-        elif score == 'ote':
+        elif model_name == 'ote':
             score_func = OTEScore(args.gamma, self._rel_times, args.scale_type)
         else:
-            raise ValueError('score function for %s not implemented!' % score)
+            raise ValueError('score function for %s not implemented!' %
+                             model_name)
         return score_func

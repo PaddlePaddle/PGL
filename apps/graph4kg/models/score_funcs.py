@@ -29,7 +29,7 @@ class ScoreFunc(object):
         raise NotImplementedError(
             'score function from head, relation to tail not implemented')
 
-    def inverse(self, head, rel, tail):
+    def get_neg_score(self, head, rel, tail, neg_head=False):
         """Score function from tail, relation to head
         """
         raise NotImplementedError(
@@ -51,14 +51,14 @@ class TransEScore(ScoreFunc):
         score = self.gamma - paddle.norm(head - tail, p=2, axis=-1)
         return score
 
-    def multi_t(self, head, rel, tail):
-        head = head + rel
-        score = self.gamma - self.cdist(head, tail)
+    def get_neg_score(self, head, rel, tail, neg_head=False):
+        if neg_head:
+            tail = tail - rel
+            score = self.gamma - self.cdist(tail, head)
+        else:
+            head = head + rel
+            score = self.gamma - self.cdist(head, tail)
         return score
-
-    def multi_h(self, head, rel, tail):
-        tail = tail - rel
-        return self.gamma - self.cdist(tail, head)
 
     def cdist(self, a, b):
         """Euclidean distance
@@ -69,19 +69,6 @@ class TransEScore(ScoreFunc):
         dist_score = dist_score + b_s.unsqueeze(-2) + a_s.unsqueeze(-1)
         dist_score = paddle.sqrt(paddle.clip(dist_score, min=1e-30))
         return dist_score
-
-    # def cdist_1(self, a, b):
-    #     a_s = a * a
-    #     b_s = b * b
-    #     dist_score = -2 * paddle.bmm(a, b.transpose(
-    #         [0, 2, 1])) + b_s.unsqueeze(-2) + a_s.unsqueeze(-1)
-    #     dist_score = paddle.sqrt(paddle.clip(dist_score, min=1e-30))
-    #     return dist_score
-
-    # def cdist_2(self, a, b):
-    #     c = a.unsqueeze(-1) - b.unsqueeze(-2)
-    #     dist_score = paddle.sqrt(c * c + 1e-12)
-    #     return dist_score
 
 
 class RotatEScore(ScoreFunc):
@@ -112,20 +99,24 @@ class RotatEScore(ScoreFunc):
         score = self.gamma - paddle.sum(score, axis=-1)
         return score
 
-    def inverse(self, head, rel, tail):
-        re_head, im_head = paddle.chunk(head, chunks=2, axis=-1)
-        re_tail, im_tail = paddle.chunk(tail, chunks=2, axis=-1)
-        phase_rel = rel / (self.emb_init / np.pi)
-        re_rel, im_rel = paddle.cos(phase_rel), paddle.sin(phase_rel)
+    def get_neg_score(self, head, rel, tail, neg_head=False):
+        if neg_head:
+            re_head, im_head = paddle.chunk(head, chunks=2, axis=-1)
+            re_tail, im_tail = paddle.chunk(tail, chunks=2, axis=-1)
+            phase_rel = rel / (self.emb_init / np.pi)
+            re_rel, im_rel = paddle.cos(phase_rel), paddle.sin(phase_rel)
 
-        re_score = re_rel * re_tail + im_rel * im_tail
-        im_score = re_rel * im_tail - im_rel * re_tail
-        re_score = re_score - re_head
-        im_score = im_score - im_head
+            re_score = re_rel * re_tail + im_rel * im_tail
+            im_score = re_rel * im_tail - im_rel * re_tail
+            re_score = re_score - re_head
+            im_score = im_score - im_head
 
-        score = paddle.sqrt(re_score * re_score + im_score * im_score +
-                            self.epsilon)
-        score = self.gamma - paddle.sum(score, axis=-1)
+            score = paddle.sqrt(re_score * re_score + im_score * im_score +
+                                self.epsilon)
+            score = self.gamma - paddle.sum(score, axis=-1)
+        else:
+            score = self(head, rel, tail, neg_head)
+
         return score
 
 

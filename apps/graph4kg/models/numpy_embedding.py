@@ -20,7 +20,7 @@ import numpy as np
 import paddle.distributed as dist
 import multiprocessing as mp
 
-from utils.helper import uniform, thread_wrapper, async_update
+from utils import uniform, thread_wrapper, async_update
 
 # from models.shared_numpy import SharedArray
 # from pgl.utils.mp_reader import serialize_data
@@ -51,10 +51,8 @@ class NumPyEmbedding(object):
                  high=None,
                  weight_path='./__np_embedding.npy',
                  optimizer='AdaGrad',
-                 learning_rate=1e-3,
-                 load_mode=False):
+                 learning_rate=1e-3):
         super(NumPyEmbedding, self).__init__()
-        self._load_mode = load_mode
         self._weight_path = weight_path
         self._moment_path = os.path.join(
             os.path.dirname(self._weight_path),
@@ -159,7 +157,7 @@ class NumPyEmbedding(object):
                              self._optim_mode)
 
     def _init_weight(self, num_embeddings, embedding_dim, low, high):
-        if dist.get_rank() == 0 and not self._load_mode:
+        if dist.get_rank() == 0:
             if high is None:
                 high = low
                 low = -low
