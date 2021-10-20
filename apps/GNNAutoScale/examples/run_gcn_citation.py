@@ -111,19 +111,18 @@ def main(args):
     data = load(args.dataset)
 
     log.info("Running into %d metis partitions..." % args.num_parts)
-    permutation, split = metis_graph_partition(
-        data.graph, npart=args.num_parts)
+    permutation, part = metis_graph_partition(data.graph, npart=args.num_parts)
 
     log.info("Permuting data...")
     data, feature = permute(data, data.feature, permutation)
     graph = data.graph
 
     log.info("Building data loader for training and validation...")
-    dataset = PartitionDataset(split)
+    dataset = PartitionDataset(part)
     collate_fn = partial(
         subdata_batch_fn,
         graph=graph,
-        split=split,
+        part=part,
         flag_buffer=np.zeros(
             graph.num_nodes, dtype="int32"))
     train_loader = Dataloader(

@@ -35,28 +35,28 @@ def random_partition(graph, npart, shuffle=True):
 
     Returns:
 
-        permutation: 
+        permutation: New permutation of nodes in partition graph, and the shape is [num_nodes].
 
-        split: 
+        part: `part` can help distinguish different parts of permutation, and the shape is [npart + 1].
 
     """
 
     num_nodes = graph.num_nodes
 
     if npart <= 1:
-        permutation, ptr = np.arange(num_nodes), np.array([0, num_nodes])
+        permutation, part = np.arange(num_nodes), np.array([0, num_nodes])
     else:
         permutation = np.arange(0, num_nodes)
         if shuffle:
             np.random.shuffle(permutation)
         cs = int(math.ceil(num_nodes / npart))
-        split = [
+        part = [
             cs * i if cs * i <= num_nodes else num_nodes
             for i in range(npart + 1)
         ]
-        split = np.array(split)
+        part = np.array(part)
 
-    return permutation, split
+    return permutation, part
 
 
 def metis_graph_partition(graph, npart):
@@ -70,17 +70,16 @@ def metis_graph_partition(graph, npart):
 
     Returns:
 
-        permutation: 
+        permutation: New permutation of nodes in partition graph, and the shape is [num_nodes]. 
 
-        split: 
-
+        part: `part` can help distinguish different parts of permutation, and the shape is [npart + 1]. 
     """
 
-    part = metis_partition(graph, npart)
-    permutation = np.argsort(part)
+    metis_part = metis_partition(graph, npart)
+    permutation = np.argsort(metis_part)
 
-    split = np.zeros(npart + 1, dtype=np.int64)
+    part = np.zeros(npart + 1, dtype=np.int64)
     for i in range(npart):
-        split[i + 1] = split[i] + len(np.where(part == i)[0])
+        part[i + 1] = part[i] + len(np.where(metis_part == i)[0])
 
-    return permutation, split
+    return permutation, part

@@ -59,7 +59,7 @@ def train(dataloader, model, feature, gcn_norm, label, train_mask, criterion,
         np.random.shuffle(dataloader)
 
     for batch_data in dataloader:
-        batch_id = 0
+        batch_id += 1
         g, batch_size, n_id, offset, count, feat, sub_norm = \
             process_batch_data(batch_data, feature, gcn_norm)
         pred = model(g, feat, sub_norm, batch_size, n_id, offset, count)
@@ -96,19 +96,18 @@ def main(args):
     data = load(args)
 
     log.info("Running into %d metis partitions..." % args.num_parts)
-    permutation, split = metis_graph_partition(
-        data.graph, npart=args.num_parts)
+    permutation, part = metis_graph_partition(data.graph, npart=args.num_parts)
 
     log.info("Permuting data...")
     data, feature = permute(data, data.feature, permutation)
     graph = data.graph
 
     log.info("Building data loader for training and validation...")
-    dataset = PartitionDataset(split)
+    dataset = PartitionDataset(part)
     collate_fn = partial(
         subdata_batch_fn,
         graph=graph,
-        split=split,
+        part=part,
         flag_buffer=np.zeros(
             graph.num_nodes, dtype="int32"))
     train_loader = Dataloader(
@@ -122,11 +121,11 @@ def main(args):
         train_loader = list(train_loader)
     eval_dataset = EvalPartitionDataset(
         graph,
-        split,
+        part,
         args.batch_size,
         flag_buffer=np.zeros(
             graph.num_nodes, dtype="int32"))
-    eval_loader = Dataloader(eval_dataset, shuffle=False)
+    eval_loader = eval_dataset.data_list
 
     if args.gcn_norm:
         degree = graph.indegree()

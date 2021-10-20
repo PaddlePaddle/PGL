@@ -22,59 +22,59 @@ from functools import partial
 import paddle
 from pgl.utils.logger import log
 from pgl.utils.data import Dataset
-from pgl.utils.data.dataloader import Dataloader
 from pgl.sampling.custom import subgraph
+from pgl.utils.data.dataloader import Dataloader
 
 
 class SubgraphData(object):
-    def __init__(self, subgraph, batch_size, nodes, offset, count):
+    def __init__(self, subgraph, batch_size, n_id, offset, count):
         self.subgraph = subgraph
         self.batch_size = batch_size
-        self.nodes = nodes
+        self.n_id = n_id
         self.offset = offset
         self.count = count
 
 
 class PartitionDataset(Dataset):
-    """PartitionDataset helps build train dataset, which can be used to 
+    """PartitionDataset helps build train dataset, which can be used to
        build eval and test dataset too.
     """
 
-    def __init__(self, split):
-        self.split = split
+    def __init__(self, part):
+        self.part = part
 
     def __getitem__(self, idx):
-        return (idx, np.arange(self.split[idx], self.split[idx + 1]))
+        return (idx, np.arange(self.part[idx], self.part[idx + 1]))
 
     def __len__(self):
-        return len(self.split) - 1
+        return len(self.part) - 1
 
 
 class EvalPartitionDataset(Dataset):
-    """EvalPartitionDataset helps build eval and test dataset, which will be generated 
-       in advance for better validation/test speed. 
+    """EvalPartitionDataset helps build eval and test dataset, which will be generated
+       in advance for better validation/test speed.
     """
 
-    def __init__(self, graph, split, batch_size, flag_buffer):
-        self.split = split[::batch_size]
+    def __init__(self, graph, part, batch_size, flag_buffer):
+        self.part = part[::batch_size]
 
         num_nodes = graph.num_nodes
-        if self.split[-1] != num_nodes:
-            self.split = paddle.concat([
-                self.split, paddle.to_tensor(
-                    [num_nodes], dtype=self.split.dtype)
+        if self.part[-1] != num_nodes:
+            self.part = paddle.concat([
+                self.part, paddle.to_tensor(
+                    [num_nodes], dtype=self.part.dtype)
             ])
-        batches_nodes = np.split(np.arange(num_nodes), self.split[1:-1])
-        batches_nodes = [(i, batches_nodes[i])
-                         for i in range(len(batches_nodes))]
+        batches_nid = np.split(np.arange(num_nodes), self.part[1:-1])
+        batches_nid = [(i, batches_nid[i]) for i in range(len(batches_nid))]
+
         collate_fn = partial(
             subdata_batch_fn,
             graph=graph,
-            split=self.split,
+            part=self.part,
             flag_buffer=flag_buffer)
         self.data_list = list(
             Dataloader(
-                dataset=batches_nodes,
+                dataset=batches_nid,
                 batch_size=1,
                 num_workers=5,
                 shuffle=False,
@@ -84,7 +84,7 @@ class EvalPartitionDataset(Dataset):
         return self.data_list[idx]
 
     def __len__(self):
-        return len(self.split) - 1
+        return len(self.part) - 1
 
 
 def one_hop_neighbor(graph, nodes, flag_buffer):
@@ -102,17 +102,15 @@ def one_hop_neighbor(graph, nodes, flag_buffer):
     return new_nodes, pred_eids
 
 
-def subdata_batch_fn(batches_nodes, graph, split, flag_buffer):
+def subdata_batch_fn(batches_nid, graph, part, flag_buffer):
     """Basic function for creating batch subgraph data.
     """
-    batch_ids, nodes = zip(*batches_nodes)
+    batch_ids, n_ids = zip(*batches_nid)
     batch_ids = np.array(batch_ids)
-    orig_nodes = np.concatenate(nodes, axis=0)
-
-    new_nodes, pred_eids = one_hop_neighbor(graph, orig_nodes, flag_buffer)
-    sub_graph = subgraph(graph, nodes=new_nodes, eid=pred_eids)
-    batch_size = np.size(orig_nodes)
-    offset = split[batch_ids]
-    count = split[batch_ids + 1] - split[batch_ids]
-
-    return SubgraphData(sub_graph, batch_size, new_nodes, offset, count)
+    n_id = np.concatenate(n_ids, axis=0)
+    batch_size = np.size(n_id)
+    new_nid, pred_eids = one_hop_neighbor(graph, n_id, flag_buffer)
+    sub_graph = subgraph(graph, nodes=new_nid, eid=pred_eids)
+    offset = part[batch_ids]
+    count = part[batch_ids + 1] - part[batch_ids]
+    return SubgraphData(sub_graph, batch_size, new_nid, offset, count)

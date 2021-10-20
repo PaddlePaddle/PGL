@@ -26,9 +26,10 @@ class History(paddle.nn.Layer):
     def __init__(self, num_embs, emb_dim):
         super().__init__()
 
-        log.info("Init History: (%s %s)" % (num_embs, emb_dim))
+        log.info("Init History %s %s" % (num_embs, emb_dim))
         self.num_embs = num_embs
         self.emb_dim = emb_dim
+
         numpy_data = np.zeros((self.num_embs, self.emb_dim), dtype="float32")
         self.emb = paddle.to_tensor(numpy_data, place=paddle.CUDAPinnedPlace())
 

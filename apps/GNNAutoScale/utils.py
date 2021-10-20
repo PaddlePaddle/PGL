@@ -21,8 +21,8 @@ import numpy as np
 
 import paddle
 import pgl
-from paddle.fluid import core
 from pgl.utils.logger import log
+from paddle.fluid import core
 
 
 def check_device():
@@ -39,12 +39,11 @@ def check_device():
     return True
 
 
-def gen_mask(num_nodes, data_index):
+def gen_mask(num_nodes, index):
     """Generate different masks for train/validation/test mode.
     """
-
     mask = np.zeros(num_nodes, dtype=np.int32)
-    mask[data_index] = 1
+    mask[index] = 1
     return mask
 
 
@@ -59,32 +58,30 @@ def permute(data, feature, permutation):
     new_edges = pgl.graph_kernel.map_edges(
         np.arange(
             len(edges), dtype="int64"), edges, reindex)
-    graph = pgl.Graph(edges=new_edges, num_nodes=data.graph.num_nodes)
+    g = pgl.Graph(edges=new_edges, num_nodes=data.graph.num_nodes)
 
-    data.graph = graph
+    data.graph = g
     data.train_mask = paddle.to_tensor(data.train_mask[permutation])
     data.val_mask = paddle.to_tensor(data.val_mask[permutation])
     data.test_mask = paddle.to_tensor(data.test_mask[permutation])
+
     if len(data.y.shape) == 1:
         data.label = paddle.to_tensor(np.expand_dims(data.y, -1)[permutation])
     else:
         data.label = paddle.to_tensor(data.y[permutation])
 
     feature = feature[permutation]
-
+    feature = paddle.to_tensor(feature, place=paddle.CUDAPinnedPlace())
     return data, feature
 
 
 def process_batch_data(batch_data, feature=None, norm=None):
-    """Process batch data in one function so as to simplify codes.
+    """Process batch data here.
     """
-
-    if isinstance(batch_data, list):
-        batch_data = batch_data[0]
 
     g = batch_data.subgraph
     batch_size = batch_data.batch_size
-    nodes_id = batch_data.nodes
+    n_id = batch_data.n_id
     offset = batch_data.offset
     count = batch_data.count
 
@@ -93,16 +90,16 @@ def process_batch_data(batch_data, feature=None, norm=None):
     count = paddle.to_tensor(count, place=paddle.CPUPlace())
 
     if feature is not None:
-        feature = feature[nodes_id]
+        feature = feature[n_id]
         feature = paddle.to_tensor(feature)
 
     if norm is not None:
-        norm = norm[nodes_id]
+        norm = norm[n_id]
         norm = paddle.to_tensor(norm)
 
-    nodes_id = paddle.to_tensor(nodes_id)
+    n_id = paddle.to_tensor(n_id)
 
-    return g, batch_size, nodes_id, offset, count, feature, norm
+    return g, batch_size, n_id, offset, count, feature, norm
 
 
 def compute_acc(logits, y, mask):
@@ -139,7 +136,7 @@ def time_wrapper(func_name):
                 cost_str = '%.4f sec (%.4f hours)' % (costs, costs / 3600.)
             else:
                 cost_str = '%.4f sec' % costs
-            log.info('[%s] func takes %s' % (func_name, cost_str))
+            print('[%s] func takes %s' % (func_name, cost_str))
             return result
 
         return wrapper
