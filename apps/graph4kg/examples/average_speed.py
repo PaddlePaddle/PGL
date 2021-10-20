@@ -30,6 +30,7 @@ if __name__ == '__main__':
     ans_p = re.compile(
         r'.*sample: (\d*.\d*), forward: (\d*.\d*), backward: (\d*.\d*), update: (\d*.\d*)'
     )
+    speed_p = re.compile(r'.* speed: (\d*.\d*)')
     step_p = re.compile(r'.* (\d*) steps take (\d*.\d*) seconds')
 
     with open(path, 'r') as rp:
@@ -43,11 +44,14 @@ if __name__ == '__main__':
                 rst['forward'].append(float(ans[2]))
                 rst['backward'].append(float(ans[3]))
                 rst['update'].append(float(ans[4]))
+            step = speed_p.match(line)
+            if step is not None:
+                rst['steps'].append(float(step[1]))
             step = step_p.match(line)
             if step is not None:
-                rst['steps'].append(float(step[2]) / float(step[1]))
+                rst['steps'].append(float(step[1]) / float(step[2]))
 
     for k, v in rst.items():
         print(k, 'max:', max(v), 'mean:', np.mean(v))
         if k == 'steps':
-            print('steps/s', 'max:', 1 / min(v), 'mean:', 1 / np.mean(v))
+            print('s/step', 'max:', 1 / min(v), 'mean:', 1 / np.mean(v))
