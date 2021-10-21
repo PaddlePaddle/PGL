@@ -121,7 +121,7 @@ def evaluate(model,
             print('-----------------------------------------')
 
 
-def main(writer):
+def main(writer=None):
     # def main():
     """Main function for knowledge representation learning
     """
@@ -205,8 +205,9 @@ def main(writer):
                 h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, args)
             pos_score = model.forward(h_emb, r_emb, t_emb)
 
-            writer.add_scalar(
-                tag="pos_score", step=step, value=pos_score.sum().numpy()[0])
+            # if writer:
+            #     writer.add_scalar(
+            #         tag="pos_score", step=step, value=pos_score.sum().numpy()[0])
 
             if mode == 'head':
                 neg_score = model.get_neg_score(t_emb, r_emb, neg_emb, True,
@@ -216,13 +217,15 @@ def main(writer):
                                                 mask)
             neg_score = neg_score.reshape((-1, args.neg_sample_size))
 
-            writer.add_scalar(
-                tag="neg_score", step=step, value=neg_score.sum().numpy()[0])
+            # if writer:
+            #     writer.add_scalar(
+            #         tag="neg_score", step=step, value=neg_score.sum().numpy()[0])
 
             loss = loss_func(pos_score, neg_score)
             log['loss'] += loss.numpy()[0]
 
-            writer.add_scalar(tag="loss", step=step, value=loss.numpy()[0])
+            # if writer:
+            #     writer.add_scalar(tag="loss", step=step, value=loss.numpy()[0])
 
             if args.reg_coef > 0. and args.reg_norm >= 0:
                 if all_ents_emb is None:
@@ -248,7 +251,8 @@ def main(writer):
                 reg = args.reg_coef * reg
                 log['reg'] += reg.numpy()[0]
 
-                writer.add_scalar(tag="reg", step=step, value=reg.numpy()[0])
+                # if writer:
+                #     writer.add_scalar(tag="reg", step=step, value=reg.numpy()[0])
 
                 loss = loss + reg
             timer['forward'] += (time.time() - ts)
@@ -296,6 +300,6 @@ def main(writer):
 
 
 if __name__ == '__main__':
-    with LogWriter(logdir="./log/rotate_sgpu/train") as writer:
-        main(writer)
-    # main()
+    # with LogWriter(logdir="./log/rotate_sgpu/train") as writer:
+    #     main(writer)
+    main()
