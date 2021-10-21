@@ -115,7 +115,7 @@ class RotatEScore(ScoreFunc):
                                 self.epsilon)
             score = self.gamma - paddle.sum(score, axis=-1)
         else:
-            score = self(head, rel, tail, neg_head)
+            score = self(head, rel, tail)
 
         return score
 
