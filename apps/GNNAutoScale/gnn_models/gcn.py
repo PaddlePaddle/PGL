@@ -53,8 +53,8 @@ class GCN(ScalableGNN):
             x = paddle.nn.Dropout(p=self.dropout)(x)
 
         for conv, hist in zip(self.convs[:-1], self.histories):
-            h = conv(graph, x, norm)
-            x = paddle.nn.ReLU()(h)
+            x = conv(graph, x, norm)
+            x = paddle.nn.ReLU()(x)
             x = self.push_and_pull(hist, x, *args)
             x = paddle.nn.Dropout(p=self.dropout)(x)
 

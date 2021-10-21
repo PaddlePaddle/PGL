@@ -99,7 +99,8 @@ def main(args):
     permutation, part = metis_graph_partition(data.graph, npart=args.num_parts)
 
     log.info("Permuting data...")
-    data, feature = permute(data, data.feature, permutation)
+    data, feature = permute(data, data.feature, permutation,
+                            args.load_feat_to_gpu)
     graph = data.graph
 
     log.info("Building data loader for training and validation...")
@@ -139,7 +140,7 @@ def main(args):
     log.info("Calculating buffer size...")
     buffer_size = -1
     for subdata in eval_loader:
-        _, _, n_id, _, _, _, _ = process_batch_data(subdata)
+        n_id = process_batch_data(subdata, only_nid=True)
         buffer_size = max(len(n_id), buffer_size)
     log.info("Buffer size: %d" % buffer_size)
 
@@ -216,6 +217,10 @@ if __name__ == "__main__":
         "--gen_train_data_in_advance",
         action="store_true",
         help="Whether generate train batch data in advance")
+    parser.add_argument(
+        "--load_feat_to_gpu",
+        action="store_true",
+        help="Whether load node feature to gpu in `permutation` step.")
     args = parser.parse_args()
 
     log.info("Checking device...")

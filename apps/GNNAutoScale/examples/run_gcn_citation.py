@@ -114,7 +114,8 @@ def main(args):
     permutation, part = metis_graph_partition(data.graph, npart=args.num_parts)
 
     log.info("Permuting data...")
-    data, feature = permute(data, data.feature, permutation)
+    data, feature = permute(data, data.feature, permutation,
+                            args.load_feat_to_gpu)
     graph = data.graph
 
     log.info("Building data loader for training and validation...")
@@ -195,33 +196,40 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Training GCN on Citation Network')
+        description='Training GCN on Citation Network.')
     parser.add_argument(
-        "--dataset", type=str, default="cora", help="Cora, Pubmed, Citeseer")
+        "--dataset", type=str, default="cora", help="Cora, Pubmed, Citeseer.")
     parser.add_argument(
-        "--epoch", type=int, default=200, help="Number of training epochs")
+        "--epoch", type=int, default=200, help="Number of training epochs.")
     parser.add_argument("--lr", type=float, default=0.01, help="Learning rate")
     parser.add_argument(
-        "--num_parts", type=int, default=40, help="Number of graph partitions")
+        "--num_parts",
+        type=int,
+        default=40,
+        help="Number of graph partitions.")
     parser.add_argument(
-        "--num_layers", type=int, default=2, help="Number of gcn layers")
+        "--num_layers", type=int, default=2, help="Number of gcn layers.")
     parser.add_argument(
         "--hidden_size",
         type=int,
         default=16,
-        help="Hidden size in gcn models")
+        help="Hidden size in gcn models.")
     parser.add_argument(
-        "--weight_decay", type=float, default=5e-4, help="Weight decay rate")
+        "--weight_decay", type=float, default=5e-4, help="Weight decay rate.")
     parser.add_argument(
         "--gcn_norm",
         action="store_true",
-        help="Whether generate gcn norm feature")
+        help="Whether generate gcn norm feature.")
     parser.add_argument(
         "--batch_size", type=int, default=10, help="Batch size")
     parser.add_argument(
         "--gen_train_data_in_advance",
         action="store_true",
-        help="Whether generate train batch data in advance")
+        help="Whether generate train batch data in advance.")
+    parser.add_argument(
+        "--load_feat_to_gpu",
+        action="store_true",
+        help="Whether load node feature to gpu in `permutation` step.")
     args = parser.parse_args()
 
     log.info("Checking device...")
