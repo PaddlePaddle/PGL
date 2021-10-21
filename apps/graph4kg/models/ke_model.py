@@ -53,7 +53,7 @@ class KGEModel(nn.Layer):
     def __init__(self, model_name, trigraph, args=None):
         super(KGEModel, self).__init__()
         self._model_name = model_name
-        mix_cpu_on_relation = True
+        mix_cpu_on_relation = False
 
         self._use_feat = args.use_feature
         self._ent_feat = None
@@ -111,13 +111,13 @@ class KGEModel(nn.Layer):
 
     @property
     def shared_ent_path(self):
-        if self._mix_cpu_gpu:
+        if self._ent_emb_on_cpu:
             return self.ent_embedding.weight_path
         return None
 
     @property
     def shared_rel_path(self):
-        if self._mix_cpu_gpu:
+        if self._rel_emb_on_cpu:
             return self.rel_embedding.weight_path
         return None
 
