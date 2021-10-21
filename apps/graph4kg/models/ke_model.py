@@ -134,7 +134,9 @@ class KGEModel(nn.Layer):
                        all_ent_index,
                        neg_ent_index=None,
                        ent_emb=None,
-                       rel_emb=None):
+                       rel_emb=None,
+                       mode='tail',
+                       args=None):
         if ent_emb is not None:
             if self._use_feat:
                 ent_feat = paddle.to_tensor(
@@ -154,14 +156,34 @@ class KGEModel(nn.Layer):
         pos_h = F.embedding(h_index, ent_emb)
         pos_t = F.embedding(t_index, ent_emb)
 
+        mask = None
         if neg_ent_index is not None:
             neg_ent_emb = F.embedding(neg_ent_index, ent_emb)
             neg_ent_emb = paddle.reshape(neg_ent_emb,
                                          (self._num_chunks, -1, self._ent_dim))
+            if args.neg_deg_sample:
+                if mode == 'head':
+                    pos_emb = paddle.reshape(pos_h, (self._num_chunks, -1,
+                                                     self._ent_dim))
+                else:
+                    pos_emb = paddle.reshape(pos_t, (self._num_chunks, -1,
+                                                     self._ent_dim))
+                chunk_size = pos_emb.shape[1]
+                neg_sample_size = neg_ent_emb.shape[1]
+                neg_ent_emb = paddle.concat([pos_emb, neg_ent_emb], axis=1)
+                mask = paddle.ones(
+                    [
+                        self._num_chunks,
+                        chunk_size * (neg_sample_size + chunk_size)
+                    ],
+                    dtype='float32')
+                neg_sample_size = chunk_size + neg_sample_size
+                mask[:, 0::(neg_sample_size + 1)] = 0.
+                mask = paddle.reshape(mask, [self._num_chunks, chunk_size, -1])
         else:
             neg_ent_emb = None
 
-        return pos_h, pos_r, pos_t, neg_ent_emb
+        return pos_h, pos_r, pos_t, neg_ent_emb, mask
 
     def forward(self, h_emb, r_emb, t_emb):
         """function for training
@@ -171,12 +193,18 @@ class KGEModel(nn.Layer):
         score = self._score_func(h_emb, r_emb, t_emb)
         return score
 
-    def get_neg_score(self, ent_emb, rel_emb, neg_emb, neg_head=False):
+    def get_neg_score(self,
+                      ent_emb,
+                      rel_emb,
+                      neg_emb,
+                      neg_head=False,
+                      mask=None):
         """function to calculate scores of negative samples
         """
-        ent_emb = ent_emb.reshape((self._num_chunks, -1, self._ent_dim))
-        rel_emb = rel_emb.reshape((self._num_chunks, -1, self._rel_dim))
-        neg_emb = neg_emb.reshape((self._num_chunks, -1, self._ent_dim))
+        ent_emb = paddle.reshape(ent_emb,
+                                 (self._num_chunks, -1, self._ent_dim))
+        rel_emb = paddle.reshape(rel_emb,
+                                 (self._num_chunks, -1, self._rel_dim))
 
         if neg_head:
             h_emb = neg_emb
@@ -186,6 +214,10 @@ class KGEModel(nn.Layer):
             t_emb = neg_emb
 
         score = self._score_func.get_neg_score(h_emb, rel_emb, t_emb, neg_head)
+
+        if mask is not None:
+            score = score * mask
+
         return score
 
     @paddle.no_grad()

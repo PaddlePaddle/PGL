@@ -98,6 +98,11 @@ class KGEArgParser(ArgumentParser):
                     ' batch: sampling from entities in a batch, chunk: sampling'\
                         ' from the whole entity set as chunks')
         self.add_argument(
+            '--neg_deg_sample',
+            action='store_true',
+            help='Whether use true heads or tails to construct negative samples'
+        )
+        self.add_argument(
             '--filter_sample',
             action='store_true',
             help='Whether filter out true triplets in negative samples')

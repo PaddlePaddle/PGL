@@ -89,7 +89,7 @@ class RotatEScore(ScoreFunc):
         phase_rel = rel / (self.emb_init / np.pi)
         re_rel, im_rel = paddle.cos(phase_rel), paddle.sin(phase_rel)
 
-        re_score = re_rel * re_head - im_rel * im_tail
+        re_score = re_rel * re_head - im_rel * im_head
         im_score = re_rel * im_head + im_rel * re_head
         re_score = re_score - re_tail
         im_score = im_score - im_tail
@@ -100,22 +100,48 @@ class RotatEScore(ScoreFunc):
         return score
 
     def get_neg_score(self, head, rel, tail, neg_head=False):
+        num_chunks = head.shape[0]
+
         if neg_head:
-            re_head, im_head = paddle.chunk(head, chunks=2, axis=-1)
+            chunk_size = tail.shape[1]
+            neg_sample_size = head.shape[1]
+
             re_tail, im_tail = paddle.chunk(tail, chunks=2, axis=-1)
             phase_rel = rel / (self.emb_init / np.pi)
             re_rel, im_rel = paddle.cos(phase_rel), paddle.sin(phase_rel)
 
             re_score = re_rel * re_tail + im_rel * im_tail
             im_score = re_rel * im_tail - im_rel * re_tail
-            re_score = re_score - re_head
-            im_score = im_score - im_head
+            score = paddle.concat([re_score, im_score], axis=-1)
+            score = paddle.reshape(score, [num_chunks, chunk_size, 1, -1])
+            head = paddle.reshape(head, [num_chunks, 1, neg_sample_size, -1])
+
+            score = score - head
+            re_score, im_score = paddle.chunk(score, chunks=2, axis=-1)
 
             score = paddle.sqrt(re_score * re_score + im_score * im_score +
                                 self.epsilon)
             score = self.gamma - paddle.sum(score, axis=-1)
         else:
-            score = self(head, rel, tail)
+            chunk_size = head.shape[1]
+            neg_sample_size = tail.shape[1]
+
+            re_head, im_head = paddle.chunk(head, chunks=2, axis=-1)
+            phase_rel = rel / (self.emb_init / np.pi)
+            re_rel, im_rel = paddle.cos(phase_rel), paddle.sin(phase_rel)
+
+            re_score = re_rel * re_head - im_rel * im_head
+            im_score = re_rel * im_head + im_rel * re_head
+            score = paddle.concat([re_score, im_score], axis=-1)
+            score = paddle.reshape(score, [num_chunks, chunk_size, 1, -1])
+            tail = paddle.reshape(tail, [num_chunks, 1, neg_sample_size, -1])
+
+            score = score - tail
+            re_score, im_score = paddle.chunk(score, chunks=2, axis=-1)
+
+            score = paddle.sqrt(re_score * re_score + im_score * im_score +
+                                self.epsilon)
+            score = self.gamma - paddle.sum(score, axis=-1)
 
         return score
 
