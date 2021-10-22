@@ -18,14 +18,19 @@ import paddle
 import numpy as np
 import unittest
 
-from models.score_funcs import TransEScore
+from models.score_funcs import TransEScore, RotatEScore
 from models.loss_func import LossFunction
 from models.ke_model import KGEModel
 from dataset.trigraph import TriGraph
 
 
 class AccuracyTest(unittest.TestCase):
+    """Test Model Accuracy
+    """
+
     def test_transe_pos_score(self):
+        """test forward of transe
+        """
         score_func = TransEScore(gamma=19.9)
         np.random.seed(0)
         h = paddle.to_tensor(np.random.random((1000, 400)))
@@ -37,18 +42,51 @@ class AccuracyTest(unittest.TestCase):
                                'pos_score not aligned!', 5e-3)
 
     def test_transe_neg_score(self):
+        """test get_neg_score of transe
+        """
         score_func = TransEScore(gamma=19.9)
         np.random.seed(0)
         h = paddle.to_tensor(np.random.random((1000, 400))).unsqueeze(0)
         t = paddle.to_tensor(np.random.random((1000, 400))).unsqueeze(0)
         r = paddle.to_tensor(np.random.random((1000, 400))).unsqueeze(0)
         neg_e = paddle.to_tensor(np.random.random((1000, 400))).unsqueeze(0)
-        neg_score = score_func.multi_t(h, r, neg_e).sum().numpy()
+        neg_score = score_func.get_neg_score(h, r, neg_e, False).sum().numpy()
         trg_neg_score = 5760053.6210946
         self.assertAlmostEqual(neg_score, trg_neg_score, None,
                                'neg_score not aligned!', 0.5)
 
-    def test_transe_loss(self):
+    def test_rotate_pos_score(self):
+        """test forward of rotate
+        """
+        score_func = RotatEScore(gamma=12.0, emb_init=14.0 / 200)
+        np.random.seed(0)
+        h = paddle.to_tensor(np.random.random((10, 400)))
+        t = paddle.to_tensor(np.random.random((10, 400)))
+        r = paddle.to_tensor(np.random.random((10, 200)))
+        score = score_func(h, r, t).sum().numpy()
+        trg_score = -1957.4883
+        self.assertAlmostEqual(score, trg_score, None,
+                               'pos_score not aligned!', 1e-4)
+
+    def test_rotate_neg_score(self):
+        """test get_neg_score of rotate
+        """
+        score_func = RotatEScore(gamma=12.0, emb_init=14.0 / 200)
+        np.random.seed(0)
+        h = paddle.to_tensor(np.random.random((10, 400)))
+        t = paddle.to_tensor(np.random.random((10, 400)))
+        r = paddle.to_tensor(np.random.random((10, 200)))
+        h = paddle.reshape(h, [2, 5, 400])
+        t = paddle.reshape(t, [2, 5, 400])
+        r = paddle.reshape(r, [2, 5, 200])
+        score = score_func.get_neg_score(h, r, t, False).sum().numpy()
+        trg_score = -9693.6280
+        self.assertAlmostEqual(score, trg_score, None,
+                               'pos_score not aligned!', 1e-4)
+
+    def test_logsigmoid_loss(self):
+        """test logsigmoid
+        """
         loss_func = LossFunction(
             name='Logsigmoid',
             pairwise=False,
@@ -60,8 +98,8 @@ class AccuracyTest(unittest.TestCase):
         neg_score = paddle.to_tensor(np.random.random((1000, 1)))
         loss = loss_func(pos_score, neg_score).numpy()
         trg_loss = 0.7385364
-        self.assertAlmostEqual(loss, trg_loss, None, 'loss_func not aligned!',
-                               1e-6)
+        self.assertAlmostEqual(loss, trg_loss, None,
+                               'logsigmoid loss not aligned!', 1e-6)
 
 
 if __name__ == '__main__':
