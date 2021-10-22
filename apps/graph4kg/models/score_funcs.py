@@ -71,6 +71,31 @@ class TransEScore(ScoreFunc):
         return dist_score
 
 
+class DistMultScore(ScoreFunc):
+    """DistMult
+    https://arxiv.org/abs/1412.6575
+    """
+
+    def __init__(self):
+        super(DistMultScore, self).__init__()
+
+    def __call__(self, head, rel, tail):
+        score = head * rel * tail
+        score = paddle.sum(score, axis=-1)
+        return score
+
+    def get_neg_score(self, head, rel, tail, neg_head=False):
+        num_chunks = head.shape[0]
+        if neg_head:
+            tail = tail * rel
+            score = paddle.bmm(tail, head.transpose([0, 2, 1]))
+            return score
+        else:
+            head = head * rel
+            score = paddle.bmm(head, tail.transpose([0, 2, 1]))
+            return score
+
+
 class RotatEScore(ScoreFunc):
     """
     RotatE: Knowledge Graph Embedding by Relational Rotation in Complex Space.

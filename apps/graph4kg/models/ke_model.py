@@ -21,7 +21,7 @@ import numpy as np
 import paddle.nn.functional as F
 
 from models.numpy_embedding import NumPyEmbedding
-from models.score_funcs import TransEScore, RotatEScore, OTEScore
+from models.score_funcs import TransEScore, RotatEScore, DistMultScore, OTEScore
 from utils import uniform, timer_wrapper
 
 
@@ -343,6 +343,8 @@ class KGEModel(nn.Layer):
             score_func = TransEScore(args.gamma)
         elif model_name == 'rotate':
             score_func = RotatEScore(args.gamma, self.init_value)
+        elif model_name == 'distmult':
+            score_func = DistMultScore()
         elif model_name == 'ote':
             score_func = OTEScore(args.gamma, self._rel_times, args.scale_type)
         else:

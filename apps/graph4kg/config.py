@@ -209,7 +209,7 @@ class KGEArgParser(ArgumentParser):
         self.add_argument(
             '--model_name',
             default='TransE',
-            choices=['TransE', 'RotatE', 'OTE'])
+            choices=['TransE', 'RotatE', 'DistMult', 'OTE'])
         self.add_argument(
             '--embed_dim',
             type=int,
