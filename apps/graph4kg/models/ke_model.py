@@ -78,15 +78,15 @@ class KGEModel(nn.Layer):
         self._rel_dim = args.embed_dim * (
             self._rel_times + int(args.scale_type > 0))
 
-        init_value = (args.gamma + EMB_INIT_EPSILON) / args.embed_dim
+        self.init_value = (args.gamma + EMB_INIT_EPSILON) / args.embed_dim
 
         self.ent_embedding = self._init_embedding(
-            trigraph.num_ents, self._ent_dim, init_value,
+            trigraph.num_ents, self._ent_dim, self.init_value,
             os.path.join(args.save_path, '__ent_embedding.npy')
             if self._ent_emb_on_cpu else None)
 
         self.rel_embedding = self._init_embedding(
-            trigraph.num_rels, self._rel_dim, init_value,
+            trigraph.num_rels, self._rel_dim, self.init_value,
             os.path.join(args.save_path, '__rel_embedding.npy')
             if self._rel_emb_on_cpu else None, args.scale_type)
 
@@ -342,7 +342,7 @@ class KGEModel(nn.Layer):
         if model_name == 'transe':
             score_func = TransEScore(args.gamma)
         elif model_name == 'rotate':
-            score_func = RotatEScore(args.gamma, 2. / self._ent_dim)
+            score_func = RotatEScore(args.gamma, self.init_value)
         elif model_name == 'ote':
             score_func = OTEScore(args.gamma, self._rel_times, args.scale_type)
         else:
