@@ -21,6 +21,13 @@ CUDA_LAUNCH_BLOCKING=1 nsys profile -t cuda,nvtx -o transe_fb15k_mix_cg --captur
 --batch_size 1000 --reg_coef 1e-9 --reg_norm 3 --neg_sample_size 200 --neg_sample_type 'chunk' --embed_dim 400 --gamma 19.9 \
 --mlp_lr 0.25 -adv --num_workers 8 --num_epoch 3 --mix_cpu_gpu --async_update
 
+# DistMult single GPU
+CUDA_LAUNCH_BLOCKING=1 nsys profile -t cuda,nvtx -o distmult_fb15k --capture-range=cudaProfilerApi --stop-on-range-end=true python -u train.py \
+--model_name DistMult --data_name FB15k --data_path ~/data --save_path output/distmult_fb_sgpu \
+--batch_size 1000 --test_batch_size 16 --log_interval 1000 --eval_interval 24000  --neg_sample_type 'chunk' \
+--num_workers 2 --neg_sample_size 200 --embed_dim 400 --gamma 143.0 --mlp_lr 0.08 \
+--test -adv --num_epoch 2 --filter_eval --print_on_screen --reg_coef 2e-6 --reg_norm 3
+
 # RotatE single GPU
 CUDA_LAUNCH_BLOCKING=1 nsys profile -t cuda,nvtx -o rotate_fb15k_fixed --capture-range=cudaProfilerApi --stop-on-range-end=true python -u train.py \
 --model_name RotatE --data_name FB15k --data_path ~/data --save_path output/rotate_fb_sgpu \

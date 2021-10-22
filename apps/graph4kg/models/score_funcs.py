@@ -141,6 +141,9 @@ class RotatEScore(ScoreFunc):
             score = paddle.reshape(score, [num_chunks, chunk_size, 1, -1])
             head = paddle.reshape(head, [num_chunks, 1, neg_sample_size, -1])
 
+            score = paddle.tile(score, repeat_times=[1, 1, neg_sample_size, 1])
+            head = paddle.tile(head, repeat_times=[1, chunk_size, 1, 1])
+
             score = score - head
             re_score, im_score = paddle.chunk(score, chunks=2, axis=-1)
 
@@ -161,6 +164,9 @@ class RotatEScore(ScoreFunc):
             score = paddle.reshape(score, [num_chunks, chunk_size, 1, -1])
             tail = paddle.reshape(tail, [num_chunks, 1, neg_sample_size, -1])
 
+            score = paddle.tile(score, repeat_times=[1, 1, neg_sample_size, 1])
+            tail = paddle.tile(tail, repeat_times=[1, chunk_size, 1, 1])
+
             score = score - tail
             re_score, im_score = paddle.chunk(score, chunks=2, axis=-1)
 
@@ -169,6 +175,45 @@ class RotatEScore(ScoreFunc):
             score = self.gamma - paddle.sum(score, axis=-1)
 
         return score
+
+
+class ComplExScore(ScoreFunc):
+    """ComplEx
+    https://arxiv.org/abs/1606.0635
+    """
+
+    def __init__(self):
+        super(ComplExScore, self).__init__()
+
+    def __call__(self, head, rel, tail):
+        re_head, im_head = paddle.chunk(head, chunks=2, axis=-1)
+        re_tail, im_tail = paddle.chunk(tail, chunks=2, axis=-1)
+        re_rel, im_rel = paddle.chunk(rel, chunks=2, axis=-1)
+
+        score = re_head * re_tail * re_rel + im_head * im_tail * re_rel \
+            + re_head * im_tail * im_rel - im_head * re_tail * im_rel
+        score = paddle.sum(score, axis=-1)
+        return score
+
+    def get_neg_score(self, head, rel, tail, neg_head=False):
+        if neg_head:
+            re_tail, im_tail = paddle.chunk(tail, chunks=2, axis=-1)
+            re_rel, im_rel = paddle.chunk(rel, chunks=2, axis=-1)
+            re_emb = re_tail * re_rel + im_tail * im_rel
+            im_emb = im_tail * re_rel - re_tail * im_rel
+            complex_emb = paddle.concat([re_emb, im_emb], axis=-1)
+            complex_emb = paddle.reshape(complex_emb, tail.shape)
+            score = paddle.bmm(complex_emb, head.transpose([0, 2, 1]))
+            return score
+        else:
+            re_head, im_head = paddle.chunk(head, chunks=2, axis=-1)
+            re_rel, im_rel = paddle.chunk(rel, chunks=2, axis=-1)
+            re_emb = re_head * re_rel - im_head * im_rel
+            im_emb = re_head * im_rel + im_head * re_rel
+            complex_emb = paddle.concat([re_emb, im_emb], axis=-1)
+            complex_emb = paddle.reshape(complex_emb, head.shape)
+            score = paddle.bmm(complex_emb, tail.transpose([0, 2, 1]))
+            return score
 
 
 class OTEScore(ScoreFunc):

@@ -19,6 +19,12 @@ python -u train.py --model_name DistMult --data_name FB15k --data_path ~/data --
 --num_workers 2 --neg_sample_size 200 --embed_dim 400 --gamma 143.0 --mlp_lr 0.08 \
 --test -adv --num_epoch 50 --filter_eval --print_on_screen --reg_coef 2e-6 --reg_norm 3
 
+# ComplEx single GPU
+python -u train.py --model_name ComplEx --data_name FB15k --data_path ~/data --save_path output/complex_fb_sgpu \
+--batch_size 1000 --log_interval 1000  --test_batch_size 16 --neg_sample_type 'chunk' --num_workers 2 \
+--neg_sample_size 200 --embed_dim 400 --gamma 143.0 --mlp_lr 0.1 --reg_coef 2e-6 \
+--test -adv --num_epoch 50 --filter_eval --print_on_screen
+
 # RotatE single GPU
 python -u train.py --model_name RotatE --data_name FB15k --data_path ~/data --save_path output/rotate_fb_sgpu \
 --batch_size 2048 --test_batch_size 16 --log_interval 1000 --eval_interval 20000 --reg_coef 1e-7 --reg_norm 3 \
