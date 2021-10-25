@@ -54,6 +54,7 @@ class TripletDataset(object):
                  rel_feat_path=None,
                  delimiter='\t',
                  map_to_id=False,
+                 load_dict=False,
                  skip_head=False):
         super(TripletDataset, self).__init__()
         self._path = os.path.join(path, data_name)
@@ -66,12 +67,13 @@ class TripletDataset(object):
         self._delimiter = delimiter
         self._map_to_id = map_to_id
         self._skip_head = skip_head
+        self._load_dict = load_dict
 
         if not os.path.exists(self._path):
             raise ValueError('data path %s not exists!' % self._path)
 
         # TODO(Huijuan): No dictionary
-        if self._map_to_id:
+        if load_dict:
             ent_dict_path = os.path.join(self._path, ent_file)
             rel_dict_path = os.path.join(self._path, rel_file)
             self._ent_dict = self.load_dictionary(
@@ -132,6 +134,16 @@ class TripletDataset(object):
                                   self._skip_head))
 
         if self._map_to_id:
+            if not self._load_dict:
+                all_ents = set()
+                all_rels = set()
+                for triplets in data:
+                    for h, r, t in triplets:
+                        all_ents.add(h)
+                        all_ents.add(t)
+                        all_rels.add(r)
+                self._ent_dict = dict([(x, i) for i, x in enumerate(all_ents)])
+                self._rel_dict = dict([(x, i) for i, x in enumerate(all_rels)])
 
             def map_fn(x):
                 """Map entities and relations into ids.
@@ -212,9 +224,12 @@ def read_trigraph(data_path, data_name):
         dataset = WikiKG90MDataset(data_path)
     elif data_name == 'wikikg2':
         dataset = WikiKG2Dataset(data_path)
-    elif data_name in ['FB15k', 'WN18', 'FB15k-237', 'WN18RR']:
+    elif data_name in ['FB15k', 'WN18']:
         dataset = TripletDataset(
-            data_path, data_name, kv_mode='vk', map_to_id=True)
+            data_path, data_name, kv_mode='vk', map_to_id=True, load_dict=True)
+    elif data_name in ['FB15k-237', 'WN18RR']:
+        dataset = TripletDataset(
+            data_path, data_name, map_to_id=True, load_dict=False)
 
     graph_data = TriGraph(dataset.triplets, dataset.num_ents, dataset.num_rels,
                           dataset.ent_feat, dataset.rel_feat)

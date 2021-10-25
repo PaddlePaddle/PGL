@@ -15,7 +15,10 @@
 import numpy as np
 import paddle
 import paddle.nn as nn
+from numpy.random import RandomState
 from paddle.nn.functional import log_sigmoid
+
+from models.numpy_embedding import NumPyEmbedding
 
 
 class ScoreFunc(object):
@@ -214,6 +217,110 @@ class ComplExScore(ScoreFunc):
             complex_emb = paddle.reshape(complex_emb, head.shape)
             score = paddle.bmm(complex_emb, tail.transpose([0, 2, 1]))
             return score
+
+
+class QuatEScore(ScoreFunc):
+    """QuatE score
+    https://arxiv.org/abs/1904.10281
+    """
+
+    def __init__(self):
+        super(QuatEScore, self).__init__()
+
+    def __call__(self, head, rel, tail):
+        heads = paddle.chunk(head, chunks=4, axis=-1)
+        tails = paddle.chunk(tail, chunks=4, axis=-1)
+        rels = paddle.chunk(rel, chunks=4, axis=-1)
+
+        denominator_r = paddle.sqrt(rels[0]**2 + rels[1]**2 + rels[2]**2 +
+                                    rels[3]**2)
+        for i in range(4):
+            rels[i] = rels[i] / denominator_r
+
+        A = heads[0] * rels[0] - heads[1] * rels[1] - heads[2] * rels[2] \
+            - heads[3] * rels[3]
+        B = heads[0] * rels[1] + rels[0] * heads[1] + heads[2] * rels[3] \
+            - rels[2] * heads[3]
+        C = heads[0] * rels[2] + rels[0] * heads[2] + heads[3] * rels[1] \
+            - rels[3] * heads[1]
+        D = heads[0] * rels[3] + rels[0] * heads[3] + heads[1] * rels[2] \
+            - rels[1] * heads[2]
+
+        score = (A * tails[0] + B * tails[1] + C * tails[2] + D * tails[3])
+        score = -paddle.sum(score, axis=-1)
+        return score
+
+    def get_neg_score(self, head, rel, tail, neg_head=False):
+        num_chunks = head.shape[0]
+        if neg_head:
+            chunk_size = tail.shape[1]
+            neg_sample_size = head.shape[1]
+
+            head = paddle.reshape(head, [num_chunks, 1, neg_sample_size, -1])
+            tail = paddle.reshape(tail, [num_chunks, chunk_size, 1, -1])
+            rel = paddle.reshape(rel, [num_chunks, chunk_size, 1, -1])
+            score = self(head, rel, tail)
+        else:
+            chunk_size = head.shape[1]
+            neg_sample_size = tail.shape[1]
+
+            tail = paddle.reshape(tail, [num_chunks, 1, neg_sample_size, -1])
+            head = paddle.reshape(head, [num_chunks, chunk_size, 1, -1])
+            rel = paddle.reshape(rel, [num_chunks, chunk_size, 1, -1])
+            score = self(head, rel, tail)
+        return score
+
+    @classmethod
+    def get_init_weight(cls,
+                        num_emb,
+                        embed_dim,
+                        num_ents,
+                        on_cpu=False,
+                        cpu_params=None):
+        init_value = 1. / np.sqrt(2 * num_ents)
+        rng = RandomState(0)
+
+        num_weights = np.prod([num_ents, embed_dim])
+        v_i = np.random.uniform(0, 1, num_weights)
+        v_j = np.random.uniform(0, 1, num_weights)
+        v_k = np.random.uniform(0, 1, num_weights)
+
+        for i in range(num_weights):
+            norm = np.sqrt(v_i[i]**2 + v_j[i]**2 + v_k[i]**2) + 1e-4
+            v_i[i] /= norm
+            v_j[i] /= norm
+            v_k[i] /= norm
+        v_i = v_i.reshape([num_ents, embed_dim])
+        v_j = v_j.reshape([num_ents, embed_dim])
+        v_k = v_k.reshape([num_ents, embed_dim])
+
+        modulus = rng.uniform(
+            -init_value, init_value, size=[num_ents, embed_dim])
+        phase = rng.uniform(-np.pi, np.pi, size=[num_ents, embed_dim])
+
+        w_h = modulus * np.cos(phase)
+        w_i = modulus * v_i * np.sin(phase)
+        w_j = modulus * v_j * np.sin(phase)
+        w_k = modulus * v_k * np.sin(phase)
+
+        weight = np.concatenate([w_h, w_i, w_j, w_k], axis=-1)
+
+        if on_cpu:
+            assert cpu_params is not None, \
+            'initialization parameters not given for cpu embedding of QuatE!'
+            optimizer, lr, weight_path = cpu_params
+            embs = NumPyEmbedding(
+                num_emb,
+                embed_dim,
+                weight_path=weight_path,
+                optimizer=optimizer,
+                learning_rate=lr)
+            embs.weight[:] = weight
+        else:
+            embs = nn.Embedding(num_emb, embed_dim)
+            embs.weight.set_value(weight)
+
+        return embs
 
 
 class OTEScore(ScoreFunc):

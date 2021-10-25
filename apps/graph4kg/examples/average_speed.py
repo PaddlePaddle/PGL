@@ -18,7 +18,7 @@ import numpy as np
 
 if __name__ == '__main__':
     path = sys.argv[1]
-    skip = int(sys.argv[2])
+    skip = int(sys.argv[2]) * 2
     rst = {
         'steps': [],
         'forward': [],
@@ -46,9 +46,15 @@ if __name__ == '__main__':
                 rst['update'].append(float(ans[4]))
             step = speed_p.match(line)
             if step is not None:
+                if skip > 0:
+                    skip -= 1
+                    continue
                 rst['steps'].append(float(step[1]))
             step = step_p.match(line)
             if step is not None:
+                if skip > 0:
+                    skip -= 1
+                    continue
                 rst['steps'].append(float(step[1]) / float(step[2]))
 
     for k, v in rst.items():

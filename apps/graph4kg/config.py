@@ -193,7 +193,7 @@ class KGEArgParser(ArgumentParser):
         self.add_argument(
             '--loss_type',
             default='Logsigmoid',
-            choices=['Hinge', 'Logistic', 'Logsigmoid', 'BCE'],
+            choices=['Hinge', 'Logistic', 'Logsigmoid', 'BCE', 'Softplus'],
             help='The loss function used to train KGE Model.')
         self.add_argument(
             '-m',
@@ -209,7 +209,9 @@ class KGEArgParser(ArgumentParser):
         self.add_argument(
             '--model_name',
             default='TransE',
-            choices=['TransE', 'RotatE', 'DistMult', 'ComplEx', 'OTE'])
+            choices=[
+                'TransE', 'RotatE', 'DistMult', 'ComplEx', 'QuatE', 'OTE'
+            ])
         self.add_argument(
             '--embed_dim',
             type=int,

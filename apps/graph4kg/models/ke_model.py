@@ -21,7 +21,7 @@ import numpy as np
 import paddle.nn.functional as F
 
 from models.numpy_embedding import NumPyEmbedding
-from models.score_funcs import TransEScore, RotatEScore, DistMultScore, ComplExScore, OTEScore
+from models.score_funcs import TransEScore, RotatEScore, DistMultScore, ComplExScore, QuatEScore, OTEScore
 from utils import uniform, timer_wrapper
 
 
@@ -62,6 +62,8 @@ class KGEModel(nn.Layer):
             if self._use_feat:
                 self._ent_feat = trigraph.ent_feat.get('text')
                 self._rel_feat = trigraph.rel_feat.get('text')
+        self._num_ents = trigraph.num_ents
+        self._num_rels = trigraph.num_rels
 
         self._mix_cpu_gpu = args.mix_cpu_gpu
         self._rel_emb_on_cpu = self._mix_cpu_gpu and mix_cpu_on_relation
@@ -311,6 +313,15 @@ class KGEModel(nn.Layer):
                         emb_path=None,
                         scale_type=-1,
                         name=None):
+
+        if self._model_name == 'quate':
+            on_cpu = self._mix_cpu_gpu and emb_path is not None
+            embs = QuatEScore.get_init_weight(num_emb, emb_dim, self._num_ents,
+                                              on_cpu,
+                                              (self._optim, self._lr, emb_path)
+                                              if on_cpu else None)
+            return embs
+
         if scale_type > 0:
             init_value = 1. / math.sqrt(emb_dim)
             a, b = -init_value, init_value
@@ -347,9 +358,10 @@ class KGEModel(nn.Layer):
             score_func = DistMultScore()
         elif model_name == 'complex':
             score_func = ComplExScore()
+        elif model_name == 'quate':
+            score_func = QuatEScore()
         elif model_name == 'ote':
             score_func = OTEScore(args.gamma, self._rel_times, args.scale_type)
         else:
-            raise ValueError('score function for %s not implemented!' %
-                             model_name)
+            raise ValueError('score function %s not implemented!' % model_name)
         return score_func

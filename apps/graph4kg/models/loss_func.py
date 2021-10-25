@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import paddle
-from paddle.nn import BCELoss, MarginRankingLoss
+from paddle.nn import BCELoss, MarginRankingLoss, Softplus
 from paddle.nn.functional import log_sigmoid, softmax
 
 
@@ -53,6 +53,12 @@ class LossFunction(object):
         if self.pairwise:
             pos_score = paddle.unsqueeze(pos_score, -1)
             loss = paddle.mean(self.loss_func(pos_score - neg_score, 1))
+        elif self.name == 'Softplus':
+            pos_loss = self.loss_func(-pos_score)
+            neg_loss = self.loss_func(neg_score)
+            pos_loss = paddle.mean(pos_loss)
+            neg_loss = paddle.mean(neg_loss)
+            loss = (pos_loss + neg_loss) / 2
         else:
             pos_loss = self.loss_func(pos_score, 1)
             neg_loss = self.loss_func(neg_score, self.neg_label)
@@ -88,5 +94,7 @@ class LossFunction(object):
         elif self.name == 'BCE':
             self.neg_label = 0
             return BCELoss()
+        elif self.name == 'Softplus':
+            return Softplus()
         else:
             raise ValueError('loss %s not implemented!' % self.name)
