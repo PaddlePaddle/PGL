@@ -29,7 +29,8 @@ class GCN(ScalableGNN):
                  dropout=0.0,
                  drop_input=True,
                  pool_size=None,
-                 buffer_size=None):
+                 buffer_size=None,
+                 **kwargs):
         super().__init__(num_nodes, num_layers, hidden_size, pool_size,
                          buffer_size)
 

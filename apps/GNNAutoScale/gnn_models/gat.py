@@ -30,7 +30,8 @@ class GAT(ScalableGNN):
                  feat_drop=0.6,
                  attn_drop=0.6,
                  pool_size=None,
-                 buffer_size=None):
+                 buffer_size=None,
+                 **kwargs):
         super().__init__(num_nodes, num_layers, hidden_size * num_heads,
                          pool_size, buffer_size)
 

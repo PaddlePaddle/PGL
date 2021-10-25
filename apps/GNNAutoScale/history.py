@@ -26,7 +26,6 @@ class History(paddle.nn.Layer):
     def __init__(self, num_embs, emb_dim):
         super().__init__()
 
-        log.info("Init History %s %s" % (num_embs, emb_dim))
         self.num_embs = num_embs
         self.emb_dim = emb_dim
 

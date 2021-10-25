@@ -44,13 +44,11 @@ class StreamPool(paddle.nn.Layer):
     def _push_stream(self, idx):
         if self._push_streams[idx] is None:
             self._push_streams[idx] = cuda.Stream()
-            log.info("New Push Stream")
         return self._push_streams[idx]
 
     def _pull_stream(self, idx):
         if self._pull_streams[idx] is None:
             self._pull_streams[idx] = cuda.Stream()
-            log.info("New Pull Stream")
         return self._pull_streams[idx]
 
     def _cpu_buffer(self, idx):
@@ -104,7 +102,6 @@ class StreamPool(paddle.nn.Layer):
     @paddle.no_grad()
     def _sync_push(self, idx):
         # TODO(daisiming): why stream.synchronize() not worked here?
-        self._push_stream(idx).synchronize()
         self._push_cache[idx] = None
         cuda.synchronize()
 

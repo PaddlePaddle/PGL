@@ -12,13 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-    Train GCN model on Citation Network(Cora/Pubmed/Citeseer).
+    Run GNNAutoScale on Citation Network.
 """
 
 import sys
+import yaml
 import argparse
 import numpy as np
+from tqdm import tqdm
 from functools import partial
+from easydict import EasyDict as edict
 
 import paddle
 import pgl
@@ -26,11 +29,11 @@ from pgl.utils.logger import log
 from pgl.utils.data.dataloader import Dataloader
 
 sys.path.append("..")
-from gnn_models import GCN
+import gnn_models
 from dataloader import PartitionDataset, EvalPartitionDataset
 from dataloader import subdata_batch_fn
 from partition import metis_graph_partition
-from utils import check_device
+from utils import check_device, time_wrapper
 from utils import process_batch_data, compute_acc, gen_mask, permute
 
 
@@ -100,22 +103,24 @@ def eval(graph, model, feature, norm, label, mask):
     # Since the graph is small, we can get full-batch inference.
     model.eval()
     feature = paddle.to_tensor(feature)
-    norm = paddle.to_tensor(norm)
+    if norm is not None:
+        norm = paddle.to_tensor(norm)
     out = model(graph, feature, norm)
     acc = compute_acc(out, label, mask)
     return acc
 
 
-def main(args):
+def main(args, config):
     log.info("Loading data...")
-    data = load(args.dataset)
+    data = load(config.dataset)
 
-    log.info("Running into %d metis partitions..." % args.num_parts)
-    permutation, part = metis_graph_partition(data.graph, npart=args.num_parts)
+    log.info("Running into %d metis partitions..." % config.num_parts)
+    permutation, part = metis_graph_partition(
+        data.graph, npart=config.num_parts)
 
     log.info("Permuting data...")
     data, feature = permute(data, data.feature, permutation,
-                            args.load_feat_to_gpu)
+                            config.load_feat_to_gpu)
     graph = data.graph
 
     log.info("Building data loader for training and validation...")
@@ -128,15 +133,15 @@ def main(args):
             graph.num_nodes, dtype="int32"))
     train_loader = Dataloader(
         dataset,
-        batch_size=args.batch_size,
+        batch_size=config.batch_size,
         drop_last=False,
         shuffle=True,
         num_workers=2,
         collate_fn=collate_fn)
-    if args.gen_train_data_in_advance:
+    if config.gen_train_data_in_advance:
         train_loader = list(train_loader)
 
-    if args.gcn_norm:
+    if config.gcn_norm:
         degree = graph.indegree()
         gcn_norm = degree.astype(np.float32)
         gcn_norm = np.clip(gcn_norm, 1.0, np.max(gcn_norm))
@@ -147,90 +152,69 @@ def main(args):
 
     # If you want to know how to calculate buffer_size,
     # you can just try diffrent numbers until the program works normally,
-    # or you can turn to run_gcn_reddit.py to see how to calculate.
-    if args.dataset == 'cora':
+    # or you can turn to run_reddit.py to see how to calculate.
+    if config.dataset == 'cora':
         buffer_size = 500
-    elif args.dataset == 'pubmed':
+    elif config.dataset == 'pubmed':
         buffer_size = 2000
     else:
         buffer_size = 1000
 
-    model = GCN(
-        num_nodes=graph.num_nodes,
-        num_layers=args.num_layers,
-        input_size=feature.shape[1],
-        hidden_size=args.hidden_size,
-        output_size=data.num_classes,
-        dropout=0.,
-        pool_size=args.num_layers - 1,
-        buffer_size=buffer_size, )
-
-    optim = paddle.optimizer.Adam(
-        learning_rate=args.lr,
-        weight_decay=args.weight_decay,
-        parameters=model.parameters())
-
+    GNNModel = getattr(gnn_models, config.model_name)
     criterion = paddle.nn.loss.CrossEntropyLoss()
-
+    if config.grad_norm:
+        clip = paddle.nn.ClipGradByNorm(clip_norm=1.0)
+    else:
+        clip = None
     eval_graph = pgl.Graph(edges=graph.edges, num_nodes=graph.num_nodes)
     eval_graph.tensor()
-    best_valid_acc = final_test_acc = 0
-    for epoch in range(args.epoch):
-        loss = train(train_loader, model, feature, gcn_norm, data.label,
-                     data.train_mask, criterion, optim, epoch,
-                     args.gen_train_data_in_advance)
-        train_acc = eval(eval_graph, model, feature, gcn_norm, data.label,
-                         data.train_mask)
-        valid_acc = eval(eval_graph, model, feature, gcn_norm, data.label,
-                         data.val_mask)
-        test_acc = eval(eval_graph, model, feature, gcn_norm, data.label,
-                        data.test_mask)
-        if valid_acc > best_valid_acc:
-            best_valid_acc = valid_acc
-            final_test_acc = test_acc
-        log.info(
-            f"Epoch:%d, Train Loss: %.4f, Train Acc: %.4f, Valid Acc: %.4f "
-            f"Test Acc: %.4f, Final Acc: %.4f" % (
-                epoch, loss, train_acc, valid_acc, test_acc, final_test_acc))
+
+    best_test = []
+    for run in range(args.runs):
+        cal_val_acc = []
+        cal_test_acc = []
+
+        model = GNNModel(
+            num_nodes=graph.num_nodes,
+            input_size=feature.shape[1],
+            output_size=data.num_classes,
+            buffer_size=buffer_size,
+            **config)
+
+        optim = paddle.optimizer.Adam(
+            learning_rate=config.lr,
+            weight_decay=config.weight_decay,
+            parameters=model.parameters(),
+            grad_clip=clip)
+
+        for epoch in tqdm(range(config.epochs)):
+            loss = train(train_loader, model, feature, gcn_norm, data.label,
+                         data.train_mask, criterion, optim, epoch,
+                         config.gen_train_data_in_advance)
+            valid_acc = eval(eval_graph, model, feature, gcn_norm, data.label,
+                             data.val_mask)
+            test_acc = eval(eval_graph, model, feature, gcn_norm, data.label,
+                            data.test_mask)
+            cal_val_acc.append(valid_acc)
+            cal_test_acc.append(test_acc)
+
+        log.info("Runs: %s, Model: %s, Best Test Accuracy: %.4f" % (
+            run, config.model_name, cal_test_acc[np.argmax(cal_val_acc)]))
+
+        best_test.append(cal_test_acc[np.argmax(cal_val_acc)])
+
+    log.info("Dataset: %s, Model: %s, Best Test Accuracy: %.4f (stddev: %.4f)"
+             % (config.dataset, config.model_name, np.mean(best_test),
+                np.std(best_test)))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Training GCN on Citation Network.')
-    parser.add_argument(
-        "--dataset", type=str, default="cora", help="Cora, Pubmed, Citeseer.")
-    parser.add_argument(
-        "--epoch", type=int, default=200, help="Number of training epochs.")
-    parser.add_argument("--lr", type=float, default=0.01, help="Learning rate")
-    parser.add_argument(
-        "--num_parts",
-        type=int,
-        default=40,
-        help="Number of graph partitions.")
-    parser.add_argument(
-        "--num_layers", type=int, default=2, help="Number of gcn layers.")
-    parser.add_argument(
-        "--hidden_size",
-        type=int,
-        default=16,
-        help="Hidden size in gcn models.")
-    parser.add_argument(
-        "--weight_decay", type=float, default=5e-4, help="Weight decay rate.")
-    parser.add_argument(
-        "--gcn_norm",
-        action="store_true",
-        help="Whether generate gcn norm feature.")
-    parser.add_argument(
-        "--batch_size", type=int, default=10, help="Batch size")
-    parser.add_argument(
-        "--gen_train_data_in_advance",
-        action="store_true",
-        help="Whether generate train batch data in advance.")
-    parser.add_argument(
-        "--load_feat_to_gpu",
-        action="store_true",
-        help="Whether load node feature to gpu in `permutation` step.")
+        description='Run GNNAutoScale on Citation Network')
+    parser.add_argument("--conf", type=str, help="Config file for gnn models")
+    parser.add_argument("--runs", type=int, default=20, help="Runs time.")
     args = parser.parse_args()
+    config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
 
     log.info("Checking device...")
     if not check_device():
@@ -240,4 +224,5 @@ if __name__ == '__main__':
             f"This program will exit.")
     else:
         log.info(args)
-        main(args)
+        log.info(config)
+        main(args, config)
