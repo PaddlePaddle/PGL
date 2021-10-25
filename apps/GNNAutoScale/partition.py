@@ -19,7 +19,6 @@ import math
 import numpy as np
 
 import pgl
-from pgl.partition import metis_partition
 
 
 def random_partition(graph, npart, shuffle=True):
@@ -55,31 +54,5 @@ def random_partition(graph, npart, shuffle=True):
             for i in range(npart + 1)
         ]
         part = np.array(part)
-
-    return permutation, part
-
-
-def metis_graph_partition(graph, npart):
-    """Using metis partition over graph.
-
-    Args:
-
-        graph(pgl.Graph): The input graph for partition.
-
-        npart: The number of parts in the final graph partition.
-
-    Returns:
-
-        permutation: New permutation of nodes in partition graph, and the shape is [num_nodes]. 
-
-        part: `part` can help distinguish different parts of permutation, and the shape is [npart + 1]. 
-    """
-
-    metis_part = metis_partition(graph, npart)
-    permutation = np.argsort(metis_part)
-
-    part = np.zeros(npart + 1, dtype=np.int64)
-    for i in range(npart):
-        part[i + 1] = part[i] + len(np.where(metis_part == i)[0])
 
     return permutation, part

@@ -32,7 +32,7 @@ sys.path.append("..")
 import gnn_models
 from dataloader import PartitionDataset, EvalPartitionDataset
 from dataloader import subdata_batch_fn
-from partition import metis_graph_partition
+from partition import random_partition
 from utils import check_device, time_wrapper
 from utils import process_batch_data, compute_acc, gen_mask, permute
 
@@ -114,9 +114,8 @@ def main(args, config):
     log.info("Loading data...")
     data = load(config.dataset)
 
-    log.info("Running into %d metis partitions..." % config.num_parts)
-    permutation, part = metis_graph_partition(
-        data.graph, npart=config.num_parts)
+    log.info("Running into %d random partitions..." % config.num_parts)
+    permutation, part = random_partition(data.graph, npart=config.num_parts)
 
     log.info("Permuting data...")
     data, feature = permute(data, data.feature, permutation,
@@ -154,11 +153,11 @@ def main(args, config):
     # you can just try diffrent numbers until the program works normally,
     # or you can turn to run_reddit.py to see how to calculate.
     if config.dataset == 'cora':
-        buffer_size = 500
-    elif config.dataset == 'pubmed':
         buffer_size = 2000
+    elif config.dataset == 'pubmed':
+        buffer_size = 8000
     else:
-        buffer_size = 1000
+        buffer_size = 2000
 
     GNNModel = getattr(gnn_models, config.model_name)
     criterion = paddle.nn.loss.CrossEntropyLoss()

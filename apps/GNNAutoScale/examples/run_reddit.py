@@ -31,7 +31,7 @@ sys.path.append("..")
 import gnn_models
 from dataloader import PartitionDataset, EvalPartitionDataset
 from dataloader import subdata_batch_fn
-from partition import metis_graph_partition
+from partition import random_partition
 from utils import check_device, time_wrapper
 from utils import process_batch_data, compute_acc, gen_mask, permute
 
@@ -96,9 +96,8 @@ def main(args, config):
     log.info("Loading data...")
     data = load()
 
-    log.info("Running into %d metis partitions..." % config.num_parts)
-    permutation, part = metis_graph_partition(
-        data.graph, npart=config.num_parts)
+    log.info("Running into %d random partitions..." % config.num_parts)
+    permutation, part = random_partition(data.graph, npart=config.num_parts)
 
     log.info("Permuting data...")
     data, feature = permute(data, data.feature, permutation,
