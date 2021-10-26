@@ -121,7 +121,7 @@ class NumPyEmbedding(object):
     def finish_async_update(self):
         """Notify the async update process to quit
         """
-        self._async_q.put((None, None))
+        self._async_q.put((None, None, None))
         self._async_p.join()
 
     def step(self):
@@ -130,21 +130,27 @@ class NumPyEmbedding(object):
         with paddle.no_grad():
             for index, tensors in self.trace:
                 grad = tensors.grad.numpy()
+                grad_2 = (tensors.grad * tensors.grad).mean(axis=-1).numpy()
                 if self._async_q is not None:
-                    self._async_q.put([index, grad])
+                    self._async_q.put([index, grad, grad_2])
                 else:
-                    self._update(grad, index)
+                    self._update(grad, index, grad_2)
         self.trace = []
 
     def step_trace(self, trace):
         """Update embeddings according to given trace
         """
         with paddle.no_grad():
-            index, grad = trace
+            index, grad, grad_2 = trace
             if self._async_q is not None:
-                self._async_q.put([index, grad])
+                # index.detach()
+                # grad.detach()
+                # index = index.cpu()._share_memory()
+                # grad = grad.cpu()._share_memory()
+                self._async_q.put([index, grad, grad_2])
+                # paddle.fluid.core._remove_tensor_list_mmap_fds([index, grad])
             else:
-                self._update(grad, index)
+                self._update(grad, index, grad_2)
 
     def _set_optimizer(self):
         if self._optim_mode == 'adagrad':
@@ -177,7 +183,7 @@ class NumPyEmbedding(object):
 
     def _init_moment(self):
         if dist.get_rank() == 0:
-            moment = np.zeros(self.weight.shape, dtype=np.float32)
+            moment = np.zeros((self.weight.shape[0], ), dtype=np.float32)
             np.save(self._moment_path, moment)
             del moment
         else:
@@ -187,11 +193,17 @@ class NumPyEmbedding(object):
                 time.sleep(5)
         self._moment = np.load(self._moment_path, mmap_mode='r+')
 
-    def _update_adagrad(self, grad, index):
-        grad_square = (grad * grad)
+    def _update_adagrad_(self, grad, index):
+        grad_square = (grad * grad).mean(axis=-1)
         self._moment[index] += grad_square
-        std = np.sqrt(self._moment[index]) + 1e-6
-        grad = -self._lr * grad / std
+        std = np.sqrt(self._moment[index]) + 1e-10
+        grad = -self._lr * grad / std.reshape((-1, 1))
+        self.weight[index] += grad
+
+    def _update_adagrad(self, grad, index, grad_square):
+        self._moment[index] += grad_square
+        std = np.sqrt(self._moment[index]) + 1e-10
+        grad = -self._lr * grad / std.reshape((-1, 1))
         self.weight[index] += grad
 
     def _update_sgd(self, grad, index):

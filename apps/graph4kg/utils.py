@@ -21,7 +21,8 @@ import random
 import logging
 import functools
 import traceback
-from multiprocessing import Queue
+from multiprocessing import Queue, Process
+from threading import Thread
 from _thread import start_new_thread
 
 import paddle
@@ -161,6 +162,40 @@ def thread_wrapper(func):
     return decorate
 
 
+def thread_wrapper_(func):
+    """Wrapped func for multiprocessing.Process
+    """
+
+    @functools.wraps(func)
+    def decorate(*args, **kwargs):
+        """decorate func
+        """
+        queue = Queue()
+
+        def _queue_func():
+            exception, trace, result = None, None, None
+            try:
+                result = func(*args, **kwargs)
+            except Exception as e:
+                exception = e
+                trace = traceback.format_exc()
+            queue.put((result, exception, trace))
+
+        proc = Thread(target=_queue_func)
+
+        proc.start()
+        proc.join()
+        result, exception, trace = queue.get()
+
+        if exception is None:
+            return result
+        else:
+            assert isinstance(exception, Exception)
+            raise exception.__class__(trace)
+
+    return decorate
+
+
 def to_tensor(data, place):
     return paddle.Tensor(
         value=data,
@@ -177,7 +212,7 @@ def async_update(embeds, queue):
     while True:
         # (grad_index, grad_value) = deserialize_data(queue.get())
         # (grad_index, grad_value, grad_shape) = queue.get()
-        (grad_index, grad_value) = queue.get()
+        (grad_index, grad_value, grad_2) = queue.get()
         # grad_index = to_tensor(grad_index, place='cpu')
         # grad_value = to_tensor(grad_value, place='cpu')
         if grad_index is None:
@@ -185,7 +220,7 @@ def async_update(embeds, queue):
         with paddle.no_grad():
             # embeds._update(grad_value.array.reshape(grad_shape), grad_index.array)
             # embeds._update(grad_value.numpy(), grad_index.numpy())
-            embeds._update(grad_value, grad_index)
+            embeds._update(grad_value, grad_index, grad_2)
 
 
 def prepare_save_path(args):

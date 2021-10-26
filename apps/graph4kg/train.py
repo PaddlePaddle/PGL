@@ -183,6 +183,8 @@ def main(writer=None):
         filter_dict=filter_dict if args.filter_sample else None,
         shared_ent_path=model.shared_ent_path if args.mix_cpu_gpu else None)
 
+    copy_stream = paddle.device.cuda.Stream()
+
     timer = defaultdict(int)
     log = defaultdict(int)
     ts = t_step = time.time()
@@ -194,9 +196,17 @@ def main(writer=None):
             all_ents_emb, rel_emb = prefetch_embeddings
 
             if rel_emb is not None:
+                rel_emb = rel_emb.cuda(blocking=False)
                 rel_emb.stop_gradient = False
             if all_ents_emb is not None:
+                all_ents_emb = all_ents_emb.cuda(blocking=False)
                 all_ents_emb.stop_gradient = False
+
+            h = h.cuda(blocking=False)
+            r = r.cuda(blocking=False)
+            t = t.cuda(blocking=False)
+            neg_ents = neg_ents.cuda(blocking=False)
+            all_ents = all_ents.cuda(blocking=False)
 
             timer['sample'] += (time.time() - ts)
 
@@ -264,16 +274,27 @@ def main(writer=None):
             ts = time.time()
             if optimizer is not None:
                 optimizer.step()
+                optimizer.clear_grad()
 
-            ent_trace = (all_ents.numpy(), all_ents_emb.grad.numpy()) \
-                if all_ents_emb is not None else None
-            rel_trace = (r.numpy(), rel_emb.grad.numpy()) \
-                if rel_emb is not None else None
+            if all_ents_emb is not None:
+                ents_idx = all_ents.numpy()
+                ents_grad = all_ents_emb.grad
+                ents_grad_2 = (ents_grad * ents_grad).mean(axis=-1).numpy()
+                ents_grad = ents_grad.numpy()
+                ent_trace = (ents_idx, ents_grad, ents_grad_2)
+            else:
+                ent_trace = None
+
+            if rel_emb is not None:
+                rel_idx = r.numpy()
+                rel_grad = rel_emb.grad
+                rel_grad_2 = (rel_grad * rel_grad).mean(axis=-1).numpy()
+                rel_grad = rel_grad.numpy()
+                rel_trace = (rel_idx, rel_grad, rel_grad_2)
+            else:
+                rel_trace = None
 
             model.step(ent_trace, rel_trace)
-
-            if optimizer is not None:
-                optimizer.clear_grad()
 
             timer['update'] += (time.time() - ts)
 
