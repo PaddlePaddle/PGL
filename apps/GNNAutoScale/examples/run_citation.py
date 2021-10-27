@@ -79,8 +79,9 @@ def train(dataloader, model, feature, norm, label, train_mask, criterion,
         pred = model(g, feat, sub_norm, batch_size, n_id, offset, count)
         pred = pred[:batch_size]
 
-        sub_train_mask = paddle.gather(train_mask, n_id[:batch_size])
-        y = paddle.gather(label, n_id[:batch_size])
+        sub_train_mask = paddle.gather(
+            paddle.to_tensor(train_mask), n_id[:batch_size])
+        y = paddle.gather(paddle.to_tensor(label), n_id[:batch_size])
         true_index = paddle.nonzero(sub_train_mask)
         if true_index.shape[0] == 0:
             continue

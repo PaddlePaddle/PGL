@@ -15,6 +15,7 @@
     Some utility functions used in GNNAutoScale.
 """
 
+import pdb
 import time
 import functools
 import numpy as np
@@ -60,8 +61,7 @@ def gen_mask(num_nodes, index):
 
 
 def permute(data, feature, permutation, load_feat_to_gpu):
-    """Permute data and feature according to the input `permutation`, and move masks, 
-       labels and feature to GPU.
+    """Permute data and feature according to the input `permutation`.
 
     Args:
 
@@ -90,14 +90,14 @@ def permute(data, feature, permutation, load_feat_to_gpu):
     g = pgl.Graph(edges=new_edges, num_nodes=data.graph.num_nodes)
 
     data.graph = g
-    data.train_mask = paddle.to_tensor(data.train_mask[permutation])
-    data.val_mask = paddle.to_tensor(data.val_mask[permutation])
-    data.test_mask = paddle.to_tensor(data.test_mask[permutation])
+    data.train_mask = data.train_mask[permutation]
+    data.val_mask = data.val_mask[permutation]
+    data.test_mask = data.test_mask[permutation]
 
     if len(data.y.shape) == 1:
-        data.label = paddle.to_tensor(np.expand_dims(data.y, -1)[permutation])
+        data.label = np.expand_dims(data.y, -1)[permutation]
     else:
-        data.label = paddle.to_tensor(data.y[permutation])
+        data.label = data.y[permutation]
 
     feature = feature[permutation]
     if load_feat_to_gpu:
@@ -168,15 +168,18 @@ def compute_acc(logits, y, mask):
     
         logits (paddle.Tensor): logits returned from gnn models.
 
-        y (paddle.Tensor): Labels of data samples.
+        y (numpy.array): Labels of data samples.
 
-        mask (paddle.Tensor): Mask of data samples for different datasets.
+        mask (numpy.array): Mask of data samples for different datasets.
 
     """
-
+    # pdb.set_trace()
+    logits = logits.numpy()
     if mask is not None:
-        true_index = paddle.nonzero(mask)
-        logits = paddle.gather(logits, true_index)
-        y = paddle.gather(y, true_index)
-
-    return paddle.metric.accuracy(logits, y)
+        true_index = np.nonzero(mask)[0]
+        logits = logits[true_index]
+        y = y[true_index].reshape([-1])
+        acc = float(np.equal(
+            np.argmax(
+                logits, axis=-1), y).sum()) / len(true_index)
+    return acc

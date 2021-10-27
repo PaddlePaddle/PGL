@@ -67,8 +67,9 @@ def train(dataloader, model, feature, gcn_norm, label, train_mask, criterion,
         pred = model(g, feat, sub_norm, batch_size, n_id, offset, count)
         pred = pred[:batch_size]
 
-        sub_train_mask = paddle.gather(train_mask, n_id[:batch_size])
-        y = paddle.gather(label, n_id[:batch_size])
+        sub_train_mask = paddle.gather(
+            paddle.to_tensor(train_mask), n_id[:batch_size])
+        y = paddle.gather(paddle.to_tensor(label), n_id[:batch_size])
         true_index = paddle.nonzero(sub_train_mask)
         if true_index.shape[0] == 0:
             continue
@@ -171,8 +172,8 @@ def main(args, config):
                      data.train_mask, criterion, optim, epoch,
                      config.gen_train_data_in_advance)
         out = eval(graph, eval_loader, model, feature, gcn_norm)
-        val_acc = compute_acc(out.cuda(), data.label, data.val_mask)
-        test_acc = compute_acc(out.cuda(), data.label, data.test_mask)
+        val_acc = compute_acc(out, data.label, data.val_mask)
+        test_acc = compute_acc(out, data.label, data.test_mask)
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             final_test_acc = test_acc
