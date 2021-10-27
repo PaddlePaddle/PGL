@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-    Base GNN module for GNNAutoScale.
+    Base GNN module for GNNAutoScale, partially refers to `pygas`(https://github.com/rusty1s/pyg_autoscale).
 """
 
 import sys
 import numpy as np
 
 import paddle
+from paddle.fluid import core
 from pgl.utils.logger import log
 
 sys.path.append("..")
@@ -152,6 +153,16 @@ class ScalableGNN(paddle.nn.Layer):
         loader = [(sub_data, {}) for sub_data in loader]
 
         # TODO(daisiming): Handle one-layer models which have no history embedding.
+        if len(self.histories) == 0:
+            for sub_data, state in loader:
+                g, batch_size, n_id, offset, count, feat, sub_norm = \
+                    process_batch_data(sub_data, feature, norm)
+                out = self.forward_layer(0, g, feat, sub_norm,
+                                         state)[:batch_size]
+                # push out to self._final_out()
+                core.async_write(out, self._final_out(), offset, count)
+            return self._final_out()
+
         # Push outputs of 0-th layer to the history.
         for sub_data, state in loader:
             g, batch_size, n_id, offset, count, feat, sub_norm = \
