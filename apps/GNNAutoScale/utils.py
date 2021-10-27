@@ -15,7 +15,6 @@
     Some utility functions used in GNNAutoScale.
 """
 
-import pdb
 import time
 import functools
 import numpy as np
@@ -173,7 +172,6 @@ def compute_acc(logits, y, mask):
         mask (numpy.array): Mask of data samples for different datasets.
 
     """
-    # pdb.set_trace()
     logits = logits.numpy()
     if mask is not None:
         true_index = np.nonzero(mask)[0]
