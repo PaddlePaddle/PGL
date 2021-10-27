@@ -26,9 +26,8 @@ from paddle.fluid import core
 
 
 def check_device():
-    """
-    Check whether the current device meets the GNNAutoScale conditions.
-    This function must be called before the main program runs.
+    """Check whether the current device meets the GNNAutoScale conditions.
+       This function must be called before the main program runs.
     """
     if not core.is_compiled_with_cuda():
         return False
@@ -41,28 +40,31 @@ def check_device():
 
 
 def gen_mask(num_nodes, index):
-    """
-    Generate different masks for train/validation/test dataset. For input `index`, the corresponding mask
-    position will be set 1, otherwise 0.
+    """Generate different masks for train/validation/test dataset. For input `index`, 
+       the corresponding mask position will be set 1, otherwise 0.
 
     Args:
+
         num_nodes(int): Number of nodes in graph.
 
         index(numpy.array): The index for train, validation or test dataset.
 
     Returns:
-        mask(numpy.array): Return masks for train/validation/test dataset.
-    """
 
+        mask(numpy.array): Return masks for train/validation/test dataset.
+
+    """
     mask = np.zeros(num_nodes, dtype=np.int32)
     mask[index] = 1
     return mask
 
 
 def permute(data, feature, permutation, load_feat_to_gpu):
-    """Permute data and feature according to the input `permutation`, and move masks, labels and feature to GPU.
+    """Permute data and feature according to the input `permutation`, and move masks, 
+       labels and feature to GPU.
 
     Args:
+
         data(pgl.dataset): The input PGL dataset, for example: pgl.dataset.RedditDataset.
         
         feature(numpy.array): Node feature of PGL graph.
@@ -72,11 +74,12 @@ def permute(data, feature, permutation, load_feat_to_gpu):
         load_feat_to_gpu(bool): Whether to move node feature to GPU here.
 
     Returns:
+
         data(pgl.dataset): Return data after being permuted.
 
         feature: Return feature after being permuted.
-    """
 
+    """
     edges = data.graph.edges
     reindex = {}
     for ind, node in enumerate(permutation):
@@ -103,10 +106,10 @@ def permute(data, feature, permutation, load_feat_to_gpu):
 
 
 def process_batch_data(batch_data, feature=None, norm=None, only_nid=False):
-    """
-        Process batch data, mainly for turning numpy.array as paddle.Tensor.
+    """Process batch data, mainly for turning numpy.array as paddle.Tensor.
 
     Args:
+
         batch_data(SubgraphData): Batch data returned from dataloader.
 
         feature(numpy.array|paddle.Tensor): The permuted node feature. 
@@ -116,6 +119,7 @@ def process_batch_data(batch_data, feature=None, norm=None, only_nid=False):
         only_nid(bool): If only_nid is True, just return batch_data.n_id.
 
     Returns:
+
         g(pgl.Graph): Return pgl.graph of batch_data, be in Tensor format.
 
         batch_size(int): Return batch size of the input batch_data.
@@ -127,8 +131,8 @@ def process_batch_data(batch_data, feature=None, norm=None, only_nid=False):
         count(paddle.Tensor): The length of graph partition parts in batch_data, should be placed on CPU.
 
         feat(paddle.Tensor): The new indexed feat according to n_id. 
-    """
 
+    """
     if only_nid:
         return batch_data.n_id
 
@@ -158,8 +162,16 @@ def process_batch_data(batch_data, feature=None, norm=None, only_nid=False):
 
 
 def compute_acc(logits, y, mask):
-    """
-        Compute accuracy for train/validation/test masks.
+    """Compute accuracy for train/validation/test masks.
+
+    Args:
+    
+        logits (paddle.Tensor): logits returned from gnn models.
+
+        y (paddle.Tensor): Labels of data samples.
+
+        mask (paddle.Tensor): Mask of data samples for different datasets.
+
     """
 
     if mask is not None:
@@ -168,34 +180,3 @@ def compute_acc(logits, y, mask):
         y = paddle.gather(y, true_index)
 
     return paddle.metric.accuracy(logits, y)
-
-
-def time_wrapper(func_name):
-    """
-        Time counter wrapper
-    """
-
-    def decorate(func):
-        """decorate func
-        """
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            """wrapper func
-            """
-            ts = time.time()
-            result = func(*args, **kwargs)
-            te = time.time()
-            costs = te - ts
-            if costs < 1e-4:
-                cost_str = '%f sec' % costs
-            elif costs > 3600:
-                cost_str = '%.4f sec (%.4f hours)' % (costs, costs / 3600.)
-            else:
-                cost_str = '%.4f sec' % costs
-            print('[%s] func takes %s' % (func_name, cost_str))
-            return result
-
-        return wrapper
-
-    return decorate

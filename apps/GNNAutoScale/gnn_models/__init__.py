@@ -17,11 +17,3 @@ from .gcn import GCN
 from .gat import GAT
 from .appnp import APPNP
 from .gcnii import GCNII
-
-__all__ = [
-    'ScalableGNN',
-    'GCN',
-    'GAT',
-    'APPNP',
-    'GCNII',
-]

@@ -27,6 +27,38 @@ from pgl.utils.data.dataloader import Dataloader
 
 
 class SubgraphData(object):
+    """Encapsulating the basic subgraph data structure.
+
+    Args:
+
+        subgraph (pgl.Graph): Subgraph of the original graph object.
+
+        batch_size (int): Original number of nodes of batch partition graphs.
+
+        n_id (1D numpy array): Contains original node ids of batch partition graphs, and 
+                            the corresponding one-hop neighbor node ids of original nodes.
+
+        offset (1D numpy array): The begin points of parition graphs' nodes in history embeddings.
+
+        count (1D numpy array): The number of nodes of parition graphs(also means length of partition graph) 
+                             in history embeddings.
+
+    Example:
+
+        - Suppose after graph partition and permutation, new node order is [4, 6, 1, 5, 7, 0, 3, 2, 8, 9].
+          And the partition graphs are [4, 6], [1, 5, 7], [0, 3], [2, 8, 9].
+
+        - Suppose we have a batch subgraph, and its nodes is [0, 3, 4, 6](two of the above partition graphs), then the batch_size = 4.
+
+        - We find the one hop neighbor nodes of the subgraph's nodes, which are [1, 2, 4, 7, 9], 
+          then the n_id is [0, 3, 4, 6, 1, 2, 7, 9]. Also `4` is also the neighbor nodes, it is included in batch_size. 
+
+        - The offset of the batch subgraph is [5, 1], we can see they are position indexes of 0 and 4 in node order.
+
+        - The count of the batch subgraph is [2, 2], the length of corresponding partition graphs.
+
+    """
+
     def __init__(self, subgraph, batch_size, n_id, offset, count):
         self.subgraph = subgraph
         self.batch_size = batch_size
@@ -36,8 +68,12 @@ class SubgraphData(object):
 
 
 class PartitionDataset(Dataset):
-    """PartitionDataset helps build train dataset, which can be used to
-       build eval and test dataset too.
+    """PartitionDataset helps build train dataset.
+
+    Args:
+
+       part (1D numpy array): Help distinguish different parts of partition graphs.
+
     """
 
     def __init__(self, part):
@@ -51,8 +87,19 @@ class PartitionDataset(Dataset):
 
 
 class EvalPartitionDataset(Dataset):
-    """EvalPartitionDataset helps build eval and test dataset, which will be generated
+    """EvalPartitionDataset helps build eval and test dataset, which can be generated
        in advance for better validation/test speed.
+
+    Args:
+
+       graph (pgl.Graph): Evaluation subgraph.
+  
+       part (1D numpy array): Help distinguish different parts of partition graphs. 
+
+       batch_size (int): Eval batch size, usually the same with train batch size.
+
+       flag_buffer: An intermediate buffer mainly used for finding out-of-batch neighbors of batch graphs.
+
     """
 
     def __init__(self, graph, part, batch_size, flag_buffer):

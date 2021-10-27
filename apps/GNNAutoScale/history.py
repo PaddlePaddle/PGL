@@ -23,6 +23,16 @@ from pgl.utils.logger import log
 
 
 class History(paddle.nn.Layer):
+    """History storage module of GNNAutoScale.
+
+    Args:
+        
+        num_embs (int): Usually the same with number of nodes in a graph.
+
+        emb_dims (int): Should be set as the hidden size of gnn models. 
+
+    """
+
     def __init__(self, num_embs, emb_dim):
         super().__init__()
 

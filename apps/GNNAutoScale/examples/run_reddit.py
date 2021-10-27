@@ -32,8 +32,8 @@ import gnn_models
 from dataloader import PartitionDataset, EvalPartitionDataset
 from dataloader import subdata_batch_fn
 from partition import random_partition
-from utils import check_device, time_wrapper
-from utils import process_batch_data, compute_acc, gen_mask, permute
+from utils import check_device, process_batch_data
+from utils import compute_acc, gen_mask, permute
 
 
 def load():
