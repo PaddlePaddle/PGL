@@ -6,13 +6,49 @@ Following PyGAS, we use history embedding to store the embeddings from prior tra
 
 ## Requirements
 
-- paddlepaddle-gpu==2.2.0
-- pgl==2.2
+- paddlepaddle-gpu==develop
+- pgl
 
 ## Models
 
 - GCN
 - GAT
-- To be continued...
+- APPNP
+- GCNII
 
-## Commands & Results
+## Commands
+
+
+## Results
+
+### Citation Network
+
+
+### Reddit Dataset
+
+<table>
+   <tr>
+      <td>Accuracy</td>
+      <td>GNNAutoScale</td>
+      <td></td>
+      <td>PyGAS</td>
+   </tr>
+   <tr>
+      <td>partition</td>
+      <td>Metis</td>
+      <td>Random </td>
+      <td>Metis</td>
+   </tr>
+   <tr>
+      <td>GCN</td>
+      <td>95.27</td>
+      <td>95.21</td>
+      <td>95.45</td>
+   </tr>
+   <tr>
+      <td>GCNII</td>
+      <td>96.72</td>
+      <td>96.71</td>
+      <td>96.77</td>
+   </tr>
+</table>
