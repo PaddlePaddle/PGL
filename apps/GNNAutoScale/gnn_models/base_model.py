@@ -152,7 +152,6 @@ class ScalableGNN(paddle.nn.Layer):
         # state: {}, used to store additional state, such as residual connections.
         loader = [(sub_data, {}) for sub_data in loader]
 
-        # TODO(daisiming): Handle one-layer models which have no history embedding.
         if len(self.histories) == 0:
             for sub_data, state in loader:
                 g, batch_size, n_id, offset, count, feat, sub_norm = \
