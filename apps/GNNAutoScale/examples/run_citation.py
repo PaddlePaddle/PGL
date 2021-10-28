@@ -16,13 +16,13 @@
 """
 
 import sys
-import yaml
 import argparse
-import numpy as np
-from tqdm import tqdm
 from functools import partial
-from easydict import EasyDict as edict
 
+import yaml
+from tqdm import tqdm
+from easydict import EasyDict as edict
+import numpy as np
 import paddle
 import pgl
 from pgl.utils.logger import log

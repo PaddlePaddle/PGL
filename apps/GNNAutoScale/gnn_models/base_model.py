@@ -16,8 +16,8 @@
 """
 
 import sys
-import numpy as np
 
+import numpy as np
 import paddle
 from paddle.fluid import core
 from pgl.utils.logger import log

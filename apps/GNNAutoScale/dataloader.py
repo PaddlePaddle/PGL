@@ -16,9 +16,9 @@
 """
 
 import os
-import numpy as np
 from functools import partial
 
+import numpy as np
 import paddle
 from pgl.utils.logger import log
 from pgl.utils.data import Dataset

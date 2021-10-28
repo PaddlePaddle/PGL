@@ -17,7 +17,6 @@
 """
 
 import numpy as np
-
 import paddle
 from pgl.utils.logger import log
 

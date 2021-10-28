@@ -16,12 +16,12 @@
 """
 
 import sys
-import yaml
 import argparse
-import numpy as np
 from functools import partial
-from easydict import EasyDict as edict
 
+import yaml
+import numpy as np
+from easydict import EasyDict as edict
 import paddle
 import pgl
 from pgl.utils.logger import log

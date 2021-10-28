@@ -2,11 +2,11 @@
 
 Refer to [PyGAS](https://github.com/rusty1s/pyg_autoscale), we re-implement a similar GNNAutoScale framework using PGL, which can scale arbitrary message-passing GNNs to large graphs.
 
-We use history embedding placed on CPU to store updated node embeddings from prior training iterations, which can lead to smaller GPU memory consumption during training.
+We use history embedding on CPU to store updated node embeddings from prior training iterations, which can lead to smaller GPU memory consumption during training.
 
 ## Requirements
 
-- paddlepaddle-gpu==develop
+- paddlepaddle-gpu>=2.2.0rc0
 - pgl
 
 ## Models
@@ -20,33 +20,34 @@ We use history embedding placed on CPU to store updated node embeddings from pri
 ## Commands
 
 ```shell
+cd examples/
+
 # GCN
-python run_citation.py --conf config/citation/cora/gcn.yaml
-python run_citation.py --conf config/citation/pubmed/gcn.yaml
-python run_citation.py --conf config/citation/citeseer/gcn.yaml
+python run_citation.py --conf config/citation_cora/gcn.yaml
+python run_citation.py --conf config/citation_pubmed/gcn.yaml
+python run_citation.py --conf config/citation_citeseer/gcn.yaml
 python run_reddit.py --conf config/reddit/gcn.yaml
 
 # GAT
-python run_citation.py --conf config/citation/cora/gat.yaml
-python run_citation.py --conf config/citation/pubmed/gat.yaml
-python run_citation.py --conf config/citation/citeseer/gat.yaml
+python run_citation.py --conf config/citation_cora/gat.yaml
+python run_citation.py --conf config/citation_pubmed/gat.yaml
+python run_citation.py --conf config/citation_citeseer/gat.yaml
 
 # APPNP
-python run_citation.py --conf config/citation/cora/appnp.yaml
-python run_citation.py --conf config/citation/pubmed/appnp.yaml
-python run_citation.py --conf config/citation/citeseer/appnp.yaml
+python run_citation.py --conf config/citation_cora/appnp.yaml
+python run_citation.py --conf config/citation_pubmed/appnp.yaml
+python run_citation.py --conf config/citation_citeseer/appnp.yaml
 
 # GCNII
-python run_citation.py --conf config/citation/cora/gcnii.yaml
-python run_citation.py --conf config/citation/pubmed/gcnii.yaml
-python run_citation.py --conf config/citation/citeseer/gcnii.yaml
+python run_citation.py --conf config/citation_cora/gcnii.yaml
+python run_citation.py --conf config/citation_pubmed/gcnii.yaml
+python run_citation.py --conf config/citation_citeseer/gcnii.yaml
 python run_reddit.py --conf config/reddit/gcnii.yaml
-
 ```
 
 ## Results
 
-For the metis partition implementation, we can refer to this PGL pull request(...).
+**Notes**: The support for metis graph partition is not yet completed, and we will supplement it in the near future. Therefore, we only support random graph partition currently.
 
 ### Citation Network
 <table>
@@ -223,8 +224,8 @@ For the metis partition implementation, we can refer to this PGL pull request(..
 
 ## Coming new features
 
-- Multi-process and Multi-GPU support.
-- Large Dataset ogbn-papers100m support.
+- Multi-GPUs support.
+- Large dataset ogbn-papers100m support.
 
 ## Reference
 

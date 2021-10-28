@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import numpy as np
-
 import paddle
 import pgl
 import paddle.nn as nn

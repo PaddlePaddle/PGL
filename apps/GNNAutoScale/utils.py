@@ -17,8 +17,8 @@
 
 import time
 import functools
-import numpy as np
 
+import numpy as np
 import paddle
 import pgl
 from pgl.utils.logger import log
