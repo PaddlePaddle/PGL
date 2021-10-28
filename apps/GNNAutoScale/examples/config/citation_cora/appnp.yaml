@@ -10,5 +10,5 @@ dropout: 0.0
 gcn_norm: True
 grad_norm: False
 gen_train_data_in_advance: True
-load_feat_to_gpu: True
+feat_gpu: True
 epochs: 400

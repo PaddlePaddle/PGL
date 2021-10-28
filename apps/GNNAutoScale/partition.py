@@ -34,9 +34,11 @@ def random_partition(graph, npart, shuffle=True):
 
     Returns:
 
-        permutation (1D numpy array): New permutation of nodes in partition graph, and the shape is [num_nodes].
+        permutation (numpy.ndarray): An 1-D numpy array, which is the new  permutation of nodes in partition graph, 
+                                     and the shape is [num_nodes].
 
-        part (1D numpy array): Help distinguish different parts of partition graphs, and the shape is [npart + 1].
+        part (numpy.ndarray): An 1-D numpy array, which helps distinguish different parts of partition graphs, 
+                              and the shape is [npart + 1].
 
     Example:
         - Suppose we have a graph, and its nodes are [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].

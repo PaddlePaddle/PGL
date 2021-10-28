@@ -119,8 +119,7 @@ def main(args, config):
     permutation, part = random_partition(data.graph, npart=config.num_parts)
 
     log.info("Permuting data...")
-    data, feature = permute(data, data.feature, permutation,
-                            config.load_feat_to_gpu)
+    data, feature = permute(data, data.feature, permutation, config.feat_gpu)
     graph = data.graph
 
     log.info("Building data loader for training and validation...")

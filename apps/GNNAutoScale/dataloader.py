@@ -35,15 +35,14 @@ class SubgraphData(object):
 
         batch_size (int): Original number of nodes of batch partition graphs.
 
-        n_id (1D numpy array): Contains original node ids of batch partition graphs, and 
-                            the corresponding one-hop neighbor node ids of original nodes.
+        n_id (numpy.ndarray): An 1-D numpy array, contains original node ids of batch partition graphs, and 
+                            the corresponding one-hop neighbor node ids of the original nodes.
 
-        offset (1D numpy array): The begin points of parition graphs' nodes in history embeddings.
+        offset (numpy.ndarray): An 1-D numpy array, means the begin points of parition graphs' nodes in history embeddings.
 
-        count (1D numpy array): The number of nodes of parition graphs(also means length of partition graph) 
-                             in history embeddings.
+        count (numpy.ndarray): An 1-D numpy array, contains the number of nodes of parition graphs in history embeddings.
 
-    Example:
+    Examples:
 
         - Suppose after graph partition and permutation, new node order is [4, 6, 1, 5, 7, 0, 3, 2, 8, 9].
           And the partition graphs are [4, 6], [1, 5, 7], [0, 3], [2, 8, 9].
@@ -55,7 +54,7 @@ class SubgraphData(object):
 
         - The offset of the batch subgraph is [5, 1], we can see they are position indexes of 0 and 4 in node order.
 
-        - The count of the batch subgraph is [2, 2], the length of corresponding partition graphs.
+        - The count of the batch subgraph is [2, 2], which is the length of corresponding partition graphs.
 
     """
 
@@ -72,8 +71,8 @@ class PartitionDataset(Dataset):
 
     Args:
 
-       part (1D numpy array): Help distinguish different parts of partition graphs.
-
+       part (numpy.ndarray): An 1-D numpy array, which helps distinguish different parts of partition graphs.
+    
     """
 
     def __init__(self, part):
@@ -87,14 +86,14 @@ class PartitionDataset(Dataset):
 
 
 class EvalPartitionDataset(Dataset):
-    """EvalPartitionDataset helps build eval and test dataset, which can be generated
-       in advance for better validation/test speed.
+    """EvalPartitionDataset helps build eval and test dataset, 
+       which can be generated in advance for better validation/test speed.
 
     Args:
 
        graph (pgl.Graph): Evaluation subgraph.
   
-       part (1D numpy array): Help distinguish different parts of partition graphs. 
+       part (numpy.ndarray): An 1-D numpy array, which helps distinguish different parts of partition graphs. 
 
        batch_size (int): Eval batch size, usually the same with train batch size.
 

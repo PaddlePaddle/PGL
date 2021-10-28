@@ -47,11 +47,11 @@ def gen_mask(num_nodes, index):
 
         num_nodes(int): Number of nodes in graph.
 
-        index(numpy.array): The index for train, validation or test dataset.
+        index(numpy.ndarray): The index for train, validation or test dataset.
 
     Returns:
 
-        mask(numpy.array): Return masks for train/validation/test dataset.
+        mask(numpy.ndarray): Return masks for train/validation/test dataset.
 
     """
     mask = np.zeros(num_nodes, dtype=np.int32)
@@ -59,18 +59,18 @@ def gen_mask(num_nodes, index):
     return mask
 
 
-def permute(data, feature, permutation, load_feat_to_gpu):
+def permute(data, feature, permutation, feat_gpu):
     """Permute data and feature according to the input `permutation`.
 
     Args:
 
         data(pgl.dataset): The input PGL dataset, for example: pgl.dataset.RedditDataset.
         
-        feature(numpy.array): Node feature of PGL graph.
+        feature(numpy.ndarray): Node feature of PGL graph.
         
-        permutation(numpy.array): New node permutation after graph partition.
+        permutation(numpy.ndarray): New node permutation after graph partition.
 
-        load_feat_to_gpu(bool): Whether to move node feature to GPU here.
+        feat_gpu(bool): Whether to move node feature to GPU here.
 
     Returns:
 
@@ -99,7 +99,7 @@ def permute(data, feature, permutation, load_feat_to_gpu):
         data.label = data.y[permutation]
 
     feature = feature[permutation]
-    if load_feat_to_gpu:
+    if feat_gpu:
         feature = paddle.to_tensor(feature)
     return data, feature
 
@@ -111,9 +111,9 @@ def process_batch_data(batch_data, feature=None, norm=None, only_nid=False):
 
         batch_data(SubgraphData): Batch data returned from dataloader.
 
-        feature(numpy.array|paddle.Tensor): The permuted node feature. 
+        feature(numpy.ndarray|paddle.Tensor): The permuted node feature. 
 
-        norm(numpy.array): Mainly used for GCN norm.
+        norm(numpy.ndarray): Mainly used for GCN norm.
 
         only_nid(bool): If only_nid is True, just return batch_data.n_id.
 
@@ -167,9 +167,9 @@ def compute_acc(logits, y, mask):
     
         logits (paddle.Tensor): logits returned from gnn models.
 
-        y (numpy.array): Labels of data samples.
+        y (numpy.ndarray): Labels of data samples.
 
-        mask (numpy.array): Mask of data samples for different datasets.
+        mask (numpy.ndarray): Mask of data samples for different datasets.
 
     """
     logits = logits.numpy()
