@@ -1,5 +1,5 @@
 model_name: APPNP
-dataset: citeseer
+data_name: citeseer
 num_layers: 10
 num_parts: 24
 batch_size: 6

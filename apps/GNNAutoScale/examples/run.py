@@ -11,56 +11,39 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-    Run GNNAutoScale on Reddit dataset.
-"""
 
+import os
 import sys
 import argparse
 from functools import partial
 
 import yaml
-import numpy as np
+from tqdm import tqdm
 from easydict import EasyDict as edict
+import numpy as np
 import paddle
 import pgl
 from pgl.utils.logger import log
-from pgl.utils.data.dataloader import Dataloader
 
-sys.path.append("..")
+sys.path.insert(0, os.path.abspath(".."))
 import gnn_models
-from dataset import PartitionDataset, EvalPartitionDataset
-from dataset import subdata_batch_fn
+from dataset import load_dataset, create_dataloaders
 from partition import random_partition
-from utils import check_device, process_batch_data
-from utils import generate_mask, permute, compute_acc, compute_gcn_norm
+from utils import check_device, process_batch_data, compute_buffer_size
+from utils import generate_mask, permute, compute_gcn_norm, compute_acc
 
 
-def load():
-    data = pgl.dataset.RedditDataset()
-    y = np.zeros(data.graph.num_nodes, dtype="int64")
-    y[data.train_index] = data.train_label
-    y[data.val_index] = data.val_label
-    y[data.test_index] = data.test_label
-    data.y = y
-    data.train_mask = generate_mask(data.graph.num_nodes, data.train_index)
-    data.val_mask = generate_mask(data.graph.num_nodes, data.val_index)
-    data.test_mask = generate_mask(data.graph.num_nodes, data.test_index)
-
-    return data
-
-
-def train(dataloader, model, feature, gcn_norm, label, train_mask, criterion,
-          optim, epoch, gen_train_data_in_advance):
+def train(train_loader, model, feature, gcn_norm, label, train_mask, criterion,
+          optim):
     model.train()
 
     batch_id = 0
     total_loss = total_examples = 0
 
-    if gen_train_data_in_advance:
-        np.random.shuffle(dataloader)
+    if isinstance(train_loader, list):
+        np.random.shuffle(train_loader)
 
-    for batch_data in dataloader:
+    for batch_data in train_loader:
         batch_id += 1
         g, batch_size, n_id, offset, count, feat, sub_norm = \
             process_batch_data(batch_data, feature, gcn_norm)
@@ -88,61 +71,49 @@ def train(dataloader, model, feature, gcn_norm, label, train_mask, criterion,
 
 
 @paddle.no_grad()
-def eval(graph, loader, model, feature, norm):
+def full_eval(graph, model, feature, norm):
+    # For small graph, we can get full-batch inference result.
     model.eval()
-    return model(subgraph=graph, x=feature, norm=norm, loader=loader)
+    feature = paddle.to_tensor(feature)
+    if norm is not None:
+        norm = paddle.to_tensor(norm)
+    out = model(graph, feature, norm)
+    return out
+
+
+@paddle.no_grad()
+def mini_eval(graph, model, feature, norm, eval_loader):
+    model.eval()
+    out = model(graph, feature, norm, loader=eval_loader)
+    return out
 
 
 def main(args, config):
-    log.info("Loading data...")
-    data = load()
+    log.info("Loading %s dataset." % config.data_name)
+    dataset, mode = load_dataset(config.data_name)
 
-    log.info("Running into %d random partitions..." % config.num_parts)
-    permutation, part = random_partition(data.graph, npart=config.num_parts)
+    log.info("Running into %d random graph partitions." % config.num_parts)
+    permutation, part = random_partition(dataset.graph, npart=config.num_parts)
 
-    log.info("Permuting data...")
-    data, feature = permute(data, data.feature, permutation, config.feat_gpu)
-    graph = data.graph
+    log.info("Permuting dataset and feature.")
+    dataset, feature = permute(dataset, dataset.feature, permutation,
+                               config.feat_gpu)
+    graph = dataset.graph
 
-    log.info("Building data loader for training and validation...")
-    dataset = PartitionDataset(part)
-    collate_fn = partial(
-        subdata_batch_fn,
-        graph=graph,
-        part=part,
-        node_buffer=np.zeros(
-            graph.num_nodes, dtype="int32"))
-    train_loader = Dataloader(
-        dataset,
-        batch_size=config.batch_size,
-        drop_last=False,
-        shuffle=True,
-        num_workers=5,
-        collate_fn=collate_fn)
-    if config.gen_train_data_in_advance:
-        train_loader = list(train_loader)
-    eval_dataset = EvalPartitionDataset(
-        graph,
-        part,
-        config.batch_size,
-        node_buffer=np.zeros(
-            graph.num_nodes, dtype="int32"))
-    eval_loader = eval_dataset.data_list
-
+    log.info("Building data loader for training and inference.")
+    train_loader, eval_loader = create_dataloaders(graph, mode, part,
+                                                   args.num_workers, config)
     gcn_norm = compute_gcn_norm(graph, config.gcn_norm)
 
-    log.info("Calculating buffer size...")
-    buffer_size = -1
-    for subdata in eval_loader:
-        n_id = process_batch_data(subdata, only_nid=True)
-        buffer_size = max(len(n_id), buffer_size)
+    log.info("Calculating buffer size for GNNAutoScale.")
+    buffer_size = compute_buffer_size(config.data_name, eval_loader)
     log.info("Buffer size: %d" % buffer_size)
 
     GNNModel = getattr(gnn_models, config.model_name)
     model = GNNModel(
         num_nodes=graph.num_nodes,
         input_size=feature.shape[1],
-        output_size=data.num_classes,
+        output_size=dataset.num_classes,
         buffer_size=buffer_size,
         **config)
 
@@ -158,14 +129,19 @@ def main(args, config):
 
     criterion = paddle.nn.loss.CrossEntropyLoss()
 
+    if mode == 'citation':
+        eval_graph = pgl.Graph(edges=graph.edges, num_nodes=graph.num_nodes)
+        eval_graph.tensor()
     best_val_acc = final_test_acc = 0
     for epoch in range(config.epochs):
-        loss = train(train_loader, model, feature, gcn_norm, data.label,
-                     data.train_mask, criterion, optim, epoch,
-                     config.gen_train_data_in_advance)
-        out = eval(graph, eval_loader, model, feature, gcn_norm)
-        val_acc = compute_acc(out, data.label, data.val_mask)
-        test_acc = compute_acc(out, data.label, data.test_mask)
+        loss = train(train_loader, model, feature, gcn_norm, dataset.label,
+                     dataset.train_mask, criterion, optim)
+        if mode == 'citation':
+            out = full_eval(eval_graph, model, feature, gcn_norm)
+        else:
+            out = mini_eval(graph, model, feature, gcn_norm, eval_loader)
+        val_acc = compute_acc(out, dataset.label, dataset.val_mask)
+        test_acc = compute_acc(out, dataset.label, dataset.test_mask)
         if val_acc > best_val_acc:
             best_val_acc = val_acc
             final_test_acc = test_acc
@@ -176,8 +152,14 @@ def main(args, config):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Run GNNAutoScale on Reddit Dataset')
-    parser.add_argument("--conf", type=str, help="Config file for gnn models")
+        description='Main program for running GNNAutoScale.')
+    parser.add_argument(
+        "--conf", type=str, help="Config file for running gnn models.")
+    parser.add_argument(
+        "--num_workers",
+        type=int,
+        default=5,
+        help="Number of workers for Dataloader.")
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
 

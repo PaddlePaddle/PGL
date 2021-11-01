@@ -1,5 +1,5 @@
 model_name: APPNP
-dataset: cora
+data_name: cora
 num_layers: 10
 num_parts: 4
 batch_size: 2

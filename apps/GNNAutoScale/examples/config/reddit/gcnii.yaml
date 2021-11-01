@@ -1,4 +1,5 @@
 model_name: GCNII
+data_name: reddit
 num_layers: 4
 num_parts: 200
 batch_size: 100

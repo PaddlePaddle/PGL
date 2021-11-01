@@ -1,5 +1,5 @@
 model_name: GAT
-dataset: pubmed
+data_name: pubmed
 num_layers: 2
 num_parts: 4
 batch_size: 1

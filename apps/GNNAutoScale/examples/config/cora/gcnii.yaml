@@ -1,5 +1,5 @@
 model_name: GCNII
-dataset: cora
+data_name: cora
 num_layers: 64
 num_parts: 2
 batch_size: 1

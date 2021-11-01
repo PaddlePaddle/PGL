@@ -1,5 +1,5 @@
 model_name: GCNII
-dataset: citeseer 
+data_name: citeseer 
 num_layers: 32
 num_parts: 40
 batch_size: 20

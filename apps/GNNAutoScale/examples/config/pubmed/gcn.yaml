@@ -1,5 +1,5 @@
 model_name: GCN
-dataset: pubmed
+data_name: pubmed
 num_layers: 2
 num_parts: 8
 batch_size: 4

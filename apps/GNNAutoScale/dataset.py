@@ -20,10 +20,13 @@ from functools import partial
 
 import numpy as np
 import paddle
+import pgl
 from pgl.utils.logger import log
 from pgl.utils.data import Dataset
 from pgl.sampling.custom import subgraph
 from pgl.utils.data.dataloader import Dataloader
+
+from utils import generate_mask
 
 
 class SubgraphData(object):
@@ -118,7 +121,7 @@ class EvalPartitionDataset(Dataset):
             graph=graph,
             part=self.part,
             node_buffer=node_buffer)
-        self.data_list = list(
+        self.dataloader_list = list(
             Dataloader(
                 dataset=batches_nid,
                 batch_size=1,
@@ -160,3 +163,84 @@ def subdata_batch_fn(batches_nid, graph, part, node_buffer):
     offset = part[batch_ids]
     count = part[batch_ids + 1] - part[batch_ids]
     return SubgraphData(sub_graph, batch_size, new_nid, offset, count)
+
+
+def load_dataset(data_name):
+    data_name = data_name.lower()
+    mode = None
+    if data_name == 'reddit':
+        mode = 'reddit'
+        dataset = pgl.dataset.RedditDataset()
+        y = np.zeros(dataset.graph.num_nodes, dtype="int64")
+        y[dataset.train_index] = dataset.train_label
+        y[dataset.val_index] = dataset.val_label
+        y[dataset.test_index] = dataset.test_label
+        dataset.y = y
+    elif data_name == 'cora':
+        mode = 'citation'
+        dataset = pgl.dataset.CoraDataset()
+    elif data_name == 'pubmed':
+        mode = 'citation'
+        dataset = pgl.dataset.CitationDataset("pubmed", symmetry_edges=True)
+    elif data_name == 'citeseer':
+        mode = 'citation'
+        dataset = pgl.dataset.CitationDataset("citeseer", symmetry_edges=True)
+    else:
+        raise ValueError(data_name + " dataset doesn't exist currently.")
+
+    if mode == 'citation':
+
+        def normalize(feat):
+            return feat / np.maximum(np.sum(feat, -1, keepdims=True), 1)
+
+        indegree = dataset.graph.indegree()
+        dataset.graph.node_feat["words"] = normalize(dataset.graph.node_feat[
+            "words"])
+        dataset.feature = dataset.graph.node_feat["words"]
+
+    dataset.train_mask = generate_mask(dataset.graph.num_nodes,
+                                       dataset.train_index)
+    dataset.val_mask = generate_mask(dataset.graph.num_nodes,
+                                     dataset.val_index)
+    dataset.test_mask = generate_mask(dataset.graph.num_nodes,
+                                      dataset.test_index)
+
+    return dataset, mode
+
+
+def create_dataloaders(graph, mode, part, num_workers, config):
+
+    train_dataset = PartitionDataset(part)
+    collate_fn = partial(
+        subdata_batch_fn,
+        graph=graph,
+        part=part,
+        node_buffer=np.zeros(
+            graph.num_nodes, dtype="int64"))
+    train_loader = Dataloader(
+        train_dataset,
+        batch_size=config.batch_size,
+        drop_last=False,
+        shuffle=True,
+        num_workers=num_workers,
+        collate_fn=collate_fn)
+    if config.gen_train_data_in_advance:
+        # For relatively small dataset, we can generate train data in advance.
+        train_loader = list(train_loader)
+
+    if mode == 'citation':
+        # Maily for small size dataset.
+        eval_loader = None
+    elif mode == 'reddit':
+        # Maily for medium size dataset.
+        eval_dataset = EvalPartitionDataset(
+            graph,
+            part,
+            config.batch_size,
+            node_buffer=np.zeros(
+                graph.num_nodes, dtype="int64"))
+        eval_loader = eval_dataset.dataloader_list
+    else:
+        raise ValueError(mode + " mode is not supported yet.")
+
+    return train_loader, eval_loader
