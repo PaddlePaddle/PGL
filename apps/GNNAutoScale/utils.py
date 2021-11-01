@@ -28,15 +28,29 @@ from paddle.fluid import core
 def check_device():
     """Check whether the current device meets the GNNAutoScale conditions.
        This function must be called before the main program runs.
+
+    Returns:
+   
+       flag (bool): Returns whether current device meets the GNNAutoScale conditions.
+                    If True, the program will run; else, the program will exit.
+
     """
+
+    log.info("Checking current device for running GNNAutoScale.")
+    flag = True
     if not core.is_compiled_with_cuda():
-        return False
+        flag = False
 
     current_device = paddle.device.get_device()
     if current_device.startswith("cpu"):
-        return False
+        flag = False
 
-    return True
+    if flag == False:
+        log.info(
+            f"Current device does not meet GNNAutoScale running conditions. "
+            f"We should run GNNAutoScale under GPU and CPU environment simultaneously."
+            f"This program will exit.")
+    return flag
 
 
 def generate_mask(num_nodes, index):
@@ -54,7 +68,7 @@ def generate_mask(num_nodes, index):
         mask(numpy.ndarray): Return masks for train/validation/test dataset.
 
     """
-    mask = np.zeros(num_nodes, dtype=np.int32)
+    mask = np.zeros(num_nodes, dtype=np.int64)
     mask[index] = 1
     return mask
 

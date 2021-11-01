@@ -149,7 +149,8 @@ class ScalableGNN(paddle.nn.Layer):
 
     @paddle.no_grad()
     def inference(self, loader, feature, norm):
-        # state: {}, used to store additional state, such as residual connections.
+        # We add state: {} here, which is used to store additional state, 
+        # such as residual connections.
         loader = [(sub_data, {}) for sub_data in loader]
 
         if len(self.histories) == 0:
@@ -158,7 +159,7 @@ class ScalableGNN(paddle.nn.Layer):
                     process_batch_data(sub_data, feature, norm)
                 out = self.forward_layer(0, g, feat, sub_norm,
                                          state)[:batch_size]
-                # push out to self._final_out()
+                # Push out to self._final_out()
                 core.async_write(out, self._final_out(), offset, count)
             return self._final_out()
 
