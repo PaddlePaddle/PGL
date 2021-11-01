@@ -106,7 +106,7 @@ def main(args, config):
     gcn_norm = compute_gcn_norm(graph, config.gcn_norm)
 
     log.info("Calculating buffer size for GNNAutoScale.")
-    buffer_size = compute_buffer_size(config.data_name, eval_loader)
+    buffer_size = compute_buffer_size(mode, eval_loader)
     log.info("Buffer size: %d" % buffer_size)
 
     GNNModel = getattr(gnn_models, config.model_name)

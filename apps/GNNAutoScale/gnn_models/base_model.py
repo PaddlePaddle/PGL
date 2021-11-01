@@ -21,10 +21,10 @@ import numpy as np
 import paddle
 from paddle.fluid import core
 from pgl.utils.logger import log
+from pgl.pool import StreamPool
 
 sys.path.append("..")
 from history import History
-from pool import StreamPool
 from utils import process_batch_data, check_device
 
 

@@ -227,19 +227,23 @@ def compute_acc(logits, y, mask):
     return acc
 
 
-def compute_buffer_size(data_name, eval_loader):
+def compute_buffer_size(mode, eval_loader):
+    """Calculate buffer size for different dataset.
 
-    # For small dataset like cora, pubmed, citeseer, we directly set buffer size.
-    # The buffer_size number is suitable for random graph partition.
-    if data_name == 'cora':
-        buffer_size = 2000
-    elif data_name == 'pubmed':
-        buffer_size = 8000
-    elif data_name == 'citeseer':
-        buffer_size = 2000
-    else:
-        buffer_size = -1
-        for subdata in eval_loader:
-            n_id = process_batch_data(subdata, only_nid=True)
-            buffer_size = max(len(n_id), buffer_size)
+    Args:
+
+        mode (str): Different mode for datasets, we have (citation, reddit) now.
+
+        eval_loader (Dataloader|None): The eval loader of corresponding dataset.
+
+    Returns:
+
+        buffer_size (int): Return suitable buffer size for different dataset.
+
+    """
+
+    buffer_size = -1
+    for subdata in eval_loader:
+        n_id = process_batch_data(subdata, only_nid=True)
+        buffer_size = max(len(n_id), buffer_size)
     return buffer_size

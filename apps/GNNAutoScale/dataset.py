@@ -139,6 +139,7 @@ class EvalPartitionDataset(Dataset):
 def one_hop_neighbor(graph, nodes, node_buffer):
     """Find one hop neighbors.
     """
+
     pred_nodes, pred_eids = graph.predecessor(nodes, return_eids=True)
     pred_nodes = np.concatenate(pred_nodes, -1)
     pred_eids = np.concatenate(pred_eids, -1)
@@ -154,6 +155,7 @@ def one_hop_neighbor(graph, nodes, node_buffer):
 def subdata_batch_fn(batches_nid, graph, part, node_buffer):
     """Basic function for creating batch subgraph data.
     """
+
     batch_ids, n_ids = zip(*batches_nid)
     batch_ids = np.array(batch_ids)
     n_id = np.concatenate(n_ids, axis=0)
@@ -166,6 +168,9 @@ def subdata_batch_fn(batches_nid, graph, part, node_buffer):
 
 
 def load_dataset(data_name):
+    """Load dataset.
+    """
+
     data_name = data_name.lower()
     mode = None
     if data_name == 'reddit':
@@ -209,6 +214,12 @@ def load_dataset(data_name):
 
 
 def create_dataloaders(graph, mode, part, num_workers, config):
+    """Create train loader and eval loader for different datasets.
+ 
+    **Notes**:
+        For extremely large dataset, like ogbn-papers100m, we will add a new example in near future.
+
+    """
 
     train_dataset = PartitionDataset(part)
     collate_fn = partial(
@@ -228,19 +239,12 @@ def create_dataloaders(graph, mode, part, num_workers, config):
         # For relatively small dataset, we can generate train data in advance.
         train_loader = list(train_loader)
 
-    if mode == 'citation':
-        # Maily for small size dataset.
-        eval_loader = None
-    elif mode == 'reddit':
-        # Maily for medium size dataset.
-        eval_dataset = EvalPartitionDataset(
-            graph,
-            part,
-            config.batch_size,
-            node_buffer=np.zeros(
-                graph.num_nodes, dtype="int64"))
-        eval_loader = eval_dataset.dataloader_list
-    else:
-        raise ValueError(mode + " mode is not supported yet.")
+    eval_dataset = EvalPartitionDataset(
+        graph,
+        part,
+        config.batch_size,
+        node_buffer=np.zeros(
+            graph.num_nodes, dtype="int64"))
+    eval_loader = eval_dataset.dataloader_list
 
     return train_loader, eval_loader
