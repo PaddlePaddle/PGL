@@ -22,25 +22,25 @@ We use history embeddings on CPU to store updated node-embeddings from prior tra
 cd examples/
 
 # GCN
-python run_citation.py --conf config/citation_cora/gcn.yaml
-python run_citation.py --conf config/citation_pubmed/gcn.yaml
-python run_citation.py --conf config/citation_citeseer/gcn.yaml
+python run_citation.py --conf config/cora/gcn.yaml
+python run_citation.py --conf config/pubmed/gcn.yaml
+python run_citation.py --conf config/citeseer/gcn.yaml
 python run_reddit.py --conf config/reddit/gcn.yaml
 
 # GAT
-python run_citation.py --conf config/citation_cora/gat.yaml
-python run_citation.py --conf config/citation_pubmed/gat.yaml
-python run_citation.py --conf config/citation_citeseer/gat.yaml
+python run_citation.py --conf config/cora/gat.yaml
+python run_citation.py --conf config/pubmed/gat.yaml
+python run_citation.py --conf config/citeseer/gat.yaml
 
 # APPNP
-python run_citation.py --conf config/citation_cora/appnp.yaml
-python run_citation.py --conf config/citation_pubmed/appnp.yaml
-python run_citation.py --conf config/citation_citeseer/appnp.yaml
+python run_citation.py --conf config/cora/appnp.yaml
+python run_citation.py --conf config/pubmed/appnp.yaml
+python run_citation.py --conf config/citeseer/appnp.yaml
 
 # GCNII
-python run_citation.py --conf config/citation_cora/gcnii.yaml
-python run_citation.py --conf config/citation_pubmed/gcnii.yaml
-python run_citation.py --conf config/citation_citeseer/gcnii.yaml
+python run_citation.py --conf config/cora/gcnii.yaml
+python run_citation.py --conf config/pubmed/gcnii.yaml
+python run_citation.py --conf config/citeseer/gcnii.yaml
 python run_reddit.py --conf config/reddit/gcnii.yaml
 ```
 
