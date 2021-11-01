@@ -164,4 +164,5 @@ def unique_segment(data, dtype="int64"):
                                                        attr_dtype)
         return unique, index
     else:
-        unqiue, index, _ = L.unique_with_counts(data)
+        unique, index, _ = L.unique_with_counts(data)
+        return unique, index
