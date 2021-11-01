@@ -42,11 +42,12 @@ def random_partition(graph, npart, shuffle=True):
 
     Example:
         - Suppose we have a graph, and its nodes are [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].
-        - After random partition, we partition the graph into 4 parts, and the new permutation
-          is [4, 6, 1, 5, 7, 0, 3, 2, 8, 9].
-        - The part is [2, 3, 2, 3], which can distinguish different parts of partition graphs. 
-          For example, part[0] is 2, which means nodes `4,6` construct a partition graph; part[1] is 3,
-          which means nodes `1,5,7` construct a partition graph.
+        - After random partition, we partition the graph into 4 parts. Then we have new node `permutation`
+          as [4, 6, 1, 5, 7, 0, 3, 2, 8, 9].
+        - And we have `part` as [0, 3, 6, 9, 10], which can help distinguish different parts of partition graphs.
+          For example, with (part[1]-part[0]) = 3, that means the number of nodes of the first partition graph is 3,
+          and the corresponding nodes are [4, 6, 1]; with (part[4]-part[3]) = 1, that means the number of nodes of the 
+          last partition graph is 1, and the corresponding node is [9].
 
     """
 
@@ -58,7 +59,7 @@ def random_partition(graph, npart, shuffle=True):
         permutation = np.arange(0, num_nodes)
         if shuffle:
             np.random.shuffle(permutation)
-        cs = int(math.ceil(num_nodes / npart))
+        cs = int(math.ceil(num_nodes * 1.0 / npart))
         part = [
             cs * i if cs * i <= num_nodes else num_nodes
             for i in range(npart + 1)
