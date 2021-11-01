@@ -181,13 +181,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
 
-    log.info("Checking device...")
     if not check_device():
-        log.info(
-            f"Current device does not meet GNNAutoScale running conditions. "
-            f"We should run GNNAutoScale under GPU and CPU environment simultaneously."
-            f"This program will exit.")
-    else:
-        log.info(args)
-        log.info(config)
-        main(args, config)
+        exit()
+
+    log.info(args)
+    log.info(config)
+    main(args, config)

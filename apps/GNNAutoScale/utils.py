@@ -48,7 +48,7 @@ def check_device():
     if flag == False:
         log.info(
             f"Current device does not meet GNNAutoScale running conditions. "
-            f"We should run GNNAutoScale under GPU and CPU environment simultaneously."
+            f"We should run GNNAutoScale under GPU and CPU environment simultaneously. "
             f"This program will exit.")
     return flag
 
