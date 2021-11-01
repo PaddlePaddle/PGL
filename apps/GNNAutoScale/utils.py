@@ -39,7 +39,7 @@ def check_device():
     return True
 
 
-def gen_mask(num_nodes, index):
+def generate_mask(num_nodes, index):
     """Generate different masks for train/validation/test dataset. For input `index`, 
        the corresponding mask position will be set 1, otherwise 0.
 
@@ -125,11 +125,11 @@ def process_batch_data(batch_data, feature=None, norm=None, only_nid=False):
 
         n_id(paddle.Tensor): Return node ids of the input batch_data.
 
-        offset(paddle.Tensor): The begin indexes of graph partition parts in batch_data, should be placed on CPU.
+        offset(paddle.Tensor): The begin indexes of graph partition parts in batch_data, should be on CPUPlace.
 
-        count(paddle.Tensor): The length of graph partition parts in batch_data, should be placed on CPU.
+        count(paddle.Tensor): The length of graph partition parts in batch_data, should be on CPUPlace.
 
-        feat(paddle.Tensor): The new indexed feat according to n_id. 
+        feat(paddle.Tensor): The new indexed feat gathered by n_id. 
 
     """
     if only_nid:
@@ -160,8 +160,34 @@ def process_batch_data(batch_data, feature=None, norm=None, only_nid=False):
     return g, batch_size, n_id, offset, count, feat, norm
 
 
+def compute_gcn_norm(graph, gcn_norm=False):
+    """Compute graph norm using GCN normalization method.
+
+    Args:
+  
+       graph (pgl.Graph): The input graph.
+
+       gcn_norm (bool): If gcn_norm is True, we calculate gcn normalization output; 
+                        If gcn_norm is False, we simply return None.
+
+    Returns:
+
+       norm (np.ndarray): Returns the gcn normalization results of the input graph.
+
+    """
+    if gcn_norm:
+        degree = graph.indegree()
+        norm = degree.astype(np.float32)
+        norm = np.clip(norm, 1.0, np.max(norm))
+        norm = np.power(norm, -0.5)
+        norm = np.reshape(norm, [-1, 1])
+    else:
+        norm = None
+    return norm
+
+
 def compute_acc(logits, y, mask):
-    """Compute accuracy for train/validation/test masks.
+    """Compute accuracy for train/validation/test dataset.
 
     Args:
     
@@ -170,6 +196,10 @@ def compute_acc(logits, y, mask):
         y (numpy.ndarray): Labels of data samples.
 
         mask (numpy.ndarray): Mask of data samples for different datasets.
+
+    Returns:
+
+        acc (float): Return the accuracy of input examples.
 
     """
     logits = logits.numpy()

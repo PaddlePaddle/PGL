@@ -87,7 +87,7 @@ class PartitionDataset(Dataset):
 
 class EvalPartitionDataset(Dataset):
     """EvalPartitionDataset helps build eval and test dataset, 
-       which can be generated in advance for better validation/test speed.
+       which can be generated in advance for better inference speed.
 
     Args:
 
@@ -97,11 +97,11 @@ class EvalPartitionDataset(Dataset):
 
        batch_size (int): Eval batch size, usually the same with train batch size.
 
-       flag_buffer: An intermediate buffer mainly used for finding out-of-batch neighbors of batch graphs.
+       node_buffer (numpy.ndarray): An intermediate node buffer mainly used for finding out-of-batch neighbors of batch graphs.
 
     """
 
-    def __init__(self, graph, part, batch_size, flag_buffer):
+    def __init__(self, graph, part, batch_size, node_buffer):
         self.part = part[::batch_size]
 
         num_nodes = graph.num_nodes
@@ -117,7 +117,7 @@ class EvalPartitionDataset(Dataset):
             subdata_batch_fn,
             graph=graph,
             part=self.part,
-            flag_buffer=flag_buffer)
+            node_buffer=node_buffer)
         self.data_list = list(
             Dataloader(
                 dataset=batches_nid,
@@ -133,29 +133,29 @@ class EvalPartitionDataset(Dataset):
         return len(self.part) - 1
 
 
-def one_hop_neighbor(graph, nodes, flag_buffer):
+def one_hop_neighbor(graph, nodes, node_buffer):
     """Find one hop neighbors.
     """
     pred_nodes, pred_eids = graph.predecessor(nodes, return_eids=True)
     pred_nodes = np.concatenate(pred_nodes, -1)
     pred_eids = np.concatenate(pred_eids, -1)
 
-    flag_buffer[nodes] = 1
-    out_of_batch_neighbors = pred_nodes[flag_buffer[pred_nodes] == 0]
+    node_buffer[nodes] = 1
+    out_of_batch_neighbors = pred_nodes[node_buffer[pred_nodes] == 0]
     out_of_batch_neighbors = np.unique(out_of_batch_neighbors)
     new_nodes = np.concatenate((nodes, out_of_batch_neighbors))
-    flag_buffer[nodes] = 0
+    node_buffer[nodes] = 0
     return new_nodes, pred_eids
 
 
-def subdata_batch_fn(batches_nid, graph, part, flag_buffer):
+def subdata_batch_fn(batches_nid, graph, part, node_buffer):
     """Basic function for creating batch subgraph data.
     """
     batch_ids, n_ids = zip(*batches_nid)
     batch_ids = np.array(batch_ids)
     n_id = np.concatenate(n_ids, axis=0)
     batch_size = np.size(n_id)
-    new_nid, pred_eids = one_hop_neighbor(graph, n_id, flag_buffer)
+    new_nid, pred_eids = one_hop_neighbor(graph, n_id, node_buffer)
     sub_graph = subgraph(graph, nodes=new_nid, eid=pred_eids)
     offset = part[batch_ids]
     count = part[batch_ids + 1] - part[batch_ids]

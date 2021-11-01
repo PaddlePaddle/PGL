@@ -26,11 +26,11 @@ def random_partition(graph, npart, shuffle=True):
 
     Args:
 
-        graph(pgl.Graph): The input graph for partition.
+        graph (pgl.Graph): The input graph for partition.
 
-        npart: The number of parts in the final graph partition.
+        npart (int): The number of parts in the final graph partition.
 
-        shuffle: Whether to shuffle the original node sequence.
+        shuffle (bool): Whether to shuffle the original node sequence.
 
     Returns:
 

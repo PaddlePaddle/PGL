@@ -1,8 +1,8 @@
 # GNNAutoScale: Auto-Scaling GNNs in PaddlePaddle
 
-Refer to [PyGAS](https://github.com/rusty1s/pyg_autoscale), we re-implement a similar GNNAutoScale framework using PGL, which can scale arbitrary message-passing GNNs to large graphs.
+Refer to paper [*GNNAutoScale: Scalable and Expressive Graph Neural Networks via Historical Embeddings*](https://arxiv.org/abs/2106.05609), we re-implement a similar GNNAutoScale framework using PGL, which can scale arbitrary message-passing GNNs to large graphs.
 
-We use history embedding on CPU to store updated node embeddings from prior training iterations, which can lead to smaller GPU memory consumption during training.
+We use history embeddings on CPU to store updated node-embeddings from prior training iterations, and pull neighboring node-embeddings in history embeddings to participate in training, which can lead to smaller GPU memory consumption.
 
 ## Requirements
 
@@ -15,7 +15,6 @@ We use history embedding on CPU to store updated node embeddings from prior trai
 - GAT
 - APPNP
 - GCNII
-- To be continued...
 
 ## Commands
 
@@ -47,7 +46,7 @@ python run_reddit.py --conf config/reddit/gcnii.yaml
 
 ## Results
 
-**Notes**: The support for metis graph partition is not yet completed, and we will supplement it in the near future. Therefore, we only support random graph partition currently.
+**Notes**: We will support metis graph partition method in the near future. Currently, we only support random graph partition in our code.
 
 ### Citation Network
 <table>
@@ -236,4 +235,7 @@ python run_reddit.py --conf config/reddit/gcnii.yaml
   booktitle={International Conference on Machine Learning (ICML)},
   year={2021},
 }
+
+Github link: https://github.com/rusty1s/pyg_autoscale
+
 ```

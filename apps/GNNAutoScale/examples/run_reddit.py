@@ -29,11 +29,11 @@ from pgl.utils.data.dataloader import Dataloader
 
 sys.path.append("..")
 import gnn_models
-from dataloader import PartitionDataset, EvalPartitionDataset
-from dataloader import subdata_batch_fn
+from dataset import PartitionDataset, EvalPartitionDataset
+from dataset import subdata_batch_fn
 from partition import random_partition
 from utils import check_device, process_batch_data
-from utils import compute_acc, gen_mask, permute
+from utils import generate_mask, permute, compute_acc, compute_gcn_norm
 
 
 def load():
@@ -43,9 +43,9 @@ def load():
     y[data.val_index] = data.val_label
     y[data.test_index] = data.test_label
     data.y = y
-    data.train_mask = gen_mask(data.graph.num_nodes, data.train_index)
-    data.val_mask = gen_mask(data.graph.num_nodes, data.val_index)
-    data.test_mask = gen_mask(data.graph.num_nodes, data.test_index)
+    data.train_mask = generate_mask(data.graph.num_nodes, data.train_index)
+    data.val_mask = generate_mask(data.graph.num_nodes, data.val_index)
+    data.test_mask = generate_mask(data.graph.num_nodes, data.test_index)
 
     return data
 
@@ -110,7 +110,7 @@ def main(args, config):
         subdata_batch_fn,
         graph=graph,
         part=part,
-        flag_buffer=np.zeros(
+        node_buffer=np.zeros(
             graph.num_nodes, dtype="int32"))
     train_loader = Dataloader(
         dataset,
@@ -125,18 +125,11 @@ def main(args, config):
         graph,
         part,
         config.batch_size,
-        flag_buffer=np.zeros(
+        node_buffer=np.zeros(
             graph.num_nodes, dtype="int32"))
     eval_loader = eval_dataset.data_list
 
-    if config.gcn_norm:
-        degree = graph.indegree()
-        gcn_norm = degree.astype(np.float32)
-        gcn_norm = np.clip(gcn_norm, 1.0, np.max(gcn_norm))
-        gcn_norm = np.power(gcn_norm, -0.5)
-        gcn_norm = np.reshape(gcn_norm, [-1, 1])
-    else:
-        gcn_norm = None
+    gcn_norm = compute_gcn_norm(graph, config.gcn_norm)
 
     log.info("Calculating buffer size...")
     buffer_size = -1
