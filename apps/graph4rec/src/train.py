@@ -1,4 +1,4 @@
-# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,6 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""doc
+"""
+
 import os
 import sys
 import time
@@ -32,6 +35,8 @@ from utils.logger import log_to_file
 import models as M
 import datasets.dataset as DS
 from infer import inference
+
+START = time.time()
 
 
 def data2tensor(batch_dict):
@@ -111,6 +116,7 @@ def main(config, ip_list_file):
         num_workers=config.num_workers,
         collate_fn=getattr(DS, config.collatefn)(config, mode="gpu"))
 
+    log.info("training finished, starting inference...")
     inference(model, infer_loader, config.output_dir)
 
 
@@ -134,3 +140,5 @@ if __name__ == "__main__":
     )
 
     main(config, args.ip)
+    end = time.time()
+    log.info("finished training with %s seconds" % (end - START))

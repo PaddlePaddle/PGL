@@ -1,6 +1,6 @@
-# Graph4Rec: An universal toolkit with Graph Neural Networks for Recommender System
+# Graph4Rec: A Universal and Large-scale Toolkit with Graph Neural Networks for Recommender Systems
 
-**Graph4Rec** is an universal industrial toolkit with Graph Neural Networks for Recommender System.
+**Graph4Rec** is a universal and large-scale toolkit with graph neural networks for recommender systems.
 
 ## Requirements
 
@@ -16,7 +16,42 @@ TBD
 
 ### Input Format
 
-TBD: data format
+Suppose there are three different types of nodes, namely "u", "t" and "f".
+They can form three kinds of edges, namely "u2t (u-t)", "u2f (u-f)" and "t2f (t-f)".
+Then the format of edges file is as follows:
+
+```
+src_node_id \t dst_node_id
+
+for example:
+12345 \t 23345
+12345 \t 23346
+12346 \t 23345
+```
+
+If there is an edge weight, one can directly add the weight behind each edge, the format is as follows:
+
+```
+src_node_id \t dst_node_id \t edge_weight
+
+for example:
+12345 \t 23345 \t 0.4
+12345 \t 23346 \t 0.2
+12346 \t 23345 \t 0.8
+```
+
+The format of the node types file is as follows:
+
+```
+node_type \t node_id
+
+for example:
+
+u \t 12345
+u \t 12346
+t \t 23345
+f \t 23346
+```
 
 ### PGL Graph Engine Launching
 
