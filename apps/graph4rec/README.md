@@ -16,6 +16,7 @@ TBD
 
 ### Input Format
 
+
 Suppose there are three different types of nodes, namely "u", "t" and "f".
 They can form three kinds of edges, namely "u2t (u-t)", "u2f (u-f)" and "t2f (t-f)".
 Then the format of edges file is as follows:
@@ -53,6 +54,9 @@ t \t 23345
 f \t 23346
 ```
 
+You can also find out the specific data format in `./toy_data`.
+
+
 ### PGL Graph Engine Launching
 
 Now we support distributed loading graph data using **PGL Graph Engine**. We also develop a simple tutorial to show how to launch a graph engine, please refer to [here](../../tutorials/working_with_distributed_graph_engine.ipynb).
@@ -64,19 +68,19 @@ To launch a distributed graph service, please follow the steps below.
 The first step is to set the IP list for each graph server. Each IP address with port represents a server. In `ip_list.txt` file, we set up 4 graph server as follow for demo:
 
 ```
-127.0.0.1:8553
-127.0.0.1:8554
-127.0.0.1:8555
-127.0.0.1:8556
+127.0.0.1:8813
+127.0.0.1:8814
+127.0.0.1:8815
+127.0.0.1:8816
 ```
 
 #### Launching Graph Engine by OpenMPI
 
-Before launching the graph engine, you should set up the below hyper-parameters in configuration file in `./user_configs/`:
+Before launching the graph engine, you should set up the below hyper-parameters in configuration file in `./user_configs/multi_metapath2vec.yaml`:
 
 ```
-etype2files: "u2buy2t:./Rec15/u2buy2i.txt,u2click2i:./Rec15/u2click2i.txt"
-ntype2files: "u:./Rec15/node_types.txt,i:./Rec15/node_types.txt"
+etype2files: "u2buy2t:./toy_data/u2buy2i.txt,u2click2i:./toy_data/u2click2i.txt"
+ntype2files: "u:./toy_data/node_types.txt,i:./toy_data/node_types.txt"
 symmetry: True
 shard_num: 1000
 ```
@@ -84,7 +88,7 @@ shard_num: 1000
 Then, we can launch the graph engine with the help of OpenMPI.
 
 ```
-mpirun -np 4 python -m pgl.distributed.launch --ip_config ./ip_list.txt --conf ./config.yaml --mode mpi --shard_num 100
+mpirun -np 4 python -m pgl.distributed.launch --ip_config ./toy_data/ip_list.txt --conf ./user_configs/multi_metapath2vec.yaml --mode mpi --shard_num 1000
 ```
 
 #### Launching Graph Engine manually
@@ -95,16 +99,16 @@ Fox example, if we want to use 4 servers, we should run the following command se
 
 ```
 # terminal 3
-python -m pgl.distributed.launch --ip_config /your/path/to/ip_list.txt --conf ./user_configs/multi_metapath2vec.yaml --shard_num 100 --server_id 3
+python -m pgl.distributed.launch --ip_config ./toy_data/ip_list.txt --conf ./user_configs/multi_metapath2vec.yaml --shard_num 1000 --server_id 3
 
 # terminal 2
-python -m pgl.distributed.launch --ip_config /your/path/to/ip_list.txt --conf ./user_configs/multi_metapath2vec.yaml --shard_num 100 --server_id 2
+python -m pgl.distributed.launch --ip_config ./toy_data/ip_list.txt --conf ./user_configs/multi_metapath2vec.yaml --shard_num 1000 --server_id 2
 
 # terminal 1
-python -m pgl.distributed.launch --ip_config /your/path/to/ip_list.txt --conf ./user_configs/multi_metapath2vec.yaml --shard_num 100 --server_id 1
+python -m pgl.distributed.launch --ip_config ./toy_data/ip_list.txt --conf ./user_configs/multi_metapath2vec.yaml --shard_num 1000 --server_id 1
 
 # terminal 0
-python -m pgl.distributed.launch --ip_config /your/path/to/ip_list.txt --conf ./user_configs/multi_metapath2vec.yaml --shard_num 100 --server_id 0
+python -m pgl.distributed.launch --ip_config ./toy_data/ip_list.txt --conf ./user_configs/multi_metapath2vec.yaml --shard_num 1000 --server_id 0
 ```
 
 Note that the `shard_num` should be the same as in configuration file.
@@ -117,11 +121,11 @@ After successfully launching the graph engine, you can run the below command to 
 # Training
 cd ./src
 export CUDA_VISIBLE_DEVICES=0
-python train.py --config ../user_configs/multi_metapath2vec.yaml --ip /your/path/to/ip_list.txt
+python train.py --config ../user_configs/multi_metapath2vec.yaml --ip ../toy_data/ip_list.txt
 
 # Inference
 python infer.py --config ../user_configs/multi_metapath2vec.yaml \
-                --ip /your/path/to/ip_list.txt \
+                --ip ../toy_data/ip_list.txt \
                 --save_dir /your/path/to/save_embed \
                 --infer_from /your/path/of/trained_model
 ```
@@ -135,14 +139,14 @@ CPU_NUM=12 fleetrun --log_dir /your/path/to/fleet_logs \
                     --worker_num 4 \
                     --server_num 4 \
                     dist_cpu_train.py --config ../user_configs/multi_metapath2vec.yaml \
-                                      --ip /your/path/to/ip_list.txt
+                                      --ip ../toy_data/ip_list.txt
 
 # Inference
 CPU_NUM=12 fleetrun --log_dir /your/path/to/fleet_logs_infer \
                     --worker_num 4 \
                     --server_num 4 \
                     dist_cpu_infer.py --config ../user_configs/multi_metapath2vec.yaml \
-                                      --ip /your/path/to/ip_list.txt \
+                                      --ip ../toy_data/ip_list.txt \
                                       --save_dir /your/path/to/save_embed \
                                       --infer_from /your/path/of/trained_model
 ```
