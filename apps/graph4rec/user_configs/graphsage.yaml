@@ -3,27 +3,29 @@
 task_name: gnn.0712
 
 # ---------------------------数据配置-------------------------------------------------#
-etype2files: "u2buy2t:./Rec15/u2buy2i.txt,u2click2i:./Rec15/u2click2i.txt"
-ntype2files: "u:./Rec15/node_types.txt,i:./Rec15/node_types.txt"
+etype2files: "u2buy2t:./toy_data/u2buy2i.txt,u2click2i:./toy_data/u2click2i.txt"
+ntype2files: "u:./toy_data/node_types.txt,i:./toy_data/node_types.txt"
 symmetry: True
 shard_num: 1000
+# [ntype, name, feat_type, length]
+nfeat_info: null
+slots: []
 
 meta_path: "u2buy2i-i2buy2u;u2click2i-i2click2u;i2buy2u-u2buy2i;i2click2u-u2click2i"
 
 
 walk_len: 4
-win_size: 2
+win_size: 3
 neg_num: 10
 walk_times: 10
 
-slots: []
 
 # ---------------------------模型参数配置---------------------------------------------#
 dataset_type: SageDataset
 collatefn: SageCollateFn
 model_type: SageModel
 warm_start_from: null
-num_nodes: 550000
+num_nodes: 5500
 embed_size: 64
 hidden_size: 64
 res_alpha: 0.9
