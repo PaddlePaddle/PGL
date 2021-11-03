@@ -20,7 +20,6 @@ import sys
 
 import numpy as np
 import paddle
-from paddle.fluid import core
 from pgl.pool import StreamPool, async_write
 
 sys.path.insert(0, os.path.abspath(".."))

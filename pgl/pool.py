@@ -137,7 +137,7 @@ def async_read(src, cuda_dst, index, pin_buffer, offset, count):
     We can simply remember this as "cuda async_read from pin_memory". We should run this 
     api under GPU version PaddlePaddle.
 
-    Arguments:
+    Args:
 
         pin_src (Tensor): The source tensor, and the data type should be `float32` currently. 
                   Besides, `pin_src` should be placed on CUDAPinnedPlace.
@@ -195,7 +195,7 @@ def async_write(cuda_src, pin_dst, offset, count):
     We can simply remember this as "gpu async_write to pin_memory". We should run this
     api under GPU version PaddlePaddle.
 
-    Arguments:
+    Args:
   
         cuda_src (Tensor): The source tensor, and the data type should be `float32` currently. 
                            Besides, `cuda_src` should be placed on CUDAPlace.
@@ -220,7 +220,7 @@ def async_write(cuda_src, pin_dst, offset, count):
         from pgl.pool import async_write
    
         cuda_src = paddle.rand(shape=[100, 50, 50])
-        pin_dst = paddle.emtpy(shape=[200, 50, 50]).pin_memory()
+        pin_dst = paddle.empty(shape=[200, 50, 50]).pin_memory()
         offset = paddle.to_tensor(
              np.array([0, 60], dtype="int64"), place=paddle.CPUPlace())
         count = paddle.to_tensor(

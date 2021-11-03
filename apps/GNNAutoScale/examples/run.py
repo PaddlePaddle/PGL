@@ -129,17 +129,19 @@ def main(args, config):
 
     criterion = paddle.nn.loss.CrossEntropyLoss()
 
-    if mode == 'citation':
+    if mode == 's':
         eval_graph = pgl.Graph(edges=graph.edges, num_nodes=graph.num_nodes)
         eval_graph.tensor()
     best_val_acc = final_test_acc = 0
     for epoch in range(config.epochs):
         loss = train(train_loader, model, feature, gcn_norm, dataset.label,
                      dataset.train_mask, criterion, optim)
-        if mode == 'citation':
+        if mode == 's':
             out = full_eval(eval_graph, model, feature, gcn_norm)
-        else:
+        elif mode == 'm':
             out = mini_eval(graph, model, feature, gcn_norm, eval_loader)
+        else:
+            raise ValueError("Mode %s not supported." % mode)
         val_acc = compute_acc(out, dataset.label, dataset.val_mask)
         test_acc = compute_acc(out, dataset.label, dataset.test_mask)
         if val_acc > best_val_acc:

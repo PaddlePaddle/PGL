@@ -16,7 +16,6 @@ import numpy as np
 import paddle
 import pgl
 import paddle.nn as nn
-from paddle.fluid.framework import core
 
 from .base_model import ScalableGNN
 

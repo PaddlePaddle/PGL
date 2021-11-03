@@ -169,12 +169,23 @@ def subdata_batch_fn(batches_nid, graph, part, node_buffer):
 
 def load_dataset(data_name):
     """Load dataset.
+
+    Args:
+
+        data_name(str): The name of dataset.
+
+    Returns:
+
+        dataset(pgl.dataset): Return the corresponding dataset, containing graph information, feature, etc.
+
+        mode(str): Currently we have 's' and 'm' mode, which mean small dataset and medium dataset respectively. 
+        
     """
 
     data_name = data_name.lower()
     mode = None
     if data_name == 'reddit':
-        mode = 'reddit'
+        mode = 'm'
         dataset = pgl.dataset.RedditDataset()
         y = np.zeros(dataset.graph.num_nodes, dtype="int64")
         y[dataset.train_index] = dataset.train_label
@@ -182,18 +193,18 @@ def load_dataset(data_name):
         y[dataset.test_index] = dataset.test_label
         dataset.y = y
     elif data_name == 'cora':
-        mode = 'citation'
+        mode = 's'
         dataset = pgl.dataset.CoraDataset()
     elif data_name == 'pubmed':
-        mode = 'citation'
+        mode = 's'
         dataset = pgl.dataset.CitationDataset("pubmed", symmetry_edges=True)
     elif data_name == 'citeseer':
-        mode = 'citation'
+        mode = 's'
         dataset = pgl.dataset.CitationDataset("citeseer", symmetry_edges=True)
     else:
         raise ValueError(data_name + " dataset doesn't exist currently.")
 
-    if mode == 'citation':
+    if mode == 's':
 
         def normalize(feat):
             return feat / np.maximum(np.sum(feat, -1, keepdims=True), 1)
