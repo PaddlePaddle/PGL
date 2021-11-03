@@ -187,11 +187,16 @@ class SageModel(nn.Layer):
         self.loss_fn = paddle.nn.BCEWithLogitsLoss()
 
         self.convs_dict = OrderedDict()
-        input_size = self.embed_size
         for etype in self.all_etypes:
+            input_size = self.embed_size
             self.convs_dict[etype] = nn.LayerList()
             for layer in range(len(self.config.sample_num_list)):
-                self.convs_dict[etype].append(GNNLayers.LightGCNConv())
+                gnn_layer = getattr(GNNLayers, self.config.sage_layer_type)(
+                    input_size=input_size,
+                    output_size=self.hidden_size,
+                    act=self.config.sage_act)
+                self.convs_dict[etype].append(gnn_layer)
+                input_size = self.hidden_size
         self.convs_dict = nn.LayerDict(sublayers=self.convs_dict)
 
         if len(self.config.slots) > 0:

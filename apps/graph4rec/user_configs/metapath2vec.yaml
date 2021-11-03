@@ -1,6 +1,6 @@
 # configuration for multi-metapath2vec
 
-task_name: multi_metapath2vec.0712
+task_name: metapath2vec.0712
 
 # ---------------------------数据配置-------------------------------------------------#
 etype2files: "u2buy2t:./toy_data/u2buy2i.txt,u2click2i:./toy_data/u2click2i.txt"

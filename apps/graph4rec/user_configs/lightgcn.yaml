@@ -1,6 +1,6 @@
-# configuration for graphsage
+# configuration for lightgcn
 
-task_name: graphsage_sum.0712
+task_name: lightgcn.0712
 
 # ---------------------------数据配置-------------------------------------------------#
 etype2files: "u2buy2t:./toy_data/u2buy2i.txt,u2click2i:./toy_data/u2click2i.txt"
@@ -31,10 +31,10 @@ hidden_size: 64
 res_alpha: 0.9
 
 sage_mode: True
-sage_layer_type: GraphsageSumConv
-sage_act: relu
-sample_num_list: [5]
-infer_sample_num_list: [5]
+sage_layer_type: LightGCNConv
+sage_act: null
+sample_num_list: [10]
+infer_sample_num_list: [100]
 
 # ---------------------------训练参数配置---------------------------------------------#
 epochs: 10
