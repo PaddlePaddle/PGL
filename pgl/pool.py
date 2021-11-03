@@ -67,9 +67,9 @@ class StreamPool(paddle.nn.Layer):
     @paddle.no_grad()
     def _async_pull(self, idx, src, index, offset, count):
         with cuda.stream_guard(self._pull_stream(idx)):
-            core.async_read(src,
-                            self._gpu_buffer(idx), index,
-                            self._cpu_buffer(idx), offset, count)
+            async_read(src,
+                       self._gpu_buffer(idx), index,
+                       self._cpu_buffer(idx), offset, count)
 
     @paddle.no_grad()
     def async_pull(self, src, index, offset, count):
@@ -82,7 +82,7 @@ class StreamPool(paddle.nn.Layer):
     @paddle.no_grad()
     def _async_push(self, idx, src, dst, offset, count):
         with cuda.stream_guard(self._push_stream(idx)):
-            core.async_write(src, dst, offset, count)
+            async_write(src, dst, offset, count)
 
     @paddle.no_grad()
     def async_push(self, src, dst, offset, count):
@@ -125,3 +125,11 @@ class StreamPool(paddle.nn.Layer):
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError
+
+
+def async_read(src, cuda_dst, index, cpu_buffer, offset, count):
+    core.async_read(src, cuda_dst, index, cpu_buffer, offset, count)
+
+
+def async_write(cuda_src, dst, offset, count):
+    core.async_write(cuda_src, dst, offset, count)

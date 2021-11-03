@@ -15,15 +15,15 @@
     Base GNN module for GNNAutoScale, partially refers to `pygas`(https://github.com/rusty1s/pyg_autoscale).
 """
 
+import os
 import sys
 
 import numpy as np
 import paddle
 from paddle.fluid import core
-from pgl.utils.logger import log
-from pgl.pool import StreamPool
+from pgl.pool import StreamPool, async_write
 
-sys.path.append("..")
+sys.path.insert(0, os.path.abspath(".."))
 from history import History
 from utils import process_batch_data, check_device
 
@@ -51,22 +51,18 @@ class ScalableGNN(paddle.nn.Layer):
 
         self._init_pool()
 
-    @property
-    def emb_device(self):
-        if len(self.histories) == 0:
-            return None
-        return self.histories[0].emb.place
-
-    @property
-    def device(self):
-        return paddle.device.get_device()
-
     def _init_pool(self):
-        if (str(self.emb_device).startswith("CUDAPinned") and
-                check_device() and self.pool_size is not None and
+        if (self.check_emb_on_pin_memory() and self.pool_size is not None and
                 self.buffer_size is not None and len(self.histories) > 0):
             self.pool = StreamPool(self.pool_size, self.buffer_size,
                                    self.hidden_dim)
+
+    def check_emb_on_pin_memory(self):
+        if len(self.histories) > 0:
+            place = self.histories[0].emb.place
+            if str(place).startswith("CUDAPinned"):
+                return True
+        return False
 
     def __call__(self,
                  subgraph,
@@ -160,7 +156,7 @@ class ScalableGNN(paddle.nn.Layer):
                 out = self.forward_layer(0, g, feat, sub_norm,
                                          state)[:batch_size]
                 # Push out to self._final_out()
-                core.async_write(out, self._final_out(), offset, count)
+                async_write(out, self._final_out(), offset, count)
             return self._final_out()
 
         # Push outputs of 0-th layer to the history.
