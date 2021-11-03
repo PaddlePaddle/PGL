@@ -131,7 +131,7 @@ class ScalableGNN(paddle.nn.Layer):
             self.pool.free_pull()
             return out
         else:
-            # TODO(daisiming): Is this right?
+            # TODO(daisiming): Due to some limitations of Paddle OP, we leave here as a todo.
             return x
 
     @paddle.no_grad()
