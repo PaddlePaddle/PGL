@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
+
 import numpy as np
 import paddle
 import paddle.nn as nn
@@ -27,6 +29,7 @@ class ScoreFunc(object):
 
     def __init__(self):
         super(ScoreFunc, self).__init__()
+        self.embed_epsilon = 2.0
 
     def __call__(self, head, rel, tail):
         raise NotImplementedError(
@@ -37,6 +40,12 @@ class ScoreFunc(object):
         """
         raise NotImplementedError(
             'score function from tail, relation to head not implemented')
+
+    def get_init_weight(self):
+        """Initialization for embeddings
+        Return initialization range (float) or weights (np.ndarray) for embeddings
+        """
+        raise NotImplementedError('weight initialization not implemented')
 
 
 class TransEScore(ScoreFunc):
@@ -53,6 +62,9 @@ class TransEScore(ScoreFunc):
         head = head + rel
         score = self.gamma - paddle.norm(head - tail, p=2, axis=-1)
         return score
+
+    def get_init_weight(self, embed_dim):
+        return (self.gamma + self.embed_epsilon) / embed_dim
 
     def get_neg_score(self, head, rel, tail, neg_head=False):
         if neg_head:
@@ -105,11 +117,11 @@ class RotatEScore(ScoreFunc):
     https://arxiv.org/abs/1902.10197
     """
 
-    def __init__(self, gamma, emb_init):
+    def __init__(self, gamma, embed_dim):
         super(RotatEScore, self).__init__()
-        self.gamma = gamma
-        self.emb_init = emb_init
         self.epsilon = 1e-12
+        self.gamma = gamma
+        self.emb_init = self.get_init_weight(embed_dim)
 
     def __call__(self, head, rel, tail):
         re_head, im_head = paddle.chunk(head, chunks=2, axis=-1)
@@ -126,6 +138,9 @@ class RotatEScore(ScoreFunc):
                             self.epsilon)
         score = self.gamma - paddle.sum(score, axis=-1)
         return score
+
+    def get_init_weight(self, embed_dim):
+        return (self.gamma + self.embed_epsilon) / embed_dim
 
     def get_neg_score(self, head, rel, tail, neg_head=False):
         num_chunks = head.shape[0]
@@ -228,99 +243,103 @@ class QuatEScore(ScoreFunc):
         super(QuatEScore, self).__init__()
 
     def __call__(self, head, rel, tail):
-        heads = paddle.chunk(head, chunks=4, axis=-1)
+        A, B, C, D = self._get_part_score(head, rel)
         tails = paddle.chunk(tail, chunks=4, axis=-1)
-        rels = paddle.chunk(rel, chunks=4, axis=-1)
-
-        denominator_r = paddle.sqrt(rels[0]**2 + rels[1]**2 + rels[2]**2 +
-                                    rels[3]**2)
-        for i in range(4):
-            rels[i] = rels[i] / denominator_r
-
-        A = heads[0] * rels[0] - heads[1] * rels[1] - heads[2] * rels[2] \
-            - heads[3] * rels[3]
-        B = heads[0] * rels[1] + rels[0] * heads[1] + heads[2] * rels[3] \
-            - rels[2] * heads[3]
-        C = heads[0] * rels[2] + rels[0] * heads[2] + heads[3] * rels[1] \
-            - rels[3] * heads[1]
-        D = heads[0] * rels[3] + rels[0] * heads[3] + heads[1] * rels[2] \
-            - rels[1] * heads[2]
 
         score = (A * tails[0] + B * tails[1] + C * tails[2] + D * tails[3])
-        score = -paddle.sum(score, axis=-1)
+        score = paddle.sum(score, axis=-1)
         return score
 
     def get_neg_score(self, head, rel, tail, neg_head=False):
-        num_chunks = head.shape[0]
         if neg_head:
-            chunk_size = tail.shape[1]
-            neg_sample_size = head.shape[1]
-
-            head = paddle.reshape(head, [num_chunks, 1, neg_sample_size, -1])
-            tail = paddle.reshape(tail, [num_chunks, chunk_size, 1, -1])
-            rel = paddle.reshape(rel, [num_chunks, chunk_size, 1, -1])
-            score = self(head, rel, tail)
+            return self._get_neg_score(tail, rel, head)
         else:
-            chunk_size = head.shape[1]
-            neg_sample_size = tail.shape[1]
+            return self._get_neg_score(head, rel, tail)
 
-            tail = paddle.reshape(tail, [num_chunks, 1, neg_sample_size, -1])
-            head = paddle.reshape(head, [num_chunks, chunk_size, 1, -1])
-            rel = paddle.reshape(rel, [num_chunks, chunk_size, 1, -1])
-            score = self(head, rel, tail)
+    def _get_part_score(self, a, b):
+        a = paddle.chunk(a, chunks=4, axis=-1)
+        b = paddle.chunk(b, chunks=4, axis=-1)
+
+        denominator_b = paddle.sqrt(b[0]**2 + b[1]**2 + b[2]**2 + b[3]**2)
+        for i in range(4):
+            b[i] = b[i] / denominator_b
+
+        A = a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3]
+        B = a[0] * b[1] + b[0] * a[1] + a[2] * b[3] - b[2] * a[3]
+        C = a[0] * b[2] + b[0] * a[2] + a[3] * b[1] - b[3] * a[1]
+        D = a[0] * b[3] + b[0] * a[3] + a[1] * b[2] - b[1] * a[2]
+
+        return A, B, C, D
+
+    def _get_neg_score(self, pos_e, pos_r, neg_e):
+        num_chunks = pos_e.shape[0]
+        chunk_size = pos_e.shape[1]
+        neg_sample_size = neg_e.shape[1]
+
+        A, B, C, D = self._get_part_score(pos_e, pos_r)
+
+        A = paddle.reshape(A, (num_chunks, chunk_size, -1))
+        B = paddle.reshape(B, (num_chunks, chunk_size, -1))
+        C = paddle.reshape(C, (num_chunks, chunk_size, -1))
+        D = paddle.reshape(D, (num_chunks, chunk_size, -1))
+
+        neg_e = paddle.reshape(neg_e, (num_chunks, neg_sample_size, -1))
+        neg_e = neg_e.transpose((0, 2, 1))
+        neg_e = paddle.chunk(neg_e, chunks=4, axis=1)
+
+        score = paddle.bmm(A, neg_e[0]) + paddle.bmm(B, neg_e[1]) + \
+                paddle.bmm(C, neg_e[2]) + paddle.bmm(D, neg_e[3])
         return score
 
-    @classmethod
-    def get_init_weight(cls,
-                        num_emb,
-                        embed_dim,
-                        num_ents,
-                        on_cpu=False,
-                        cpu_params=None):
-        init_value = 1. / np.sqrt(2 * num_ents)
-        rng = RandomState(0)
+    def get_init_weight(self, num_embed, embed_dim):
+        init_value = 1. / np.sqrt(2 * num_embed)
+        rng = RandomState(123)
 
-        num_weights = np.prod([num_ents, embed_dim])
-        v_i = np.random.uniform(0, 1, num_weights)
-        v_j = np.random.uniform(0, 1, num_weights)
-        v_k = np.random.uniform(0, 1, num_weights)
+        kernel_shape = (num_embed, embed_dim)
+        num_weights = np.prod(kernel_shape)
+        v_i = np.random.uniform(0., 1., num_weights)
+        v_j = np.random.uniform(0., 1., num_weights)
+        v_k = np.random.uniform(0., 1., num_weights)
 
         for i in range(num_weights):
             norm = np.sqrt(v_i[i]**2 + v_j[i]**2 + v_k[i]**2) + 1e-4
             v_i[i] /= norm
             v_j[i] /= norm
             v_k[i] /= norm
-        v_i = v_i.reshape([num_ents, embed_dim])
-        v_j = v_j.reshape([num_ents, embed_dim])
-        v_k = v_k.reshape([num_ents, embed_dim])
+        v_i = v_i.reshape(kernel_shape)
+        v_j = v_j.reshape(kernel_shape)
+        v_k = v_k.reshape(kernel_shape)
 
-        modulus = rng.uniform(
-            -init_value, init_value, size=[num_ents, embed_dim])
-        phase = rng.uniform(-np.pi, np.pi, size=[num_ents, embed_dim])
+        modulus = rng.uniform(-init_value, init_value, size=kernel_shape)
+        phase = rng.uniform(-np.pi, np.pi, size=kernel_shape)
 
-        w_h = modulus * np.cos(phase)
+        w_r = modulus * np.cos(phase)
         w_i = modulus * v_i * np.sin(phase)
         w_j = modulus * v_j * np.sin(phase)
         w_k = modulus * v_k * np.sin(phase)
 
-        weight = np.concatenate([w_h, w_i, w_j, w_k], axis=-1)
+        return np.concatenate([w_r, w_i, w_j, w_k], axis=-1).astype(np.float32)
 
-        if on_cpu:
-            assert cpu_params is not None, \
-            'initialization parameters not given for cpu embedding of QuatE!'
-            optimizer, lr, weight_path = cpu_params
-            embs = NumPyEmbedding(
-                num_emb,
-                embed_dim,
-                weight_path=weight_path,
-                optimizer=optimizer,
-                learning_rate=lr)
-            embs.weight[:] = weight
-        else:
-            embs = nn.Embedding(num_emb, embed_dim)
-            embs.weight.set_value(weight)
+    def get_regularization(self, head, rel, tail):
+        heads = paddle.chunk(head, 4, axis=-1)
+        tails = paddle.chunk(tail, 4, axis=-1)
+        rels = paddle.chunk(rel, 4, axis=-1)
 
-        return embs
+        reg_ents = paddle.mean(paddle.abs(heads[0]) ** 2) + \
+            paddle.mean(paddle.abs(heads[1]) ** 2) + \
+            paddle.mean(paddle.abs(heads[2]) ** 2) + \
+            paddle.mean(paddle.abs(heads[3]) ** 2) + \
+            paddle.mean(paddle.abs(tails[0]) ** 2) + \
+            paddle.mean(paddle.abs(tails[1]) ** 2) + \
+            paddle.mean(paddle.abs(tails[2]) ** 2) + \
+            paddle.mean(paddle.abs(tails[3]) ** 2)
+
+        reg_rels = paddle.mean(paddle.abs(rels[0]) ** 2) + \
+            paddle.mean(paddle.abs(rels[1]) ** 2) + \
+            paddle.mean(paddle.abs(rels[2]) ** 2) + \
+            paddle.mean(paddle.abs(rels[3]) ** 2)
+
+        return reg_ents, reg_rels
 
 
 class OTEScore(ScoreFunc):
@@ -338,6 +357,14 @@ class OTEScore(ScoreFunc):
         rel = self.orth_rel_embedding(rel)
         score = self.score(head, rel, tail)
         return self.gamma - score
+
+    def get_init_weight(self, embed_dim):
+        if self.use_scale:
+            value = 1. / math.sqrt(embed_dim)
+        else:
+            value = (self.gamma + self.embed_epsilon) / embed_dim
+
+        return value
 
     def inverse(self, head, rel, tail):
         rel = self.orth_rel_embedding(rel)

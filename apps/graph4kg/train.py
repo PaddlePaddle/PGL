@@ -14,123 +14,30 @@
 
 import os
 import time
-import logging
 import warnings
 from collections import defaultdict
 
 import paddle
 import numpy as np
 import paddle.distributed as dist
-from tqdm import tqdm
 from visualdl import LogWriter
 
 from dataset.reader import read_trigraph
 from dataset.dataset import create_dataloaders
 from models.ke_model import KGEModel
 from models.loss_func import LossFunction
-from config import KGEArgParser
-from utils import timer_wrapper, set_seed
-from utils import set_logger, print_log, adjust_args
-
-
-def partial_evaluate(scores, corr_idxs, filter_list):
-    logs = []
-    for i in range(scores.shape[0]):
-        rank = (scores[i] > scores[i][corr_idxs[i]]).astype('float32')
-        if filter_list is not None:
-            mask = paddle.ones(rank.shape, dtype='float32')
-            mask[filter_list[i]] = 0.
-            rank = rank * mask
-        rank = paddle.sum(rank) + 1
-        logs.append({
-            'MRR': 1.0 / rank,
-            'MR': float(rank),
-            'HITS@1': 1.0 if rank <= 1 else 0.0,
-            'HITS@3': 1.0 if rank <= 3 else 0.0,
-            'HITS@10': 1.0 if rank <= 10 else 0.0,
-        })
-    return logs
-
-
-@timer_wrapper('evaluation')
-def evaluate(model,
-             loader,
-             evaluate_mode='test',
-             filter_dict=None,
-             save_path='./tmp/'):
-    """evaluate
-    """
-    model.eval()
-    with paddle.no_grad():
-        h_output = defaultdict(list)
-        t_output = defaultdict(list)
-        h_metrics = []
-        t_metrics = []
-        dataset_mode = 'normal'
-        output = {'h,r->t': {}, 't,r->h': {}, 'average': {}}
-
-        for mode, (h, r, t, cand), corr_idx in tqdm(loader):
-            dataset_mode = mode
-            if mode == 'wiki':
-                score = model.predict(h, r, cand)
-                rank = paddle.argsort(score, axis=1, descending=True)
-                t_output['t_pred_top10'].append(rank[:, :10].cpu())
-                t_output['t_correct_index'].append(corr_idx.cpu())
-            else:
-                t_score = model.predict(h, r, cand, mode='tail')
-                h_score = model.predict(t, r, cand, mode='head')
-
-                if filter_dict is not None:
-                    h_filter_list = [
-                        filter_dict['head'][(ti, ri)]
-                        for ti, ri in zip(t.numpy(), r.numpy())
-                    ]
-                    t_filter_list = [
-                        filter_dict['tail'][(hi, ri)]
-                        for hi, ri in zip(h.numpy(), r.numpy())
-                    ]
-                else:
-                    h_filter_list = None
-                    t_filter_list = None
-
-                h_metrics += partial_evaluate(h_score, h, h_filter_list)
-                t_metrics += partial_evaluate(t_score, t, t_filter_list)
-
-        if dataset_mode == 'wiki':
-            for key, value in h_output.items():
-                output['t,r->h'][key] = np.concatenate(value, axis=0)
-            for key, value in t_output.items():
-                output['h,r->t'][key] = np.concatenate(value, axis=0)
-
-            paddle.save(output, save_path)
-        else:
-            for metric in h_metrics[0].keys():
-                output['t,r->h'][metric] = np.mean(
-                    [x[metric] for x in h_metrics])
-                output['h,r->t'][metric] = np.mean(
-                    [x[metric] for x in t_metrics])
-                output['average'][metric] = (
-                    output['t,r->h'][metric] + output['h,r->t'][metric]) / 2
-            print('-------------- %s result --------------' % evaluate_mode)
-            print('t,r->h  |', ' '.join(
-                ['{}: {}'.format(k, v) for k, v in output['t,r->h'].items()]))
-            print('h,r->t  |', ' '.join(
-                ['{}: {}'.format(k, v) for k, v in output['h,r->t'].items()]))
-            print('average |', ' '.join(
-                ['{}: {}'.format(k, v) for k, v in output['average'].items()]))
-            print('-----------------------------------------')
+from utils import set_seed, set_logger, print_log
+from utils import evaluate
+from config import prepare_config
 
 
 def main(writer=None):
     # def main():
-    """Main function for knowledge representation learning
+    """Main function for shallow knowledge embedding methods
     """
-    args = KGEArgParser().parse_args()
-    args = adjust_args(args)
+    args = prepare_config()
     set_seed(args.seed)
     set_logger(args)
-    for arg in vars(args):
-        logging.info('{:20}:{}'.format(arg, getattr(args, arg)))
 
     trigraph = read_trigraph(args.data_path, args.data_name)
 
@@ -142,6 +49,7 @@ def main(writer=None):
     else:
         filter_dict = None
 
+    # multiple GPU
     if dist.get_world_size() > 1:
         dist.init_parallel_env()
 
@@ -149,10 +57,6 @@ def main(writer=None):
 
     # The DataParallel will influence start_async_update or not
     if args.async_update:
-        if not args.mix_cpu_gpu:
-            raise ValueError(
-                "We only support async_update in mix_cpu_gpu mode.")
-        print('=' * 20 + '\n Async Update!\n' + '=' * 20)
         model.start_async_update()
 
     if dist.get_world_size() > 1 and len(model.parameters()) > 0:
@@ -182,8 +86,6 @@ def main(writer=None):
         args,
         filter_dict=filter_dict if args.filter_sample else None,
         shared_ent_path=model.shared_ent_path if args.mix_cpu_gpu else None)
-
-    copy_stream = paddle.device.cuda.Stream()
 
     timer = defaultdict(int)
     log = defaultdict(int)
@@ -277,20 +179,16 @@ def main(writer=None):
                 optimizer.clear_grad()
 
             if all_ents_emb is not None:
-                ents_idx = all_ents.numpy()
-                ents_grad = all_ents_emb.grad
-                ents_grad_2 = (ents_grad * ents_grad).mean(axis=-1).numpy()
-                ents_grad = ents_grad.numpy()
-                ent_trace = (ents_idx, ents_grad, ents_grad_2)
+                ent_index = all_ents.numpy()
+                ent_grads = model.ent_embedding.create_trace(all_ents_emb)
+                ent_trace = (ent_index, ent_grads)
             else:
                 ent_trace = None
 
             if rel_emb is not None:
-                rel_idx = r.numpy()
-                rel_grad = rel_emb.grad
-                rel_grad_2 = (rel_grad * rel_grad).mean(axis=-1).numpy()
-                rel_grad = rel_grad.numpy()
-                rel_trace = (rel_idx, rel_grad, rel_grad_2)
+                rel_index = r.numpy()
+                rel_grads = model.rel_embedding.create_trace(rel_emb)
+                rel_trace = (rel_idx, rel_grads)
             else:
                 rel_trace = None
 

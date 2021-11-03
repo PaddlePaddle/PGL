@@ -21,14 +21,13 @@ import random
 import logging
 import functools
 import traceback
-from multiprocessing import Queue, Process
-from threading import Thread
+from collections import defaultdict
 from _thread import start_new_thread
+from multiprocessing import Queue, Process
 
 import paddle
 import numpy as np
-
-# from pgl.utils.mp_reader import deserialize_data
+from tqdm import tqdm
 
 
 def set_seed(seed):
@@ -61,6 +60,9 @@ def set_logger(args):
         console.setFormatter(formatter)
         logging.getLogger('').addHandler(console)
 
+    for arg in vars(args):
+        logging.info('{:20}:{}'.format(arg, getattr(args, arg)))
+
 
 def print_log(step, interval, log, timer, t_step):
     """Print log
@@ -72,25 +74,6 @@ def print_log(step, interval, log, timer, t_step):
     logging.info('timer | sample: %f, forward: %f, backward: %f, update: %f' %
                  (timer['sample'], timer['forward'], timer['backward'],
                   timer['update']))
-
-
-def adjust_args(args):
-    """Adjust arguments for compatiblity
-    """
-    args.save_path = prepare_save_path(args)
-    # set the path to shm, the performance will be better.
-    args.embs_path = os.path.join(args.save_path, '__cpu_embedding.npy')
-    # make the batch_size divisible by the neg_sample_size for chunk-based negative sampling
-    batch_size = args.batch_size
-    neg_sample_size = args.neg_sample_size
-    if neg_sample_size < batch_size and batch_size % neg_sample_size != 0:
-        batch_size = int(
-            math.ceil(batch_size / neg_sample_size) * neg_sample_size)
-        print('batch size {} is not divisible by negative sample size {}'.
-              format(args.batch_size, args.neg_sample_size))
-        print('Change the batch size to {}'.format(batch_size))
-        args.batch_size = batch_size
-    return args
 
 
 def uniform(low, high, size, dtype=np.float32):
@@ -113,7 +96,7 @@ def timer_wrapper(name):
         def wrapper(*args, **kwargs):
             """wrapper func
             """
-            print('[{}] start...'.format(name))
+            print(f'[{name}] start...')
             ts = time.time()
             result = func(*args, **kwargs)
             te = time.time()
@@ -124,7 +107,7 @@ def timer_wrapper(name):
                 cost_str = '%.4f sec (%.4f hours)' % (costs, costs / 3600.)
             else:
                 cost_str = '%.4f sec' % costs
-            print('[%s] finished! It takes %s' % (name, cost_str))
+            print(f'[{name}] finished! It takes {cost_str} s')
             return result
 
         return wrapper
@@ -162,104 +145,91 @@ def thread_wrapper(func):
     return decorate
 
 
-def thread_wrapper_(func):
-    """Wrapped func for multiprocessing.Process
+def calculate_metrics(scores, corr_idxs, filter_list):
+    """Calculate metrics according to scores
     """
+    logs = []
+    for i in range(scores.shape[0]):
+        rank = (scores[i] > scores[i][corr_idxs[i]]).astype('float32')
+        if filter_list is not None:
+            mask = paddle.ones(rank.shape, dtype='float32')
+            mask[filter_list[i]] = 0.
+            rank = rank * mask
+        rank = paddle.sum(rank) + 1
+        logs.append({
+            'MRR': 1.0 / rank,
+            'MR': float(rank),
+            'HITS@1': 1.0 if rank <= 1 else 0.0,
+            'HITS@3': 1.0 if rank <= 3 else 0.0,
+            'HITS@10': 1.0 if rank <= 10 else 0.0,
+        })
+    return logs
 
-    @functools.wraps(func)
-    def decorate(*args, **kwargs):
-        """decorate func
-        """
-        queue = Queue()
 
-        def _queue_func():
-            exception, trace, result = None, None, None
-            try:
-                result = func(*args, **kwargs)
-            except Exception as e:
-                exception = e
-                trace = traceback.format_exc()
-            queue.put((result, exception, trace))
+@timer_wrapper('evaluation')
+def evaluate(model,
+             loader,
+             evaluate_mode='test',
+             filter_dict=None,
+             save_path='./tmp/'):
+    """evaluate
+    """
+    model.eval()
+    with paddle.no_grad():
+        h_output = defaultdict(list)
+        t_output = defaultdict(list)
+        h_metrics = []
+        t_metrics = []
+        dataset_mode = 'normal'
+        output = {'h,r->t': {}, 't,r->h': {}, 'average': {}}
 
-        proc = Thread(target=_queue_func)
+        for mode, (h, r, t, cand), corr_idx in tqdm(loader):
+            dataset_mode = mode
+            if mode == 'wiki':
+                score = model.predict(h, r, cand)
+                rank = paddle.argsort(score, axis=1, descending=True)
+                t_output['t_pred_top10'].append(rank[:, :10].cpu())
+                t_output['t_correct_index'].append(corr_idx.cpu())
+            else:
+                t_score = model.predict(h, r, cand, mode='tail')
+                h_score = model.predict(t, r, cand, mode='head')
 
-        proc.start()
-        proc.join()
-        result, exception, trace = queue.get()
+                if filter_dict is not None:
+                    h_filter_list = [
+                        filter_dict['head'][(ti, ri)]
+                        for ti, ri in zip(t.numpy(), r.numpy())
+                    ]
+                    t_filter_list = [
+                        filter_dict['tail'][(hi, ri)]
+                        for hi, ri in zip(h.numpy(), r.numpy())
+                    ]
+                else:
+                    h_filter_list = None
+                    t_filter_list = None
 
-        if exception is None:
-            return result
+                h_metrics += calculate_metrics(h_score, h, h_filter_list)
+                t_metrics += calculate_metrics(t_score, t, t_filter_list)
+
+        if dataset_mode == 'wiki':
+            for key, value in h_output.items():
+                output['t,r->h'][key] = np.concatenate(value, axis=0)
+            for key, value in t_output.items():
+                output['h,r->t'][key] = np.concatenate(value, axis=0)
         else:
-            assert isinstance(exception, Exception)
-            raise exception.__class__(trace)
+            for metric in h_metrics[0].keys():
+                output['t,r->h'][metric] = np.mean(
+                    [x[metric] for x in h_metrics])
+                output['h,r->t'][metric] = np.mean(
+                    [x[metric] for x in t_metrics])
+                output['average'][metric] = (
+                    output['t,r->h'][metric] + output['h,r->t'][metric]) / 2
+            print('-------------- %s result --------------' % evaluate_mode)
+            print('t,r->h  |', ' '.join(
+                ['{}: {}'.format(k, v) for k, v in output['t,r->h'].items()]))
+            print('h,r->t  |', ' '.join(
+                ['{}: {}'.format(k, v) for k, v in output['h,r->t'].items()]))
+            print('average |', ' '.join(
+                ['{}: {}'.format(k, v) for k, v in output['average'].items()]))
+            print('-----------------------------------------')
 
-    return decorate
-
-
-def to_tensor(data, place):
-    return paddle.Tensor(
-        value=data,
-        place=paddle.fluid.core.CPUPlace(),
-        persistable=False,
-        zero_copy=True,
-        stop_gradient=True)
-
-
-@thread_wrapper
-def async_update(embeds, queue):
-    """Update embeddings asynchronously
-    """
-    while True:
-        # (grad_index, grad_value) = deserialize_data(queue.get())
-        # (grad_index, grad_value, grad_shape) = queue.get()
-        (grad_index, grad_value, grad_2) = queue.get()
-        # grad_index = to_tensor(grad_index, place='cpu')
-        # grad_value = to_tensor(grad_value, place='cpu')
-        if grad_index is None:
-            return
-        with paddle.no_grad():
-            # embeds._update(grad_value.array.reshape(grad_shape), grad_index.array)
-            # embeds._update(grad_value.numpy(), grad_index.numpy())
-            embeds._update(grad_value, grad_index, grad_2)
-
-
-def prepare_save_path(args):
-    """Get model specific save path and makedirs if not exists
-    """
-    if not os.path.exists(args.save_path):
-        os.mkdir(args.save_path)
-
-    folder = '{}_{}_d_{}_g_{}'.format(args.model_name, args.data_name,
-                                      args.embed_dim, args.gamma)
-    n = len([x for x in os.listdir(args.save_path) if x.startswith(folder)])
-    folder += str(n)
-    args.save_path = os.path.join(args.save_path, folder)
-
-    if not os.path.exists(args.save_path):
-        os.makedirs(args.save_path)
-    else:
-        raise IOError('model path %s already exists' % args.save_path)
-    return args.save_path
-
-
-def get_compatible_batch_size(batch_size, neg_sample_size):
-    """For chunk-based batch negative sampling (optitional)
-    """
-    if neg_sample_size < batch_size and batch_size % neg_sample_size != 0:
-        old_batch_size = batch_size
-        batch_size = int(
-            math.ceil(batch_size / neg_sample_size) * neg_sample_size)
-        print(
-            'batch size ({}) is incompatible to the negative sample size ({}). Change the batch size to {}'.
-            format(old_batch_size, neg_sample_size, batch_size))
-    return batch_size
-
-
-def load_model_config(config_f):
-    """Load configuration from config.yaml
-    """
-    with open(config_f, "r") as f:
-        config = json.loads(f.read())
-
-    print(config)
-    return config
+        paddle.save(output, save_path)

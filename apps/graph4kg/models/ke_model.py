@@ -14,6 +14,7 @@
 
 import os
 import math
+import warnings
 
 import paddle
 import paddle.nn as nn
@@ -41,9 +42,6 @@ class Transform(nn.Layer):
         return self.linear(x)
 
 
-EMB_INIT_EPSILON = 2.
-
-
 class KGEModel(nn.Layer):
     """
     Shallow model for knowledge representation learning.
@@ -52,64 +50,38 @@ class KGEModel(nn.Layer):
     @timer_wrapper('model construction')
     def __init__(self, model_name, trigraph, args=None):
         super(KGEModel, self).__init__()
-        self._model_name = model_name
-        mix_cpu_on_relation = False
+        self._args = args
 
-        self._use_feat = args.use_feature
-        self._ent_feat = None
-        self._rel_feat = None
-        if args.data_name == 'wikikg90m':
-            if self._use_feat:
-                self._ent_feat = trigraph.ent_feat.get('text')
-                self._rel_feat = trigraph.rel_feat.get('text')
+        # model
+        self._model_name = model_name
+        self._score_func = self._init_score_function(self._model_name, args)
+
+        # embedding
         self._num_ents = trigraph.num_ents
         self._num_rels = trigraph.num_rels
-
-        self._mix_cpu_gpu = args.mix_cpu_gpu
-        self._rel_emb_on_cpu = self._mix_cpu_gpu and mix_cpu_on_relation
-        self._ent_emb_on_cpu = self._mix_cpu_gpu
-
-        self._rel_times = args.rel_times
-        self._ent_times = args.ent_times
-        self._optim = 'adagrad' if args.mix_cpu_gpu else None
+        self._ent_dim = args.ent_dim
+        self._rel_dim = args.rel_dim
+        self._ent_emb_on_cpu = args.ent_emb_on_cpu
+        self._rel_emb_on_cpu = args.rel_emb_on_cpu
+        self._num_chunks = args.num_chunks
         self._lr = args.lr if args.mix_cpu_gpu else None
-        if self._mix_cpu_gpu:
-            print(('=' * 30) + '\n using cpu embeddings\n' + ('=' * 30))
-
-        self._ent_dim = args.embed_dim * self._ent_times
-        self._rel_dim = args.embed_dim * (
-            self._rel_times + int(args.scale_type > 0))
-
-        self.init_value = (args.gamma + EMB_INIT_EPSILON) / args.embed_dim
+        self._optim = 'adagrad' if args.mix_cpu_gpu else None
 
         self.ent_embedding = self._init_embedding(
-            trigraph.num_ents, self._ent_dim, self.init_value,
-            os.path.join(args.save_path, '__ent_embedding.npy')
-            if self._ent_emb_on_cpu else None)
+            self._num_ents,
+            args.ent_dim,
+            args.ent_emb_on_cpu,
+            os.path.join(args.save_path, '__ent_embedding.npy') \
+            if args.ent_emb_on_cpu else None)
 
         self.rel_embedding = self._init_embedding(
-            trigraph.num_rels, self._rel_dim, self.init_value,
-            os.path.join(args.save_path, '__rel_embedding.npy')
-            if self._rel_emb_on_cpu else None, args.scale_type)
+            self._num_rels,
+            args.rel_dim,
+            args.rel_emb_on_cpu,
+            os.path.join(args.save_path, '__rel_embedding.npy') \
+            if args.rel_emb_on_cpu else None)
 
-        if self._use_feat:
-            assert trigraph.ent_feat is not None, 'entity features not given!'
-            assert trigraph.rel_feat is not None, 'relation features not given!'
-            self._ent_feat_dim = self._ent_feat.shape[1]
-            self._rel_feat_dim = self._rel_feat.shape[1]
-            self.trans_ent = Transform(self._ent_feat_dim + self._ent_dim,
-                                       self._ent_dim)
-            self.trans_rel = Transform(self._rel_feat_dim + self._rel_dim,
-                                       self._rel_dim)
-
-        self._score_func = self._init_score_function(self._model_name.lower(),
-                                                     args)
-
-        # set parameters for chunk negative sampling
-        self._num_chunks = 1
-        if args.neg_sample_type == 'chunk':
-            if args.neg_sample_size < args.batch_size:
-                self._num_chunks = args.batch_size // args.neg_sample_size
+        self._init_features(trigraph)
 
     @property
     def shared_ent_path(self):
@@ -140,7 +112,7 @@ class KGEModel(nn.Layer):
                        mode='tail',
                        args=None):
         if ent_emb is not None:
-            if self._use_feat:
+            if self._use_feat and self._ent_feat is not None:
                 ent_feat = paddle.to_tensor(
                     self._ent_feat(all_ent_index.numpy()).astype('float32'))
                 ent_emb = self.trans_ent(ent_feat, ent_emb)
@@ -148,7 +120,7 @@ class KGEModel(nn.Layer):
             ent_emb = self._get_ent_embedding(all_ent_index)
 
         if rel_emb is not None:
-            if self._use_feat:
+            if self._use_feat and self._rel_feat is not None:
                 rel_feat = paddle.to_tensor(
                     self._rel_feat(r_index.numpy()).astype('float32'))
                 pos_r = self.trans_rel(rel_feat, rel_emb)
@@ -306,54 +278,99 @@ class KGEModel(nn.Layer):
             emb = self.trans_rel(feat, emb)
         return emb
 
-    def _init_embedding(self,
-                        num_emb,
-                        emb_dim,
-                        init_value,
-                        emb_path=None,
-                        scale_type=-1,
-                        name=None):
+    def _init_embedding(self, num_emb, emb_dim, on_cpu=False, emb_path=None):
 
-        if self._model_name == 'quate':
-            on_cpu = self._mix_cpu_gpu and emb_path is not None
-            embs = QuatEScore.get_init_weight(num_emb, emb_dim, self._num_ents,
-                                              on_cpu,
-                                              (self._optim, self._lr, emb_path)
-                                              if on_cpu else None)
-            return embs
+        # initialize with weights (np.ndarray)
+        if self._model_name in {'quate'}:
+            weight = self._score_func.get_init_weight(num_emb, emb_dim // 4)
 
-        if scale_type > 0:
-            init_value = 1. / math.sqrt(emb_dim)
-            a, b = -init_value, init_value
-        elif isinstance(init_value, float):
-            a, b = -init_value, init_value
-        elif isinstance(init_value, tuple) or isinstance(init_value, list):
-            assert len(init_value) == 2, 'invalid initialization range!'
-            a, b = init_value
+            if on_cpu:
+                assert emb_path is not None, 'Embedding path is not given for CPU embeddings'
+                embs = NumPyEmbedding(
+                    num_emb,
+                    emb_dim,
+                    weight=weight,
+                    weight_path=emb_path,
+                    optimizer=self._optim,
+                    learning_rate=self._lr)
+            else:
+                embs = nn.Embedding(num_emb, emb_dim)
+                embs.weight.set_value(weight)
+        # initialize with range value (float)
         else:
-            init_value = 2. / np.sqrt(emb_dim)
-            a, b = -init_value, init_value
+            self.embed_epsilon = 2.0
+            if self._model_name in {'rotate', 'ote'}:
+                nrange = self._score_func.get_init_weight(emb_dim)
+            else:
+                nrange = (self._args.gamma + self.embed_epsilon) / emb_dim
 
-        if self._mix_cpu_gpu and emb_path is not None:
-            embs = NumPyEmbedding(num_emb, emb_dim, a, b, emb_path,
-                                  self._optim, self._lr)
-        else:
-            weight_attr = paddle.ParamAttr(
-                name=name, initializer=nn.initializer.Uniform(
-                    low=a, high=b))
-            embs = nn.Embedding(num_emb, emb_dim, weight_attr=weight_attr)
+            if isinstance(nrange, float):
+                left, right = -nrange, nrange
+            elif isinstance(nrange, tuple):
+                assert len(
+                    nrange
+                ) == 2, 'initiliazation values should be 2, only 1 given'
+                left, right = nrange
 
-        if scale_type > 0:
-            scale = int(scale_type == 1)
-            embs.weight.reshape((-1, self._rel_times + 1))[:, -1] = scale
+            if on_cpu:
+                embs = NumPyEmbedding(
+                    num_emb,
+                    emb_dim,
+                    low=left,
+                    high=right,
+                    weight_path=emb_path,
+                    optimizer='adagrad',
+                    learning_rate=self._args.lr)
+            else:
+                weight_attr = paddle.ParamAttr(
+                    initializer=nn.initializer.Uniform(
+                        low=left, high=right))
+                embs = nn.Embedding(num_emb, emb_dim, weight_attr=weight_attr)
+
+            if self._model_name == 'ote' and self._args.ote_scale_type > 0:
+                scale = int(self._args.ote_scale_type == 1)
+                embs.weight.reshape((-1, self._rel_times + 1))[:, -1] = scale
 
         return embs
+
+    def _init_features(self, trigraph):
+        """Initialize features and MLPs if use_feature is True
+        """
+        self._use_feat = self._args.use_feature
+        self._ent_feat = None
+        self._rel_feat = None
+
+        if self._use_feat:
+            is_empty = lambda x: x is None or len(x) == 0
+            ent_feat = trigraph.ent_feat
+            rel_feat = trigraph.rel_feat
+            ent_dim = self._args.ent_dim
+            rel_dim = self._args.rel_dim
+
+            if is_empty(ent_feat) and is_empty(rel_feat):
+                raise ValueError('There is no feature given in the dataset.')
+
+            if ent_feat is not None:
+                self._ent_feat = np.concatenate(ent_feat.values(), axis=-1)
+                ent_feat_dim = self._ent_feat.shape[1]
+                self.trans_ent = Transform(ent_feat_dim + ent_dim, ent_dim)
+            else:
+                warnings.warn(
+                    'No features given! ignore use_feature for entities')
+
+            if rel_feat is not None:
+                self._rel_feat = np.concatenate(ent_feat.values(), axis=-1)
+                rel_feat_dim = self._rel_feat.shape[1]
+                self.trans_rel = Transform(rel_feat_dim + rel_dim, rel_dim)
+            else:
+                warnings.warn(
+                    'No features given! ignore use_feature for relations')
 
     def _init_score_function(self, model_name, args):
         if model_name == 'transe':
             score_func = TransEScore(args.gamma)
         elif model_name == 'rotate':
-            score_func = RotatEScore(args.gamma, self.init_value)
+            score_func = RotatEScore(args.gamma, args.embed_dim)
         elif model_name == 'distmult':
             score_func = DistMultScore()
         elif model_name == 'complex':
@@ -361,7 +378,8 @@ class KGEModel(nn.Layer):
         elif model_name == 'quate':
             score_func = QuatEScore()
         elif model_name == 'ote':
-            score_func = OTEScore(args.gamma, self._rel_times, args.scale_type)
+            score_func = OTEScore(args.gamma, args.ote_size,
+                                  args.ote_scale_type)
         else:
             raise ValueError('score function %s not implemented!' % model_name)
         return score_func
