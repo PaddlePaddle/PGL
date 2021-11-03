@@ -228,7 +228,8 @@ def create_dataloaders(graph, mode, part, num_workers, config):
     """Create train loader and eval loader for different datasets.
  
     **Notes**:
-        For extremely large dataset, like ogbn-papers100m, we will add a new example in near future.
+        For extremely large dataset like ogbn-papers100m, we will add a new example in near future,
+        since current eval_loader might not be suitable for large dataset.
 
     """
 
