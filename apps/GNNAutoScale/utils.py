@@ -59,13 +59,13 @@ def generate_mask(num_nodes, index):
 
     Args:
 
-        num_nodes(int): Number of nodes in graph.
+        num_nodes (int): Number of nodes in graph.
 
-        index(numpy.ndarray): The index for train, validation or test dataset.
+        index (numpy.ndarray): The index for train, validation or test dataset.
 
     Returns:
 
-        mask(numpy.ndarray): Return masks for train/validation/test dataset.
+        mask (numpy.ndarray): Return masks for train/validation/test dataset.
 
     """
     mask = np.zeros(num_nodes, dtype=np.int64)
@@ -78,17 +78,17 @@ def permute(data, feature, permutation, feat_gpu):
 
     Args:
 
-        data(pgl.dataset): The input PGL dataset, for example: pgl.dataset.RedditDataset.
+        data (pgl.dataset): The input PGL dataset, for example: pgl.dataset.RedditDataset.
         
-        feature(numpy.ndarray): Node feature of PGL graph.
+        feature (numpy.ndarray): Node feature of PGL graph.
         
-        permutation(numpy.ndarray): New node permutation after graph partition.
+        permutation (numpy.ndarray): New node permutation after graph partition.
 
-        feat_gpu(bool): Whether to move node feature to GPU here.
+        feat_gpu (bool): Whether to move node feature to GPU here.
 
     Returns:
 
-        data(pgl.dataset): Return data after being permuted.
+        data (pgl.dataset): Return data after being permuted.
 
         feature: Return feature after being permuted.
 
@@ -123,27 +123,27 @@ def process_batch_data(batch_data, feature=None, norm=None, only_nid=False):
 
     Args:
 
-        batch_data(SubgraphData): Batch data returned from dataloader.
+        batch_data (SubgraphData): Batch data returned from dataloader.
 
-        feature(numpy.ndarray|paddle.Tensor): The permuted node feature. 
+        feature (numpy.ndarray|paddle.Tensor): The permuted node feature. 
 
-        norm(numpy.ndarray): Mainly used for GCN norm.
+        norm (numpy.ndarray): Mainly used for GCN norm.
 
-        only_nid(bool): If only_nid is True, just return batch_data.n_id.
+        only_nid (bool): If only_nid is True, just return batch_data.n_id.
 
     Returns:
 
-        g(pgl.Graph): Return pgl.graph of batch_data, be in Tensor format.
+        g (pgl.Graph): Return pgl.graph of batch_data, be in Tensor format.
 
-        batch_size(int): Return batch size of the input batch_data.
+        batch_size (int): Return batch size of the input batch_data.
 
-        n_id(paddle.Tensor): Return node ids of the input batch_data.
+        n_id (paddle.Tensor): Return node ids of the input batch_data.
 
-        offset(paddle.Tensor): The begin indexes of graph partition parts in batch_data, should be on CPUPlace.
+        offset (paddle.Tensor): The begin indexes of graph partition parts in batch_data, should be on CPUPlace.
 
-        count(paddle.Tensor): The length of graph partition parts in batch_data, should be on CPUPlace.
+        count (paddle.Tensor): The length of graph partition parts in batch_data, should be on CPUPlace.
 
-        feat(paddle.Tensor): The new indexed feat gathered by n_id. 
+        feat (paddle.Tensor): The new indexed feat gathered by n_id. 
 
     """
     if only_nid:

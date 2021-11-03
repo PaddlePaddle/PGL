@@ -172,13 +172,13 @@ def load_dataset(data_name):
 
     Args:
 
-        data_name(str): The name of dataset.
+        data_name (str): The name of dataset.
 
     Returns:
 
-        dataset(pgl.dataset): Return the corresponding dataset, containing graph information, feature, etc.
+        dataset (pgl.dataset): Return the corresponding dataset, containing graph information, feature, etc.
 
-        mode(str): Currently we have 's' and 'm' mode, which mean small dataset and medium dataset respectively. 
+        mode (str): Currently we have 's' and 'm' mode, which mean small dataset and medium dataset respectively. 
         
     """
 
