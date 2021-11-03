@@ -41,6 +41,8 @@ def train(train_loader, model, feature, gcn_norm, label, train_mask, criterion,
     total_loss = total_examples = 0
 
     if isinstance(train_loader, list):
+        # If we get a list-type train_loader, that means we generate train data in advance.
+        # Then we need to shuffle this list before an epoch starts.
         np.random.shuffle(train_loader)
 
     for batch_data in train_loader:
