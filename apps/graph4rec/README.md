@@ -4,13 +4,9 @@
 
 ## Requirements
 
- - paddlepaddle-gpu==2.1.2
+ - paddlepaddle-gpu==2.2.0
 
- - pgl==2.1.4
-
-## Performance
-
-TBD
+ - pgl==2.1.5
 
 ## Usage
 
