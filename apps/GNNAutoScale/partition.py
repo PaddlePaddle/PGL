@@ -23,8 +23,7 @@ from pgl.utils.logger import log
 try:
     from pgl.partition import metis_partition
 except:
-    log.info(f"We currently do not suppport metis_partition, "
-             f"you can checkout GNNAutoScale/README.md to see how to use.")
+    log.info(f"We currently do not support metis_partition.")
 
 
 def random_partition(graph, npart, shuffle=True):
