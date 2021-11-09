@@ -36,7 +36,7 @@ class GCN(ScalableGNN):
 
         self.input_size = input_size
         self.output_size = output_size
-        self.dropout = dropout
+        self.dropout_fn = nn.Dropout(p=dropout)
         self.drop_input = drop_input
 
         self.convs = nn.LayerList()
@@ -51,13 +51,13 @@ class GCN(ScalableGNN):
 
     def forward(self, graph, x, norm, *args):
         if self.drop_input:
-            x = paddle.nn.Dropout(p=self.dropout)(x)
+            x = self.dropout_fn(x)
 
         for conv, hist in zip(self.convs[:-1], self.histories):
             x = conv(graph, x, norm)
             x = paddle.nn.ReLU()(x)
             x = self.push_and_pull(hist, x, *args)
-            x = paddle.nn.Dropout(p=self.dropout)(x)
+            x = self.dropout_fn(x)
 
         h = self.convs[-1](graph, x, norm)
 
@@ -67,7 +67,7 @@ class GCN(ScalableGNN):
     def forward_layer(self, layer, graph, x, norm, state):
         if layer == 0:
             if self.drop_input:
-                x = paddle.nn.Dropout(p=self.dropout)(x)
+                x = self.dropout_fn(x)
 
         h = self.convs[layer](graph, x, norm)
 

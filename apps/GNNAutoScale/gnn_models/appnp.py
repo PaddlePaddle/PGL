@@ -37,17 +37,17 @@ class APPNP(ScalableGNN):
         self.input_size = input_size
         self.output_size = output_size
         self.alpha = alpha
-        self.dropout = dropout
+        self.dropout_fn = nn.Dropout(p=dropout)
 
         self.linears = nn.LayerList()
         self.linears.append(nn.Linear(input_size, hidden_size))
         self.linears.append(nn.Linear(hidden_size, output_size))
 
     def forward(self, graph, x, norm, *args):
-        x = paddle.nn.Dropout(p=self.dropout)(x)
+        x = self.dropout_fn(x)
         x = self.linears[0](x)
         x = paddle.nn.ReLU()(x)
-        x = paddle.nn.Dropout(p=self.dropout)(x)
+        x = self.dropout_fn(x)
         x = self.linears[1](x)
         x0 = x
         for hist in self.histories:  # appnp
@@ -70,10 +70,10 @@ class APPNP(ScalableGNN):
     @paddle.no_grad()
     def forward_layer(self, layer, graph, x, norm, state):
         if layer == 0:
-            x = paddle.nn.Dropout(p=self.dropout)(x)
+            x = self.dropout_fn(x)
             x = self.linears[0](x)
             x = paddle.nn.ReLU()(x)
-            x = paddle.nn.Dropout(p=self.dropout)(x)
+            x = self.dropout_fn(x)
             x = x0 = self.linears[1](x)
             state['x0'] = x0
 
