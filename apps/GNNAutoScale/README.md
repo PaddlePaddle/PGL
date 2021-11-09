@@ -6,7 +6,7 @@ We use history embeddings on CPU to store updated node-embeddings from prior tra
 
 ## Requirements
 
-- paddlepaddle-gpu>=2.2.0rc0
+- paddlepaddle-gpu>=2.2.0
 - pgl
 
 ## Models
