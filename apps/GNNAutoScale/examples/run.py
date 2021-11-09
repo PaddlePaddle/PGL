@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.abspath(".."))
 import gnn_models
 from dataset import load_dataset, create_dataloaders
 from partition import random_partition
+# from partition import metis_graph_partition 
 from utils import check_device, process_batch_data, compute_buffer_size
 from utils import generate_mask, permute, compute_gcn_norm, compute_acc
 
@@ -96,6 +97,7 @@ def main(args, config):
 
     log.info("Running into %d random graph partitions." % config.num_parts)
     permutation, part = random_partition(dataset.graph, npart=config.num_parts)
+    # permutation, part = metis_graph_partition(dataset.graph, npart=config.num_parts)
 
     log.info("Permuting dataset and feature.")
     dataset, feature = permute(dataset, dataset.feature, permutation,

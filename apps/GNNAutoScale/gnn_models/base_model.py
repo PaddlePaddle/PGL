@@ -21,7 +21,7 @@ import sys
 
 import numpy as np
 import paddle
-from pgl.pool import StreamPool, async_write
+from pgl.utils.stream_pool import StreamPool, async_write
 
 sys.path.insert(0, os.path.abspath(".."))
 from history import History

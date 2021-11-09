@@ -128,7 +128,7 @@ class StreamPool(paddle.nn.Layer):
         raise NotImplementedError
 
 
-def async_read(src, cuda_dst, index, pin_buffer, offset, count):
+def async_read(src, dst, index, cpu_buffer, offset, count):
     """This api provides a way to read from pieces of source tensor to destination tensor 
     asynchronously. In which, we use `index`, `offset` and `count` to determine where 
     to read. `index` means the index position of src tensor we want to read. `offset` 
@@ -140,94 +140,93 @@ def async_read(src, cuda_dst, index, pin_buffer, offset, count):
 
     Args:
 
-        pin_src (Tensor): The source tensor, and the data type should be `float32` currently. 
-                  Besides, `pin_src` should be placed on CUDAPinnedPlace.
+        src (Tensor): The source tensor, and the data type should be `float32` currently. 
+                      Besides, `src` should be placed on CUDAPinnedPlace.
 
-        cuda_dst (Tensor): The destination tensor, and the data type should be `float32` currently. 
-                  Besides, `cuda_dst` should be placed on CUDAPlace. The shape of `cuda_dst` should 
-                  be the same with `pin_src` except for the first dimension.
+        dst (Tensor): The destination tensor, and the data type should be `float32` currently. 
+                      Besides, `dst` should be placed on CUDAPlace. The shape of `dst` should 
+                      be the same with `pin_src` except for the first dimension.
 
         index (Tensor): The index tensor, and the data type should be `int64` currently. 
-                    Besides, `index` should be on CPUPlace. The shape of `index` should 
-                    be one-dimensional.
+                      Besides, `index` should be on CPUPlace. The shape of `index` should 
+                      be one-dimensional.
 
-        pin_buffer (Tensor): The buffer tensor, used to buffer index copy tensor temporarily. 
-                     The data type should be `float32` currently, and should be placed 
-                     on CUDAPinnedPlace. The shape of `pin_buffer` should be the same with 
-                     `pin_src` except for the first dimension.
+        cpu_buffer (Tensor): The cpu_buffer tensor, used to buffer index copy tensor temporarily.
+                      The data type should be `float32` currently, and should be placed 
+                      on CUDAPinnedPlace. The shape of `cpu_buffer` should be the same with 
+                      `src` except for the first dimension.
 
         offset (Tensor): The offset tensor, and the data type should be `int64` currently. 
-                     Besides, `offset` should be placed on CPUPlace. The shape of `offset` 
-                     should be one-dimensional.
+                      Besides, `offset` should be placed on CPUPlace. The shape of `offset` 
+                      should be one-dimensional.
 
         count (Tensor): The count tensor, and the data type should be `int64` currently. 
-                    Besides, `count` should be placed on CPUPlace. The shape of `count` 
-                    should be one-dimensinal.
+                      Besides, `count` should be placed on CPUPlace. The shape of `count` 
+                      should be one-dimensinal.
 
     Examples:
 
         import numpy as np
         import paddle
-        from pgl.pool import async_read
+        from pgl.utils.stream_pool import async_read
 
-        pin_src = paddle.rand(shape=[100, 50, 50], dtype="float32").pin_memory()
-        cuda_dst = paddle.empty(shape=[100, 50, 50], dtype="float32")
+        src = paddle.rand(shape=[100, 50, 50], dtype="float32").pin_memory()
+        dst = paddle.empty(shape=[100, 50, 50], dtype="float32")
         offset = paddle.to_tensor(
             np.array([0, 60], dtype="int64"), place=paddle.CPUPlace())
         count = paddle.to_tensor(
             np.array([40, 60], dtype="int64"), place=paddle.CPUPlace())
-        pin_buffer = paddle.empty(shape=[50, 50, 50], dtype="float32").pin_memory()
+        cpu_buffer = paddle.empty(shape=[50, 50, 50], dtype="float32").pin_memory()
         index = paddle.to_tensor(
             np.array([1, 3, 5, 7, 9], dtype="int64")).cpu()
-        async_read(pin_src, cuda_dst, index, pin_buffer, offset, count)
+        async_read(src, dst, index, cpu_buffer, offset, count)
 
     """
 
-    core.async_read(src, cuda_dst, index, cpu_buffer, offset, count)
+    core.async_read(src, dst, index, cpu_buffer, offset, count)
 
 
-def async_write(cuda_src, pin_dst, offset, count):
+def async_write(src, dst, offset, count):
     """This api provides a way to write pieces of source tensor to destination tensor 
     asynchronously. In which, we use `offset` and `count` to determine copy to where. 
-    `offset` means the begin points of the copy destination of `pin_dst`, and `count` 
-    means the lengths of the copy destination of `pin_dst`. To be noted, the copy process 
-    will run asynchronously from cuda to pin memory. 
+    `offset` means the begin points of the copy destination of `dst`, and `count` 
+    means the lengths of the copy destination of `dst`. To be noted, the copy process 
+    will run asynchronously from cuda to pin memory.
     
     We can simply remember this as "gpu async_write to pin_memory". We should run this
     api under GPU version PaddlePaddle.
 
     Args:
   
-        cuda_src (Tensor): The source tensor, and the data type should be `float32` currently. 
-                           Besides, `cuda_src` should be placed on CUDAPlace.
+        src (Tensor): The source tensor, and the data type should be `float32` currently. 
+                      Besides, `src` should be placed on CUDAPlace.
 
-        pin_dst (Tensor): The destination tensor, and the data type should be `float32` currently. 
-                          Besides, `pin_dst` should be placed on CUDAPinnedPlace. The shape of 
-                          `pin_dst` should be the same with `cuda_src` except for the first 
-                          dimension. 
+        dst (Tensor): The destination tensor, and the data type should be `float32` currently. 
+                      Besides, `dst` should be placed on CUDAPinnedPlace. The shape of 
+                      `dst` should be the same with `src` except for the first dimension. 
 
         offset (Tensor): The offset tensor, and the data type should be `int64` currently. 
-                         Besides, `offset` should be placed on CPUPlace. The shape of `offset` 
-                         should be one-dimensional. 
+                      Besides, `offset` should be placed on CPUPlace. The shape of `offset` 
+                      should be one-dimensional. 
     
         count (Tensor): The count tensor, and the data type should be `int64` currently. 
-                        Besides, `count` should be placed on CPUPlace. The shape of `count` 
-                        should be one-dimensinal.
+                      Besides, `count` should be placed on CPUPlace. The shape of `count` 
+                      should be one-dimensinal.
 
     Examples:
 
         import numpy as np
         import paddle
-        from pgl.pool import async_write
+        from pgl.utils.stream_pool import async_write
    
-        cuda_src = paddle.rand(shape=[100, 50, 50])
-        pin_dst = paddle.empty(shape=[200, 50, 50]).pin_memory()
+        src = paddle.rand(shape=[100, 50, 50])
+        dst = paddle.empty(shape=[200, 50, 50]).pin_memory()
         offset = paddle.to_tensor(
              np.array([0, 60], dtype="int64"), place=paddle.CPUPlace())
         count = paddle.to_tensor(
              np.array([40, 60], dtype="int64"), place=paddle.CPUPlace())
-        async_write(cuda_src, pin_dst, offset, count)
+        async_write(src, dst, offset, count)
 
     """
 
-    core.async_write(cuda_src, dst, offset, count)
+    core.async_write(src, dst, offset, count)
