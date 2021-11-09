@@ -23,7 +23,7 @@ from pgl.utils.logger import log
 try:
     from pgl.partition import metis_partition
 except:
-    log.info(f"We currently do not support metis_partition.")
+    log.info(f"We currently do not support metis partition.")
 
 
 def random_partition(graph, npart, shuffle=True):

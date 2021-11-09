@@ -28,8 +28,8 @@ from pgl.utils.logger import log
 sys.path.insert(0, os.path.abspath(".."))
 import gnn_models
 from dataset import load_dataset, create_dataloaders
-from partition import random_partition
-# from partition import metis_graph_partition 
+from graph_partition import random_partition
+# from graph_partition import metis_graph_partition 
 from utils import check_device, process_batch_data, compute_buffer_size
 from utils import generate_mask, permute, compute_gcn_norm, compute_acc
 
