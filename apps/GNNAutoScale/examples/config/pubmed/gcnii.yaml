@@ -1,0 +1,16 @@
+model_name: GCNII
+data_name: pubmed
+num_layers: 16
+num_parts: 4
+batch_size: 2
+hidden_size: 256
+lr: 0.01
+weight_decay: 0.0005
+dropout: 0.5
+alpha: 0.1
+lambda_l: 0.4
+gcn_norm: True
+grad_norm: False
+gen_train_data_in_advance: True
+feat_gpu: True
+epochs: 1000
