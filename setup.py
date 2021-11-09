@@ -16,6 +16,7 @@ import os
 import sys
 import re
 import codecs
+import glob
 from setuptools import setup, find_packages
 from setuptools import Extension
 from setuptools import dist
@@ -56,8 +57,13 @@ compile_extra_args = ["-std=c++11"]
 link_extra_args = []
 
 if sys.platform == "darwin":
-    compile_extra_args = ['-std=c++11', "-mmacosx-version-min=10.9"]
+    compile_extra_args = ["-mmacosx-version-min=10.9"]
     link_extra_args = ["-stdlib=libc++", "-mmacosx-version-min=10.9"]
+
+if sys.platform == "win32":
+    compile_extra_args = [
+        "-DUSE_GKREGEX", "-DWIN32", "-D_CRT_SECURE_NO_DEPRECATE", "-DMSC"
+    ]  # Enable METIS in Windows
 
 
 def read(*parts):
@@ -78,10 +84,26 @@ def find_version(*file_paths):
     raise RuntimeError("Unable to find version string.")
 
 
+def get_metis_source():
+    metis_dir = os.path.join("pgl", "third_party", "metis")
+    return glob.glob(os.path.join(metis_dir, "GKlib", "*.c")) \
+           + glob.glob(os.path.join(metis_dir, "*.c")) \
+           + glob.glob(os.path.join(metis_dir, "libmetis", "*.c"))
+
+
+def get_metis_inc():
+    metis_dir = os.path.join("pgl", "third_party", "metis")
+    return [
+        os.path.join(metis_dir, "include"), os.path.join(metis_dir, "GKlib"),
+        os.path.join(metis_dir, "include"), os.path.join(metis_dir, "libmetis")
+    ]
+
+
 extensions = [
     Extension(
         "pgl.graph_kernel",
-        ["pgl/graph_kernel.pyx"],
+        sources=[os.path.join("pgl", "graph_kernel.pyx")] + get_metis_source(),
+        include_dirs=get_metis_inc(),
         language="c++",
         extra_compile_args=compile_extra_args,
         extra_link_args=link_extra_args, ),
