@@ -16,10 +16,10 @@ import paddle
 """
 
 # TransE single GPU
-CUDA_LAUNCH_BLOCKING=1 nsys profile -t cuda,nvtx -o transe_fb15k_mix_cg --capture-range=cudaProfilerApi --stop-on-range-end=true python -u train.py \
+CUDA_LAUNCH_BLOCKING=1 nsys profile -t cuda,nvtx -o transe_fb15k_pre_moment_sync --capture-range=cudaProfilerApi --stop-on-range-end=true python -u train.py \
 --model_name TransE --data_name FB15k --data_path ~/data --save_path output/transe_fb_sgpu \
 --batch_size 1000 --reg_coef 1e-9 --reg_norm 3 --neg_sample_size 200 --neg_sample_type 'chunk' --embed_dim 400 --gamma 19.9 \
---mlp_lr 0.25 -adv --num_workers 8 --num_epoch 3 --mix_cpu_gpu --async_update
+--mlp_lr 0.25 -adv --num_workers 8 --num_epoch 3 --mix_cpu_gpu --lr 0.25 --async_update
 
 # DistMult single GPU
 CUDA_LAUNCH_BLOCKING=1 nsys profile -t cuda,nvtx -o distmult_fb15k --capture-range=cudaProfilerApi --stop-on-range-end=true python -u train.py \

@@ -23,6 +23,7 @@ import paddle.nn.functional as F
 
 from models.numpy_embedding import NumPyEmbedding
 from models.score_funcs import TransEScore, RotatEScore, DistMultScore, ComplExScore, QuatEScore, OTEScore
+from models.init_func import InitFunction
 from utils import uniform, timer_wrapper
 
 
@@ -52,11 +53,7 @@ class KGEModel(nn.Layer):
         super(KGEModel, self).__init__()
         self._args = args
 
-        # model
-        self._model_name = model_name
-        self._score_func = self._init_score_function(self._model_name, args)
-
-        # embedding
+        # config
         self._num_ents = trigraph.num_ents
         self._num_rels = trigraph.num_rels
         self._ent_dim = args.ent_dim
@@ -67,19 +64,17 @@ class KGEModel(nn.Layer):
         self._lr = args.lr if args.mix_cpu_gpu else None
         self._optim = 'adagrad' if args.mix_cpu_gpu else None
 
-        self.ent_embedding = self._init_embedding(
-            self._num_ents,
-            args.ent_dim,
-            args.ent_emb_on_cpu,
-            os.path.join(args.save_path, '__ent_embedding.npy') \
-            if args.ent_emb_on_cpu else None)
+        # model
+        self._model_name = model_name
+        self._score_func = self._init_score_function(self._model_name, args)
+        self._init_func = InitFunction(args)
 
-        self.rel_embedding = self._init_embedding(
-            self._num_rels,
-            args.rel_dim,
-            args.rel_emb_on_cpu,
-            os.path.join(args.save_path, '__rel_embedding.npy') \
-            if args.rel_emb_on_cpu else None)
+        # embedding
+        self._ent_weight_path = os.path.join(args.save_path,
+                                             '__ent_embedding.npy')
+        self._rel_weight_path = os.path.join(args.save_path,
+                                             '__rel_embedding.npy')
+        self.ent_embedding, self.rel_embedding = self._init_embedding()
 
         self._init_features(trigraph)
 
@@ -194,6 +189,21 @@ class KGEModel(nn.Layer):
 
         return score
 
+    def get_regularization(self, h_embed, r_embed, t_embed, neg_embed=None):
+        """get regularization of input embeddings
+        """
+        if self._args.reg_type == 'norm_hrt':
+            reg_loss = self._score_func.get_hrt_regularization(
+                h_embed, r_embed, t_embed, self._args)
+        else:
+            ent_params = [h_embed, t_embed]
+            if neg_embed is not None:
+                ent_params.append(neg_embed.reshape((-1, neg_embed.shape[-1])))
+            ent_params = paddle.concat(ent_params, axis=0)
+            reg_loss = self._score_func.get_er_regularization(
+                ent_params, r_embed, self._args)
+        return reg_loss
+
     @paddle.no_grad()
     def predict(self, ent, rel, cand, mode='tail'):
         """function for prediction
@@ -246,6 +256,20 @@ class KGEModel(nn.Layer):
                 raise ValueError(
                     "You are using gpu rel_emb, rel_trace must be None")
 
+    def create_trace(self, ent_index, ent_emb, rel_index, rel_emb):
+        """Create NumPy trace for gradient update
+        """
+        if self._ent_emb_on_cpu:
+            ent_trace = self.ent_embedding.create_trace(ent_index, ent_emb)
+        else:
+            ent_trace = None
+        if self._rel_emb_on_cpu:
+            rel_trace = self.rel_embedding.create_trace(rel_index, rel_emb)
+        else:
+            rel_trace = None
+
+        return ent_trace, rel_trace
+
     def start_async_update(self):
         """Initialize async update
         """
@@ -278,60 +302,47 @@ class KGEModel(nn.Layer):
             emb = self.trans_rel(feat, emb)
         return emb
 
-    def _init_embedding(self, num_emb, emb_dim, on_cpu=False, emb_path=None):
+    def _init_embedding(self):
 
-        # initialize with weights (np.ndarray)
-        if self._model_name in {'quate'}:
-            weight = self._score_func.get_init_weight(num_emb, emb_dim // 4)
-
-            if on_cpu:
-                assert emb_path is not None, 'Embedding path is not given for CPU embeddings'
-                embs = NumPyEmbedding(
-                    num_emb,
-                    emb_dim,
-                    weight=weight,
-                    weight_path=emb_path,
-                    optimizer=self._optim,
-                    learning_rate=self._lr)
-            else:
-                embs = nn.Embedding(num_emb, emb_dim)
-                embs.weight.set_value(weight)
-        # initialize with range value (float)
+        if self._model_name == 'quate':
+            ent_weight = self._init_func('quaternion_init', self._num_ents,
+                                         self._ent_dim)
+            rel_weight = self._init_func('quaternion_init', self._num_rels,
+                                         self._rel_dim)
+        elif self._model_name == 'ote':
+            ent_weight = self._init_func('general_uniform', self._num_ents,
+                                         self._ent_dim)
+            rel_weight = self._init_func('ote_scale_init', self._num_rels,
+                                         self._rel_dim)
         else:
-            self.embed_epsilon = 2.0
-            if self._model_name in {'rotate', 'ote'}:
-                nrange = self._score_func.get_init_weight(emb_dim)
-            else:
-                nrange = (self._args.gamma + self.embed_epsilon) / emb_dim
+            ent_weight = self._init_func('general_uniform', self._num_ents,
+                                         self._ent_dim)
+            rel_weight = self._init_func('general_uniform', self._num_rels,
+                                         self._rel_dim)
 
-            if isinstance(nrange, float):
-                left, right = -nrange, nrange
-            elif isinstance(nrange, tuple):
-                assert len(
-                    nrange
-                ) == 2, 'initiliazation values should be 2, only 1 given'
-                left, right = nrange
+        if self._ent_emb_on_cpu:
+            assert self._ent_weight_path is not None, 'Entity embedding path is not given'
+            ent_embeds = NumPyEmbedding.from_weight(
+                weight=ent_weight,
+                weight_path=self._ent_weight_path,
+                optimizer=self._optim,
+                learning_rate=self._lr)
+        else:
+            ent_embeds = nn.Embedding(self._num_ents, self._ent_dim)
+            ent_embeds.weight.set_value(ent_weight)
 
-            if on_cpu:
-                embs = NumPyEmbedding(
-                    num_emb,
-                    emb_dim,
-                    low=left,
-                    high=right,
-                    weight_path=emb_path,
-                    optimizer='adagrad',
-                    learning_rate=self._args.lr)
-            else:
-                weight_attr = paddle.ParamAttr(
-                    initializer=nn.initializer.Uniform(
-                        low=left, high=right))
-                embs = nn.Embedding(num_emb, emb_dim, weight_attr=weight_attr)
+        if self._rel_emb_on_cpu:
+            assert self._rel_weight_path is not None, 'Relation embedding path is not given'
+            rel_embeds = NumPyEmbedding.from_weight(
+                weight=rel_weight,
+                weight_path=self._rel_weight_path,
+                optimizer=self._optim,
+                learning_rate=self._lr)
+        else:
+            rel_embeds = nn.Embedding(self._num_rels, self._rel_dim)
+            rel_embeds.weight.set_value(rel_weight)
 
-            if self._model_name == 'ote' and self._args.ote_scale_type > 0:
-                scale = int(self._args.ote_scale_type == 1)
-                embs.weight.reshape((-1, self._rel_times + 1))[:, -1] = scale
-
-        return embs
+        return ent_embeds, rel_embeds
 
     def _init_features(self, trigraph):
         """Initialize features and MLPs if use_feature is True
@@ -376,10 +387,9 @@ class KGEModel(nn.Layer):
         elif model_name == 'complex':
             score_func = ComplExScore()
         elif model_name == 'quate':
-            score_func = QuatEScore()
+            score_func = QuatEScore(self._num_ents)
         elif model_name == 'ote':
-            score_func = OTEScore(args.gamma, args.ote_size,
-                                  args.ote_scale_type)
+            score_func = OTEScore(args.gamma, args.ote_size, args.ote_scale)
         else:
             raise ValueError('score function %s not implemented!' % model_name)
         return score_func

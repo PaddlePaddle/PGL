@@ -159,14 +159,14 @@ class KGDataset(Dataset):
             new_e_list = []
             new_e_num = 0
             while new_e_num < k:
-                new_e = rng.choice(cand, 2 * k, replace=False)
+                new_e = rng.choice(cand, 2 * k, replace=True)
                 mask = np.in1d(new_e, filter_set, invert=True)
                 new_e = new_e[mask]
                 new_e_list.append(new_e)
                 new_e_num += len(new_e)
             new_e = np.concatenate(new_e_list)[:k]
         else:
-            new_e = rng.choice(cand, k, replace=False)
+            new_e = rng.choice(cand, k, replace=True)
         return new_e
 
 

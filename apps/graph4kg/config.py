@@ -28,7 +28,8 @@ class KGEArgParser(ArgumentParser):
 
         # system
         self.add_argument('--seed', type=int, default=0, help='random seed')
-        self.add_argument('--task_id', type=int, default=0, help='identifier')
+        self.add_argument(
+            '--task_name', type=str, default='0', help='identifier')
 
         self.add_argument(
             '--data_path',
@@ -58,17 +59,17 @@ class KGEArgParser(ArgumentParser):
         self.add_argument(
             '--num_workers',
             type=int,
-            default=4,
+            default=0,
             help='num_workers for DataLoader')
 
         self.add_argument(
-            '--neg_sample_type', type=str, default='batch', help='The range for '\
+            '--neg_sample_type', type=str, default='chunk', help='The range for '\
                 'negative sampling. full: sampling from the whole entity set,'\
                     ' batch: sampling from entities in a batch, chunk: sampling'\
                         ' from the whole entity set as chunks')
 
         self.add_argument(
-            '--neg_sample_size', type=int, default=1000, help='The number of '\
+            '--neg_sample_size', type=int, default=1, help='The number of '\
                 'negative samples for each positive sample in the training.')
 
         self.add_argument(
@@ -85,7 +86,7 @@ class KGEArgParser(ArgumentParser):
         self.add_argument(
             '--test_batch_size',
             type=int,
-            default=50,
+            default=16,
             help='The batch size used for validation and test.')
 
         self.add_argument(
@@ -128,10 +129,18 @@ class KGEArgParser(ArgumentParser):
             help='The temperature used for negative adversarial sampling.')
 
         self.add_argument(
+            '-rt',
+            '--reg_type',
+            type=str,
+            default='norm_hrt',
+            choices=['norm_er', 'norm_hrt'],
+            help='Regularization type. QuatE: "sum_hrt", Norm: "mean_er".')
+
+        self.add_argument(
             '-rc',
             '--reg_coef',
             type=float,
-            default=0.000002,
+            default=0,
             help='The coefficient for regularization.')
 
         self.add_argument(
@@ -168,9 +177,14 @@ class KGEArgParser(ArgumentParser):
             default=12.0,
             help='The margin value in the score function.')
 
-        self.add_argument('--ote_scale_type', type=int, default=0)
+        self.add_argument(
+            '--ote_scale', type=int, default=0, choices=[0, 1, 2])
 
         self.add_argument('--ote_size', type=int, default=1)
+
+        self.add_argument('--quate_lmbda1', type=float, default=0.)
+
+        self.add_argument('--quate_lmbda2', type=float, default=0.)
 
         # traning
         self.add_argument(
@@ -180,7 +194,10 @@ class KGEArgParser(ArgumentParser):
             help='The maximal number of epochs to train.')
 
         self.add_argument(
-            '--lr', type=float, default=0.01, help='The learning rate.')
+            '--lr',
+            type=float,
+            default=0.01,
+            help='The learning rate of embeddings.')
 
         self.add_argument(
             '--mlp_lr',
@@ -232,7 +249,7 @@ def prepare_save_path(args):
     task_name = '{}_{}_d_{}_g_{}_e_{}_r_{}_l_{}_lr_{}_{}_{}'.format(
         args.model_name, args.data_name, args.embed_dim, args.gamma, 'cpu'
         if args.ent_emb_on_cpu else 'gpu', 'cpu' if args.rel_emb_on_cpu else
-        'gpu', args.loss_type, args.lr, args.mlp_lr, args.task_id)
+        'gpu', args.loss_type, args.lr, args.mlp_lr, args.task_name)
 
     args.save_path = os.path.join(args.save_path, task_name)
     if not os.path.exists(args.save_path):
@@ -259,9 +276,11 @@ def prepare_data_config(args):
                     'batch_size {} is reset as {}'.format(neg_sample_size,
                         args.batch_size, batch_size))
             args.batch_size = batch_size
-        args.num_chunks = args.batch_size // args.neg_sample_size
+
+    if neg_sample_type == 'chunk':
+        args.num_chunks = max(args.batch_size // args.neg_sample_size, 1)
     else:
-        args.num_chunks = 1
+        args.num_chunks = args.batch_size
 
     return args
 
@@ -281,21 +300,6 @@ def prepare_embedding_config(args):
     print(' Relation embedding place: {}'.format(rel_place))
     print(('-' * 40))
 
-    # dimension
-    if args.model_name == 'rotate':
-        args.ent_dim = args.embed_dim * 2
-        args.rel_dim = args.embed_dim
-    elif args.model_name == 'ote':
-        args.ent_dim = args.embed_dim
-        args.rel_dim = args.embed_dim * (
-            args.ote_size + int(args.ote_scale_type > 0))
-    else:
-        args.ent_dim = args.embed_dim
-        args.rel_dim = args.embed_dim
-    print('-' * 40 + '\n       Embedding Setting      \n' + ('-' * 40))
-    print(' Entity   embedding dimension: {}'.format(args.ent_dim))
-    print(' Relation embedding dimension: {}'.format(args.rel_dim))
-    print(('-' * 40))
     return args
 
 
@@ -307,7 +311,31 @@ def prepare_model_config(args):
         print('=' * 20 + '\n Async Update!\n' + '=' * 20)
     if args.async_update and not args.mix_cpu_gpu:
         raise ValueError("We only support async_update in mix_cpu_gpu mode.")
+    if args.reg_coef > 0:
+        assert args.reg_norm >= 0, 'norm of regularization is negative!'
+    args.use_embedding_regularization = (args.reg_coef > 0)
 
+    # dimension
+    if args.model_name == 'rotate':
+        args.ent_dim = args.embed_dim * 2
+        args.rel_dim = args.embed_dim
+    elif args.model_name == 'complex':
+        args.ent_dim = args.embed_dim * 2
+        args.rel_dim = args.embed_dim * 2
+    elif args.model_name == 'quate':
+        args.ent_dim = args.embed_dim * 4
+        args.rel_dim = args.embed_dim * 4
+    elif args.model_name == 'ote':
+        args.ent_dim = args.embed_dim
+        args.rel_dim = args.embed_dim * (
+            args.ote_size + int(args.ote_scale > 0))
+    else:
+        args.ent_dim = args.embed_dim
+        args.rel_dim = args.embed_dim
+    print('-' * 40 + '\n       Embedding Setting      \n' + ('-' * 40))
+    print(' Entity   embedding dimension: {}'.format(args.ent_dim))
+    print(' Relation embedding dimension: {}'.format(args.rel_dim))
+    print(('-' * 40))
     return args
 
 

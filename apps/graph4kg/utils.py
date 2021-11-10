@@ -215,6 +215,7 @@ def evaluate(model,
                 output['t,r->h'][key] = np.concatenate(value, axis=0)
             for key, value in t_output.items():
                 output['h,r->t'][key] = np.concatenate(value, axis=0)
+            paddle.save(output, save_path)
         else:
             for metric in h_metrics[0].keys():
                 output['t,r->h'][metric] = np.mean(
@@ -232,4 +233,36 @@ def evaluate(model,
                 ['{}: {}'.format(k, v) for k, v in output['average'].items()]))
             print('-----------------------------------------')
 
-        paddle.save(output, save_path)
+
+def gram_schimidt_process(embeds, num_elem, use_scale):
+    """ Orthogonalize embeddings
+    """
+    num_embed = embeds.shape[0]
+    assert embeds.shape[1] == num_elem
+    assert embeds.shape[2] == (num_elem + int(use_scale))
+    if use_scale:
+        scales = embeds[:, :, -1]
+        embeds = embeds[:, :, :num_elem]
+
+    u = [embeds[:, 0]]
+    uu = [0] * num_elem
+    uu[0] = (u[0] * u[0]).sum(axis=-1)
+    u_d = embeds[:, 1:]
+    ushape = (num_embed, 1, -1)
+    for i in range(1, num_elem):
+        tmp_a = (embeds[:, i:] * u[i - 1].reshape(ushape)).sum(axis=-1)
+        tmp_b = uu[i - 1].reshape((num_embed, -1))
+        tmp_u = (tmp_a / tmp_b).reshape((num_embed, -1, 1))
+        u_d = u_d - u[-1].reshape(ushape) * tmp_u
+        u_i = u_d[:, 0]
+        if u_d.shape[1] > 1:
+            u_d = u_d[:, 1:]
+        uu[i] = (u_i * u_i).sum(axis=-1)
+        u.append(u_i)
+
+    u = np.stack(u, axis=1)
+    u_norm = np.linalg.norm(u, axis=-1, keepdims=True)
+    u = u / u_norm
+    if use_scale:
+        u = np.concatenate([u, scales.reshape((num_embed, -1, 1))], axis=-1)
+    return u

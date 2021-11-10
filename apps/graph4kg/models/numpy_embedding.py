@@ -38,24 +38,27 @@ class NumPyEmbedding(object):
         
         weight_path: the file to save and load weight.
 
-        scale_type: the parameter for OTE model.
     """
 
     def __init__(self,
                  num_embeddings=1,
                  embedding_dim=1,
-                 low=1.,
-                 high=None,
+                 high=1,
+                 low=None,
                  weight=None,
                  weight_path='./__np_embedding.npy',
                  optimizer='AdaGrad',
                  learning_rate=1e-3):
         super(NumPyEmbedding, self).__init__()
+        self._num_embed = num_embeddings
+        self._embed_dim = embedding_dim
+        self._low = -high if low is None else low
+        self._high = high
         self._weight_path = weight_path
         self._moment_path = os.path.join(
             os.path.dirname(self._weight_path),
-            os.path.basename(self._weight_path).strip('.npy') + '__moment.npy')
-        self._init_weight(num_embeddings, embedding_dim, low, high, weight)
+            os.path.basename(self._weight_path).strip('.npy') + '_moment.npy')
+        self._init_weight(weight)
 
         self.trace = []
         self._stop_gradient = False
@@ -75,6 +78,13 @@ class NumPyEmbedding(object):
         if not self._stop_gradient:
             self.trace.append((index, tensors))
         return tensors
+
+    @classmethod
+    def from_weight(cls, weight, weight_path, optimizer, learning_rate):
+        """Initializa NumPyEmbedding with a pre-defined array
+        """
+        return cls(weight=weight, weight_path=weight_path, \
+            optimizer=optimizer, learning_rate=learning_rate)
 
     def eval(self):
         """For evaluation without gradients
@@ -144,18 +154,19 @@ class NumPyEmbedding(object):
             else:
                 self._update(index, grad_trace)
 
-    def create_trace(self, embeds):
+    def create_trace(self, index, embeds):
         """Create gradient trace for given paddle.tensor
         """
         if embeds is None:
             return None
+        index = index.numpy()
         if self._optim_mode == 'adagrad':
             grad = embeds.grad
             grad_square = (grad * grad).mean(axis=-1).numpy()
-            trace = [grad.numpy(), grad_square]
+            grads = [grad.numpy(), grad_square]
         elif self._optim_mode == 'sgd':
-            trace = [embeds.grad.numpy()]
-        return trace
+            grads = [embeds.grad.numpy()]
+        return [index, grads]
 
     @thread_wrapper
     def async_update(self, queue):
@@ -178,14 +189,12 @@ class NumPyEmbedding(object):
             raise ValueError('update method %s is not supported!' %
                              self._optim_mode)
 
-    def _init_weight(self, num_embeddings, embedding_dim, low, high, weight):
+    def _init_weight(self, weight):
         if dist.get_rank() == 0:
             if weight is None:
-                if high is None:
-                    high = low
-                    low = -low
-                assert low < high, 'invalid initialization range!'
-                weight = uniform(low, high, (num_embeddings, embedding_dim))
+                assert self._low < self._high, 'invalid initialization range!'
+                embed_shape = (self._num_embed, self._embed_dim)
+                weight = uniform(self._low, self._high, embed_shape)
             np.save(self._weight_path, weight)
             del weight
         else:

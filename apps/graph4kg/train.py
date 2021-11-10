@@ -61,12 +61,12 @@ def main(writer=None):
 
     if dist.get_world_size() > 1 and len(model.parameters()) > 0:
         model = paddle.DataParallel(model)
-        model = model._layer
+        model = model._layers
 
     if len(model.parameters()) > 0:
         # There will be some difference of lr / optimizer  on Relation Embedding
         optimizer = paddle.optimizer.Adagrad(
-            learning_rate=args.mlp_lr,
+            learning_rate=args.lr,
             epsilon=1e-10,
             parameters=model.parameters())
     else:
@@ -98,17 +98,17 @@ def main(writer=None):
             all_ents_emb, rel_emb = prefetch_embeddings
 
             if rel_emb is not None:
-                rel_emb = rel_emb.cuda(blocking=False)
+                # rel_emb = rel_emb.cuda(blocking=False)
                 rel_emb.stop_gradient = False
             if all_ents_emb is not None:
-                all_ents_emb = all_ents_emb.cuda(blocking=False)
+                # all_ents_emb = all_ents_emb.cuda(blocking=False)
                 all_ents_emb.stop_gradient = False
 
-            h = h.cuda(blocking=False)
-            r = r.cuda(blocking=False)
-            t = t.cuda(blocking=False)
-            neg_ents = neg_ents.cuda(blocking=False)
-            all_ents = all_ents.cuda(blocking=False)
+            # h = h.cuda(blocking=False)
+            # r = r.cuda(blocking=False)
+            # t = t.cuda(blocking=False)
+            # neg_ents = neg_ents.cuda(blocking=False)
+            # all_ents = all_ents.cuda(blocking=False)
 
             timer['sample'] += (time.time() - ts)
 
@@ -139,34 +139,15 @@ def main(writer=None):
             # if writer:
             #     writer.add_scalar(tag="loss", step=step, value=loss.numpy()[0])
 
-            if args.reg_coef > 0. and args.reg_norm >= 0:
-                if all_ents_emb is None:
-                    if args.mix_cpu_gpu:
-                        ent_params = model.ent_embedding.curr_emb
-                    else:
-                        ent_params = paddle.concat([
-                            h_emb, t_emb, neg_emb.reshape((-1,
-                                                           h_emb.shape[-1]))
-                        ])
-                else:
-                    ent_params = all_ents_emb
-
-                if rel_emb is None:
-                    rel_params = r_emb
-                else:
-                    rel_params = rel_emb
-                # reg = paddle.norm(params, p=args.reg_norm).pow(args.reg_norm) # 37 steps / s -> partial embedding 102 steps / s -> model return params 98 steps / s
-                # reg = params.norm(p=args.reg_norm)**args.reg_norm # 34 steps / s
-                # reg = paddle.sum(params.abs().pow(args.reg_norm))
-                reg = paddle.sum(ent_params.abs().pow(args.reg_norm)) + \
-                    paddle.sum(rel_params.abs().pow(args.reg_norm))
-                reg = args.reg_coef * reg
-                log['reg'] += reg.numpy()[0]
+            if args.use_embedding_regularization:
+                reg_loss = model.get_regularization(h_emb, r_emb, t_emb,
+                                                    neg_emb)
+                log['reg'] += reg_loss.numpy()[0]
 
                 # if writer:
                 #     writer.add_scalar(tag="reg", step=step, value=reg.numpy()[0])
 
-                loss = loss + reg
+                loss = loss + reg_loss
             timer['forward'] += (time.time() - ts)
 
             ts = time.time()
@@ -178,21 +159,12 @@ def main(writer=None):
                 optimizer.step()
                 optimizer.clear_grad()
 
-            if all_ents_emb is not None:
-                ent_index = all_ents.numpy()
-                ent_grads = model.ent_embedding.create_trace(all_ents_emb)
-                ent_trace = (ent_index, ent_grads)
+            if args.mix_cpu_gpu:
+                ent_trace, rel_trace = model.create_trace(
+                    all_ents, all_ents_emb, r, r_emb)
+                model.step(ent_trace, rel_trace)
             else:
-                ent_trace = None
-
-            if rel_emb is not None:
-                rel_index = r.numpy()
-                rel_grads = model.rel_embedding.create_trace(rel_emb)
-                rel_trace = (rel_idx, rel_grads)
-            else:
-                rel_trace = None
-
-            model.step(ent_trace, rel_trace)
+                model.step()
 
             timer['update'] += (time.time() - ts)
 
