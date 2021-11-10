@@ -86,17 +86,28 @@ def find_version(*file_paths):
 
 def get_metis_source():
     metis_dir = os.path.join("pgl", "third_party", "metis")
-    return glob.glob(os.path.join(metis_dir, "GKlib", "*.c")) \
+    if sys.platform == "win32":
+        return glob.glob(os.path.join(metis_dir, "*.c")) \
+           + glob.glob(os.path.join(metis_dir, "win32", "*.c"))
+    else:
+        return glob.glob(os.path.join(metis_dir, "GKlib", "*.c")) \
            + glob.glob(os.path.join(metis_dir, "*.c")) \
            + glob.glob(os.path.join(metis_dir, "libmetis", "*.c"))
 
 
 def get_metis_inc():
     metis_dir = os.path.join("pgl", "third_party", "metis")
-    return [
-        os.path.join(metis_dir, "include"), os.path.join(metis_dir, "GKlib"),
-        os.path.join(metis_dir, "include"), os.path.join(metis_dir, "libmetis")
-    ]
+    if sys.platform == "win32":
+        return [
+            os.path.join(metis_dir, "include"), os.path.join(metis_dir,
+                                                             "win32")
+        ]
+    else:
+        return [
+            os.path.join(metis_dir, "include"),
+            os.path.join(metis_dir, "GKlib"),
+            os.path.join(metis_dir, "libmetis")
+        ]
 
 
 extensions = [
