@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import sys
 
 import unittest
 import numpy as np
@@ -56,14 +57,15 @@ class GraphPartitionTest(unittest.TestCase):
             self.assertTrue(np.any(cluster != cluster[0]))
 
         # can run
-        # node_weight = np.random.randn(multi_graph.num_nodes)
-        # edge_weight = np.random.randn(multi_graph.num_edges)
-        # cluster_id = metis_partition(
-        #     multi_graph,
-        #     npart=npart,
-        #     node_weights=node_weight,
-        #     edge_weights=edge_weight)
+        node_weight = np.random.randn(multi_graph.num_nodes)
+        edge_weight = np.random.randn(multi_graph.num_edges)
+        cluster_id = metis_partition(
+            multi_graph,
+            npart=npart,
+            node_weights=node_weight,
+            edge_weights=edge_weight)
 
 
 if __name__ == "__main__":
-    unittest.main()
+    if sys.platform != "win32":
+        unittest.main()
