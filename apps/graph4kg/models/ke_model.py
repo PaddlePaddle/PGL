@@ -193,9 +193,13 @@ class KGEModel(nn.Layer):
         """get regularization of input embeddings
         """
         if self._args.reg_type == 'norm_hrt':
+            if self._args.quate_lmbda1 == 0 and self._args.quate_lmbda2 == 0:
+                return 0
             reg_loss = self._score_func.get_hrt_regularization(
                 h_embed, r_embed, t_embed, self._args)
         else:
+            if self._args.reg_coef == 0:
+                return 0
             ent_params = [h_embed, t_embed]
             if neg_embed is not None:
                 ent_params.append(neg_embed.reshape((-1, neg_embed.shape[-1])))

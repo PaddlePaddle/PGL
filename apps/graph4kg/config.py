@@ -132,7 +132,7 @@ class KGEArgParser(ArgumentParser):
             '-rt',
             '--reg_type',
             type=str,
-            default='norm_hrt',
+            default='norm_er',
             choices=['norm_er', 'norm_hrt'],
             help='Regularization type. QuatE: "sum_hrt", Norm: "mean_er".')
 
@@ -313,7 +313,11 @@ def prepare_model_config(args):
         raise ValueError("We only support async_update in mix_cpu_gpu mode.")
     if args.reg_coef > 0:
         assert args.reg_norm >= 0, 'norm of regularization is negative!'
-    args.use_embedding_regularization = (args.reg_coef > 0)
+    if args.reg_type == 'norm_er':
+        args.use_embedding_regularization = args.reg_coef > 0
+    else:
+        args.use_embedding_regularization = (args.quate_lmbda1 > 0) \
+            or (args.quate_lmbda2 > 0)
 
     # dimension
     if args.model_name == 'rotate':

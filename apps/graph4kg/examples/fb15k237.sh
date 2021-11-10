@@ -22,7 +22,7 @@ CUDA_VISIBLE_DEVICES=3 python -u train.py --model_name ComplEx --data_name FB15k
 # RotatE
 CUDA_VISIBLE_DEVICES=3 python -u train.py --model_name RotatE --data_name FB15k-237 --data_path ~/data \
 --save_path output/rotate_fb237_sgpu --batch_size 512 --test_batch_size 16 --reg_coef 1e-7 \
---neg_sample_size 256 --neg_sample_type 'chunk' --embed_dim 500 --gamma 5.0 --lr 0.3 -adv -a 1.0 \
+--neg_sample_size 256 --neg_sample_type 'chunk' --embed_dim 200 --gamma 5.0 --lr 0.5 -adv -a 1.0 \
 --num_workers 4 --num_epoch 150 --test --print_on_screen --filter_eval --neg_deg_sample
 
 # QuatE
