@@ -28,19 +28,32 @@ from libcpp cimport bool
 cdef extern from "stdint.h":
     ctypedef signed int int64_t
 
-cdef extern from "third_party/metis/include/metis.h":
-    cdef int METIS_PartGraphRecursive(int64_t *nvtxs, int64_t *ncon, int64_t *xadj, 
-                  int64_t *adjncy, int64_t *vwgt, int64_t *vsize, int64_t *adjwgt, 
-                  int64_t *nparts, float *tpwgts, float *ubvec, int64_t *options, 
+cdef extern from *:
+    """
+    #if defined(_WIN32) || defined(MS_WINDOWS) || defined(_MSC_VER)
+        #include "third_party/metis/include/win.h"
+        #define win32 1
+        #define METIS_Recursive_(a,b,c,d,e,f,g,h,i,j,k,l,m) METIS_Recursive_win32(a,b,c,d,e,f,g,h,i,j,k,l,m)
+        #define METIS_Kway_(a,b,c,d,e,f,g,h,i,j,k,l,m) METIS_Kway_win32(a,b,c,d,e,f,g,h,i,j,k,l,m)
+        #define METIS_DefaultOptions_(m) METIS_DefaultOptions_win32(m)
+    #else
+        #include "third_party/metis/include/metis.h"
+        #define win32 0
+        #define METIS_Recursive_(a,b,c,d,e,f,g,h,i,j,k,l,m) METIS_PartGraphRecursive(a,b,c,d,e,f,g,h,i,j,k,l,m)
+        #define METIS_Kway_(a,b,c,d,e,f,g,h,i,j,k,l,m) METIS_PartGraphKway(a,b,c,d,e,f,g,h,i,j,k,l,m)
+        #define METIS_DefaultOptions_(m) METIS_SetDefaultOptions(m)
+    #endif
+    """
+    bool win "win32"
+    int METIS_Recursive "METIS_Recursive_"(int64_t *nvtxs, int64_t *ncon, int64_t *xadj,
+                  int64_t *adjncy, int64_t *vwgt, int64_t *vsize, int64_t *adjwgt,
+                  int64_t *nparts, float *tpwgts, float *ubvec, int64_t *options,
                   int64_t *edgecut, int64_t *part) nogil
-
-    cdef int METIS_PartGraphKway(int64_t *nvtxs, int64_t *ncon, int64_t *xadj, 
-                  int64_t *adjncy, int64_t *vwgt, int64_t *vsize, int64_t *adjwgt, 
-                  int64_t *nparts, float *tpwgts, float *ubvec, int64_t *options, 
-                  int64_t *edgecut, int64_t *part) nogil
-
-
-    cdef int METIS_SetDefaultOptions(int64_t *options)
+    int METIS_Kway "METIS_Kway_"(int64_t *nvtxs, int64_t *ncon, int64_t *xadj,
+                  int64_t *adjncy, int64_t *vwgt, int64_t *vsize, int64_t *adjwgt,
+                  int64_t *nparts, float *tpwgts, float *ubvec, int64_t *options,
+                  int64_t *edgecut, int64_t *part) nogil 
+    int METIS_DefaultOptions "METIS_DefaultOptions_"(int64_t *options)
 
 
 @cython.boundscheck(False)
@@ -444,17 +457,18 @@ def metis_partition(
         edge_weight_ptr = <int64_t *> edge_weights.data
 
 
-    with nogil:
-        if recursive:
-            METIS_PartGraphRecursive(&num_nodes, &ncon, <int64_t *> adj_indptr.data,
-                             <int64_t *> sorted_v.data, node_weight_ptr, NULL, edge_weight_ptr,
-                             &nparts, NULL, NULL, NULL,
-                             &edgecut, <int64_t *> part.data)
-        else:
-            METIS_PartGraphKway(&num_nodes, &ncon, <int64_t *> adj_indptr.data,
-                             <int64_t *> sorted_v.data, node_weight_ptr, NULL, edge_weight_ptr,
-                             &nparts, NULL, NULL, NULL,
-                             &edgecut, <int64_t *> part.data)
+    if win == 0:
+        with nogil:
+            if recursive:
+                METIS_Recursive(nvtxs=&num_nodes, ncon=&ncon, xadj=<int64_t *> adj_indptr.data,
+                             adjncy=<int64_t *> sorted_v.data, vwgt=node_weight_ptr, vsize=NULL, adjwgt=edge_weight_ptr,
+                             nparts=&nparts, tpwgts=NULL, ubvec=NULL, options=NULL,
+                             edgecut=&edgecut, part=<int64_t *> part.data)
+            else:
+                METIS_Kway(nvtxs=&num_nodes, ncon=&ncon, xadj=<int64_t *> adj_indptr.data,
+                             adjncy=<int64_t *> sorted_v.data, vwgt=node_weight_ptr, vsize=NULL, adjwgt=edge_weight_ptr,
+                             nparts=&nparts, tpwgts=NULL, ubvec=NULL, options=NULL,
+                             edgecut=&edgecut, part=<int64_t *> part.data)
     return part
     
 
