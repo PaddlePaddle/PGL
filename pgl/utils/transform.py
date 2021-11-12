@@ -19,7 +19,7 @@ import numpy as np
 import pgl
 
 
-def to_undirected(graph, copy_node_feat=True, copy_edge_feat=True):
+def to_undirected(graph, copy_node_feat=True, copy_edge_feat=False):
     """Convert a graph to an undirected graph.
     
     Args:
@@ -52,17 +52,22 @@ def to_undirected(graph, copy_node_feat=True, copy_edge_feat=True):
 
     if copy_edge_feat:
         # TODO(daisiming): Support duplicate edge_feature.
-        pass
+        raise NotImplementedError(
+            "The copy of edge feature is not implemented currently.")
 
     return g
 
 
-def add_self_loops(graph):
+def add_self_loops(graph, copy_node_feat=True, copy_edge_feat=False):
     """Add self-loops to the given graph.
 
     Args:
 
         graph (pgl.Graph): The input graph, should be in numpy format.
+
+        copy_node_feat (bool): Whether to copy node feature in return graph. Default: True.
+
+        copy_edge_feat (bool): [Alternate input] Whether to copy edge feature in return graph.
     
     Returns:
 
@@ -78,9 +83,13 @@ def add_self_loops(graph):
     edges = np.vstack((graph.edges, self_loop_edges))
     g = pgl.graph.Graph(num_nodes=graph.num_nodes, edges=edges)
 
-    for k, v in graph._node_feat.items():
-        g._node_feat[k] = v
+    if copy_node_feat:
+        for k, v in graph._node_feat.items():
+            g._node_feat[k] = v
 
-    # TODO(daisiming): Generate edge_feature of self-loops.
+    if copy_edge_feat:
+        # TODO(daisiming): Generate edge_feature of self-loops.
+        raise NotImplementedError(
+            "The copy of edge feature is not implemented currently.")
 
     return g
