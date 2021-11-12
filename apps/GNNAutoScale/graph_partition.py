@@ -15,18 +15,16 @@
     Graph partition methods for GNNAutoScale.
 """
 
+import sys
 import math
 
 import numpy as np
 import pgl
 from pgl.utils.logger import log
-try:
-    from pgl.partition import metis_partition
-except:
-    log.info(f"We currently do not support metis partition.")
+from pgl.partition import random_partition, metis_partition
 
 
-def random_partition(graph, npart, shuffle=True):
+def random_graph_partition(graph, npart):
     """Randomly partition graph into small clusters.
 
     Args:
@@ -34,8 +32,6 @@ def random_partition(graph, npart, shuffle=True):
         graph (pgl.Graph): The input graph for partition.
 
         npart (int): The number of parts in the final graph partition.
-
-        shuffle (bool): Whether to shuffle the original node sequence.
 
     Returns:
 
@@ -61,15 +57,12 @@ def random_partition(graph, npart, shuffle=True):
     if npart <= 1:
         permutation, part = np.arange(num_nodes), np.array([0, num_nodes])
     else:
-        permutation = np.arange(0, num_nodes)
-        if shuffle:
-            np.random.shuffle(permutation)
-        cs = int(math.ceil(num_nodes * 1.0 / npart))
-        part = [
-            cs * i if cs * i <= num_nodes else num_nodes
-            for i in range(npart + 1)
-        ]
-        part = np.array(part)
+        random_part = random_partition(graph, npart)
+        permutation = np.argsort(random_part)
+
+        part = np.zeros(npart + 1, dtype=np.int64)
+        for i in range(npart):
+            part[i + 1] = part[i] + len(np.where(random_part == i)[0])
 
     return permutation, part
 
@@ -93,6 +86,12 @@ def metis_graph_partition(graph, npart):
  
     """
 
+    if sys.platform == 'win32':
+        log.error(
+            f"We currently do not support metis partition on Windows system. "
+            f"You can use random graph partition instead. "
+            f"This program will exit.")
+        exit(1)
     metis_part = metis_partition(graph, npart)
     permutation = np.argsort(metis_part)
 
