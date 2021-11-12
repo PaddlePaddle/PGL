@@ -24,6 +24,7 @@ import shutil
 import six
 import warnings
 import glob
+import numpy as np
 
 
 def get_last_dir(path):
@@ -118,12 +119,12 @@ def create_necessary_dirs(config, worker_index=None):
     config.save_dir = os.path.join(config.save_dir, config.task_name)
     config.output_dir = os.path.join(config.output_dir, config.task_name)
 
-    if worker_index is None or worker_index == 0:
-        make_dir(config.log_dir)
-        make_dir(config.save_dir)
-        make_dir(config.output_dir)
-
-    time.sleep(3)
+    #  if worker_index is None or worker_index == 0:
+    np.random.seed(worker_index)
+    time.sleep(np.random.uniform() * 2)
+    make_dir(config.log_dir)
+    make_dir(config.save_dir)
+    make_dir(config.output_dir)
 
 
 def save_files(config):
