@@ -19,6 +19,7 @@ import math
 import numpy as np
 from pgl.graph_kernel import metis_partition as _metis_partition
 from pgl.utils.helper import check_is_tensor, scatter
+from pgl.utils.logger import log
 
 
 def _metis_weight_scale(X):

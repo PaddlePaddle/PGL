@@ -8,3 +8,7 @@ python -m unittest test_math.py
 python -m unittest test_partition.py
 python -m unittest test_sample.py
 python -m unittest test_static_graph.py
+
+# Distributed
+python -m unittest test_dist_cpu_graph.py
+CUDA_VISIBLE_DEVICES=0,1 python -m paddle.distributed.launch test_dist_graph.py
