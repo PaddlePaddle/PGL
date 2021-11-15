@@ -87,11 +87,10 @@ def metis_graph_partition(graph, npart):
     """
 
     if sys.platform == 'win32':
-        log.error(
+        raise NotImplementedError(
             f"We currently do not support metis partition on Windows system. "
-            f"You can use random graph partition instead. "
-            f"This program will exit.")
-        exit(1)
+            f"You can use random graph partition instead.")
+
     metis_part = metis_partition(graph, npart)
     permutation = np.argsort(metis_part)
 
