@@ -1,8 +1,8 @@
 # GNNAutoScale: Auto-Scaling GNNs in PaddlePaddle
 
-Refer to paper [*GNNAutoScale: Scalable and Expressive Graph Neural Networks via Historical Embeddings*](https://arxiv.org/abs/2106.05609), we re-implement a similar GNNAutoScale framework using PGL, which can scale arbitrary message-passing GNNs to large graphs.
+Refer to paper [*GNNAutoScale: Scalable and Expressive Graph Neural Networks via Historical Embeddings*](https://arxiv.org/abs/2106.05609), we reproduce the GNNAutoScale framework using PGL, which can scale arbitrary message-passing GNNs to large graphs.
 
-We use history embeddings on CPU to store updated node-embeddings from prior training iterations, and pull neighboring node-embeddings in history embeddings to participate in training, which can lead to smaller GPU memory consumption.
+By using history embeddings on CPU to store updated node-embeddings from prior training iterations, and pulling neighboring node-embeddings in history embeddings to participate in training, we can have smaller GPU memory consumption.
 
 ## Requirements
 
