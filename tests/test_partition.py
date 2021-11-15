@@ -42,6 +42,7 @@ class GraphPartitionTest(unittest.TestCase):
                 [edges[:, 1].reshape(-1, 1), edges[:, 0].reshape(-1, 1)],
                 axis=1)
             edges = np.concatenate([edges, symm_edges])
+            # Make sure the input graph is symmetric.
             g = pgl.Graph(edges=edges, num_nodes=num_nodes)
             glist.append(g)
 

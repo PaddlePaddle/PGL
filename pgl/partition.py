@@ -57,6 +57,8 @@ def metis_partition(graph, npart, node_weights=None, edge_weights=None):
 
     """
 
+    log.warning("The input graph of metis_partition should be undirected.")
+
     if npart == 1:
         return np.zeros(graph.num_nodes, dtype=np.int64)
 
