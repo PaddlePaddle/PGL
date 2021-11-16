@@ -72,7 +72,6 @@ class TripletDataset(object):
         if not os.path.exists(self._path):
             raise ValueError('data path %s not exists!' % self._path)
 
-        # TODO(Huijuan): No dictionary
         if load_dict:
             ent_dict_path = os.path.join(self._path, ent_file)
             rel_dict_path = os.path.join(self._path, rel_file)
@@ -91,8 +90,18 @@ class TripletDataset(object):
         self.train, self.valid, self.test = self.load_dataset()
         self.triplets = {
             'train': self.train,
-            'valid': self.valid,
-            'test': self.test
+            'valid': {
+                'mode': 'hrt',
+                'h': self.valid[:, 0],
+                'r': self.valid[:, 1],
+                't': self.valid[:, 2],
+                'candidate': self.num_ents},
+            'test': {
+                'mode': 'hrt',
+                'h': self.test[:, 0],
+                'r': self.test[:, 1],
+                't': self.test[:, 2],
+                'candidate': self.num_ents}
         }
 
     def __call__(self):
@@ -175,15 +184,27 @@ class WikiKG90MDataset(object):
         self.name = 'WikiKG90M-LSC'
         from ogb.lsc import WikiKG90MDataset as LSCDataset
         data = LSCDataset(path)
+        valid = data.valid_dict['h,r->t']
+        test = data.test_dict['h,r->t']
         self.triplets = {
             'train': data.train_hrt,
-            'valid': data.valid_dict['h,r->t'],
-            'test': data.test_dict['h,r->t']
+            'valid': {
+                'mode': 'wikikg90m',
+                'h': valid['hr'][:, 0],
+                'r': valid['hr'][:, 1],
+                'candidate_t': valid['t_candidate'],
+                't_correct_index': valid.get('t_correct_index', None)},
+            'test': {
+                'mode': 'wikikg90m',
+                'h': test['hr'][:, 0],
+                'r': test['hr'][:, 1],
+                'candidate_t': test['t_candidate'],
+                't_correct_index': test.get('t_correct_index', None)}
         }
         self.num_ents = data.num_entities
         self.num_rels = data.num_relations
-        self.ent_feat = {'text': data.entity_feat}
-        self.rel_feat = {'text': data.relation_feat}
+        self.ent_feat = data.entity_feat
+        self.rel_feat = data.relation_feat
 
 
 class WikiKG2Dataset(object):
@@ -196,19 +217,28 @@ class WikiKG2Dataset(object):
         from ogb.linkproppred import LinkPropPredDataset
         data = LinkPropPredDataset(name='ogbl-wikikg2', root=path)
         split_idx = data.get_edge_split()
+        valid = split_idx['valid']
+        test = split_idx['test']
         self.triplets = {
             'train': np.stack([
-                split_idx['train']['head'], split_idx['train']['relation'],
+                split_idx['train']['head'],
+                split_idx['train']['relation'],
                 split_idx['train']['tail']
             ]).T,
-            'valid': np.stack([
-                split_idx['valid']['head'], split_idx['valid']['relation'],
-                split_idx['valid']['tail']
-            ]).T,
-            'test': np.stack([
-                split_idx['test']['head'], split_idx['test']['relation'],
-                split_idx['test']['tail']
-            ]).T
+            'valid': {
+                'mode': 'wikikg2',
+                'h': valid['head'],
+                'r': valid['relation'],
+                't': valid['tail'],
+                'candidate_h': valid['head_neg'],
+                'candidate_t': valid['tail_neg']},
+            'test': {
+                'mode': 'wikikg2',
+                'h': test['head'],
+                'r': test['relation'],
+                't': test['tail'],
+                'candidate_h': test['head_neg'],
+                'candidate_t': test['tail_neg']}
         }
         self.num_ents = data.graph['num_nodes']
         self.num_rels = int(max(data.graph['edge_reltype'])[0]) + 1

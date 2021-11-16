@@ -13,8 +13,8 @@
 # limitations under the License.
 
 import paddle
-from paddle.nn import BCELoss, MarginRankingLoss, Softplus
-from paddle.nn.functional import log_sigmoid, softmax
+from paddle.nn import BCELoss, MarginRankingLoss
+from paddle.nn.functional import log_sigmoid, softmax, softplus
 
 
 class LogSigmoidLoss(object):
@@ -25,8 +25,23 @@ class LogSigmoidLoss(object):
         super(LogSigmoidLoss, self).__init__()
         self.neg_label = -1
 
-    def __call__(self, score, label):
-        return -log_sigmoid(label * score)
+    def __call__(self, score, label, weight):
+        if weight is not None:
+            return -(weights * log_sigmoid(label * score)).sum() / weights.sum()
+        else:
+            return -log_sigmoid(label * score)
+
+
+class SoftplusLoss(object):
+    """SoftplusLoss
+    """
+
+    def __init__(self):
+        super(SoftplusLoss, self).__init__()
+        self.neg_label = -1
+
+     def __call__(self, score, label):
+        return -softplus(label * score)
 
 
 class LossFunction(object):
@@ -48,19 +63,18 @@ class LossFunction(object):
         self.neg_adv_spl = neg_adv_spl
         self.neg_adv_temp = neg_adv_temp
 
-    def __call__(self, pos_score, neg_score):
+    def __call__(self, pos_score, neg_score, weights=None):
 
         if self.pairwise:
             pos_score = paddle.unsqueeze(pos_score, -1)
             loss = paddle.mean(self.loss_func(pos_score - neg_score, 1))
-        elif self.name == 'Softplus':
-            pos_loss = self.loss_func(pos_score)
-            neg_loss = self.loss_func(neg_score * self.neg_label)
-            neg_loss = neg_loss.reshape((-1, ))
-            loss = paddle.mean(paddle.concat([pos_loss, neg_loss], axis=0))
         else:
-            pos_loss = self.loss_func(pos_score, 1)
-            neg_loss = self.loss_func(neg_score, self.neg_label)
+            if self.name == 'Logsigmoid':
+                pos_loss = self.loss_func(pos_score, 1, weights)
+                neg_loss = self.loss_func(neg_score, self.neg_label, weights)
+            else:
+                pos_loss = self.loss_func(pos_score, 1)
+                neg_loss = self.loss_func(neg_score, self.neg_label)
             if self.neg_adv_spl:
                 neg_loss = neg_loss * self.adverarial_weight(neg_score)
                 neg_loss = paddle.sum(neg_loss, axis=-1)
@@ -95,6 +109,7 @@ class LossFunction(object):
             return BCELoss()
         elif self.name == 'Softplus':
             self.neg_label = -1
-            return Softplus()
+            return SoftplusLoss()
         else:
             raise ValueError('loss %s not implemented!' % self.name)
+

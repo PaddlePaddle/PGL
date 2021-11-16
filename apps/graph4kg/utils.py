@@ -96,7 +96,7 @@ def timer_wrapper(name):
         def wrapper(*args, **kwargs):
             """wrapper func
             """
-            print(f'[{name}] start...')
+            logging.info(f'[{name}] start...')
             ts = time.time()
             result = func(*args, **kwargs)
             te = time.time()
@@ -107,7 +107,7 @@ def timer_wrapper(name):
                 cost_str = '%.4f sec (%.4f hours)' % (costs, costs / 3600.)
             else:
                 cost_str = '%.4f sec' % costs
-            print(f'[{name}] finished! It takes {cost_str} s')
+            logging.info(f'[{name}] finished! It takes {cost_str} s')
             return result
 
         return wrapper
@@ -166,33 +166,76 @@ def calculate_metrics(scores, corr_idxs, filter_list):
     return logs
 
 
+def evaluate_wikikg2(model, loader, mode, save_path):
+    from ogb.linkproppred import Evaluator
+    evaluator = Evaluator(name='ogbl-wikikg2')
+    model.eval()
+    with paddle.no_grad():
+        y_pred_pos = []
+        y_pred_neg = []
+        for h, r, t, neg_h, neg_t in tqdm(loader):
+            y_pred_pos += model(h, r, t).numpy()
+            y_neg_head = model.predict(t, r, neg_h, mode='head').numpy()
+            y_neg_tail = model.predict(h, r, neg_t, mode='tail').numpy()
+            y_pred_neg += np.concatenate([y_neg_head, y_neg_tail], axis=1)
+        y_pred_pos = np.concatenate(y_pred_pos, axis=0)
+        y_pred_neg = np.concatenate(y_pred_neg, axis=0)
+        input_dict = {'y_pred_pos': y_pred_pos, 'y_pred_neg': y_pred_neg}
+        result = evaluator.eval(input_dict)
+    logging.info('------------- %s results ------------' % mode)
+    logging.info(' ' + ' '.join(['%s: %f' % (k, v) for k, v in result.items()]))
+    logging.info('-' * 40)
+
+
+def evaluate_wikikg90m(model, loader, mode, save_path):
+    from ogb.lsc import WikiKG90MEvaluator
+    evaluator = WikiKG90MEvaluator()
+    model.eval()
+    with paddle.no_grad():
+        top_tens = []
+        corr_idx = []
+        for h, r, t_idx, cand_t in tqdm(loader):
+            score = model.predict(h, r, cand_t)
+            rank = paddle.argsort(score, axis=1, descending=True)
+            top_tens.append(rank[:, :10].numpy())
+            corr_idx.append(t_idx.numpy())
+        t_pred_top10 = np.concatenate(top_tens, axis=0)
+        t_correct_index = np.concatenate(corr_idx, axis=0)
+        input_dict = {}
+        if mode == 'valid':
+            input_dict['h,r->t'] = {'t_pred_top10': t_pred_top10, 't_correct_index': t_correct_index}
+            result = evaluator.eval(input_dict)
+            logging.info('------------- %s results -------------' % mode)
+            logging.info(' '.join(['%s: %f' % (k, v) for k, v in result.items()]))
+            logging.info('-' * 30)
+        else:
+            input_dict['h,r->t'] = {'t_pred_top10': t_pred_top10}
+            evaluator.save_test_submission(input_dict = input_dict, dir_path = save_path)
+
+
 @timer_wrapper('evaluation')
 def evaluate(model,
              loader,
              evaluate_mode='test',
              filter_dict=None,
-             save_path='./tmp/'):
+             save_path='./tmp/',
+             data_mode='hrt'):
     """evaluate
     """
-    model.eval()
-    with paddle.no_grad():
-        h_output = defaultdict(list)
-        t_output = defaultdict(list)
-        h_metrics = []
-        t_metrics = []
-        dataset_mode = 'normal'
-        output = {'h,r->t': {}, 't,r->h': {}, 'average': {}}
+    if data_mode == 'wikikg2':
+        evaluate_wikikg2(model, loader, evaluate_mode, save_path)
+    elif data_mode == 'wikikg90m':
+        evaluate_wikikg90m(model, loader, evaluate_mode, save_path)
+    else:
+        model.eval()
+        with paddle.no_grad():
+            h_metrics = []
+            t_metrics = []
+            output = {'h,r->t': {}, 't,r->h': {}, 'average': {}}
 
-        for mode, (h, r, t, cand), corr_idx in tqdm(loader):
-            dataset_mode = mode
-            if mode == 'wiki':
-                score = model.predict(h, r, cand)
-                rank = paddle.argsort(score, axis=1, descending=True)
-                t_output['t_pred_top10'].append(rank[:, :10].cpu())
-                t_output['t_correct_index'].append(corr_idx.cpu())
-            else:
-                t_score = model.predict(h, r, cand, mode='tail')
-                h_score = model.predict(t, r, cand, mode='head')
+            for h, r, t in tqdm(loader):
+                t_score = model.predict(h, r, mode='tail')
+                h_score = model.predict(t, r, mode='head')
 
                 if filter_dict is not None:
                     h_filter_list = [
@@ -210,13 +253,6 @@ def evaluate(model,
                 h_metrics += calculate_metrics(h_score, h, h_filter_list)
                 t_metrics += calculate_metrics(t_score, t, t_filter_list)
 
-        if dataset_mode == 'wiki':
-            for key, value in h_output.items():
-                output['t,r->h'][key] = np.concatenate(value, axis=0)
-            for key, value in t_output.items():
-                output['h,r->t'][key] = np.concatenate(value, axis=0)
-            paddle.save(output, save_path)
-        else:
             for metric in h_metrics[0].keys():
                 output['t,r->h'][metric] = np.mean(
                     [x[metric] for x in h_metrics])
@@ -224,14 +260,14 @@ def evaluate(model,
                     [x[metric] for x in t_metrics])
                 output['average'][metric] = (
                     output['t,r->h'][metric] + output['h,r->t'][metric]) / 2
-            print('-------------- %s result --------------' % evaluate_mode)
-            print('t,r->h  |', ' '.join(
+            logging.info('-------------- %s result --------------' % evaluate_mode)
+            logging.info('t,r->h  |', ' '.join(
                 ['{}: {}'.format(k, v) for k, v in output['t,r->h'].items()]))
-            print('h,r->t  |', ' '.join(
+            logging.info('h,r->t  |', ' '.join(
                 ['{}: {}'.format(k, v) for k, v in output['h,r->t'].items()]))
-            print('average |', ' '.join(
+            logging.info('average |', ' '.join(
                 ['{}: {}'.format(k, v) for k, v in output['average'].items()]))
-            print('-----------------------------------------')
+            logging.info('-----------------------------------------')
 
 
 def gram_schimidt_process(embeds, num_elem, use_scale):

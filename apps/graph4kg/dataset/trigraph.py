@@ -27,7 +27,8 @@ class TriGraph(object):
     Args:
 
         triplets: a dictionary of triplets (keys: 'train', 'valid', 'test'). 
-                    Each values in the dictionary are (h, r, t) tuples, 2D numpy.array 
+                    values of 'train' are (h, r, t) tuples, 2D numpy.array;
+                    values of 'valid' and 'test' are dictionaries
 
         num_ents (optional: int): Number of entities in a knowledge graph.
                     If not provided, it will be inferred from triplets.
@@ -67,45 +68,8 @@ class TriGraph(object):
         else:
             self._num_rels = num_rels
 
-        def remap_test_data(data):
-            """Reformulate validation and test
-            """
-            if isinstance(data, dict):
-                if 't_correct_index' in data:
-                    correct_index = data['t_correct_index']
-                else:
-                    correct_index = None
-                data = {
-                    'mode': 'wiki',
-                    'h': data['hr'][:, 0],
-                    'r': data['hr'][:, 1],
-                    'candidate': data['t_candidate'],
-                    'correct_index': correct_index
-                }
-            elif isinstance(data, np.ndarray):
-                data = {
-                    'mode': 'normal',
-                    'h': data[:, 0],
-                    'r': data[:, 1],
-                    't': data[:, 2],
-                    'candidate': self._num_ents
-                }
-            elif data is not None:
-                raise ValueError('Unsupported format for validation or test!')
-            return data
-
-        self._valid = remap_test_data(self._valid)
-        self._test = remap_test_data(self._test)
-
-        if ent_feat is None:
-            self._ent_feat = {}
-        else:
-            self._ent_feat = ent_feat
-
-        if rel_feat is None:
-            self._rel_feat = {}
-        else:
-            self._rel_feat = rel_feat
+        self._ent_feat = ent_feat
+        self._rel_feat = rel_feat
 
     def __repr__(self):
         """Pretty Print the KnowledgeGraph
@@ -118,18 +82,9 @@ class TriGraph(object):
         repr_dict['num_train'] = self._train.shape[0]
         repr_dict['num_valid'] = self._valid['r'].shape[0]
         repr_dict['num_test'] = self._test['r'].shape[0]
-        for key, value in self._ent_feat.items():
-            repr_dict['ent_feat'].append({
-                'name': key,
-                'shape': list(value.shape),
-                'dtype': str(value.dtype)
-            })
-        for key, value in self._rel_feat.items():
-            repr_dict['rel_feat'].append({
-                'name': key,
-                'shape': list(value.shape),
-                'dtype': str(value.dtype)
-            })
+        repr_dict['ent_feat'] = self._ent_feat.shape() if self._ent_feat is not None else -1
+        repr_dict['rel_feat'] = self._rel_feat.shape() if self._rel_feat is not None else -1
+
         return json.dumps(repr_dict, ensure_ascii=False)
 
     def maybe_num_ents(self):
@@ -141,8 +96,11 @@ class TriGraph(object):
             """Extract entities from data
             """
             if isinstance(data, dict):
-                ents.append(np.unique(data['hr'][:, 0]))
-                ents.append(np.unique(data['t_candidate'].reshape(-1)))
+                ents.append(np.unique(data['h']))
+                if data['mode'] is not 'wikikg90m':
+                    ents.append(np.unique(data['t']))
+                else:
+                    ents.append(np.unique(data['t_candidate'].reshape(-1)))
             elif isinstance(data, np.ndarray):
                 ents_data = np.concatenate([data[:, 0], data[:, 2]])
                 ents.append(np.unique(ents_data))
@@ -162,7 +120,7 @@ class TriGraph(object):
             """Extract relations from data
             """
             if isinstance(data, dict):
-                rels.append(np.unique(data['hr'][:, 1]))
+                rels.append(np.unique(data['r']))
             elif isinstance(data, np.ndarray):
                 rels.append(np.unique(data[:, 1]))
 
@@ -188,18 +146,8 @@ class TriGraph(object):
         train = np.load(os.path.join(path, 'train.npy'), mmap_mode=mmap_mode)
         valid = np.load(os.path.join(path, 'valid.npy'), mmap_mode=mmap_mode)
         test = np.load(os.path.join(path, 'test.npy'), mmap_mode=mmap_mode)
-
-        def _load_feat(feat_path):
-            feat = {}
-            if os.path.isdir(feat_path):
-                for feat_name in os.listdir(feat_path):
-                    feat[os.path.splitext(feat_name)[0]] = np.load(
-                        os.path.join(feat_path, feat_name),
-                        mmap_mode=mmap_mode)
-            return feat
-
-        ent_feat = _load_feat(os.path.join(path, 'ent_feat'))
-        rel_feat = _load_feat(os.path.join(path, 'rel_feat'))
+        ent_feat = np.load(os.path.join(path, 'ent_feat.npy'), mmap_mode=mmap_mode)
+        rel_feat = np.load(os.path.join(path, 'rel_feat.npy'), mmap_mode=mmap_mode)
         triplets = {'train': train, 'valid': valid, 'test': test}
         return cls(triplets, num_ents, num_rels, ent_feat, rel_feat)
 
@@ -221,18 +169,8 @@ class TriGraph(object):
         np.save(os.path.join(path, 'train.npy'), self._train)
         np.save(os.path.join(path, 'valid.npy'), self._valid)
         np.save(os.path.join(path, 'test.npy'), self._test)
-
-        def _dump_feat(feat_path, feat):
-            if len(feat) == 0:
-                return
-
-            if not os.path.exists(feat_path):
-                os.mkdirs(feat_path)
-            for key, value in feat.items():
-                np.save(os.path.join(feat_path, key + '.npy'), value)
-
-        _dump_feat(path, 'ent_feat')
-        _dump_feat(path, 'rel_feat')
+        np.save(os.path.join(path, 'ent_feat.npy'), self._ent_feat)
+        np.save(os.path.join(path, 'rel_feat.npy'), self._rel_feat)
 
     @property
     def true_tails_for_head_rel(self):
@@ -291,7 +229,7 @@ class TriGraph(object):
             return 0
         else:
             if isinstance(self._valid, dict):
-                return self._valid.values()[0].shape[0]
+                return self._valid['h'].shape[0]
             else:
                 return self._valid.shape[0]
 
@@ -303,7 +241,7 @@ class TriGraph(object):
             return 0
         else:
             if isinstance(self._test, dict):
-                return self._test.values()[0].shape[0]
+                return self._test['h'].shape[0]
             else:
                 return self._test.shape[0]
 
@@ -350,10 +288,10 @@ class TriGraph(object):
         """
         valid = np.stack(
             [self._valid['h'], self._valid['r'], self._valid['t']],
-            axis=1) if self._valid is not None else None
+            axis=1) if self._valid is not None and self._valid['mode'] != 'wikikg90m' else None
         test = np.stack(
             [self._test['h'], self._test['r'], self._test['t']],
-            axis=1) if self._test is not None else None
+            axis=1) if self._test is not None and self._test['mode'] != 'wikikg90m' else None
         unempty = [x for x in [self._train, valid, test] if x is not None]
         return np.concatenate(unempty, axis=0)
 

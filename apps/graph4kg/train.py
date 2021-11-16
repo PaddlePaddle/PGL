@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import sys
 import time
 import warnings
 from collections import defaultdict
@@ -20,7 +21,6 @@ from collections import defaultdict
 import paddle
 import numpy as np
 import paddle.distributed as dist
-from visualdl import LogWriter
 
 from dataset.reader import read_trigraph
 from dataset.dataset import create_dataloaders
@@ -31,8 +31,7 @@ from utils import evaluate
 from config import prepare_config
 
 
-def main(writer=None):
-    # def main():
+def main():
     """Main function for shallow knowledge embedding methods
     """
     args = prepare_config()
@@ -40,8 +39,11 @@ def main(writer=None):
     set_logger(args)
 
     trigraph = read_trigraph(args.data_path, args.data_name)
+    if args.data_name == 'wikikg90m':
+        trigraph.sampled_subgraph(0.01, dataset='valid')
 
-    if args.filter_sample or args.filter_eval:
+    use_filter_set = args.filter_sample or args.filter_eval or args.sample_weight
+    if use_filter_set:
         filter_dict = {
             'head': trigraph.true_heads_for_tail_rel,
             'tail': trigraph.true_tails_for_head_rel
@@ -49,13 +51,11 @@ def main(writer=None):
     else:
         filter_dict = None
 
-    # multiple GPU
     if dist.get_world_size() > 1:
         dist.init_parallel_env()
 
     model = KGEModel(args.model_name, trigraph, args)
 
-    # The DataParallel will influence start_async_update or not
     if args.async_update:
         model.start_async_update()
 
@@ -64,9 +64,15 @@ def main(writer=None):
         model = model._layers
 
     if len(model.parameters()) > 0:
-        # There will be some difference of lr / optimizer  on Relation Embedding
-        optimizer = paddle.optimizer.Adagrad(
-            learning_rate=args.lr,
+        if args.mlp_optimizer == 'Adam':
+            optim_func = paddle.optimizer.Adam
+        elif args.mlp_optimizer == 'Adagrad':
+            optim_func = paddle.optimizer.Adagrad
+        else:
+            errors = 'optimizer {} not supported!'.format(args.mlp_optimizer)
+            raise ValueError(errors)
+        optimizer = optim_func(
+            learning_rate=args.mlp_lr,
             epsilon=1e-10,
             parameters=model.parameters())
     else:
@@ -84,7 +90,7 @@ def main(writer=None):
     train_loader, valid_loader, test_loader = create_dataloaders(
         trigraph,
         args,
-        filter_dict=filter_dict if args.filter_sample else None,
+        filter_dict=filter_dict if use_filter_set else None,
         shared_ent_path=model.shared_ent_path if args.mix_cpu_gpu else None)
 
     timer = defaultdict(int)
@@ -95,20 +101,12 @@ def main(writer=None):
         model.train()
         for indexes, prefetch_embeddings, mode in train_loader:
             h, r, t, neg_ents, all_ents = indexes
-            all_ents_emb, rel_emb = prefetch_embeddings
+            all_ents_emb, rel_emb, weights = prefetch_embeddings
 
             if rel_emb is not None:
-                # rel_emb = rel_emb.cuda(blocking=False)
                 rel_emb.stop_gradient = False
             if all_ents_emb is not None:
-                # all_ents_emb = all_ents_emb.cuda(blocking=False)
                 all_ents_emb.stop_gradient = False
-
-            # h = h.cuda(blocking=False)
-            # r = r.cuda(blocking=False)
-            # t = t.cuda(blocking=False)
-            # neg_ents = neg_ents.cuda(blocking=False)
-            # all_ents = all_ents.cuda(blocking=False)
 
             timer['sample'] += (time.time() - ts)
 
@@ -117,35 +115,23 @@ def main(writer=None):
                 h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, args)
             pos_score = model.forward(h_emb, r_emb, t_emb)
 
-            # if writer:
-            #     writer.add_scalar(
-            #         tag="pos_score", step=step, value=pos_score.sum().numpy()[0])
-
             if mode == 'head':
                 neg_score = model.get_neg_score(t_emb, r_emb, neg_emb, True,
                                                 mask)
-            else:
+            elif mode == 'tail':
                 neg_score = model.get_neg_score(h_emb, r_emb, neg_emb, False,
                                                 mask)
-            neg_score = neg_score.reshape((-1, args.neg_sample_size))
+            else:
+                raise ValueError('unsupported negative mode {}'.format(mode))
+            neg_score = neg_score.reshape([args.batch_size, -1])
 
-            # if writer:
-            #     writer.add_scalar(
-            #         tag="neg_score", step=step, value=neg_score.sum().numpy()[0])
-
-            loss = loss_func(pos_score, neg_score)
+            loss = loss_func(pos_score, neg_score, weights)
             log['loss'] += loss.numpy()[0]
-
-            # if writer:
-            #     writer.add_scalar(tag="loss", step=step, value=loss.numpy()[0])
 
             if args.use_embedding_regularization:
                 reg_loss = model.get_regularization(h_emb, r_emb, t_emb,
                                                     neg_emb)
                 log['reg'] += reg_loss.numpy()[0]
-
-                # if writer:
-                #     writer.add_scalar(tag="reg", step=step, value=reg.numpy()[0])
 
                 loss = loss + reg_loss
             timer['forward'] += (time.time() - ts)
@@ -176,9 +162,17 @@ def main(writer=None):
 
             if args.valid and (step + 1) % args.eval_interval == 0:
                 evaluate(model, valid_loader, 'valid', filter_dict
-                         if args.filter_eval else None)
+                         if args.filter_eval else None, data_mode=args.data_name)
 
             step += 1
+            if step % args.save_interval == 0 or step > args.max_steps:
+                step_path = os.path.join(args.save_path, 'step_%s' % step)
+                model.save(step_path)
+            if step > args.max_steps and args.test:
+                evaluate(model, test_loader, 'test', filter_dict if args.filter_eval else None,
+                         data_mode=args.data_name)
+                break
+
             ts = time.time()
 
     if args.async_update:
@@ -187,10 +181,8 @@ def main(writer=None):
     if args.test:
         evaluate(model, test_loader, 'test', filter_dict
                  if args.filter_eval else None,
-                 os.path.join(args.save_path, 'test.pkl'))
+                 os.path.join(args.save_path, 'test.pkl'), data_mode=args.data_name)
 
 
 if __name__ == '__main__':
-    # with LogWriter(logdir="./log/rotate_sgpu/train") as writer:
-    #     main(writer)
     main()

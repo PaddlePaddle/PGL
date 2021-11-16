@@ -42,12 +42,6 @@ class ScoreFunc(object):
         raise NotImplementedError(
             'score function from tail, relation to head not implemented')
 
-    def get_init_weight(self):
-        """Initialization for embeddings
-        Return initialization range (float) or weights (np.ndarray) for embeddings
-        """
-        raise NotImplementedError('weight initialization not implemented')
-
     def get_er_regularization(self, ent_embeds, rel_embeds, args):
         """Compute regularization of entity and relation embeddings
         """
@@ -95,9 +89,6 @@ class TransEScore(ScoreFunc):
         score = self.gamma - paddle.norm(head - tail, p=2, axis=-1)
         return score
 
-    def get_init_weight(self, embed_dim):
-        return (self.gamma + self.embed_epsilon) / embed_dim
-
     def get_neg_score(self, head, rel, tail, neg_head=False):
         if neg_head:
             tail = tail - rel
@@ -132,7 +123,6 @@ class DistMultScore(ScoreFunc):
         return score
 
     def get_neg_score(self, head, rel, tail, neg_head=False):
-        num_chunks = head.shape[0]
         if neg_head:
             tail = tail * rel
             score = paddle.bmm(tail, head.transpose([0, 2, 1]))
@@ -153,7 +143,7 @@ class RotatEScore(ScoreFunc):
         super(RotatEScore, self).__init__()
         self.epsilon = 1e-12
         self.gamma = gamma
-        self.emb_init = self.get_init_weight(embed_dim)
+        self.emb_init = self._get_init_weight(embed_dim)
 
     def __call__(self, head, rel, tail):
         re_head, im_head = paddle.chunk(head, chunks=2, axis=-1)
@@ -171,7 +161,7 @@ class RotatEScore(ScoreFunc):
         score = self.gamma - paddle.sum(score, axis=-1)
         return score
 
-    def get_init_weight(self, embed_dim):
+    def _get_init_weight(self, embed_dim):
         return (self.gamma + self.embed_epsilon) / embed_dim
 
     def get_neg_score(self, head, rel, tail, neg_head=False):
@@ -330,233 +320,6 @@ class QuatEScore(ScoreFunc):
                 paddle.bmm(C, c) + paddle.bmm(D, d)
         return -score
 
-    def get_init_weight(self, num_embed, embed_dim):
-        init_value = 1. / np.sqrt(2 * self.num_ents)
-        rng = RandomState(123)
-
-        kernel_shape = (num_embed, embed_dim)
-        num_weights = np.prod(kernel_shape)
-        v_i = np.random.uniform(0., 1., num_weights)
-        v_j = np.random.uniform(0., 1., num_weights)
-        v_k = np.random.uniform(0., 1., num_weights)
-
-        for i in range(num_weights):
-            norm = np.sqrt(v_i[i]**2 + v_j[i]**2 + v_k[i]**2) + 1e-4
-            v_i[i] /= norm
-            v_j[i] /= norm
-            v_k[i] /= norm
-        v_i = v_i.reshape(kernel_shape)
-        v_j = v_j.reshape(kernel_shape)
-        v_k = v_k.reshape(kernel_shape)
-
-        modulus = rng.uniform(-init_value, init_value, size=kernel_shape)
-        phase = rng.uniform(-np.pi, np.pi, size=kernel_shape)
-
-        w_r = modulus * np.cos(phase)
-        w_i = modulus * v_i * np.sin(phase)
-        w_j = modulus * v_j * np.sin(phase)
-        w_k = modulus * v_k * np.sin(phase)
-
-        return np.concatenate([w_r, w_i, w_j, w_k], axis=-1).astype(np.float32)
-
-
-# class OTEScore(ScoreFunc):
-#     """OTE score
-#     """
-
-#     def __init__(self, gamma, num_elem, scale_type=0):
-#         super(OTEScore, self).__init__()
-#         self.gamma = gamma
-#         self.num_elem = num_elem
-#         self.scale_type = scale_type
-#         self.use_scale = self.scale_type > 0
-
-#     def __call__(self, head, rel, tail):
-#         rel = self.orth_rel_embedding(rel)
-#         score = self._calculate_score(head, rel, tail)
-#         return self.gamma - score
-
-#     def get_neg_score(self, head, rel, tail, neg_head=False):
-#         rel = self.orth_rel_embedding(rel)
-#         if neg_head:
-#             rel = self.orth_reverse_mat(rel)
-#             score = self._calculate_score(tail, rel, head)
-#         else:
-#             score = self._calculate_score(head, rel, tail)
-#         score = self.gamma - score
-#         return score
-
-#     def get_init_weight(self, embed_dim):
-#         if self.use_scale:
-#             value = 1. / math.sqrt(embed_dim)
-#         else:
-#             value = (self.gamma + self.embed_epsilon) / embed_dim
-
-#         return value
-
-#     def _calculate_score(self, inputs, inputs_rel, inputs_last):
-#         inputs_size = inputs.shape
-#         assert inputs_size[:-1] == inputs_rel.shape[:-1]
-#         num_dim = inputs_size[-1]
-#         inputs = inputs.reshape([-1, 1, self.num_elem])
-#         if self.use_scale:
-#             rel = inputs_rel.reshape([-1, self.num_elem, self.num_elem + 1])
-#             scale = self._get_scale(rel[:, :, self.num_elem:])
-#             scale = scale / scale.norm(axis=-1, p=2, keepdim=True)
-#             rel_scale = rel[:, :, :self.num_elem] * scale
-#             outputs = paddle.bmm(inputs, rel_scale)
-#         else:
-#             rel = inputs_rel.reshape([-1, self.num_elem, self.num_elem])
-#             outputs = paddle.bmm(inputs, rel)
-#         outputs = outputs.reshape(inputs_size)
-#         outputs = outputs - inputs_last
-#         outputs_size = outputs.shape
-#         num_dim = outputs_size[-1]
-#         outputs = outputs.reshape([-1, self.num_elem])
-#         scores = outputs.norm(
-#             p=2, axis=-1).reshape([-1, num_dim // self.num_elem]).sum(
-#                 axis=-1).reshape(outputs_size[:-1])
-#         return scores
-
-#     def _calculate_neg_score(self, inputs, inputs_rel, inputs_last, neg_sample_size,
-#                   chunk_size):
-#         inputs_size = inputs.shape
-#         assert inputs_size[:-1] == inputs_rel.shape[:-1]
-#         num_dim = inputs_size[-1]
-#         inputs = inputs.reshape([-1, 1, self.num_elem])
-#         if self.use_scale:
-#             rel = inputs_rel.reshape([-1, self.num_elem, self.num_elem + 1])
-#             scale = self._get_scale(rel[:, :, self.num_elem:])
-#             scale = scale / scale.norm(axis=-1, p=2, keepdim=True)
-#             rel_scale = rel[:, :, :self.num_elem] * scale
-#             outputs = paddle.bmm(inputs, rel_scale)
-#         else:
-#             rel = inputs_rel.reshape([-1, self.num_elem, self.num_elem])
-#             outputs = paddle.bmm(inputs, rel)
-#         outputs = outputs.reshape([-1, chunk_size, 1, inputs_size[-1]])
-#         inputs_last = inputs_last.reshape(
-#             [-1, 1, neg_sample_size, inputs_size[-1]])
-#         outputs = outputs - inputs_last
-#         outputs_size = outputs.shape
-#         num_dim = outputs_size[-1]
-#         outputs = outputs.reshape([-1, self.num_elem])
-#         scores = outputs.norm(
-#             p=2, axis=-1).reshape([-1, num_dim // self.num_elem]).sum(
-#                 axis=-1).reshape(outputs_size[:-1])
-#         return scores
-
-#     def _get_scale(self, scale):
-#         if self.scale_type == 1:
-#             return scale.abs()
-#         if self.scale_type == 2:
-#             return scale.exp()
-#         raise ValueError("Scale Type %d is not supported!" % self.scale_type)
-
-#     def _reverse_scale(self, scale, eps=1e-9):
-#         if self.scale_type == 1:
-#             return 1 / (abs(scale) + eps)
-#         if self.scale_type == 2:
-#             return -scale
-#         raise ValueError("Scale Type %d is not supported!" % self.scale_type)
-
-#     def _orth_embedding(self, embeddings, eps=1e-18, do_test=True):
-#         num_emb = embeddings.shape[0]
-#         assert embeddings.shape[1] == self.num_elem
-#         assert embeddings.shape[2] == (self.num_elem +
-#                                        (1 if self.use_scale else 0))
-#         if self.use_scale:
-#             emb_scale = embeddings[:, :, -1]
-#             embeddings = embeddings[:, :, :self.num_elem]
-
-#         u = [embeddings[:, 0]]
-#         uu = [0] * self.num_elem
-#         uu[0] = (u[0] * u[0]).sum(axis=-1)
-#         u_d = embeddings[:, 1:]
-#         for i in range(1, self.num_elem):
-#             u_d = u_d - u[-1].unsqueeze(axis=1) * (
-#                 (embeddings[:, i:] * u[i - 1].unsqueeze(axis=1)).sum(
-#                     axis=-1) / uu[i - 1].unsqueeze(axis=1)).unsqueeze(-1)
-#             u_i = u_d[:, 0]
-#             if u_d.shape[1] > 1:
-#                 u_d = u_d[:, 1:]
-#             uu[i] = (u_i * u_i).sum(axis=-1)
-#             u.append(u_i)
-
-#         u = paddle.stack(u, axis=1)  #num_emb X num_elem X num_elem
-#         u_norm = u.norm(axis=-1, keepdim=True, p=2)
-#         u = u / u_norm
-#         if self.use_scale:
-#             u = paddle.concat([u, emb_scale.unsqueeze(-1)], axis=-1)
-#         return u
-
-#     def orth_rel_embedding(self, relation_embedding):
-#         rel_emb_size = relation_embedding.shape
-#         ote_size = self.num_elem
-#         scale_dim = 1 if self.use_scale else 0
-#         rel_embedding = relation_embedding.reshape(
-#             [-1, ote_size, ote_size + scale_dim])
-#         rel_embedding = self._orth_embedding(rel_embedding).reshape(
-#             rel_emb_size)
-#         return rel_embedding
-
-#     def orth_reverse_mat(self, rel_embeddings):
-#         rel_size = rel_embeddings.shape
-#         if self.use_scale:
-#             rel_emb = rel_embeddings.reshape(
-#                 [-1, self.num_elem, self.num_elem + 1])
-#             rel_mat = rel_emb[:, :, :self.num_elem].transpose([0, 2, 1])
-#             rel_scale = self._reverse_scale(rel_emb[:, :, self.num_elem:])
-#             rel_embeddings = paddle.concat(
-#                 [rel_mat, rel_scale], axis=-1).reshape(rel_size)
-#         else:
-#             rel_embeddings = rel_embeddings.reshape(
-#                 [-1, self.num_elem, self.num_elem]).transpose(
-#                     [0, 2, 1]).reshape(rel_size)
-#         return rel_embeddings
-
-# class ConvEScore(nn.Layer):
-#     """ConvE
-#     """
-#     def __init__(self, args):
-#         super(ConvEScore, self).__init__()
-#         self.input_drop = nn.Dropout(args.input_dropout)
-#         self.hidden_drop = nn.Dropout(args.hidden_dropout)
-#         self.feature_drop = nn.Dropout2d(args.feature_dropout)
-#         self.embed_dim_h = args.embed_dim_h
-#         self.embed_dim_w = args.embed_dim // args.embed_dim_h
-
-#         self.conv = nn.Conv2D(1, 32, (3, 3), 1, 0, bias=args.use_bias)
-#         self.bn0 = nn.BatchNorm2d(1)
-#         self.bn1 = nn.BatchNorm2d(32)
-#         self.bn2 = nn.BatchNorm1d(args.embed_dim)
-#         self.b = nn.Embedding # 0初始化
-#         self.fc = nn.Linear(args.hidden_size, args.embed_dim)
-
-#     def init(self):
-#         xavier_normal_(self.emb_e.weight.data)
-#         xavier_normal_(self.emb_rel.weight.data)
-
-#     def forward(self, ent_emb, rel_emb, cand_emb):
-#         ent_emb = ent_emb.reshape((-1, 1, self.embed_dim_h, self.embed_dim_w))
-#         rel_emb = rel_emb.reshape((-1, 1, self.embed_dim_h, self.embed_dim_w))
-
-#         input_emb = paddle.concat([ent_emb, rel_emb], axis=2)
-#         input_emb = self.bn0(input_emb)
-#         x = self.input_drop(input_emb)
-#         x = self.conv(x)
-#         x = self.bn1(x)
-#         x = F.relu(x)
-#         x = self.feature_drop(x)
-#         x = x.reshape((x.shape[0], -1))
-#         x = self.fc(x)
-#         x = self.hidden_drop(x)
-#         x = self.bn2(x)
-#         x = F.relu(x)
-#         x = paddle.mm(x, cand_emb.transpose(1, 0))
-#         x += self.b.expand_as(x)
-#         score = paddle.sigmoid(x)
-#         return score
-
 
 class OTEScore(ScoreFunc):
     """OTE
@@ -597,13 +360,13 @@ class OTEScore(ScoreFunc):
         """Get scaled tensor of inverse relations
         """
         if self.scale_type == 1:
-            return 1 / (abs(scale) + eps)
+            return 1 / (scale.abs() + eps)
         if self.scale_type == 2:
             return -scale
         raise ValueError("Scale Type %d is not supported!" % self.scale_type)
 
     def __call__(self, head, rel, tail):
-        rel = self.orth_rel_embedding(rel)
+        # rel = self.orth_rel_embedding(rel)
 
         assert head.shape[:-1] == rel.shape[:-1]
         shape = head.shape
@@ -622,7 +385,7 @@ class OTEScore(ScoreFunc):
     def get_neg_score(self, head, rel, tail, neg_head=False):
         """Calculate scores of negative samples
         """
-        rel = self.orth_rel_embedding(rel)
+        # rel = self.orth_rel_embedding(rel)
         if neg_head:
             rel = self._orth_reverse_mat(rel)
             score = self._get_neg_score(tail, rel, head)

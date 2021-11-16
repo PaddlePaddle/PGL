@@ -13,10 +13,13 @@
 # limitations under the License.
 
 import os
+import sys
 import math
 import json
 import warnings
 from argparse import ArgumentParser
+
+import paddle.distributed as dist
 
 
 class KGEArgParser(ArgumentParser):
@@ -41,7 +44,13 @@ class KGEArgParser(ArgumentParser):
             '--save_path',
             type=str,
             default='./output/',
-            help='the path of the directory where models and logs are saved.')
+            help='The path of the directory where models and logs are saved.')
+
+        self.add_argument(
+            '--save_interval',
+            type=int,
+            default=20000,
+            help='The number of interval to save checkpoints.')
 
         # data
         self.add_argument(
@@ -61,6 +70,9 @@ class KGEArgParser(ArgumentParser):
             type=int,
             default=0,
             help='num_workers for DataLoader')
+
+        self.add_argument('--sample_weight', action='store_true', help='Use '\
+            'weight for each sample')
 
         self.add_argument(
             '--neg_sample_type', type=str, default='chunk', help='The range for '\
@@ -188,6 +200,12 @@ class KGEArgParser(ArgumentParser):
 
         # traning
         self.add_argument(
+            '--max_steps',
+            type=int,
+            default=2000000,
+            help='The maximal number of steps to train')
+
+        self.add_argument(
             '--num_epoch',
             type=int,
             default=1000000,
@@ -204,6 +222,12 @@ class KGEArgParser(ArgumentParser):
             type=float,
             default=0.0001,
             help='The learning rate to optimize non-embeddings')
+
+        self.add_argument(
+            '--mlp_optimizer',
+            type=str,
+            default='Adam',
+            help='The optimizer of model parameters.')
 
         self.add_argument(
             '--mix_cpu_gpu',
@@ -252,12 +276,19 @@ def prepare_save_path(args):
         'gpu', args.loss_type, args.lr, args.mlp_lr, args.task_name)
 
     args.save_path = os.path.join(args.save_path, task_name)
-    if not os.path.exists(args.save_path):
-        os.makedirs(args.save_path)
-    else:
-        warnings.warn('save path {} exists, it will be overwriten.'.format(
-            args.save_path))
 
+    if dist.get_rank() == 0:
+        if not os.path.exists(args.save_path):
+            os.makedirs(args.save_path)
+        else:
+            ans = input('{} exists, do you want to overwrite it ? y or n: '.format(
+                args.save_path))
+            if ans.lower() == 'y':
+                warnings.warn('save path {} has been overwriten.'.format(
+                args.save_path))
+            else:
+                print('please define another save path, aborted!')
+                sys.exit()
     return args
 
 

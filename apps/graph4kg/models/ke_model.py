@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import json
 import math
 import warnings
 
@@ -80,17 +81,23 @@ class KGEModel(nn.Layer):
 
     @property
     def shared_ent_path(self):
+        """Return the embedding path of entities
+        """
         if self._ent_emb_on_cpu:
             return self.ent_embedding.weight_path
         return None
 
     @property
     def shared_rel_path(self):
+        """Return the embedding path of relations
+        """
         if self._rel_emb_on_cpu:
             return self.rel_embedding.weight_path
         return None
 
     def train(self):
+        """Set train mode
+        """
         if self._ent_emb_on_cpu:
             self.ent_embedding.train()
         if self._rel_emb_on_cpu:
@@ -106,10 +113,12 @@ class KGEModel(nn.Layer):
                        rel_emb=None,
                        mode='tail',
                        args=None):
+        """ Load embeddings of inputs
+        """
         if ent_emb is not None:
             if self._use_feat and self._ent_feat is not None:
                 ent_feat = paddle.to_tensor(
-                    self._ent_feat(all_ent_index.numpy()).astype('float32'))
+                    self._ent_feat[all_ent_index.numpy()].astype('float32'))
                 ent_emb = self.trans_ent(ent_feat, ent_emb)
         else:
             ent_emb = self._get_ent_embedding(all_ent_index)
@@ -117,7 +126,7 @@ class KGEModel(nn.Layer):
         if rel_emb is not None:
             if self._use_feat and self._rel_feat is not None:
                 rel_feat = paddle.to_tensor(
-                    self._rel_feat(r_index.numpy()).astype('float32'))
+                    self._rel_feat[r_index.numpy()].astype('float32'))
                 pos_r = self.trans_rel(rel_feat, rel_emb)
         else:
             pos_r = self._get_rel_embedding(r_index)
@@ -155,7 +164,7 @@ class KGEModel(nn.Layer):
         return pos_h, pos_r, pos_t, neg_ent_emb, mask
 
     def forward(self, h_emb, r_emb, t_emb):
-        """function for training
+        """Function for training
         """
         self.train()
 
@@ -168,7 +177,7 @@ class KGEModel(nn.Layer):
                       neg_emb,
                       neg_head=False,
                       mask=None):
-        """function to calculate scores of negative samples
+        """Calculate scores of negative samples
         """
         ent_emb = paddle.reshape(ent_emb,
                                  (self._num_chunks, -1, self._ent_dim))
@@ -190,7 +199,7 @@ class KGEModel(nn.Layer):
         return score
 
     def get_regularization(self, h_embed, r_embed, t_embed, neg_embed=None):
-        """get regularization of input embeddings
+        """Get regularization of input embeddings
         """
         if self._args.reg_type == 'norm_hrt':
             if self._args.quate_lmbda1 == 0 and self._args.quate_lmbda2 == 0:
@@ -200,33 +209,38 @@ class KGEModel(nn.Layer):
         else:
             if self._args.reg_coef == 0:
                 return 0
-            ent_params = [h_embed, t_embed]
             if neg_embed is not None:
-                ent_params.append(neg_embed.reshape((-1, neg_embed.shape[-1])))
-            ent_params = paddle.concat(ent_params, axis=0)
+                ent_params = paddle.concat([h_embed, t_embed, neg_embed.reshape((-1, neg_embed.shape[-1]))], axis=-1)
+            else:
+                ent_params = paddle.concat([h_embed, t_embed], axis=-1)
             reg_loss = self._score_func.get_er_regularization(
                 ent_params, r_embed, self._args)
         return reg_loss
 
     @paddle.no_grad()
-    def predict(self, ent, rel, cand, mode='tail'):
-        """function for prediction
+    def predict(self, ent, rel, cand=None, mode='tail'):
+        """Predict scores
         """
         if self._ent_emb_on_cpu:
             self.ent_embedding.eval()
         if self._rel_emb_on_cpu:
             self.rel_embedding.eval()
 
-        num_cands = cand.shape[1]
-        cand = paddle.reshape(cand, (-1, ))
+        if cand is None:
+            cand_emb = self.ent_embedding.weight.unsqueeze(0)
+            if self._use_feat:
+                cand_feat = paddle.to_tensor(self._ent_feat.astype('float32'))
+                cand_emb = self.trans_ent(cand_feat, cand_emb)
+            cand_emb = cand_emb.tile([ent.shape[0], 1, 1])
+        else:
+            num_cand = cand.shape[1]
+            cand_emb = self._get_ent_embedding(cand.reshape([-1,]))
+            cand_emb = cand_emb.reshape([-1, num_cand, self._ent_dim])
+
         ent_emb = self._get_ent_embedding(ent)
         rel_emb = self._get_rel_embedding(rel)
-        cand_emb = self._get_ent_embedding(cand)
-
         ent_emb = paddle.unsqueeze(ent_emb, axis=1)
         rel_emb = paddle.unsqueeze(rel_emb, axis=1)
-        cand_emb = paddle.reshape(cand_emb, (-1, num_cands, self._ent_dim))
-        cand_emb = cand_emb.tile((ent_emb.shape[0], 1, 1))
 
         if mode == 'tail':
             scores = self._score_func.get_neg_score(ent_emb, rel_emb, cand_emb,
@@ -236,6 +250,25 @@ class KGEModel(nn.Layer):
                                                     True)
         scores = paddle.squeeze(scores, axis=1)
         return scores
+
+    def save(self, save_path):
+        """Save parameters
+        """
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        with open(os.path.join(save_path, 'config.json'), 'w') as wp:
+            json.dump(vars(self._args), wp, indent=4)
+        if not self._ent_emb_on_cpu:
+            paddle.save(self.ent_embedding.state_dict(),
+                        os.path.join(save_path, 'ent_embeds.pdparams'))
+        if not self._rel_emb_on_cpu:
+            paddle.save(self.rel_embedding.state_dict(),
+                        os.path.join(save_path, 'rel_embeds.pdparams'))
+        if self._use_feat:
+            paddle.save(self.trans_ent.state_dict(),
+                        os.path.join(save_path, 'trans_ents.pdparams'))
+            paddle.save(self.trans_rel.state_dict(),
+                        os.path.join(save_path, 'trans_rels.pdparams'))
 
     def step(self, ent_trace=None, rel_trace=None):
         """Update NumPyEmbeddings
@@ -294,7 +327,7 @@ class KGEModel(nn.Layer):
         emb = self.ent_embedding(index)
         if self._use_feat:
             feat = paddle.to_tensor(
-                self._ent_feat(index.numpy()).astype('float32'))
+                self._ent_feat[index.numpy()].astype('float32'))
             emb = self.trans_ent(feat, emb)
         return emb
 
@@ -302,7 +335,7 @@ class KGEModel(nn.Layer):
         emb = self.rel_embedding(index)
         if self._use_feat:
             feat = paddle.to_tensor(
-                self._rel_feat(index.numpy()).astype('float32'))
+                self._rel_feat[index.numpy()].astype('float32'))
             emb = self.trans_rel(feat, emb)
         return emb
 
@@ -357,26 +390,26 @@ class KGEModel(nn.Layer):
 
         if self._use_feat:
             is_empty = lambda x: x is None or len(x) == 0
-            ent_feat = trigraph.ent_feat
-            rel_feat = trigraph.rel_feat
+            self._ent_feat = trigraph.ent_feat
+            self._rel_feat = trigraph.rel_feat
             ent_dim = self._args.ent_dim
             rel_dim = self._args.rel_dim
 
-            if is_empty(ent_feat) and is_empty(rel_feat):
+            if is_empty(self._ent_feat) and is_empty(self._rel_feat):
                 raise ValueError('There is no feature given in the dataset.')
 
-            if ent_feat is not None:
-                self._ent_feat = np.concatenate(ent_feat.values(), axis=-1)
-                ent_feat_dim = self._ent_feat.shape[1]
+            if self._ent_feat is not None:
+                ent_feat_dim = self._ent_feat.shape[-1]
                 self.trans_ent = Transform(ent_feat_dim + ent_dim, ent_dim)
+                print('Entity feature dimension is    : {}'.format(ent_feat_dim))
             else:
                 warnings.warn(
                     'No features given! ignore use_feature for entities')
 
-            if rel_feat is not None:
-                self._rel_feat = np.concatenate(ent_feat.values(), axis=-1)
-                rel_feat_dim = self._rel_feat.shape[1]
+            if self._rel_feat is not None:
+                rel_feat_dim = self._rel_feat.shape[-1]
                 self.trans_rel = Transform(rel_feat_dim + rel_dim, rel_dim)
+                print('Relation feature dimension is  : {}'.format(rel_feat_dim))
             else:
                 warnings.warn(
                     'No features given! ignore use_feature for relations')
