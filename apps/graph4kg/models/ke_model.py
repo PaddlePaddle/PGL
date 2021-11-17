@@ -117,16 +117,16 @@ class KGEModel(nn.Layer):
         """
         if ent_emb is not None:
             if self._use_feat and self._ent_feat is not None:
-                ent_feat = paddle.to_tensor(
-                    self._ent_feat[all_ent_index.numpy()].astype('float32'))
+                ent_feat = paddle.to_tensor(self._ent_feat[all_ent_index.numpy(
+                )].astype('float32'))
                 ent_emb = self.trans_ent(ent_feat, ent_emb)
         else:
             ent_emb = self._get_ent_embedding(all_ent_index)
 
         if rel_emb is not None:
             if self._use_feat and self._rel_feat is not None:
-                rel_feat = paddle.to_tensor(
-                    self._rel_feat[r_index.numpy()].astype('float32'))
+                rel_feat = paddle.to_tensor(self._rel_feat[r_index.numpy()]
+                                            .astype('float32'))
                 pos_r = self.trans_rel(rel_feat, rel_emb)
         else:
             pos_r = self._get_rel_embedding(r_index)
@@ -210,7 +210,12 @@ class KGEModel(nn.Layer):
             if self._args.reg_coef == 0:
                 return 0
             if neg_embed is not None:
-                ent_params = paddle.concat([h_embed, t_embed, neg_embed.reshape((-1, neg_embed.shape[-1]))], axis=-1)
+                ent_params = paddle.concat(
+                    [
+                        h_embed, t_embed, neg_embed.reshape(
+                            (-1, neg_embed.shape[-1]))
+                    ],
+                    axis=-1)
             else:
                 ent_params = paddle.concat([h_embed, t_embed], axis=-1)
             reg_loss = self._score_func.get_er_regularization(
@@ -234,7 +239,7 @@ class KGEModel(nn.Layer):
             cand_emb = cand_emb.tile([ent.shape[0], 1, 1])
         else:
             num_cand = cand.shape[1]
-            cand_emb = self._get_ent_embedding(cand.reshape([-1,]))
+            cand_emb = self._get_ent_embedding(cand.reshape([-1, ]))
             cand_emb = cand_emb.reshape([-1, num_cand, self._ent_dim])
 
         ent_emb = self._get_ent_embedding(ent)
@@ -326,16 +331,16 @@ class KGEModel(nn.Layer):
     def _get_ent_embedding(self, index):
         emb = self.ent_embedding(index)
         if self._use_feat:
-            feat = paddle.to_tensor(
-                self._ent_feat[index.numpy()].astype('float32'))
+            feat = paddle.to_tensor(self._ent_feat[index.numpy()].astype(
+                'float32'))
             emb = self.trans_ent(feat, emb)
         return emb
 
     def _get_rel_embedding(self, index):
         emb = self.rel_embedding(index)
         if self._use_feat:
-            feat = paddle.to_tensor(
-                self._rel_feat[index.numpy()].astype('float32'))
+            feat = paddle.to_tensor(self._rel_feat[index.numpy()].astype(
+                'float32'))
             emb = self.trans_rel(feat, emb)
         return emb
 
@@ -347,7 +352,7 @@ class KGEModel(nn.Layer):
             rel_weight = self._init_func('quaternion_init', self._num_rels,
                                          self._rel_dim)
         elif self._model_name == 'ote':
-            ent_weight = self._init_func('general_uniform', self._num_ents,
+            ent_weight = self._init_func('ote_entity_uniform', self._num_ents,
                                          self._ent_dim)
             rel_weight = self._init_func('ote_scale_init', self._num_rels,
                                          self._rel_dim)
@@ -401,7 +406,8 @@ class KGEModel(nn.Layer):
             if self._ent_feat is not None:
                 ent_feat_dim = self._ent_feat.shape[-1]
                 self.trans_ent = Transform(ent_feat_dim + ent_dim, ent_dim)
-                print('Entity feature dimension is    : {}'.format(ent_feat_dim))
+                print('Entity feature dimension is    : {}'.format(
+                    ent_feat_dim))
             else:
                 warnings.warn(
                     'No features given! ignore use_feature for entities')
@@ -409,7 +415,8 @@ class KGEModel(nn.Layer):
             if self._rel_feat is not None:
                 rel_feat_dim = self._rel_feat.shape[-1]
                 self.trans_rel = Transform(rel_feat_dim + rel_dim, rel_dim)
-                print('Relation feature dimension is  : {}'.format(rel_feat_dim))
+                print('Relation feature dimension is  : {}'.format(
+                    rel_feat_dim))
             else:
                 warnings.warn(
                     'No features given! ignore use_feature for relations')

@@ -25,9 +25,12 @@ class LogSigmoidLoss(object):
         super(LogSigmoidLoss, self).__init__()
         self.neg_label = -1
 
-    def __call__(self, score, label, weight):
-        if weight is not None:
-            return -(weights * log_sigmoid(label * score)).sum() / weights.sum()
+    def __call__(self, score, label, weights):
+        if weights is not None:
+            if len(score.shape) > len(weights.shape):
+                weights = weights.unsqueeze(1)
+            return -(weights * log_sigmoid(label *
+                                           score)).sum() / weights.sum()
         else:
             return -log_sigmoid(label * score)
 
@@ -40,7 +43,7 @@ class SoftplusLoss(object):
         super(SoftplusLoss, self).__init__()
         self.neg_label = -1
 
-     def __call__(self, score, label):
+    def __call__(self, score, label):
         return -softplus(label * score)
 
 
@@ -112,4 +115,3 @@ class LossFunction(object):
             return SoftplusLoss()
         else:
             raise ValueError('loss %s not implemented!' % self.name)
-

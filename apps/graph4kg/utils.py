@@ -76,10 +76,10 @@ def print_log(step, interval, log, timer, t_step):
                   timer['update']))
 
 
-def uniform(low, high, size, dtype=np.float32):
+def uniform(low, high, size, dtype=np.float32, seed=0):
     """Memory efficient uniform implementation
     """
-    rng = np.random.default_rng(0)
+    rng = np.random.default_rng(seed)
     out = (high - low) * rng.random(size, dtype=dtype) + low
     return out
 
@@ -183,7 +183,8 @@ def evaluate_wikikg2(model, loader, mode, save_path):
         input_dict = {'y_pred_pos': y_pred_pos, 'y_pred_neg': y_pred_neg}
         result = evaluator.eval(input_dict)
     logging.info('------------- %s results ------------' % mode)
-    logging.info(' ' + ' '.join(['%s: %f' % (k, v) for k, v in result.items()]))
+    logging.info(' ' + ' '.join(
+        ['%s: %f' % (k, v) for k, v in result.items()]))
     logging.info('-' * 40)
 
 
@@ -203,14 +204,19 @@ def evaluate_wikikg90m(model, loader, mode, save_path):
         t_correct_index = np.concatenate(corr_idx, axis=0)
         input_dict = {}
         if mode == 'valid':
-            input_dict['h,r->t'] = {'t_pred_top10': t_pred_top10, 't_correct_index': t_correct_index}
+            input_dict['h,r->t'] = {
+                't_pred_top10': t_pred_top10,
+                't_correct_index': t_correct_index
+            }
             result = evaluator.eval(input_dict)
             logging.info('------------- %s results -------------' % mode)
-            logging.info(' '.join(['%s: %f' % (k, v) for k, v in result.items()]))
+            logging.info(' '.join(
+                ['%s: %f' % (k, v) for k, v in result.items()]))
             logging.info('-' * 30)
         else:
             input_dict['h,r->t'] = {'t_pred_top10': t_pred_top10}
-            evaluator.save_test_submission(input_dict = input_dict, dir_path = save_path)
+            evaluator.save_test_submission(
+                input_dict=input_dict, dir_path=save_path)
 
 
 @timer_wrapper('evaluation')
@@ -260,7 +266,8 @@ def evaluate(model,
                     [x[metric] for x in t_metrics])
                 output['average'][metric] = (
                     output['t,r->h'][metric] + output['h,r->t'][metric]) / 2
-            logging.info('-------------- %s result --------------' % evaluate_mode)
+            logging.info('-------------- %s result --------------' %
+                         evaluate_mode)
             logging.info('t,r->h  |', ' '.join(
                 ['{}: {}'.format(k, v) for k, v in output['t,r->h'].items()]))
             logging.info('h,r->t  |', ' '.join(

@@ -35,6 +35,8 @@ class InitFunction(object):
             weight = self.quaternion_initialization()
         elif name == 'standard_uniform':
             weight = self.standard_uniform()
+        elif name == 'ote_entity_uniform':
+            weight = uniform(-0.01, 0.01, (self.num_embed, self.embed_dim))
         elif name == 'ote_scale_init':
             weight = self.standard_uniform()
 
@@ -85,9 +87,8 @@ class InitFunction(object):
         v_j = v_j.reshape(weight_shape)
         v_k = v_k.reshape(weight_shape)
 
-        modulus = rng.uniform(
-            -init_value, init_value, size=weight_shape, dtype=np.float32)
-        phase = rng.uniform(-np.pi, np.pi, size=weight_shape, dtype=np.float32)
+        modulus = uniform(-init_value, init_value, size=weight_shape, seed=123)
+        phase = uniform(-np.pi, np.pi, size=weight_shape, seed=123)
 
         w_r = modulus * np.cos(phase)
         w_i = modulus * v_i * np.sin(phase)

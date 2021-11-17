@@ -92,7 +92,7 @@ class KGDataset(Dataset):
         if self._sample_weight:
             weight = self.create_sample_weight(h, r, t)
         else:
-            weight = 1
+            weight = -1
         return h, r, t, weight
 
     def collate_fn(self, data):
@@ -139,6 +139,9 @@ class KGDataset(Dataset):
         h = reindex_func(h)
         t = reindex_func(t)
         neg_ents = reindex_func(neg_ents)
+
+        if weights.sum() < 0:
+            weights = None
 
         indexs = (h, r, t, neg_ents, all_ents)
         embeds = (all_ents_emb, r_emb, weights)
@@ -220,6 +223,7 @@ class TestWikiKG2(Dataset):
 
         triplets: a dictionary of triplets with keys 'h', 'r', 't', 'candaidate_h' and 'candidate_t'
     """
+
     def __init__(self, triplets):
         self._h = triplets['h']
         self._r = triplets['r']
@@ -246,6 +250,7 @@ class TestWikiKG90M(Dataset):
 
         triplets: a dictionary of triplets with keys 'h', 'r', 'candidate_t', 't_correct_index'
     """
+
     def __init__(self, triplets):
         self._h = triplets['h']
         self._r = triplets['r']
@@ -294,10 +299,10 @@ def create_dataloaders(trigraph, args, filter_dict=None, shared_ent_path=None):
         elif args.data_name == 'wikikg2':
             valid_dataset = TestWikiKG2(trigraph.valid_dict)
         else:
-            valid_dataset = TestKGDataset(trigraph.valid_dict, trigraph.num_ents)
+            valid_dataset = TestKGDataset(trigraph.valid_dict,
+                                          trigraph.num_ents)
         valid_loader = DataLoader(
-            dataset=valid_dataset,
-            batch_size=args.test_batch_size)
+            dataset=valid_dataset, batch_size=args.test_batch_size)
     else:
         valid_loader = None
 
@@ -309,8 +314,7 @@ def create_dataloaders(trigraph, args, filter_dict=None, shared_ent_path=None):
         else:
             test_dataset = TestKGDataset(trigraph.test_dict, trigraph.num_ents)
         test_loader = DataLoader(
-            dataset=test_dataset,
-            batch_size=args.test_batch_size)
+            dataset=test_dataset, batch_size=args.test_batch_size)
     else:
         test_loader = None
 

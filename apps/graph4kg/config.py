@@ -280,15 +280,15 @@ def prepare_save_path(args):
     if dist.get_rank() == 0:
         if not os.path.exists(args.save_path):
             os.makedirs(args.save_path)
-        else:
-            ans = input('{} exists, do you want to overwrite it ? y or n: '.format(
-                args.save_path))
-            if ans.lower() == 'y':
-                warnings.warn('save path {} has been overwriten.'.format(
-                args.save_path))
-            else:
-                print('please define another save path, aborted!')
-                sys.exit()
+        # else:
+        # ans = input('{} exists, do you want to overwrite it ? y or n: '.format(
+        #    args.save_path))
+        # if ans.lower() == 'y':
+        #     warnings.warn('save path {} has been overwriten.'.format(
+        #     args.save_path))
+        # else:
+        #     print('please define another save path, aborted!')
+        #    sys.exit()
     return args
 
 
