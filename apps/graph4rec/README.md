@@ -4,13 +4,13 @@
 
 ## Requirements
 
- - paddlepaddle-gpu==2.2.0
+ - paddlepaddle-gpu==2.2.1
 
  - pgl==2.1.5
 
 ## Usage
 
-### Input Format
+### Input format
 
 
 Suppose there are three different types of nodes, namely "u", "t" and "f".
@@ -53,7 +53,7 @@ f \t 23346
 You can also find out the specific data format in `./toy_data`.
 
 
-### PGL Graph Engine Launching
+### PGL graph engine launching
 
 Now we support distributed loading graph data using **PGL Graph Engine**. We also develop a simple tutorial to show how to launch a graph engine, please refer to [here](../../tutorials/working_with_distributed_graph_engine.ipynb).
 
@@ -61,7 +61,7 @@ To launch a distributed graph service, please follow the steps below.
 
 #### IP address setting
 
-The first step is to set the IP list for each graph server. Each IP address with port represents a server. In `ip_list.txt` file, we set up 4 graph server as follow for demo:
+The first step is to set the IP list for each graph server. Each IP address with port represents a server. In `./toy_data/ip_list.txt` file, we set up 4 graph server as follow for demo:
 
 ```
 127.0.0.1:8813
@@ -70,7 +70,7 @@ The first step is to set the IP list for each graph server. Each IP address with
 127.0.0.1:8816
 ```
 
-#### Launching Graph Engine by OpenMPI
+#### Launching graph engine by openmpi
 
 Before launching the graph engine, you should set up the below hyper-parameters in configuration file in `./user_configs/metapath2vec.yaml`:
 
@@ -87,7 +87,7 @@ Then, we can launch the graph engine with the help of OpenMPI.
 mpirun -np 4 python -m pgl.distributed.launch --ip_config ./toy_data/ip_list.txt --conf ./user_configs/metapath2vec.yaml --mode mpi --shard_num 1000
 ```
 
-#### Launching Graph Engine manually
+#### Launching graph engine manually
 
 If you didn't install OpenMPI, you can launch the graph engine manually. 
 
@@ -111,38 +111,38 @@ Note that the `shard_num` should be the same as in configuration file.
 
 After successfully launching the graph engine, you can run the below command to train the model in different mode.
 
-### Single GPU Training and Inference
+### Single GPU training and inference
 
 ```
 # Training
-cd ./src
+cd ./env_run/src
 export CUDA_VISIBLE_DEVICES=0
-python train.py --config ../user_configs/metapath2vec.yaml --ip ../toy_data/ip_list.txt
+python train.py --config ../../user_configs/metapath2vec.yaml --ip ../../toy_data/ip_list.txt
 
 # Inference
-python infer.py --config ../user_configs/metapath2vec.yaml \
-                --ip ../toy_data/ip_list.txt \
+python infer.py --config ../../user_configs/metapath2vec.yaml \
+                --ip ../../toy_data/ip_list.txt \
                 --save_dir /your/path/to/save_embed \
                 --infer_from /your/path/of/trained_model
 ```
 
-### Distributed CPU Training and Inference
+### Distributed CPU training and inference in a single machine
 
 ```
 # Training
-cd ./src
+cd ./env_run/src
 CPU_NUM=12 fleetrun --log_dir /your/path/to/fleet_logs \
                     --worker_num 4 \
                     --server_num 4 \
-                    dist_cpu_train.py --config ../user_configs/metapath2vec.yaml \
-                                      --ip ../toy_data/ip_list.txt
+                    dist_cpu_train.py --config ../../user_configs/metapath2vec.yaml \
+                                      --ip ../../toy_data/ip_list.txt
 
 # Inference
 CPU_NUM=12 fleetrun --log_dir /your/path/to/fleet_logs_infer \
                     --worker_num 4 \
                     --server_num 4 \
-                    dist_cpu_infer.py --config ../user_configs/metapath2vec.yaml \
-                                      --ip ../toy_data/ip_list.txt \
+                    dist_cpu_infer.py --config ../../user_configs/metapath2vec.yaml \
+                                      --ip ../../toy_data/ip_list.txt \
                                       --save_dir /your/path/to/save_embed \
                                       --infer_from /your/path/of/trained_model
 ```
@@ -150,3 +150,24 @@ CPU_NUM=12 fleetrun --log_dir /your/path/to/fleet_logs_infer \
 Note that the `worker_num` and `server_num` in inference stage should be the same as in training stage.
 
 The training log will be saved in `/your/path/to/fleet_logs`.
+
+### Distributed CPU training with multi-machine
+
+Suppose we perform distributed training on two machines, and deploy a server node and a trainer node on each machine. You only need to specify the ip and port list of the service node `--servers` and the ip and port list of the training node `--workers`, to perform multi-machine training.
+
+In the following example, xx.xx.xx.xx represents machine 1, yy.yy.yy.yy represents machine 2. Then, runing the following commands in each machine.
+
+```
+# Training
+cd ./env_run/src
+
+export PADDLE_WITH_GLOO=1
+export FLAGS_START_PORT=30510  # http port for multi-machine communication
+
+CPU_NUM=12 fleetrun --log_dir /your/path/to/fleet_logs \
+                    --workers "xx.xx.xx.xx:8170,yy.yy.yy.yy:8171" \
+                    --servers "xx.xx.xx.xx:8270,yy.yy.yy.yy:8271" \
+                    dist_cpu_train.py --config ../../user_configs/metapath2vec.yaml \
+                                      --ip ../../toy_data/ip_list.txt
+
+```
