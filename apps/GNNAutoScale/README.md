@@ -46,8 +46,6 @@ python run.py --conf config/reddit/gcnii.yaml
 
 ## Results
 
-**Notes**: We will support metis graph partition method in the near future. Currently, we only support random graph partition in our code.
-
 ### Citation Network
 <table>
    <tr align="center">
