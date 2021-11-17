@@ -28,7 +28,8 @@ from pgl.utils.logger import log
 sys.path.insert(0, os.path.abspath(".."))
 import gnn_models
 from dataset import load_dataset, create_dataloaders
-from partition import random_partition
+from graph_partition import random_graph_partition
+from graph_partition import metis_graph_partition
 from utils import check_device, process_batch_data, compute_buffer_size
 from utils import generate_mask, permute, compute_gcn_norm, compute_acc
 
@@ -42,7 +43,7 @@ def train(train_loader, model, feature, gcn_norm, label, train_mask, criterion,
 
     if isinstance(train_loader, list):
         # If we get a list-type train_loader, that means we generate train data in advance.
-        # Then we need to shuffle this list before an epoch starts.
+        # Then we need to shuffle this list before each epoch starts.
         np.random.shuffle(train_loader)
 
     for batch_data in train_loader:
@@ -94,8 +95,17 @@ def main(args, config):
     log.info("Loading %s dataset." % config.data_name)
     dataset, mode = load_dataset(config.data_name)
 
-    log.info("Running into %d random graph partitions." % config.num_parts)
-    permutation, part = random_partition(dataset.graph, npart=config.num_parts)
+    log.info("Running into %d %s graph partitions." %
+             (config.num_parts, args.partition))
+    if args.partition == 'metis':
+        permutation, part = metis_graph_partition(
+            dataset.graph, npart=config.num_parts)
+    elif args.partition == 'random':
+        permutation, part = random_graph_partition(
+            dataset.graph, npart=config.num_parts)
+    else:
+        raise ValueError("%s graph partition methods not supported" %
+                         args.partition)
 
     log.info("Permuting dataset and feature.")
     dataset, feature = permute(dataset, dataset.feature, permutation,
@@ -164,6 +174,13 @@ if __name__ == "__main__":
         type=int,
         default=5,
         help="Number of workers for Dataloader.")
+    parser.add_argument(
+        "--partition",
+        type=str,
+        default='metis',
+        help=f"Set graph partition methods, including `metis` and `random`. "
+        f"Note that we do not support metis partition on Windows system currently."
+    )
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
 
