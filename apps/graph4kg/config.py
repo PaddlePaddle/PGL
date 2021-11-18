@@ -102,6 +102,12 @@ class KGEArgParser(ArgumentParser):
             help='The batch size used for validation and test.')
 
         self.add_argument(
+            '--valid_percent',
+            type=float,
+            default=1.,
+            help='The percent of samples used for validation.')
+
+        self.add_argument(
             '--filter_eval',
             action='store_true',
             help='Whether filter out true triplets in evaluation candidates.')
@@ -234,6 +240,13 @@ class KGEArgParser(ArgumentParser):
             type=int,
             default=-1,
             help='The interval to update learning rate. Negative for constant mlp_lr.'
+        )
+
+        self.add_argument(
+            '--num_process',
+            type=int,
+            default=4,
+            help='The number of processes used for asynchroneous gradient update.'
         )
 
         self.add_argument(

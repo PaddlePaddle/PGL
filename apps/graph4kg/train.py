@@ -40,8 +40,8 @@ def main():
     set_logger(args)
 
     trigraph = read_trigraph(args.data_path, args.data_name)
-    if args.data_name == 'wikikg90m':
-        trigraph.sampled_subgraph(0.01, dataset='valid')
+    if args.valid_percent < 1:
+        trigraph.sampled_subgraph(args.valid_percent, dataset='valid')
 
     use_filter_set = args.filter_sample or args.filter_eval or args.sample_weight
     if use_filter_set:

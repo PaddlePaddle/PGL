@@ -35,7 +35,7 @@ class NumPyEmbedding(object):
         init_value (optional: float or a tuple of two floats): 
             the range of initialization.
             (-init_value, init_value) for single float.
-        
+
         weight_path: the file to save and load weight.
 
     """
@@ -67,8 +67,11 @@ class NumPyEmbedding(object):
         self._lr = learning_rate
         self._update = self._set_optimizer()
 
+        self._process_worker = 4
         self._async_q = None
-        self._async_p = None
+        self._async_p = []
+        for i in range(self._process_worker):
+            self._async_p.append(None)
 
     def __call__(self, index):
         if isinstance(index, paddle.Tensor):
@@ -121,16 +124,22 @@ class NumPyEmbedding(object):
     def start_async_update(self):
         """initialize the async update
         """
-        self._async_q = mp.Queue(1)
-        self._async_p = mp.Process(
-            target=self.async_update, args=(self._async_q, ))
-        self._async_p.start()
+        self._async_q = mp.Queue(self._process_worker * 100)
+        for i in range(self._process_worker):
+            self._async_p[i] = mp.Process(
+                target=self.async_update, args=(self._async_q, ))
+
+        for i in range(self._process_worker):
+            self._async_p[i].start()
 
     def finish_async_update(self):
         """Notify the async update process to quit
         """
-        self._async_q.put((None, None))
-        self._async_p.join()
+        for i in range(self._process_worker):
+            self._async_q.put((None, None))
+
+        for i in range(self._process_worker):
+            self._async_p[i].join()
 
     def step(self):
         """Update embeddings according to self.trace

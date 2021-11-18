@@ -82,8 +82,10 @@ class TriGraph(object):
         repr_dict['num_train'] = self._train.shape[0]
         repr_dict['num_valid'] = self._valid['r'].shape[0]
         repr_dict['num_test'] = self._test['r'].shape[0]
-        repr_dict['ent_feat'] = self._ent_feat.shape() if self._ent_feat is not None else -1
-        repr_dict['rel_feat'] = self._rel_feat.shape() if self._rel_feat is not None else -1
+        repr_dict['ent_feat'] = self._ent_feat.shape(
+        ) if self._ent_feat is not None else -1
+        repr_dict['rel_feat'] = self._rel_feat.shape(
+        ) if self._rel_feat is not None else -1
 
         return json.dumps(repr_dict, ensure_ascii=False)
 
@@ -100,7 +102,7 @@ class TriGraph(object):
                 if data['mode'] is not 'wikikg90m':
                     ents.append(np.unique(data['t']))
                 else:
-                    ents.append(np.unique(data['t_candidate'].reshape(-1)))
+                    ents.append(np.unique(data['t_candidate'].reshape((-1, ))))
             elif isinstance(data, np.ndarray):
                 ents_data = np.concatenate([data[:, 0], data[:, 2]])
                 ents.append(np.unique(ents_data))
@@ -146,8 +148,10 @@ class TriGraph(object):
         train = np.load(os.path.join(path, 'train.npy'), mmap_mode=mmap_mode)
         valid = np.load(os.path.join(path, 'valid.npy'), mmap_mode=mmap_mode)
         test = np.load(os.path.join(path, 'test.npy'), mmap_mode=mmap_mode)
-        ent_feat = np.load(os.path.join(path, 'ent_feat.npy'), mmap_mode=mmap_mode)
-        rel_feat = np.load(os.path.join(path, 'rel_feat.npy'), mmap_mode=mmap_mode)
+        ent_feat = np.load(
+            os.path.join(path, 'ent_feat.npy'), mmap_mode=mmap_mode)
+        rel_feat = np.load(
+            os.path.join(path, 'rel_feat.npy'), mmap_mode=mmap_mode)
         triplets = {'train': train, 'valid': valid, 'test': test}
         return cls(triplets, num_ents, num_rels, ent_feat, rel_feat)
 
@@ -288,10 +292,12 @@ class TriGraph(object):
         """
         valid = np.stack(
             [self._valid['h'], self._valid['r'], self._valid['t']],
-            axis=1) if self._valid is not None and self._valid['mode'] != 'wikikg90m' else None
+            axis=1) if self._valid is not None and self._valid[
+                'mode'] != 'wikikg90m' else None
         test = np.stack(
             [self._test['h'], self._test['r'], self._test['t']],
-            axis=1) if self._test is not None and self._test['mode'] != 'wikikg90m' else None
+            axis=1) if self._test is not None and self._test[
+                'mode'] != 'wikikg90m' else None
         unempty = [x for x in [self._train, valid, test] if x is not None]
         return np.concatenate(unempty, axis=0)
 
@@ -361,10 +367,8 @@ class TriGraph(object):
                 for key in data:
                     data[key] = _sample_subgraph(data[key])
             elif isinstance(data, np.ndarray):
-                max_index = data.shape[0]
-                index = np.random.permutation(max_index)
-                index = index[:int(max_index * percent)]
-                data = data[index]
+                max_index = int(data.shape[0] * percent)
+                data = data[:max_index]
             return data
 
         if dataset == 'train' or dataset == 'all':
