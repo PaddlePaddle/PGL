@@ -366,7 +366,7 @@ class OTEScore(ScoreFunc):
         raise ValueError("Scale Type %d is not supported!" % self.scale_type)
 
     def __call__(self, head, rel, tail):
-        # rel = self.orth_rel_embedding(rel)
+        rel = self.orth_rel_embedding(rel)
 
         assert head.shape[:-1] == rel.shape[:-1]
         shape = head.shape
@@ -385,7 +385,7 @@ class OTEScore(ScoreFunc):
     def get_neg_score(self, head, rel, tail, neg_head=False):
         """Calculate scores of negative samples
         """
-        # rel = self.orth_rel_embedding(rel)
+        rel = self.orth_rel_embedding(rel)
         if neg_head:
             rel = self._orth_reverse_mat(rel)
             score = self._get_neg_score(tail, rel, head)

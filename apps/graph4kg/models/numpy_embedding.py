@@ -202,7 +202,8 @@ class NumPyEmbedding(object):
                 if os.path.exists(self._weight_path):
                     break
                 time.sleep(5)
-        self.weight = np.load(self._weight_path, mmap_mode='r+')
+        self.weight = np.load(
+            self._weight_path, allow_pickle=True, mmap_mode='r+')
 
     def _init_moment(self):
         if dist.get_rank() == 0:
