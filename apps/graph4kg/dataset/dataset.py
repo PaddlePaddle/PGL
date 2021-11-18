@@ -32,19 +32,23 @@ class KGDataset(Dataset):
         triplets:  a list of (h, r, t) tuples, 2D numpy.ndarray or
                 a dictionary of triplets as validation and test set of WikiKG90M-LSC
 
-        num_ents: Number of entities in a knowledge graph, int
+        num_ents: number of entities in a knowledge graph, int
 
-        neg_sample_size: Number of negative samples for each triplet, int
+        args: arguments of sampling, argparse.Namespace, including
+            - neg_sample_size: Number of negative samples for each triplet, int
 
-        neg_sample_type: The strategy used for negative sampling.
+            - neg_sample_type: The strategy used for negative sampling.
                 'batch': sampling from entities in batch;
                 'full': sampling entities from the whole entity set.
                 'chunk': sampling from the whole entity set as chunks 
 
-        filter_sample: Whether filter out valid triplets in knowledge graphs
+            - filter_sample: Whether filter out valid triplets in knowledge graphs
 
         filter_dict: a dictionary of valid triplets, in the form of
                     {'head': {(t, r):set(h)}, 'tail': {(h, r):set(t)}}
+
+        shared_path: a dictionary of numpy embeddings' path for embedding prefetch, 
+                in the form of {'ent': ent_path, 'rel': rel_path}. None means no prefetch.
 
     """
 
@@ -54,8 +58,10 @@ class KGDataset(Dataset):
                  args,
                  filter_dict=None,
                  shared_path=None):
-        shared_ent_path = shared_path.get('ent', None)
-        shared_rel_path = shared_path.get('rel', None)
+        shared_ent_path = shared_path.get(
+            'ent', None) if shared_path is not None else None
+        shared_rel_path = shared_path.get(
+            'rel', None) if shared_path is not None else None
 
         self._triplets = triplets
         self._num_ents = num_ents
@@ -221,7 +227,8 @@ class TestWikiKG2(Dataset):
 
     Args:
 
-        triplets: a dictionary of triplets with keys 'h', 'r', 't', 'candaidate_h' and 'candidate_t'
+        triplets: a dictionary of triplets with keys
+            'h', 'r', 't', 'candaidate_h' and 'candidate_t'
     """
 
     def __init__(self, triplets):

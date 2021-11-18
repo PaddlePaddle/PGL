@@ -21,6 +21,7 @@ from collections import defaultdict
 import paddle
 import numpy as np
 import paddle.distributed as dist
+from paddle.optimizer.lr import StepDecay
 
 from dataset.reader import read_trigraph
 from dataset.dataset import create_dataloaders
@@ -71,10 +72,22 @@ def main():
         else:
             errors = 'optimizer {} not supported!'.format(args.mlp_optimizer)
             raise ValueError(errors)
-        optimizer = optim_func(
-            learning_rate=args.mlp_lr,
-            epsilon=1e-10,
-            parameters=model.parameters())
+        if args.scheduler_interval > 0:
+            scheduler = StepDecay(
+                learning_rate=args.mlp_lr,
+                step_size=args.scheduler_interval,
+                gamma=0.5,
+                last_epoch=-1,
+                verbose=True)
+            optimizer = optim_func(
+                learning_rate=scheduler,
+                epsilon=1e-10,
+                parameters=model.parameters())
+        else:
+            optimizer = optim_func(
+                learning_rate=args.mlp_lr,
+                epsilon=1e-10,
+                parameters=model.parameters())
     else:
         warnings.warn('there is no model parameter on gpu, optimizer is None.',
                       RuntimeWarning)
@@ -97,6 +110,7 @@ def main():
     log = defaultdict(int)
     ts = t_step = time.time()
     step = 1
+    stop = False
     for epoch in range(args.num_epoch):
         model.train()
         for indexes, prefetch_embeddings, mode in train_loader:
@@ -161,27 +175,39 @@ def main():
                 t_step = time.time()
 
             if args.valid and (step + 1) % args.eval_interval == 0:
-                evaluate(model, valid_loader, 'valid', filter_dict
-                         if args.filter_eval else None, data_mode=args.data_name)
+                evaluate(
+                    model,
+                    valid_loader,
+                    'valid',
+                    filter_dict if args.filter_eval else None,
+                    data_mode=args.data_name)
+
+            if args.scheduler_interval > 0 and step % args.scheduler_interval == 0:
+                scheduler.step()
 
             step += 1
             if step % args.save_interval == 0 or step > args.max_steps:
                 step_path = os.path.join(args.save_path, 'step_%s' % step)
                 model.save(step_path)
-            if step > args.max_steps and args.test:
-                evaluate(model, test_loader, 'test', filter_dict if args.filter_eval else None,
-                         data_mode=args.data_name)
+            if step > args.max_steps:
+                stop = True
                 break
 
             ts = time.time()
+        if stop:
+            break
 
     if args.async_update:
         model.finish_async_update()
 
     if args.test:
-        evaluate(model, test_loader, 'test', filter_dict
-                 if args.filter_eval else None,
-                 os.path.join(args.save_path, 'test.pkl'), data_mode=args.data_name)
+        evaluate(
+            model,
+            test_loader,
+            'test',
+            filter_dict if args.filter_eval else None,
+            os.path.join(args.save_path, 'test.pkl'),
+            data_mode=args.data_name)
 
 
 if __name__ == '__main__':

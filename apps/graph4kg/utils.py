@@ -174,18 +174,20 @@ def evaluate_wikikg2(model, loader, mode, save_path):
         y_pred_pos = []
         y_pred_neg = []
         for h, r, t, neg_h, neg_t in tqdm(loader):
-            y_pred_pos += model(h, r, t).numpy()
+            pos_h = model._get_ent_embedding(h)
+            pos_r = model._get_rel_embedding(r)
+            pos_t = model._get_ent_embedding(t)
+            y_pred_pos.append(model(pos_h, pos_r, pos_t).numpy())
             y_neg_head = model.predict(t, r, neg_h, mode='head').numpy()
             y_neg_tail = model.predict(h, r, neg_t, mode='tail').numpy()
-            y_pred_neg += np.concatenate([y_neg_head, y_neg_tail], axis=1)
+            y_pred_neg.append(np.concatenate([y_neg_head, y_neg_tail], axis=1))
         y_pred_pos = np.concatenate(y_pred_pos, axis=0)
         y_pred_neg = np.concatenate(y_pred_neg, axis=0)
         input_dict = {'y_pred_pos': y_pred_pos, 'y_pred_neg': y_pred_neg}
         result = evaluator.eval(input_dict)
-    logging.info('------------- %s results ------------' % mode)
+    logging.info('-- %s results ------------' % mode)
     logging.info(' ' + ' '.join(
-        ['%s: %f' % (k, v) for k, v in result.items()]))
-    logging.info('-' * 40)
+        ['{}: {}'.format(k, v.mean()) for k, v in result.items()]))
 
 
 def evaluate_wikikg90m(model, loader, mode, save_path):
@@ -209,10 +211,9 @@ def evaluate_wikikg90m(model, loader, mode, save_path):
                 't_correct_index': t_correct_index
             }
             result = evaluator.eval(input_dict)
-            logging.info('------------- %s results -------------' % mode)
+            logging.info('-- %s results -------------' % mode)
             logging.info(' '.join(
-                ['%s: %f' % (k, v) for k, v in result.items()]))
-            logging.info('-' * 30)
+                ['{}: {}'.format(k, v) for k, v in result.items()]))
         else:
             input_dict['h,r->t'] = {'t_pred_top10': t_pred_top10}
             evaluator.save_test_submission(
@@ -268,11 +269,11 @@ def evaluate(model,
                     output['t,r->h'][metric] + output['h,r->t'][metric]) / 2
             logging.info('-------------- %s result --------------' %
                          evaluate_mode)
-            logging.info('t,r->h  |', ' '.join(
+            logging.info('t,r->h  |' + ' '.join(
                 ['{}: {}'.format(k, v) for k, v in output['t,r->h'].items()]))
-            logging.info('h,r->t  |', ' '.join(
+            logging.info('h,r->t  |' + ' '.join(
                 ['{}: {}'.format(k, v) for k, v in output['h,r->t'].items()]))
-            logging.info('average |', ' '.join(
+            logging.info('average |' + ' '.join(
                 ['{}: {}'.format(k, v) for k, v in output['average'].items()]))
             logging.info('-----------------------------------------')
 

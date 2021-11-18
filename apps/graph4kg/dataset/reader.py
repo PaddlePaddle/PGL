@@ -20,11 +20,39 @@ import numpy as np
 from dataset.trigraph import TriGraph
 from utils import timer_wrapper
 
-__all__ = ['TripletDataset', 'WikiKG90MDataset']
-
 
 class TripletDataset(object):
     """ Load a knowledge graph in triplets
+
+    Args:
+
+        path: the path of the data_name folder
+
+        data_name: the folder name of triplet data
+
+        hrt_mode: the order of head, relation and tail per line in triplet file
+                'hrt' denotes head, relation, tail
+
+        kv_mode: the order of keys and corresponding ids in dictionary file
+                'kv' denotes entity_name/relation_name, id
+
+        train_file: the file name of trainig dataset
+
+        valid_file: the file name of validation dataset
+
+        test_file: the file name of test dataset
+
+        ent_feat_path: the path of entity features
+
+        rel_feat_path: the path of relation features
+
+        delimiter: the delimiter of triplet and dictionary files
+
+        map_to_id: whether to map str entities and relations into their int ids
+
+        load_dict: whether to load dictionaries from the given path
+
+        skip_head: ignore the first line of files if True
 
     Attributes:
         ent_dict: store data values - {entity:id}
@@ -95,13 +123,15 @@ class TripletDataset(object):
                 'h': self.valid[:, 0],
                 'r': self.valid[:, 1],
                 't': self.valid[:, 2],
-                'candidate': self.num_ents},
+                'candidate': self.num_ents
+            },
             'test': {
                 'mode': 'hrt',
                 'h': self.test[:, 0],
                 'r': self.test[:, 1],
                 't': self.test[:, 2],
-                'candidate': self.num_ents}
+                'candidate': self.num_ents
+            }
         }
 
     def __call__(self):
@@ -193,13 +223,15 @@ class WikiKG90MDataset(object):
                 'h': valid['hr'][:, 0],
                 'r': valid['hr'][:, 1],
                 'candidate_t': valid['t_candidate'],
-                't_correct_index': valid.get('t_correct_index', None)},
+                't_correct_index': valid.get('t_correct_index', None)
+            },
             'test': {
                 'mode': 'wikikg90m',
                 'h': test['hr'][:, 0],
                 'r': test['hr'][:, 1],
                 'candidate_t': test['t_candidate'],
-                't_correct_index': test.get('t_correct_index', None)}
+                't_correct_index': test.get('t_correct_index', None)
+            }
         }
         self.num_ents = data.num_entities
         self.num_rels = data.num_relations
@@ -221,8 +253,7 @@ class WikiKG2Dataset(object):
         test = split_idx['test']
         self.triplets = {
             'train': np.stack([
-                split_idx['train']['head'],
-                split_idx['train']['relation'],
+                split_idx['train']['head'], split_idx['train']['relation'],
                 split_idx['train']['tail']
             ]).T,
             'valid': {
@@ -231,14 +262,16 @@ class WikiKG2Dataset(object):
                 'r': valid['relation'],
                 't': valid['tail'],
                 'candidate_h': valid['head_neg'],
-                'candidate_t': valid['tail_neg']},
+                'candidate_t': valid['tail_neg']
+            },
             'test': {
                 'mode': 'wikikg2',
                 'h': test['head'],
                 'r': test['relation'],
                 't': test['tail'],
                 'candidate_h': test['head_neg'],
-                'candidate_t': test['tail_neg']}
+                'candidate_t': test['tail_neg']
+            }
         }
         self.num_ents = data.graph['num_nodes']
         self.num_rels = int(max(data.graph['edge_reltype'])[0]) + 1
@@ -260,6 +293,10 @@ def read_trigraph(data_path, data_name):
     elif data_name in ['FB15k-237', 'WN18RR']:
         dataset = TripletDataset(
             data_path, data_name, map_to_id=True, load_dict=False)
+    else:
+        raise NotImplementedError('Please add %s to read_trigraph function '
+                                  'in dataset/reader.py to load this dataset' %
+                                  data_name)
 
     graph_data = TriGraph(dataset.triplets, dataset.num_ents, dataset.num_rels,
                           dataset.ent_feat, dataset.rel_feat)

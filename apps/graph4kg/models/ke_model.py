@@ -232,7 +232,7 @@ class KGEModel(nn.Layer):
             self.rel_embedding.eval()
 
         if cand is None:
-            cand_emb = self.ent_embedding.weight.unsqueeze(0)
+            cand_emb = paddle.to_tensor(self.ent_embedding.weight).unsqueeze(0)
             if self._use_feat:
                 cand_feat = paddle.to_tensor(self._ent_feat.astype('float32'))
                 cand_emb = self.trans_ent(cand_feat, cand_emb)

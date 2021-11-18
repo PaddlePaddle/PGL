@@ -30,9 +30,9 @@ class KGEArgParser(ArgumentParser):
         super(KGEArgParser, self).__init__()
 
         # system
-        self.add_argument('--seed', type=int, default=0, help='random seed')
+        self.add_argument('--seed', type=int, default=0, help='Random seed.')
         self.add_argument(
-            '--task_name', type=str, default='0', help='identifier')
+            '--task_name', type=str, default='0', help='Task identifier.')
 
         self.add_argument(
             '--data_path',
@@ -49,7 +49,7 @@ class KGEArgParser(ArgumentParser):
         self.add_argument(
             '--save_interval',
             type=int,
-            default=20000,
+            default=20000000,
             help='The number of interval to save checkpoints.')
 
         # data
@@ -57,7 +57,7 @@ class KGEArgParser(ArgumentParser):
             '--data_name',
             type=str,
             default='FB15k',
-            help='The name of directory where dataset files are')
+            help='The name of dataset.')
 
         self.add_argument(
             '--batch_size',
@@ -69,16 +69,16 @@ class KGEArgParser(ArgumentParser):
             '--num_workers',
             type=int,
             default=0,
-            help='num_workers for DataLoader')
+            help='Number of workers used for DataLoader.')
 
         self.add_argument('--sample_weight', action='store_true', help='Use '\
-            'weight for each sample')
+            'weight for each sample.')
 
         self.add_argument(
             '--neg_sample_type', type=str, default='chunk', help='The range for '\
                 'negative sampling. full: sampling from the whole entity set,'\
                     ' batch: sampling from entities in a batch, chunk: sampling'\
-                        ' from the whole entity set as chunks')
+                        ' from the whole entity set as chunks.')
 
         self.add_argument(
             '--neg_sample_size', type=int, default=1, help='The number of '\
@@ -87,13 +87,13 @@ class KGEArgParser(ArgumentParser):
         self.add_argument(
             '--neg_deg_sample',
             action='store_true',
-            help='Whether use true heads or tails to construct negative samples'
+            help='Whether use true heads or tails to construct negative samples.'
         )
 
         self.add_argument(
             '--filter_sample',
             action='store_true',
-            help='Whether filter out true triplets in negative samples')
+            help='Whether filter out true triplets in negative samples.')
 
         self.add_argument(
             '--test_batch_size',
@@ -104,7 +104,7 @@ class KGEArgParser(ArgumentParser):
         self.add_argument(
             '--filter_eval',
             action='store_true',
-            help='Whether filter out true triplets in evaluation candidates')
+            help='Whether filter out true triplets in evaluation candidates.')
 
         # model
         self.add_argument(
@@ -118,12 +118,12 @@ class KGEArgParser(ArgumentParser):
             '--embed_dim',
             type=int,
             default=200,
-            help='The embedding size of relation and entity')
+            help='The embedding size of relation and entity.')
 
         self.add_argument(
             '--use_feature',
             action='store_true',
-            help='Whether use feature embedding and feed [feature, emb] into mlp'
+            help='Whether use feature embedding and feed [feature, emb] into mlp.'
         )
 
         self.add_argument(
@@ -203,7 +203,7 @@ class KGEArgParser(ArgumentParser):
             '--max_steps',
             type=int,
             default=2000000,
-            help='The maximal number of steps to train')
+            help='The maximal number of steps to train.')
 
         self.add_argument(
             '--num_epoch',
@@ -221,7 +221,7 @@ class KGEArgParser(ArgumentParser):
             '--mlp_lr',
             type=float,
             default=0.0001,
-            help='The learning rate to optimize non-embeddings')
+            help='The learning rate to optimize non-embeddings.')
 
         self.add_argument(
             '--mlp_optimizer',
@@ -230,9 +230,16 @@ class KGEArgParser(ArgumentParser):
             help='The optimizer of model parameters.')
 
         self.add_argument(
+            '--scheduler_interval',
+            type=int,
+            default=-1,
+            help='The interval to update learning rate. Negative for constant mlp_lr.'
+        )
+
+        self.add_argument(
             '--mix_cpu_gpu',
             action='store_true',
-            help='Whether use cpu embedding')
+            help='Whether use cpu embedding.')
 
         self.add_argument(
             '--async_update',
@@ -256,7 +263,7 @@ class KGEArgParser(ArgumentParser):
 
         self.add_argument(
             '--eval_interval', type=int, default=50000, help='Print '\
-                'evaluation results on the validation dataset every x steps')
+                'evaluation results on the validation dataset every x steps.')
 
 
 def load_model_config(config_file):
@@ -280,15 +287,6 @@ def prepare_save_path(args):
     if dist.get_rank() == 0:
         if not os.path.exists(args.save_path):
             os.makedirs(args.save_path)
-        # else:
-        # ans = input('{} exists, do you want to overwrite it ? y or n: '.format(
-        #    args.save_path))
-        # if ans.lower() == 'y':
-        #     warnings.warn('save path {} has been overwriten.'.format(
-        #     args.save_path))
-        # else:
-        #     print('please define another save path, aborted!')
-        #    sys.exit()
     return args
 
 
