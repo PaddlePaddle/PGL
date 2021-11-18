@@ -215,9 +215,9 @@ class KGEModel(nn.Layer):
                         h_embed, t_embed, neg_embed.reshape(
                             (-1, neg_embed.shape[-1]))
                     ],
-                    axis=-1)
+                    axis=0)
             else:
-                ent_params = paddle.concat([h_embed, t_embed], axis=-1)
+                ent_params = paddle.concat([h_embed, t_embed], axis=0)
             reg_loss = self._score_func.get_er_regularization(
                 ent_params, r_embed, self._args)
         return reg_loss

@@ -287,10 +287,7 @@ def read_trigraph(data_path, data_name):
         dataset = WikiKG90MDataset(data_path)
     elif data_name == 'wikikg2':
         dataset = WikiKG2Dataset(data_path)
-    elif data_name in ['FB15k', 'wn18']:
-        dataset = TripletDataset(
-            data_path, data_name, kv_mode='vk', map_to_id=True, load_dict=True)
-    elif data_name in ['FB15k-237', 'WN18RR']:
+    elif data_name in ['FB15k-237', 'WN18RR', 'FB15k', 'wn18']:
         dataset = TripletDataset(
             data_path, data_name, map_to_id=True, load_dict=False)
     else:
