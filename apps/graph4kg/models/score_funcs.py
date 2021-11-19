@@ -15,13 +15,11 @@
 import math
 
 import numpy as np
+from numpy.random import RandomState
 import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
-from numpy.random import RandomState
 from paddle.nn.functional import log_sigmoid
-
-from models.numpy_embedding import NumPyEmbedding
 
 
 class ScoreFunc(object):

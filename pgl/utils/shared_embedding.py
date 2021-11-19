@@ -14,30 +14,86 @@
 
 import os
 import time
-
-import paddle
-import numpy as np
-import paddle.distributed as dist
+import traceback
+import functools
+from _thread import start_new_thread
 import multiprocessing as mp
+from multiprocessing import Queue, Process
 
-from utils import uniform, thread_wrapper, timer_wrapper
+import numpy as np
+import paddle
+import paddle.distributed as dist
 
 
-class NumPyEmbedding(object):
-    """NumPy Embedding in mmap mode
+def uniform(low, high, size, dtype=np.float32):
+    """Memory efficient uniform implementation.
+    """
+    rng = np.random.default_rng(0)
+    out = (high - low) * rng.random(size, dtype=dtype) + low
+    return out
+
+
+def thread_wrapper(func):
+    """
+    To execute wrapped the function in a new thread.
+
+    Example:
+        @thread_wrapper
+        def func(x):
+            return x + 1
+    """
+
+    @functools.wraps(func)
+    def decorate(*args, **kwargs):
+        """decorate func
+        """
+        queue = Queue()
+
+        def _queue_func():
+            exception, trace, result = None, None, None
+            try:
+                result = func(*args, **kwargs)
+            except Exception as e:
+                exception = e
+                trace = traceback.format_exc()
+            queue.put((result, exception, trace))
+
+        start_new_thread(_queue_func, ())
+        result, exception, trace = queue.get()
+        if exception is None:
+            return result
+        else:
+            assert isinstance(exception, Exception)
+            raise exception.__class__(trace)
+
+    return decorate
+
+
+class SharedEmbedding(object):
+    """
+    SharedEmbedding in mmap mode。
 
     Args:
-
-        num_embeddings: the size of the dictionary of embeddings.
-
-        embedding_dim: the dimension of embedding vectors.
-
-        init_value (optional: float or a tuple of two floats): 
-            the range of initialization.
-            (-init_value, init_value) for single float.
-
-        weight_path: the file to save and load weight.
-
+        num_embeddings (int):
+            The number of embeddings.
+        embedding_dim (int):
+            The dimension of embeddings.
+        high (float):
+            Optional. The upper bound of embedding values.
+        low (float):
+            Optional. The lower bound of embedding values.
+        weight (np.ndarray):
+            Optional. The array used to initialize embeddings.
+        weight_path (str):
+            The file to save and load embeddings.
+        optimizer (str):
+            The optimizer used to update embeddings during training. Choices: sgd, adagrad.
+        learning_rate (float):
+            The learning rate of optimizer.
+        init_mode (str):
+            The source of embeddings initialization. Choices: range, array, file.
+        num_workers (int):
+            The number of processes to update gradients.
     """
 
     def __init__(self,
@@ -46,13 +102,16 @@ class NumPyEmbedding(object):
                  high=1,
                  low=None,
                  weight=None,
-                 weight_path='./__np_embedding.npy',
-                 optimizer='AdaGrad',
-                 learning_rate=1e-3):
-        super(NumPyEmbedding, self).__init__()
+                 weight_path='./__default_shared_embedding.npy',
+                 optimizer='adagrad',
+                 learning_rate=0.1,
+                 init_mode='range',
+                 num_workers=1):
+        super(SharedEmbedding, self).__init__()
         self._num_embed = num_embeddings
         self._embed_dim = embedding_dim
-        self._low = -high if low is None else low
+        self._init_mode = init_mode
+        self._low = low
         self._high = high
         self._weight_path = weight_path
         self._moment_path = os.path.join(
@@ -67,7 +126,7 @@ class NumPyEmbedding(object):
         self._lr = learning_rate
         self._update = self._set_optimizer()
 
-        self._process_worker = 32
+        self._process_worker = num_workers
         self._async_q = None
         self._async_p = []
         for i in range(self._process_worker):
@@ -83,11 +142,27 @@ class NumPyEmbedding(object):
         return tensors
 
     @classmethod
-    def from_weight(cls, weight, weight_path, optimizer, learning_rate):
-        """Initializa NumPyEmbedding with a pre-defined array
+    def from_array(cls,
+                   weight,
+                   weight_path,
+                   optimizer='AdaGrad',
+                   learning_rate=0.1,
+                   num_workers=1):
+        """Initialize SharedEmbedding with a pre-defined array
         """
         return cls(weight=weight, weight_path=weight_path, \
-            optimizer=optimizer, learning_rate=learning_rate)
+            optimizer=optimizer, learning_rate=learning_rate, init_mode='array', num_workers=num_workers)
+
+    @classmethod
+    def from_file(cls,
+                  weight_path,
+                  optimizer='AdaGrad',
+                  learning_rate=0.1,
+                  num_workers=1):
+        """Initialize SharedEmbedding from array stored in weight_path
+        """
+        return cls(weight_path=weight_path, \
+            optimizer=optimizer, learning_rate=learning_rate, init_mode='file', num_workers=num_workers)
 
     def eval(self):
         """For evaluation without gradients
@@ -146,11 +221,12 @@ class NumPyEmbedding(object):
         """
         with paddle.no_grad():
             for index, tensors in self.trace:
-                grad_trace = self.create_trace(tensors)
+                grad_trace = self.create_trace(index, tensors)
                 if self._async_q is not None:
-                    self._async_q.put([index, grad_trace])
+                    self._async_q.put(grad_trace)
                 else:
-                    self._update(index, grad_trace)
+                    index, grads = grad_trace
+                    self._update(index, grads)
         self.trace = []
 
     def step_trace(self, trace):
@@ -168,7 +244,8 @@ class NumPyEmbedding(object):
         """
         if embeds is None:
             return None
-        index = index.numpy()
+        if isinstance(index, paddle.Tensor):
+            index = index.numpy()
         if self._optim_mode == 'adagrad':
             grad = embeds.grad
             grad_square = (grad * grad).mean(axis=-1).numpy()
@@ -200,12 +277,23 @@ class NumPyEmbedding(object):
 
     def _init_weight(self, weight):
         if dist.get_rank() == 0:
-            if weight is None:
-                assert self._low < self._high, 'invalid initialization range!'
+            if self._init_mode == 'range':
+                self._low = -self._high if self._low is None else self._low
+                assert self._low < self._high, 'Invalid range to initialize SharedEmbedding!'
                 embed_shape = (self._num_embed, self._embed_dim)
                 weight = uniform(self._low, self._high, embed_shape)
-            np.save(self._weight_path, weight)
-            del weight
+                np.save(self._weight_path, weight)
+                del weight
+            elif self._init_mode == 'array':
+                assert isinstance(
+                    weight, np.ndarray
+                ), 'Invalid weight type to initialize SharedEmbedding!'
+                np.save(self._weight_path, weight)
+                del weight
+            elif self._init_mode != 'file':
+                raise ValueError(
+                    'Initialization mode {} not supportted in SharedEmbedding'.
+                    format(self._init_mode))
         else:
             while True:
                 if os.path.exists(self._weight_path):

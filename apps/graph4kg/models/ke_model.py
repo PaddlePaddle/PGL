@@ -22,7 +22,7 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 
-from models.numpy_embedding import NumPyEmbedding
+from pgl.utils.shared_embedding import SharedEmbedding
 from models.score_funcs import TransEScore, RotatEScore, DistMultScore, ComplExScore, QuatEScore, OTEScore
 from models.init_func import InitFunction
 from utils import uniform, timer_wrapper
@@ -279,7 +279,7 @@ class KGEModel(nn.Layer):
                         os.path.join(save_path, 'trans_rels.pdparams'))
 
     def step(self, ent_trace=None, rel_trace=None):
-        """Update NumPyEmbeddings
+        """Update SharedEmbeddings
         """
         if self._ent_emb_on_cpu:
             if ent_trace is None:
@@ -367,22 +367,24 @@ class KGEModel(nn.Layer):
 
         if self._ent_emb_on_cpu:
             assert self._ent_weight_path is not None, 'Entity embedding path is not given'
-            ent_embeds = NumPyEmbedding.from_weight(
+            ent_embeds = SharedEmbedding.from_array(
                 weight=ent_weight,
                 weight_path=self._ent_weight_path,
                 optimizer=self._optim,
-                learning_rate=self._lr)
+                learning_rate=self._lr,
+                num_workers=self._args.num_process)
         else:
             ent_embeds = nn.Embedding(self._num_ents, self._ent_dim)
             ent_embeds.weight.set_value(ent_weight)
 
         if self._rel_emb_on_cpu:
             assert self._rel_weight_path is not None, 'Relation embedding path is not given'
-            rel_embeds = NumPyEmbedding.from_weight(
+            rel_embeds = SharedEmbedding.from_array(
                 weight=rel_weight,
                 weight_path=self._rel_weight_path,
                 optimizer=self._optim,
-                learning_rate=self._lr)
+                learning_rate=self._lr,
+                num_workers=self._args.num_process)
         else:
             rel_embeds = nn.Embedding(self._num_rels, self._rel_dim)
             rel_embeds.weight.set_value(rel_weight)

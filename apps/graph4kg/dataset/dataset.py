@@ -21,7 +21,6 @@ from paddle.io import Dataset
 from paddle.io import DataLoader, DistributedBatchSampler
 
 from utils import timer_wrapper
-from models.numpy_embedding import NumPyEmbedding
 
 
 class KGDataset(Dataset):

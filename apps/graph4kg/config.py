@@ -245,7 +245,7 @@ class KGEArgParser(ArgumentParser):
         self.add_argument(
             '--num_process',
             type=int,
-            default=4,
+            default=1,
             help='The number of processes used for asynchroneous gradient update.'
         )
 
