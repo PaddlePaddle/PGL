@@ -14,6 +14,10 @@
 
 __all__ = [
     'segment_pool',
+    'segment_sum',
+    'segment_mean',
+    'segment_max',
+    'segment_min',
     'segment_softmax',
     'segment_padding',
 ]
@@ -52,6 +56,34 @@ def segment_pool(data, segment_ids, pool_type, name=None):
                  "SummedIds": pool_ids},
         attrs={"pooltype": pool_type})
     return out
+
+
+def segment_sum(data, segment_ids, name=None):
+    """
+    See note of paddle.incubate.segment_sum
+    """
+    return paddle.incubate.segment_sum(data, segment_ids, name=name)
+
+
+def segment_mean(data, segment_ids, name=None):
+    """
+    See note of paddle.incubate.segment_mean
+    """
+    return paddle.incubate.segment_mean(data, segment_ids, name=name)
+
+
+def segment_max(data, segment_ids, name=None):
+    """
+    See note of paddle.incubate.segment_max
+    """
+    return paddle.incubate.segment_max(data, segment_ids, name=name)
+
+
+def segment_min(data, segment_ids, name=None):
+    """
+    See note of paddle.incubate.segment_min
+    """
+    return paddle.incubate.segment_min(data, segment_ids, name=name)
 
 
 def segment_softmax(data, segment_ids):
