@@ -145,7 +145,7 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 
 PGL依赖于:
 
-* paddle >= 2.0.0 
+* paddlepaddle >= 2.2.0 
 * cython
 
 

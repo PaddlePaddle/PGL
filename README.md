@@ -150,7 +150,7 @@ The above models consists of three parts, namely, graph representation learning,
 
 PGL requires:
 
-* paddle >= 2.0.0 
+* paddlepaddle >= 2.2.0 
 * cython
 
 
