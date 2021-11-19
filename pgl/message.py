@@ -63,7 +63,7 @@ class Message(object):
  
             Returns a paddle.Tensor with the first dim the same as the largest segment_id.
         """
-        return math.segment_sum(msg, self._segment_ids)
+        return paddle.incubate.segment_sum(msg, self._segment_ids)
 
     def reduce_mean(self, msg):
         """This method reduce message by mean. 
@@ -76,7 +76,7 @@ class Message(object):
  
             Returns a paddle.Tensor with the first dim the same as the largest segment_id.
         """
-        return math.segment_mean(msg, self._segment_ids)
+        return paddle.incubate.segment_mean(msg, self._segment_ids)
 
     def reduce_max(self, msg):
         """This method reduce message by max. 
@@ -89,7 +89,7 @@ class Message(object):
  
             Returns a paddle.Tensor with the first dim the same as the largest segment_id.
         """
-        return math.segment_max(msg, self._segment_ids)
+        return paddle.incubate.segment_max(msg, self._segment_ids)
 
     def reduce_min(self, msg):
         """This method reduce message by min. 
@@ -102,7 +102,7 @@ class Message(object):
  
             Returns a paddle.Tensor with the first dim the same as the largest segment_id.
         """
-        return math.segment_min(msg, self._segment_ids)
+        return paddle.incubate.segment_min(msg, self._segment_ids)
 
     def edge_expand(self, msg):
         """This is the inverse method for reduce.
