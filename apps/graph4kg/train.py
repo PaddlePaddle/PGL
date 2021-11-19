@@ -33,7 +33,7 @@ from config import prepare_config
 
 
 def main():
-    """Main function for shallow knowledge embedding methods
+    """Main function for shallow knowledge embedding methods.
     """
     args = prepare_config()
     set_seed(args.seed)
@@ -43,7 +43,7 @@ def main():
     if args.valid_percent < 1:
         trigraph.sampled_subgraph(args.valid_percent, dataset='valid')
 
-    use_filter_set = args.filter_sample or args.filter_eval or args.sample_weight
+    use_filter_set = args.filter_sample or args.filter_eval or args.weighted_loss
     if use_filter_set:
         filter_dict = {
             'head': trigraph.true_heads_for_tail_rel,
@@ -64,16 +64,16 @@ def main():
         model = paddle.DataParallel(model)
 
     if len(model.parameters()) > 0:
-        if args.mlp_optimizer == 'Adam':
+        if args.optimizer == 'adam':
             optim_func = paddle.optimizer.Adam
-        elif args.mlp_optimizer == 'Adagrad':
+        elif args.optimizer == 'adagrad':
             optim_func = paddle.optimizer.Adagrad
         else:
-            errors = 'optimizer {} not supported!'.format(args.mlp_optimizer)
+            errors = 'Optimizer {} not supported!'.format(args.optimizer)
             raise ValueError(errors)
         if args.scheduler_interval > 0:
             scheduler = StepDecay(
-                learning_rate=args.mlp_lr,
+                learning_rate=args.lr,
                 step_size=args.scheduler_interval,
                 gamma=0.5,
                 last_epoch=-1,
@@ -84,11 +84,11 @@ def main():
                 parameters=model.parameters())
         else:
             optimizer = optim_func(
-                learning_rate=args.mlp_lr,
+                learning_rate=args.lr,
                 epsilon=1e-10,
                 parameters=model.parameters())
     else:
-        warnings.warn('there is no model parameter on gpu, optimizer is None.',
+        warnings.warn('There is no model parameter on gpu, optimizer is None.',
                       RuntimeWarning)
         optimizer = None
 
@@ -135,7 +135,7 @@ def main():
                 neg_score = model.get_neg_score(h_emb, r_emb, neg_emb, False,
                                                 mask)
             else:
-                raise ValueError('unsupported negative mode {}'.format(mode))
+                raise ValueError('Unsupported negative mode {}.'.format(mode))
             neg_score = neg_score.reshape([args.batch_size, -1])
 
             loss = loss_func(pos_score, neg_score, weights)

@@ -66,7 +66,7 @@ class KGDataset(Dataset):
         self._num_ents = num_ents
         self._neg_sample_size = args.neg_sample_size
         self._neg_sample_type = args.neg_sample_type
-        self._sample_weight = args.sample_weight
+        self._sample_weight = args.weighted_loss
         if self._sample_weight is True:
             assert filter_dict is not None
             assert 'head' in filter_dict
@@ -155,6 +155,8 @@ class KGDataset(Dataset):
     def create_sample_weight(self, head, rel, tail):
         """Create weights for samples like RotatE
         """
+        assert self._filter_dict is not None, 'Can not '\
+            'create weights of samples as filter dictionary is not given!'
         weights = max(len(self._filter_dict['head'][(head, rel)]) + \
             len(self._filter_dict['tail'][(tail, rel)]), 1.)
         weights = np.sqrt(1. / weights)

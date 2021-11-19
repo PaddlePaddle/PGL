@@ -71,8 +71,9 @@ class KGEArgParser(ArgumentParser):
             default=0,
             help='Number of workers used for DataLoader.')
 
-        self.add_argument('--sample_weight', action='store_true', help='Use '\
-            'weight for each sample.')
+        self.add_argument('--weighted_loss', action='store_true', help='Use '\
+            'weight corresponding to frequencies of (h, r) and (t, r) for '\
+            'each sample when computing loss.')
 
         self.add_argument(
             '--neg_sample_type', type=str, default='chunk', help='The range for '\
@@ -220,26 +221,34 @@ class KGEArgParser(ArgumentParser):
         self.add_argument(
             '--lr',
             type=float,
-            default=0.01,
-            help='The learning rate of embeddings.')
+            default=0.1,
+            help='The learning rate to optimize model parameters.')
 
         self.add_argument(
-            '--mlp_lr',
-            type=float,
-            default=0.0001,
-            help='The learning rate to optimize non-embeddings.')
-
-        self.add_argument(
-            '--mlp_optimizer',
+            '--optimizer',
             type=str,
-            default='Adam',
+            default='adagrad',
+            choices=['adam', 'adagrad'],
             help='The optimizer of model parameters.')
+
+        self.add_argument(
+            '--cpu_lr',
+            type=float,
+            default=0.1,
+            help='The learning rate to optimize shared embeddings on CPU.')
+
+        self.add_argument(
+            '--cpu_optimizer',
+            type=str,
+            default='adagrad',
+            choices=['sgd', 'adagrad'],
+            help='The optimizer of shared embeddings on CPU.')
 
         self.add_argument(
             '--scheduler_interval',
             type=int,
             default=-1,
-            help='The interval to update learning rate. Negative for constant mlp_lr.'
+            help='The interval to update learning rate of model. Negative for constant lr.'
         )
 
         self.add_argument(
@@ -294,7 +303,7 @@ def prepare_save_path(args):
     task_name = '{}_{}_d_{}_g_{}_e_{}_r_{}_l_{}_lr_{}_{}_{}'.format(
         args.model_name, args.data_name, args.embed_dim, args.gamma, 'cpu'
         if args.ent_emb_on_cpu else 'gpu', 'cpu' if args.rel_emb_on_cpu else
-        'gpu', args.loss_type, args.lr, args.mlp_lr, args.task_name)
+        'gpu', args.loss_type, args.lr, args.cpu_lr, args.task_name)
 
     args.save_path = os.path.join(args.save_path, task_name)
 
@@ -332,9 +341,10 @@ def prepare_embedding_config(args):
     """Specify configuration of embeddings
     """
     # Device
-    mix_cpu_on_relation = False
-    args.rel_emb_on_cpu = args.mix_cpu_gpu and mix_cpu_on_relation
     args.ent_emb_on_cpu = args.mix_cpu_gpu
+    # As the number of relations in KGs is relatively small, we put relation
+    # emebddings on GPUs by default to speed up training.
+    args.rel_emb_on_cpu = False
 
     print(('-' * 40) + '\n        Device Setting        \n' + ('-' * 40))
     ent_place = 'cpu' if args.ent_emb_on_cpu else 'gpu'

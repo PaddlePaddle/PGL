@@ -61,8 +61,8 @@ class KGEModel(nn.Layer):
         self._ent_emb_on_cpu = args.ent_emb_on_cpu
         self._rel_emb_on_cpu = args.rel_emb_on_cpu
         self._num_chunks = args.num_chunks
-        self._lr = args.lr if args.mix_cpu_gpu else None
-        self._optim = 'adagrad' if args.mix_cpu_gpu else None
+        self._lr = args.cpu_lr if args.mix_cpu_gpu else None
+        self._optim = args.cpu_optimizer if args.mix_cpu_gpu else None
 
         # model
         self._model_name = model_name

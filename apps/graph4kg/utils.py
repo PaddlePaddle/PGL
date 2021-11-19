@@ -31,10 +31,7 @@ from tqdm import tqdm
 
 
 def set_seed(seed):
-    """Set seed for reproduction
-
-    Execute :code:`export FLAGS_cudnn_deterministic=True` before training command.
-
+    """Set seed for reproduction.
     """
     random.seed(seed)
     np.random.seed(seed)
@@ -43,7 +40,7 @@ def set_seed(seed):
 
 
 def set_logger(args):
-    """Write logs to console and log file
+    """Write logs to console and log file.
     """
     log_file = os.path.join(args.save_path, 'train.log')
     logging.basicConfig(
@@ -65,19 +62,18 @@ def set_logger(args):
 
 
 def print_log(step, interval, log, timer, t_step):
-    """Print log
+    """Print log to logger.
     """
     time_sum = time.time() - t_step
     logging.info('step: %d, loss: %.5f, reg: %.4e, speed: %.2f steps/s' %
                  (step, log['loss'] / interval, log['reg'] / interval,
                   interval / time_sum))
-    logging.info('timer | sample: %f, forward: %f, backward: %f, update: %f' %
-                 (timer['sample'], timer['forward'], timer['backward'],
-                  timer['update']))
+    logging.info('sample: %f, forward: %f, backward: %f, update: %f' % (
+        timer['sample'], timer['forward'], timer['backward'], timer['update']))
 
 
 def uniform(low, high, size, dtype=np.float32, seed=0):
-    """Memory efficient uniform implementation
+    """Memory efficient uniform implementation.
     """
     rng = np.random.default_rng(seed)
     out = (high - low) * rng.random(size, dtype=dtype) + low
@@ -85,7 +81,7 @@ def uniform(low, high, size, dtype=np.float32, seed=0):
 
 
 def timer_wrapper(name):
-    """Time counter wrapper
+    """Time counter wrapper.
     """
 
     def decorate(func):
@@ -111,36 +107,6 @@ def timer_wrapper(name):
             return result
 
         return wrapper
-
-    return decorate
-
-
-def thread_wrapper(func):
-    """Wrapped func for multiprocessing.Process
-    """
-
-    @functools.wraps(func)
-    def decorate(*args, **kwargs):
-        """decorate func
-        """
-        queue = Queue()
-
-        def _queue_func():
-            exception, trace, result = None, None, None
-            try:
-                result = func(*args, **kwargs)
-            except Exception as e:
-                exception = e
-                trace = traceback.format_exc()
-            queue.put((result, exception, trace))
-
-        start_new_thread(_queue_func, ())
-        result, exception, trace = queue.get()
-        if exception is None:
-            return result
-        else:
-            assert isinstance(exception, Exception)
-            raise exception.__class__(trace)
 
     return decorate
 

@@ -211,7 +211,13 @@ class WikiKG90MDataset(object):
     def __init__(self, path):
         super(WikiKG90MDataset, self).__init__()
         self.name = 'WikiKG90M-LSC'
-        from ogb.lsc import WikiKG90MDataset as LSCDataset
+        try:
+            from ogb.lsc import WikiKG90MDataset as LSCDataset
+        except ImportError as error:
+            print(
+                'Please run ``pip install ogb==1.3.1`` to load WikiKG90M dataset.'
+            )
+            raise ImportError(error)
         data = LSCDataset(path)
         valid = data.valid_dict['h,r->t']
         test = data.test_dict['h,r->t']
@@ -245,7 +251,13 @@ class WikiKG2Dataset(object):
     def __init__(self, path):
         super(WikiKG2Dataset, self).__init__()
         self.name = 'OGBL-WikiKG2'
-        from ogb.linkproppred import LinkPropPredDataset
+        try:
+            from ogb.linkproppred import LinkPropPredDataset
+        except ImportError as error:
+            print(
+                'Please run ``pip install ogb==1.3.1`` to load OGBL-WikiKG2 dataset.'
+            )
+            raise ImportError(error)
         data = LinkPropPredDataset(name='ogbl-wikikg2', root=path)
         split_idx = data.get_edge_split()
         valid = split_idx['valid']
