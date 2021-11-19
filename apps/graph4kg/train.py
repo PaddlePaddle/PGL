@@ -126,7 +126,7 @@ def main():
             ts = time.time()
             h_emb, r_emb, t_emb, neg_emb, mask = model.prepare_inputs(
                 h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, args)
-            pos_score = model(h_emb, r_emb, t_emb)
+            pos_score = model.forward(h_emb, r_emb, t_emb)
 
             if mode == 'head':
                 neg_score = model.get_neg_score(t_emb, r_emb, neg_emb, True,
