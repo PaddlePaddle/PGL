@@ -107,9 +107,9 @@ python -m pgl.distributed.launch --ip_config ./toy_data/ip_list.txt --conf ./use
 python -m pgl.distributed.launch --ip_config ./toy_data/ip_list.txt --conf ./user_configs/metapath2vec.yaml --shard_num 1000 --server_id 0
 ```
 
-Note that the `shard_num` should be the same as in configuration file.
+Note that the `shard_num` should be **the same** as in configuration file.
 
-After successfully launching the graph engine, you can run the below command to train the model in different mode.
+After successfully launching the graph engine, you can run the below command to train the model in different modes.
 
 ### Single GPU training and inference
 
