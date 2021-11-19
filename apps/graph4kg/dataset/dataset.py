@@ -14,9 +14,9 @@
 
 import os
 
-import paddle
 import numpy as np
 from numpy.random import default_rng
+import paddle
 from paddle.io import Dataset
 from paddle.io import DataLoader, DistributedBatchSampler
 

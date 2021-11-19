@@ -17,9 +17,9 @@ import json
 import math
 import warnings
 
+import numpy as np
 import paddle
 import paddle.nn as nn
-import numpy as np
 import paddle.nn.functional as F
 
 from models.numpy_embedding import NumPyEmbedding
@@ -49,7 +49,6 @@ class KGEModel(nn.Layer):
     Shallow model for knowledge representation learning.
     """
 
-    @timer_wrapper('model construction')
     def __init__(self, model_name, trigraph, args=None):
         super(KGEModel, self).__init__()
         self._args = args
@@ -95,13 +94,21 @@ class KGEModel(nn.Layer):
             return self.rel_embedding.weight_path
         return None
 
-    def train(self):
+    def set_train_mode(self):
         """Set train mode
         """
         if self._ent_emb_on_cpu:
             self.ent_embedding.train()
         if self._rel_emb_on_cpu:
             self.rel_embedding.train()
+
+    def set_eval_mode(self):
+        """Set eval mode
+        """
+        if self._ent_emb_on_cpu:
+            self.ent_embedding.eval()
+        if self._rel_emb_on_cpu:
+            self.rel_embedding.eval()
 
     def prepare_inputs(self,
                        h_index,
@@ -166,7 +173,7 @@ class KGEModel(nn.Layer):
     def forward(self, h_emb, r_emb, t_emb):
         """Function for training
         """
-        self.train()
+        self.set_train_mode()
 
         score = self._score_func(h_emb, r_emb, t_emb)
         return score
@@ -226,11 +233,7 @@ class KGEModel(nn.Layer):
     def predict(self, ent, rel, cand=None, mode='tail'):
         """Predict scores
         """
-        if self._ent_emb_on_cpu:
-            self.ent_embedding.eval()
-        if self._rel_emb_on_cpu:
-            self.rel_embedding.eval()
-
+        self.set_eval_mode()
         if cand is None:
             cand_emb = paddle.to_tensor(self.ent_embedding.weight).unsqueeze(0)
             if self._use_feat:

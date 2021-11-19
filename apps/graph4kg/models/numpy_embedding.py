@@ -67,7 +67,7 @@ class NumPyEmbedding(object):
         self._lr = learning_rate
         self._update = self._set_optimizer()
 
-        self._process_worker = 4
+        self._process_worker = 32
         self._async_q = None
         self._async_p = []
         for i in range(self._process_worker):
@@ -124,7 +124,7 @@ class NumPyEmbedding(object):
     def start_async_update(self):
         """initialize the async update
         """
-        self._async_q = mp.Queue(self._process_worker * 100)
+        self._async_q = mp.Queue(self._process_worker * 4)
         for i in range(self._process_worker):
             self._async_p[i] = mp.Process(
                 target=self.async_update, args=(self._async_q, ))

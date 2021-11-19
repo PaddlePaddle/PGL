@@ -14,7 +14,6 @@
 
 import os
 
-import pdb
 import numpy as np
 
 from dataset.trigraph import TriGraph
@@ -279,7 +278,6 @@ class WikiKG2Dataset(object):
         self.rel_feat = None
 
 
-@timer_wrapper('dataset loading')
 def read_trigraph(data_path, data_name):
     """Load datasets from files
     """

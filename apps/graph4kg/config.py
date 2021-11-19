@@ -29,7 +29,7 @@ class KGEArgParser(ArgumentParser):
     def __init__(self):
         super(KGEArgParser, self).__init__()
 
-        # system
+        # System
         self.add_argument('--seed', type=int, default=0, help='Random seed.')
         self.add_argument(
             '--task_name', type=str, default='0', help='Task identifier.')
@@ -52,7 +52,7 @@ class KGEArgParser(ArgumentParser):
             default=20000000,
             help='The number of interval to save checkpoints.')
 
-        # data
+        # Data
         self.add_argument(
             '--data_name',
             type=str,
@@ -112,7 +112,7 @@ class KGEArgParser(ArgumentParser):
             action='store_true',
             help='Whether filter out true triplets in evaluation candidates.')
 
-        # model
+        # Model
         self.add_argument(
             '--model_name',
             default='TransE',
@@ -187,7 +187,7 @@ class KGEArgParser(ArgumentParser):
             action='store_true',
             help='Indicate whether to use pairwise loss function.')
 
-        # optional parameters for score functions
+        # Optional parameters for score functions
         self.add_argument(
             '-g',
             '--gamma',
@@ -204,7 +204,7 @@ class KGEArgParser(ArgumentParser):
 
         self.add_argument('--quate_lmbda2', type=float, default=0.)
 
-        # traning
+        # Traning
         self.add_argument(
             '--max_steps',
             type=int,
@@ -260,7 +260,8 @@ class KGEArgParser(ArgumentParser):
             help='Allow asynchronous update on node embedding for multi-GPU training.'\
                                   'This overlaps CPU and GPU computation to speed up.')
 
-        self.add_argument('--print_on_screen', action='store_true')
+        self.add_argument('--print_on_screen', action='store_true', help='Print'\
+            'logs in console.')
 
         self.add_argument(
             '-log', '--log_interval', type=int, default=1000, help='Print'\
@@ -330,7 +331,7 @@ def prepare_data_config(args):
 def prepare_embedding_config(args):
     """Specify configuration of embeddings
     """
-    # device
+    # Device
     mix_cpu_on_relation = False
     args.rel_emb_on_cpu = args.mix_cpu_gpu and mix_cpu_on_relation
     args.ent_emb_on_cpu = args.mix_cpu_gpu
@@ -361,7 +362,7 @@ def prepare_model_config(args):
         args.use_embedding_regularization = (args.quate_lmbda1 > 0) \
             or (args.quate_lmbda2 > 0)
 
-    # dimension
+    # Dimension
     if args.model_name == 'rotate':
         args.ent_dim = args.embed_dim * 2
         args.rel_dim = args.embed_dim
