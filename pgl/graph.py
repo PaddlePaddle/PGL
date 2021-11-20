@@ -17,19 +17,21 @@
 
 import os
 import json
-import paddle
 import copy
+import warnings
+from collections import defaultdict
+
 import numpy as np
+import paddle
+import paddle.distributed as dist
+from paddle.framework import core
 
 from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
-
 from pgl.message import Message
-from collections import defaultdict
-from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes, unique_segment
 from pgl.utils.edge_index import EdgeIndex
-import paddle.distributed as dist
-import warnings
+from pgl.utils.helper import check_is_tensor, scatter, maybe_num_nodes
+from pgl.utils.helper import generate_segment_id_from_index, unique_segment
 
 
 class Graph(object):
@@ -137,12 +139,6 @@ class Graph(object):
             self._num_nodes = maybe_num_nodes(self._edges)
         else:
             self._num_nodes = num_nodes
-            max_edge_id = maybe_num_nodes(self._edges)
-            if not isinstance(max_edge_id, paddle.fluid.framework.
-                              Variable) and self._num_nodes < max_edge_id:
-                raise ValueError("The max edge ID should be less than the number of nodes. "
-                        "But got max edge ID [%s] >= num_nodes [%s]" \
-                        % (max_edge_id-1, self._num_nodes))
 
         self._adj_src_index = kwargs.get("adj_src_index", None)
         self._adj_dst_index = kwargs.get("adj_dst_index", None)
