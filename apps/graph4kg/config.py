@@ -30,88 +30,104 @@ class KGEArgParser(ArgumentParser):
         super(KGEArgParser, self).__init__()
 
         # System
-        self.add_argument('--seed', type=int, default=0, help='Random seed.')
         self.add_argument(
-            '--task_name', type=str, default='0', help='Task identifier.')
+            '--seed',
+            type=int,
+            default=0,
+            help='Random seed for initialization.')
+
+        self.add_argument(
+            '--task_name', type=str, default='KGE', help='Task identifier.')
 
         self.add_argument(
             '--data_path',
             type=str,
             default='./data/',
-            help='The path of knowledge graph dataset.')
+            help='Directory of knowledge graph dataset.')
 
         self.add_argument(
             '--save_path',
             type=str,
             default='./output/',
-            help='The path of the directory where models and logs are saved.')
+            help='Directory to save model and log.')
 
         self.add_argument(
             '--save_interval',
             type=int,
-            default=20000000,
-            help='The number of interval to save checkpoints.')
+            default=-1,
+            help='Interval size to save model checkpoint.')
 
         # Data
         self.add_argument(
             '--data_name',
             type=str,
             default='FB15k',
-            help='The name of dataset.')
+            choices=[
+                'FB15k', 'FB15k-237', 'wn18', 'WN18RR', 'wikikg2', 'wikikg90m'
+            ],
+            help='Dataset name.')
 
         self.add_argument(
             '--batch_size',
             type=int,
             default=1000,
-            help='The batch size for training.')
+            help='Number of triplets in a batch for training.')
 
         self.add_argument(
             '--num_workers',
             type=int,
             default=0,
-            help='Number of workers used for DataLoader.')
-
-        self.add_argument('--weighted_loss', action='store_true', help='Use '\
-            'weight corresponding to frequencies of (h, r) and (t, r) for '\
-            'each sample when computing loss.')
+            help='Number of workers used to load batch data.')
 
         self.add_argument(
-            '--neg_sample_type', type=str, default='chunk', help='The range for '\
-                'negative sampling. full: sampling from the whole entity set,'\
-                    ' batch: sampling from entities in a batch, chunk: sampling'\
-                        ' from the whole entity set as chunks.')
+            '--weighted_loss',
+            action='store_true',
+            help='Use weights of samples when computing loss. See details in'\
+                'https://arxiv.org/abs/1902.10197.')
 
         self.add_argument(
-            '--neg_sample_size', type=int, default=1, help='The number of '\
-                'negative samples for each positive sample in the training.')
+            '--neg_sample_type',
+            type=str,
+            default='chunk',
+            choices=['chunk', 'full', 'batch'],
+            help='The type of negative sampling. \n"chunk": sampled from all '\
+                'entities; triplets are devided into several chunks and each '\
+                    'chunk shares a group of negative samples.\n"full": sampled'\
+                        ' from all entities.\n"batch": sampling from current batch.\n')
+
+        self.add_argument(
+            '--neg_sample_size',
+            type=int,
+            default=1,
+            help='Number of negative samples of each triplet for training.')
 
         self.add_argument(
             '--neg_deg_sample',
             action='store_true',
-            help='Whether use true heads or tails to construct negative samples.'
-        )
+            help='Use true heads or tails in negative sampling. See details in'\
+                'https://arxiv.org/abs/1902.10197.')
 
         self.add_argument(
             '--filter_sample',
             action='store_true',
-            help='Whether filter out true triplets in negative samples.')
+            help='Filter out existing triplets in negative samples.')
 
         self.add_argument(
             '--test_batch_size',
             type=int,
             default=16,
-            help='The batch size used for validation and test.')
+            help='Number of triplets in a batch for validation and test.')
 
         self.add_argument(
             '--valid_percent',
             type=float,
             default=1.,
-            help='The percent of samples used for validation.')
+            help='Percent of used validation triplets.')
 
         self.add_argument(
             '--filter_eval',
             action='store_true',
-            help='Whether filter out true triplets in evaluation candidates.')
+            help='Filter out existing triplets from evaluation candidates.')
 
         # Model
         self.add_argument(
@@ -119,33 +135,33 @@ class KGEArgParser(ArgumentParser):
             default='TransE',
             choices=[
                 'TransE', 'RotatE', 'DistMult', 'ComplEx', 'QuatE', 'OTE'
-            ])
+            ],
+            help='Knowledge embedding method for training.')
 
         self.add_argument(
             '--embed_dim',
             type=int,
             default=200,
-            help='The embedding size of relation and entity.')
+            help='Dimension of real entity and relation embeddings.')
 
         self.add_argument(
             '--use_feature',
             action='store_true',
-            help='Whether use feature embedding and feed [feature, emb] into mlp.'
-        )
+            help='Use features for training.')
 
         self.add_argument(
             '-adv',
             '--neg_adversarial_sampling',
             action='store_true',
-            help='Indicate whether to use negative adversarial sampling.'\
-                    'It will weight negative samples with higher scores more.')
+            help='Use negative adversarial sampling, which weights '\
+                'negative samples with higher scores more.')
 
         self.add_argument(
             '-a',
             '--adversarial_temperature',
             default=1.0,
             type=float,
-            help='The temperature used for negative adversarial sampling.')
+            help='Temperature used for negative adversarial sampling.')
 
         self.add_argument(
             '-rt',
@@ -153,40 +169,42 @@ class KGEArgParser(ArgumentParser):
             type=str,
             default='norm_er',
             choices=['norm_er', 'norm_hrt'],
-            help='Regularization type. QuatE: "sum_hrt", Norm: "mean_er".')
+            help='Regularization type.\n"norm_er": compute norm of '\
+                'entities and relations seperately.\n"norm_hrt": '\
+                    'compute norm of heads, relations and tails seperately.')
 
         self.add_argument(
             '-rc',
             '--reg_coef',
             type=float,
             default=0,
-            help='The coefficient for regularization.')
+            help='Coefficient of regularization.')
 
         self.add_argument(
             '-rn',
             '--reg_norm',
             type=int,
             default=3,
-            help='norm used in regularization.')
+            help='Order of regularization norm.')
 
         self.add_argument(
             '--loss_type',
             default='Logsigmoid',
             choices=['Hinge', 'Logistic', 'Logsigmoid', 'BCE', 'Softplus'],
-            help='The loss function used to train KGE Model.')
+            help='Loss function of KGE Model.')
 
         self.add_argument(
             '-m',
             '--margin',
             type=float,
             default=1.0,
-            help='The margin value in Hinge loss.')
+            help='Margin value in Hinge loss.')
 
         self.add_argument(
             '-pw',
             '--pairwise',
             action='store_true',
-            help='Indicate whether to use pairwise loss function.')
+            help='Compute pairwise loss of triplets and negative samples.')
 
         # Optional parameters for score functions
         self.add_argument(
@@ -194,83 +212,99 @@ class KGEArgParser(ArgumentParser):
             '--gamma',
             type=float,
             default=12.0,
-            help='The margin value in the score function.')
+            help='Margin value of triplet scores.')
 
         self.add_argument(
-            '--ote_scale', type=int, default=0, choices=[0, 1, 2])
+            '--ote_scale',
+            type=int,
+            default=0,
+            choices=[0, 1, 2],
+            help='Scale method in OTE. 0-None; 1-abs; 2-exp.')
 
-        self.add_argument('--ote_size', type=int, default=1)
+        self.add_argument(
+            '--ote_size',
+            type=int,
+            default=1,
+            help='Number of linear transform matrix in OTE.')
 
-        self.add_argument('--quate_lmbda1', type=float, default=0.)
+        self.add_argument(
+            '--quate_lmbda1',
+            type=float,
+            default=0.,
+            help='Coefficient of the first regularization in QuatE.')
 
-        self.add_argument('--quate_lmbda2', type=float, default=0.)
+        self.add_argument(
+            '--quate_lmbda2',
+            type=float,
+            default=0.,
+            help='Coefficient of the second regularization in QuatE.')
 
         # Traning
         self.add_argument(
             '--max_steps',
             type=int,
             default=2000000,
-            help='The maximal number of steps to train.')
+            help='Number of batches to train.')
 
         self.add_argument(
             '--num_epoch',
             type=int,
             default=1000000,
-            help='The maximal number of epochs to train.')
+            help='Number of epochs to train.')
 
         self.add_argument(
             '--lr',
             type=float,
             default=0.1,
-            help='The learning rate to optimize model parameters.')
+            help='Learning rate to optimize model parameters.')
 
         self.add_argument(
             '--optimizer',
             type=str,
             default='adagrad',
             choices=['adam', 'adagrad'],
-            help='The optimizer of model parameters.')
+            help='Optimizer of model parameters.')
 
         self.add_argument(
             '--cpu_lr',
             type=float,
             default=0.1,
-            help='The learning rate to optimize shared embeddings on CPU.')
+            help='Learning rate to optimize shared embeddings on CPU.')
 
         self.add_argument(
             '--cpu_optimizer',
             type=str,
             default='adagrad',
             choices=['sgd', 'adagrad'],
-            help='The optimizer of shared embeddings on CPU.')
+            help='Optimizer of shared embeddings on CPU.')
 
         self.add_argument(
             '--scheduler_interval',
             type=int,
             default=-1,
-            help='The interval to update learning rate of model. Negative for constant lr.'
+            help='Interval size to update learning rate of model. -1 denotes constant.'
         )
 
         self.add_argument(
             '--num_process',
             type=int,
             default=1,
-            help='The number of processes used for asynchroneous gradient update.'
-        )
+            help='Number of processes for asynchroneous gradient update.')
 
         self.add_argument(
             '--mix_cpu_gpu',
             action='store_true',
-            help='Whether use cpu embedding.')
+            help='Use shared embeddings and store entity embeddings on CPU.')
 
         self.add_argument(
             '--async_update',
             action='store_true',
-            help='Allow asynchronous update on node embedding for multi-GPU training.'\
-                                  'This overlaps CPU and GPU computation to speed up.')
+            help='Asynchronously update embeddings with gradients.')
 
-        self.add_argument('--print_on_screen', action='store_true', help='Print'\
-            'logs in console.')
+        self.add_argument(
+            '--print_on_screen',
+            action='store_true',
+            help='Print logs in console.')
 
         self.add_argument(
             '-log', '--log_interval', type=int, default=1000, help='Print'\

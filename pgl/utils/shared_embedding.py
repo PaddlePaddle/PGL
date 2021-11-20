@@ -14,9 +14,6 @@
 
 import os
 import time
-import traceback
-import functools
-from _thread import start_new_thread
 import multiprocessing as mp
 from multiprocessing import Queue, Process
 
@@ -31,42 +28,6 @@ def uniform(low, high, size, dtype=np.float32):
     rng = np.random.default_rng(0)
     out = (high - low) * rng.random(size, dtype=dtype) + low
     return out
-
-
-def thread_wrapper(func):
-    """
-    To execute wrapped the function in a new thread.
-
-    Example:
-        @thread_wrapper
-        def func(x):
-            return x + 1
-    """
-
-    @functools.wraps(func)
-    def decorate(*args, **kwargs):
-        """decorate func
-        """
-        queue = Queue()
-
-        def _queue_func():
-            exception, trace, result = None, None, None
-            try:
-                result = func(*args, **kwargs)
-            except Exception as e:
-                exception = e
-                trace = traceback.format_exc()
-            queue.put((result, exception, trace))
-
-        start_new_thread(_queue_func, ())
-        result, exception, trace = queue.get()
-        if exception is None:
-            return result
-        else:
-            assert isinstance(exception, Exception)
-            raise exception.__class__(trace)
-
-    return decorate
 
 
 class SharedEmbedding(object):
@@ -254,7 +215,6 @@ class SharedEmbedding(object):
             grads = [embeds.grad.numpy()]
         return [index, grads]
 
-    @thread_wrapper
     def async_update(self, queue):
         """Update embeddings asynchronously
         """

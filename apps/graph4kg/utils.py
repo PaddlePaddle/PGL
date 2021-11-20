@@ -61,13 +61,13 @@ def set_logger(args):
         logging.info('{:20}:{}'.format(arg, getattr(args, arg)))
 
 
-def print_log(step, interval, log, timer, t_step):
+def print_log(step, interval, log, timer, time_sum):
     """Print log to logger.
     """
-    time_sum = time.time() - t_step
-    logging.info('step: %d, loss: %.5f, reg: %.4e, speed: %.2f steps/s' %
-                 (step, log['loss'] / interval, log['reg'] / interval,
-                  interval / time_sum))
+    logging.info(
+        'step: %d, loss: %.5f, reg: %.4e, speed: %.2f steps/s, time: %.2f s' %
+        (step, log['loss'] / interval, log['reg'] / interval,
+         interval / time_sum, time_sum))
     logging.info('sample: %f, forward: %f, backward: %f, update: %f' % (
         timer['sample'], timer['forward'], timer['backward'], timer['update']))
 

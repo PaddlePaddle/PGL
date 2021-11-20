@@ -111,7 +111,6 @@ def main():
     step = 1
     stop = False
     for epoch in range(args.num_epoch):
-        model.train()
         for indexes, prefetch_embeddings, mode in train_loader:
             h, r, t, neg_ents, all_ents = indexes
             all_ents_emb, rel_emb, weights = prefetch_embeddings
@@ -168,7 +167,8 @@ def main():
             timer['update'] += (time.time() - ts)
 
             if (step + 1) % args.log_interval == 0:
-                print_log(step, args.log_interval, log, timer, t_step)
+                print_log(step, args.log_interval, log, timer,
+                          time.time() - t_step)
                 timer = defaultdict(int)
                 log = defaultdict(int)
                 t_step = time.time()
