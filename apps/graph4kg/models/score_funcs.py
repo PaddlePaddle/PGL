@@ -23,7 +23,7 @@ from paddle.nn.functional import log_sigmoid
 
 
 class ScoreFunc(object):
-    """Abstract implementation of score function
+    """Abstract implementation of score function.
     """
 
     def __init__(self):
@@ -31,17 +31,16 @@ class ScoreFunc(object):
         self.embed_epsilon = 2.0
 
     def __call__(self, head, rel, tail):
-        raise NotImplementedError(
-            'score function from head, relation to tail not implemented')
+        raise NotImplementedError('foward of ScoreFunc not implemented!')
 
     def get_neg_score(self, head, rel, tail, neg_head=False):
-        """Score function from tail, relation to head
+        """Compute scores for negative samples.
         """
         raise NotImplementedError(
-            'score function from tail, relation to head not implemented')
+            'get_neg_score of ScoreFunc not implemented!')
 
     def get_er_regularization(self, ent_embeds, rel_embeds, args):
-        """Compute regularization of entity and relation embeddings
+        """Compute regularization of entity and relation embeddings.
         """
         value = paddle.sum(ent_embeds.abs().pow(args.reg_norm)) + \
             paddle.sum(rel_embeds.abs().pow(args.reg_norm))
@@ -49,6 +48,8 @@ class ScoreFunc(object):
         return value
 
     def get_hrt_regularization(self, head, rel, tail, args):
+        """Compute regularization of heads, relations and tails.
+        """
         heads = paddle.chunk(head, 4, axis=-1)
         tails = paddle.chunk(tail, 4, axis=-1)
         rels = paddle.chunk(rel, 4, axis=-1)
@@ -74,7 +75,7 @@ class ScoreFunc(object):
 
 class TransEScore(ScoreFunc):
     """
-    TransE: Translating embeddings for modeling multi-relational data.
+    Translating embeddings for modeling multi-relational data.
     https://www.utc.fr/~bordesan/dokuwiki/_media/en/transe_nips13.pdf
     """
 
@@ -97,7 +98,7 @@ class TransEScore(ScoreFunc):
         return score
 
     def cdist(self, a, b):
-        """Euclidean distance
+        """Euclidean distance.
         """
         a_s = paddle.norm(a, p=2, axis=-1).pow(2)
         b_s = paddle.norm(b, p=2, axis=-1).pow(2)
@@ -108,7 +109,8 @@ class TransEScore(ScoreFunc):
 
 
 class DistMultScore(ScoreFunc):
-    """DistMult
+    """
+    Embedding Entities and Relations for Learning and Inference in Knowledge Bases.
     https://arxiv.org/abs/1412.6575
     """
 
@@ -216,8 +218,9 @@ class RotatEScore(ScoreFunc):
 
 
 class ComplExScore(ScoreFunc):
-    """ComplEx
-    https://arxiv.org/abs/1606.0635
+    """
+    Complex Embeddings for Simple Link Prediction.
+    https://arxiv.org/abs/1606.06357
     """
 
     def __init__(self):
@@ -255,7 +258,8 @@ class ComplExScore(ScoreFunc):
 
 
 class QuatEScore(ScoreFunc):
-    """QuatE score
+    """
+    Quaternion Knowledge Graph Embedding.
     https://arxiv.org/abs/1904.10281
     """
 
@@ -320,7 +324,9 @@ class QuatEScore(ScoreFunc):
 
 
 class OTEScore(ScoreFunc):
-    """OTE
+    """
+    Orthogonal Relation Transforms with Graph Context Modeling for Knowledge Graph Embedding.
+    https://aclanthology.org/2020.acl-main.241/
     """
 
     def __init__(self, gamma, num_elem, scale_type=0):
@@ -331,13 +337,13 @@ class OTEScore(ScoreFunc):
 
     @property
     def use_scale(self):
-        """Return True if use scale for relations
+        """Return True if use scale for relations.
         """
         return self.scale_type > 0
 
     @property
     def scale_init(self):
-        """Return initial value of scales
+        """Return initial value of scales.
         """
         if self.scale_type == 1:
             return 1.0
@@ -346,7 +352,7 @@ class OTEScore(ScoreFunc):
         raise ValueError("Scale Type %d is not supported!" % self.scale_type)
 
     def get_scale(self, scale):
-        """Get scaled tensor
+        """Get scaled tensor.
         """
         if self.scale_type == 1:
             return scale.abs()
@@ -355,7 +361,7 @@ class OTEScore(ScoreFunc):
         raise ValueError("Scale Type %d is not supported!" % self.scale_type)
 
     def reverse_scale(self, scale, eps=1e-9):
-        """Get scaled tensor of inverse relations
+        """Get scaled tensor of inverse relations.
         """
         if self.scale_type == 1:
             return 1 / (scale.abs() + eps)
@@ -381,7 +387,7 @@ class OTEScore(ScoreFunc):
         return self.gamma - score
 
     def get_neg_score(self, head, rel, tail, neg_head=False):
-        """Calculate scores of negative samples
+        """Calculate scores of negative samples.
         """
         rel = self.orth_rel_embedding(rel)
         if neg_head:
@@ -424,7 +430,7 @@ class OTEScore(ScoreFunc):
         return score
 
     def gram_schimidt_process(self, embeds, eps=1e-18, do_test=True):
-        """ Orthogonalize embeddings
+        """ Orthogonalize embeddings.
         """
         assert embeds.shape[1] == self.num_elem
         assert embeds.shape[2] == (self.num_elem + int(self.use_scale))
@@ -453,7 +459,7 @@ class OTEScore(ScoreFunc):
         return u
 
     def orth_rel_embedding(self, embeds):
-        """Orthogonalize relation embeddings
+        """Orthogonalize relation embeddings.
         """
         embed_shape = embeds.shape
         embeds = embeds.reshape(
@@ -463,7 +469,7 @@ class OTEScore(ScoreFunc):
         return embeds
 
     def _orth_reverse_mat(self, embeds):
-        """Transpose the orthogonalized relation embeddings
+        """Transpose the orthogonalized relation embeddings.
         """
         embed_shape = embeds.shape
         if self.use_scale:

@@ -112,7 +112,7 @@ def timer_wrapper(name):
 
 
 def calculate_metrics(scores, corr_idxs, filter_list):
-    """Calculate metrics according to scores
+    """Calculate metrics according to scores.
     """
     logs = []
     for i in range(scores.shape[0]):
@@ -193,7 +193,7 @@ def evaluate(model,
              filter_dict=None,
              save_path='./tmp/',
              data_mode='hrt'):
-    """evaluate
+    """Evaluate given KGE model.
     """
     if data_mode == 'wikikg2':
         evaluate_wikikg2(model, loader, evaluate_mode, save_path)
@@ -245,7 +245,7 @@ def evaluate(model,
 
 
 def gram_schimidt_process(embeds, num_elem, use_scale):
-    """ Orthogonalize embeddings
+    """ Orthogonalize embeddings.
     """
     num_embed = embeds.shape[0]
     assert embeds.shape[1] == num_elem

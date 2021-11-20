@@ -24,30 +24,31 @@ from utils import timer_wrapper
 
 
 class KGDataset(Dataset):
-    """Implementation of Dataset for knowledge graphs
+    """
+    Dataset for knowledge graphs
 
     Args:
-
-        triplets:  a list of (h, r, t) tuples, 2D numpy.ndarray or
-                a dictionary of triplets as validation and test set of WikiKG90M-LSC
-
-        num_ents: number of entities in a knowledge graph, int
-
-        args: arguments of sampling, argparse.Namespace, including
-            - neg_sample_size: Number of negative samples for each triplet, int
-
-            - neg_sample_type: The strategy used for negative sampling.
-                'batch': sampling from entities in batch;
-                'full': sampling entities from the whole entity set.
-                'chunk': sampling from the whole entity set as chunks 
-
-            - filter_sample: Whether filter out valid triplets in knowledge graphs
-
-        filter_dict: a dictionary of valid triplets, in the form of
-                    {'head': {(t, r):set(h)}, 'tail': {(h, r):set(t)}}
-
-        shared_path: a dictionary of numpy embeddings' path for embedding prefetch, 
-                in the form of {'ent': ent_path, 'rel': rel_path}. None means no prefetch.
+        triplets (list of tuples or 2D numpy.ndarray):
+            The collection of training triplets (h, r, t) with shape [num_triplets, 3].
+        num_ents (int):
+            The number of entities in the knowledge graph.
+        args (argparse.Namespace):
+            Arguments of negative sampling, including:
+            - neg_sample_size (int): Number of negative samples for each triplet.
+            - neg_sample_type (str): The strategy used for negative sampling.
+                'batch': sampling from current batch.
+                'full': sampling from all entities.
+                'chunk': triplets are divided into X chunks and each chunk shares
+                    a group of negative samples sampled from all entities.
+            - filter_sample (bool): Whether filter out existing triplets.
+        filter_dict (dict, optional):
+            Dictionary of existing triplets, in the form of
+            {'head': {(t, r):set(h)}, 'tail': {(h, r):set(t)}}.
+            Default to None.
+        shared_path (dict, optional):
+            Dictionary of shared embeddings' path for embedding prefetch
+            in the form of {'ent': ent_path, 'rel': rel_path}.
+            Default to None.
 
     """
 
@@ -101,7 +102,7 @@ class KGDataset(Dataset):
         return h, r, t, weight
 
     def collate_fn(self, data):
-        """Collate_fn to corrupt heads and tails by turns
+        """Collate_fn to corrupt heads and tails by turns.
         """
         self._step = self._step ^ 1
         if self._step == 0:
@@ -153,7 +154,7 @@ class KGDataset(Dataset):
         return indexs, embeds, mode
 
     def create_sample_weight(self, head, rel, tail):
-        """Create weights for samples like RotatE
+        """Create weights for samples.
         """
         assert self._filter_dict is not None, 'Can not '\
             'create weights of samples as filter dictionary is not given!'
@@ -164,11 +165,13 @@ class KGDataset(Dataset):
 
     @staticmethod
     def group_index(data):
-        """Function to reindex elements in data.
-        Args data: a list of elements
+        """
+        Function to reindex elements in data.
+        Args:
+            data (list): A list of int values.
         Return:
-            reindex_dict - a reindex function to apply to a list
-            uniques - unique elements in data
+            function: The reindex function to apply to a list.
+            np.ndarray: Unique elements in data.
         """
         uniques = np.unique(np.concatenate(data))
         reindex_dict = dict([(x, i) for i, x in enumerate(uniques)])
@@ -177,8 +180,14 @@ class KGDataset(Dataset):
 
     @staticmethod
     def uniform_sampler(k, cand, filter_set=None):
-        """Sampling negative samples uniformly.
-        Args k: nagative sample size
+        """
+        Sampling negative samples uniformly.
+
+        Args:
+            k (int): Number of sampled elements.
+            cand (list or int): The list of elements to sample. The int
+                value X denotes sampling integers from [0, X).
+            filter_set (list): The list of invalid int values.
         """
         rng = default_rng()
         if filter_set is not None:
@@ -197,13 +206,15 @@ class KGDataset(Dataset):
 
 
 class TestKGDataset(Dataset):
-    """Implementation of Dataset for triplets in dict format
+    """
+    Dataset for test triplets in dict format.
 
     Args:
-
-        triplets: a list of (h, r, t) tuples, 2D numpy.ndarray
-
-        num_ents: number of entities in a knowledge graph, int
+        triplets (dict):
+            The collection of triplets with keys 'h', 'r' and 't'.
+            The values are 1D np.ndarray.
+        num_ents (int):
+            Number of entities.
 
     """
 
@@ -224,12 +235,15 @@ class TestKGDataset(Dataset):
 
 
 class TestWikiKG2(Dataset):
-    """Test Dataset for OGBL-WikiKG2
+    """
+    Dataset for test data in OGBL-WikiKG2
 
     Args:
-
-        triplets: a dictionary of triplets with keys
-            'h', 'r', 't', 'candaidate_h' and 'candidate_t'
+        triplets (dict):
+            The collections of test data with keys 'h', 'r',
+            't', 'candaidate_h' and 'candidate_t'.
+            The values of 'h', 'r' and 't' are 1D np.ndarray.
+            The values of 'candidate_*' are 2d np.ndarray.
     """
 
     def __init__(self, triplets):
@@ -252,11 +266,15 @@ class TestWikiKG2(Dataset):
 
 
 class TestWikiKG90M(Dataset):
-    """Test Dataset for WikiKG90M
+    """
+    Dataset for test data in WikiKG90M
 
     Args:
-
-        triplets: a dictionary of triplets with keys 'h', 'r', 'candidate_t', 't_correct_index'
+        triplets (dict):
+            The collection of test data with keys 'h', 'r',
+            'candidate_t', 't_correct_index'.
+            The values of 'h', 'r' and 't_correct_index' are 1D np.ndarray.
+            The values of 'candidate_t' are 2D np.ndarray.
     """
 
     def __init__(self, triplets):
@@ -280,7 +298,7 @@ class TestWikiKG90M(Dataset):
 
 
 def create_dataloaders(trigraph, args, filter_dict=None, shared_ent_path=None):
-    """Construct DataLoader for training, validation and test
+    """Construct DataLoader for training, validation and test.
     """
     train_dataset = KGDataset(
         triplets=trigraph.train_triplets,

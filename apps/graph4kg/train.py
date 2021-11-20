@@ -166,7 +166,7 @@ def main():
 
             timer['update'] += (time.time() - ts)
 
-            if (step + 1) % args.log_interval == 0:
+            if args.log_interval > 0 and (step + 1) % args.log_interval == 0:
                 print_log(step, args.log_interval, log, timer,
                           time.time() - t_step)
                 timer = defaultdict(int)
@@ -186,9 +186,8 @@ def main():
 
             step += 1
             if dist.get_rank() == 0:
-                if step % args.save_interval == 0 or step >= args.max_steps:
-                    step_path = os.path.join(args.save_path, 'step_%s' % step)
-                    model.save(step_path)
+                if args.save_interval > 0 and step % args.save_interval == 0:
+                    model.save(args.step_path)
             if step >= args.max_steps:
                 stop = True
                 break

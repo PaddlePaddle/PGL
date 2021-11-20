@@ -20,28 +20,22 @@ import numpy as np
 
 
 class TriGraph(object):
-    """Implementation of knowledge graph interface in pglke
-
-    This is a simple implementation of knowledge graph structure in pglke
+    """
+    Implementation of knowledge graph interface in pglke.
 
     Args:
-
-        triplets: a dictionary of triplets (keys: 'train', 'valid', 'test'). 
-                    values of 'train' are (h, r, t) tuples, 2D numpy.array;
-                    values of 'valid' and 'test' are dictionaries
-
-        num_ents (optional: int): Number of entities in a knowledge graph.
-                    If not provided, it will be inferred from triplets.
-
-        num_rels (optional: int): Number of relations in a knowledge graph.
-                    If not provided, it will be inferred from triplets.
-
-        ent_feat (optional): a dictionary of 2D numpy.array as entity features.
-                    It should have consistent order with entity ids.
-
-        rel_feat (optional): a dictionary of 2D numpy.array as relation features
-                    It should have consistent order with relation ids.
-
+        triplets (dict):
+            Triplet data of knowledge graphs with keys 'train', 'valid' and 'test'.
+        num_ents (int, optional):
+            Number of entities in a knowledge graph.
+            If not provided, it will be inferred from triplets.
+        num_rels (int, optional):
+            Number of relations in a knowledge graph.
+            If not provided, it will be inferred from triplets.
+        ent_feat (np.ndarray, optional):
+            Entity features, which have consistent order with entity ids.
+        rel_feat (np.ndarray, optional):
+            Relation features, which have consistent order with relation ids.
     """
 
     def __init__(self,
@@ -53,7 +47,7 @@ class TriGraph(object):
                  **kwargs):
         assert isinstance(
             triplets, dict
-        ), 'triplets should be a directionary with keys "train", "valid" and "test"'
+        ), 'Triplets should be a directionary with keys "train", "valid" and "test".'
         self._train = triplets.get('train', None)
         self._valid = triplets.get('valid', None)
         self._test = triplets.get('test', None)
@@ -72,7 +66,7 @@ class TriGraph(object):
         self._rel_feat = rel_feat
 
     def __repr__(self):
-        """Pretty Print the KnowledgeGraph
+        """Pretty Print the TriGraph.
         """
         repr_dict = {'class': self.__class__.__name__}
         repr_dict['num_ents'] = self._num_ents
@@ -90,12 +84,12 @@ class TriGraph(object):
         return json.dumps(repr_dict, ensure_ascii=False)
 
     def maybe_num_ents(self):
-        """Count the number of entities
+        """Count the number of entities.
         """
         ents = []
 
         def extract_ents(data):
-            """Extract entities from data
+            """Extract entities from data.
             """
             if isinstance(data, dict):
                 ents.append(np.unique(data['h']))
@@ -114,12 +108,12 @@ class TriGraph(object):
         return num_ents
 
     def maybe_num_rels(self):
-        """Count the number of relations
+        """Count the number of relations.
         """
         rels = []
 
         def extract_rels(data):
-            """Extract relations from data
+            """Extract relations from data.
             """
             if isinstance(data, dict):
                 rels.append(np.unique(data['r']))
@@ -134,13 +128,15 @@ class TriGraph(object):
 
     @classmethod
     def load(cls, path, mmap_mode='r'):
-        """Load KnowledgeGraph from path and return a KnowldegeGraph.
+        """
+        Load dumped TriGraph from path and return a TriGraph.
 
         Args:
-
-            path: The dictionary path of the stored KnowledgeGraph.
-
-            mmap_mode: Default :code:`mmap_mode="r"`. If not None, memory-map the knowledge graph.
+            path (str):
+                Directory of saved TriGraph.
+            mmap_mode (str, optional):
+                Whether load embeddings and features in mmap_mode.
+                Default :code:`mmap_mode="r"`.
 
         """
         num_ents = np.load(os.path.join(path, 'num_ents.npy'))
@@ -156,13 +152,12 @@ class TriGraph(object):
         return cls(triplets, num_ents, num_rels, ent_feat, rel_feat)
 
     def dump(self, path):
-        """Dump the knowledge graph into a directory.
-
-        This function will dump the knowledge graph information into the given directory path.
-        The graph can be read back with :code:`pglke.KnowledgeGraph.load`
+        """
+        Dump knowledge graph data into the given directory.
 
         Args:
-            path: The directory for the storage of the knowledge graph.
+            path (str):
+                Directory for the storage of the knowledge graph.
 
         """
         if not os.path.exists(path):
@@ -178,7 +173,11 @@ class TriGraph(object):
 
     @property
     def true_tails_for_head_rel(self):
-        """Return a dict of numpy array, key:(h, r), value:{t}
+        """
+        Get valid tail entities for a pair of (head, reltion) in KGs.
+
+        Return:
+            dict: The dictionary of valid tails for all existing head-relation pairs.
         """
         true_pairs = defaultdict(set)
         for h, r, t in self.triplets:
@@ -189,7 +188,11 @@ class TriGraph(object):
 
     @property
     def true_heads_for_tail_rel(self):
-        """Return a dict of numpy array, key:(t, r), value:{h}
+        """
+        Get valid head entities for a pair of (tail, relation) in KGs.
+
+        Return:
+            dict: The dictionary of valid heads for all existing tail-relation pairs.
         """
         true_pairs = defaultdict(set)
         for h, r, t in self.triplets:
@@ -200,25 +203,25 @@ class TriGraph(object):
 
     @property
     def ent_feat(self):
-        """Return numpy.array of entity features.
+        """Entity features (np.ndarray).
         """
         return self._ent_feat
 
     @property
     def rel_feat(self):
-        """Return numpy.array of relation features.
+        """Relation features (np.ndarray).
         """
         return self._rel_feat
 
     @property
     def num_triplets(self):
-        """Return the number of triplets.
+        """Number of all existing triplets.
         """
         return self.num_train + self.num_valid + self.num_test
 
     @property
     def num_train(self):
-        """Return the number of train triplets.
+        """Number of train triplets.
         """
         if self._train is None:
             return 0
@@ -227,7 +230,7 @@ class TriGraph(object):
 
     @property
     def num_valid(self):
-        """Return the number of valid triplets.
+        """Number of valid triplets.
         """
         if self._valid is None:
             return 0
@@ -239,7 +242,7 @@ class TriGraph(object):
 
     @property
     def num_test(self):
-        """Return the number of test triplets.
+        """Number of test triplets.
         """
         if self._test is None:
             return 0
@@ -251,44 +254,37 @@ class TriGraph(object):
 
     @property
     def num_ents(self):
-        """Return the number of entities.
+        """Number of entities.
         """
         return self._num_ents
 
     @property
     def num_rels(self):
-        """Return the number of relations.
+        """Number of relations.
         """
         return self._num_rels
 
     @property
     def train_triplets(self):
-        """Return train triplets in numpy.ndarray with shape (num_triplets, 3).
+        """Training triplets (np.ndarray).
         """
         return self._train
 
     @property
     def valid_dict(self):
-        """Return valid triplets in dictionary.
-            {'mode': (optional: 'tail', 'both'),
-             'h': numpy.ndarray with shape(num_valid,), 
-             'r': numpy.ndarray with shape(num_valid,),
-             't': numpy.ndarray with shape(num_valid,),  
-             'condidate': int or numpy.ndarray with shape (num_valid, 1001),
-             'correct_index': numpy.ndarray with shape(num_valid,),}.
+        """Validation triplets (dict).
         """
         return self._valid
 
     @property
     def test_dict(self):
-        """Return test triplets in dictionary.
-            It has the same keys as valid.
+        """Test triplets (dict).
         """
         return self._test
 
     @property
     def triplets(self):
-        """Return all triplets in numpy.ndarray with shape (num_triplets, 3).
+        """All existing triplets (np.ndarray).
         """
         valid = np.stack(
             [self._valid['h'], self._valid['r'], self._valid['t']],
@@ -301,21 +297,15 @@ class TriGraph(object):
         unempty = [x for x in [self._train, valid, test] if x is not None]
         return np.concatenate(unempty, axis=0)
 
-    def sorted_triplets(self, sort_by='h', train_only=True):
-        """Return sorted triplets with different strategies.
-
-        This function will return sorted triplets with different strategies.
-        If :code:`sort_by='h', then edges will be sorted by head, axis=0 in :code:`triplets`;
-        If :code:`sort_by='r', then edges will be sorted by relation, axis=1 in :code:`triplets`;
-        If :code:`sort_by='t', then edges will be sorted by tail, axis=2 in :code:`triplets`.
+    def sorted_triplets(self, sort_by='h'):
+        """
+        Get sorted training triplets with different strategies.
 
         Args:
-
-            sorted_by: The type for sorted triplets. (optional: 'h', 'r', 't')
-
+            sorted_by (str):
+                The axis as sort key. 'h': axis=0; 'r': axis=1; 't': axis=2.
         Return:
-
-            A list of (sorted_h, sorted_r, sorted_t), numpy.ndarray
+            np.ndarray: The sorted training triplets.
 
         """
         if sort_by == 'h':
@@ -324,24 +314,22 @@ class TriGraph(object):
             sort_key = lambda x: (x[2], x[1])
         else:
             sort_key = lambda x: x[1]
-
-        if train_only:
-            return np.stack(sorted(self._train, key=sort_key))
+        return np.stack(sorted(self._train, key=sort_key))
 
     @property
     def ents(self):
-        """Return all entities id from 0 to :code:`num_ents - 1`.
+        """All entity ids from 0 to :code:`num_ents - 1` (np.ndarray).
         """
         return np.arange(0, self._num_ents)
 
     @property
     def rels(self):
-        """Return all relations id from 0 to :code:`num_rels - 1`.
+        """All relation ids from 0 to :code:`num_rels - 1` (np.ndarray).
         """
         return np.arange(0, self._num_rels)
 
     def to_mmap(self, path='./tmp'):
-        """Turn the Knowledge Graph into Memmap mode which can share memory between processes.
+        """Save all data and load embeddings and features in mmap mode.
         """
         self.dump(path)
         new_object = self.load(path)
@@ -352,14 +340,14 @@ class TriGraph(object):
         self._rel_feat = new_object._rel_feat
 
     def sampled_subgraph(self, percent, dataset='all'):
-        """Randomly sample :code:`percent`% of original triplets inplace.
+        """
+        Randomly sample :code:`percent`% of original triplets inplace.
 
         Args:
-
-            percent: The percent of triplets sampled.
-
-            dataset (optional: 'train', 'valid', 'test', 'all'): The key of triplets to be sampled.
-
+            percent (float):
+                The percent of triplets sampled.
+            dataset (str, optional: 'train', 'valid', 'test', 'all'):
+                The triplet data to be sampled.
         """
 
         def _sample_subgraph(data):
@@ -379,12 +367,16 @@ class TriGraph(object):
             self._test = _sample_subgraph(self._test)
 
     def random_partition(self, k, mode='train'):
-        """Return a list of k randomly partitioned triplets, each iterm is numpy.ndarray for training
+        """
+        Randomly divide ids of triplets into k parts.
 
         Args:
-
-            k: The number of partitions.
-
+            k (int):
+                The number of partitions.
+            mode (str):
+                The triplet data to be divided.
+        Return:
+            list of np.ndarray: A list of k groups of triplets' ids.
         """
         assert k > 0 and k <= self.num_train
         p_size = self.num_train // k

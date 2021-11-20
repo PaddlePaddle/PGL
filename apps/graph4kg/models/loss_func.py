@@ -18,7 +18,7 @@ from paddle.nn.functional import log_sigmoid, softmax, softplus
 
 
 class LogSigmoidLoss(object):
-    """LogSigmoidLoss
+    """LogSigmoidLoss.
     """
 
     def __init__(self):
@@ -36,7 +36,7 @@ class LogSigmoidLoss(object):
 
 
 class SoftplusLoss(object):
-    """SoftplusLoss
+    """SoftplusLoss.
     """
 
     def __init__(self):
@@ -48,7 +48,19 @@ class SoftplusLoss(object):
 
 
 class LossFunction(object):
-    """LossFunction
+    """Loss functions.
+
+    Args:
+        name (str):
+            Loss function name.
+        margin (float, optional):
+            Margin parameter for MarginRankingLoss.
+        pairwise (bool, optional):
+            Whether compute loss of positive and negative samples pairwise.
+        neg_adv_spl (bool, optional):
+            Whether use negative adversarial sampling.
+        neg_adv_temp (float, optional):
+            Temperature of negative adversarial sampling.
     """
 
     def __init__(self,
@@ -90,8 +102,7 @@ class LossFunction(object):
         return loss
 
     def adverarial_weight(self, score):
-        """
-        Adverarial the weight for softmax.
+        """Adverarial weights for softmax.
         """
         adv_score = self.neg_adv_temp * score
         adv_softmax = softmax(adv_score, axis=-1)
@@ -99,7 +110,7 @@ class LossFunction(object):
         return adv_softmax
 
     def get_loss_func(self):
-        """Return Loss object
+        """Return loss function objective.
         """
         if self.name == 'Hinge':
             self.neg_label = -1

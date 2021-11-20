@@ -28,37 +28,28 @@ class KGEArgParser(ArgumentParser):
 
     def __init__(self):
         super(KGEArgParser, self).__init__()
+        self.basic_group = self.add_argument_group('basic',
+                                                   'required arguments.')
 
-        # System
-        self.add_argument(
+        self.basic_group.add_argument(
             '--seed',
             type=int,
             default=0,
             help='Random seed for initialization.')
 
-        self.add_argument(
-            '--task_name', type=str, default='KGE', help='Task identifier.')
-
-        self.add_argument(
+        self.basic_group.add_argument(
             '--data_path',
             type=str,
             default='./data/',
             help='Directory of knowledge graph dataset.')
 
-        self.add_argument(
+        self.basic_group.add_argument(
             '--save_path',
             type=str,
             default='./output/',
             help='Directory to save model and log.')
 
-        self.add_argument(
-            '--save_interval',
-            type=int,
-            default=-1,
-            help='Interval size to save model checkpoint.')
-
-        # Data
-        self.add_argument(
+        self.basic_group.add_argument(
             '--data_name',
             type=str,
             default='FB15k',
@@ -67,25 +58,118 @@ class KGEArgParser(ArgumentParser):
             ],
             help='Dataset name.')
 
-        self.add_argument(
+        self.basic_group.add_argument(
             '--batch_size',
             type=int,
             default=1000,
             help='Number of triplets in a batch for training.')
 
-        self.add_argument(
+        self.basic_group.add_argument(
+            '--test_batch_size',
+            type=int,
+            default=16,
+            help='Number of triplets in a batch for validation and test.')
+
+        self.basic_group.add_argument(
+            '--neg_sample_size',
+            type=int,
+            default=1,
+            help='Number of negative samples of each triplet for training.')
+
+        self.basic_group.add_argument(
+            '--filter_eval',
+            action='store_true',
+            help='Filter out existing triplets from evaluation candidates.')
+
+        self.basic_group.add_argument(
+            '--model_name',
+            default='TransE',
+            choices=[
+                'TransE', 'RotatE', 'DistMult', 'ComplEx', 'QuatE', 'OTE'
+            ],
+            help='Knowledge embedding method for training.')
+
+        self.basic_group.add_argument(
+            '--embed_dim',
+            type=int,
+            default=200,
+            help='Dimension of real entity and relation embeddings.')
+
+        self.basic_group.add_argument(
+            '-rc',
+            '--reg_coef',
+            type=float,
+            default=0,
+            help='Coefficient of regularization.')
+
+        self.basic_group.add_argument(
+            '--loss_type',
+            default='Logsigmoid',
+            choices=['Hinge', 'Logistic', 'Logsigmoid', 'BCE', 'Softplus'],
+            help='Loss function of KGE Model.')
+
+        self.basic_group.add_argument(
+            '--max_steps',
+            type=int,
+            default=2000000,
+            help='Number of batches to train.')
+
+        self.basic_group.add_argument(
+            '--lr',
+            type=float,
+            default=0.1,
+            help='Learning rate to optimize model parameters.')
+
+        self.basic_group.add_argument(
+            '--optimizer',
+            type=str,
+            default='adagrad',
+            choices=['adam', 'adagrad'],
+            help='Optimizer of model parameters.')
+
+        self.basic_group.add_argument(
+            '--cpu_lr',
+            type=float,
+            default=0.1,
+            help='Learning rate to optimize shared embeddings on CPU.')
+
+        self.basic_group.add_argument(
+            '--cpu_optimizer',
+            type=str,
+            default='adagrad',
+            choices=['sgd', 'adagrad'],
+            help='Optimizer of shared embeddings on CPU.')
+
+        self.basic_group.add_argument(
+            '--mix_cpu_gpu',
+            action='store_true',
+            help='Use shared embeddings and store entity embeddings on CPU.')
+
+        self.basic_group.add_argument(
+            '--async_update',
+            action='store_true',
+            help='Asynchronously update embeddings with gradients.')
+
+        self.basic_group.add_argument(
+            '--valid', action='store_true', help='Evaluate the model on'\
+                ' the validation set during training.')
+
+        self.basic_group.add_argument(
+            '--test', action='store_true', help='Evaluate the model on '\
+                'the test set after the model is trained.')
+
+        self.data_group = self.add_argument_group('data optional')
+
+        self.data_group.add_argument(
+            '--task_name', type=str, default='KGE', help='Task identifier.')
+
+        self.data_group.add_argument(
             '--num_workers',
             type=int,
             default=0,
             help='Number of workers used to load batch data.')
 
-        self.add_argument(
-            '--weighted_loss',
-            action='store_true',
-            help='Use weights of samples when computing loss. See details in'\
-                'https://arxiv.org/abs/1902.10197.')
-
-        self.add_argument(
+        self.data_group.add_argument(
             '--neg_sample_type',
             type=str,
             default='chunk',
@@ -95,75 +179,45 @@ class KGEArgParser(ArgumentParser):
                     'chunk shares a group of negative samples.\n"full": sampled'\
                         ' from all entities.\n"batch": sampling from current batch.\n')
 
-        self.add_argument(
-            '--neg_sample_size',
-            type=int,
-            default=1,
-            help='Number of negative samples of each triplet for training.')
-
-        self.add_argument(
+        self.data_group.add_argument(
             '--neg_deg_sample',
             action='store_true',
             help='Use true heads or tails in negative sampling. See details in'\
                 'https://arxiv.org/abs/1902.10197.')
 
-        self.add_argument(
-            '--filter_sample',
-            action='store_true',
-            help='Filter out existing triplets in negative samples.')
-
-        self.add_argument(
-            '--test_batch_size',
-            type=int,
-            default=16,
-            help='Number of triplets in a batch for validation and test.')
-
-        self.add_argument(
-            '--valid_percent',
-            type=float,
-            default=1.,
-            help='Percent of used validation triplets.')
-
-        self.add_argument(
-            '--filter_eval',
-            action='store_true',
-            help='Filter out existing triplets from evaluation candidates.')
-
-        # Model
-        self.add_argument(
-            '--model_name',
-            default='TransE',
-            choices=[
-                'TransE', 'RotatE', 'DistMult', 'ComplEx', 'QuatE', 'OTE'
-            ],
-            help='Knowledge embedding method for training.')
-
-        self.add_argument(
-            '--embed_dim',
-            type=int,
-            default=200,
-            help='Dimension of real entity and relation embeddings.')
-
-        self.add_argument(
-            '--use_feature',
-            action='store_true',
-            help='Use features for training.')
-
-        self.add_argument(
+        self.data_group.add_argument(
             '-adv',
             '--neg_adversarial_sampling',
             action='store_true',
             help='Use negative adversarial sampling, which weights '\
                 'negative samples with higher scores more.')
 
-        self.add_argument(
+        self.data_group.add_argument(
             '-a',
             '--adversarial_temperature',
             default=1.0,
             type=float,
             help='Temperature used for negative adversarial sampling.')
 
-        self.add_argument(
+        self.data_group.add_argument(
+            '--filter_sample',
+            action='store_true',
+            help='Filter out existing triplets in negative samples.')
+
+        self.data_group.add_argument(
+            '--valid_percent',
+            type=float,
+            default=1.,
+            help='Percent of used validation triplets.')
+
+        self.model_group = self.add_argument_group('model optional')
+
+        self.model_group.add_argument(
+            '--use_feature',
+            action='store_true',
+            help='Use features for training.')
+
+        self.model_group.add_argument(
             '-rt',
             '--reg_type',
             type=str,
@@ -173,158 +227,107 @@ class KGEArgParser(ArgumentParser):
                 'entities and relations seperately.\n"norm_hrt": '\
                     'compute norm of heads, relations and tails seperately.')
 
-        self.add_argument(
-            '-rc',
-            '--reg_coef',
-            type=float,
-            default=0,
-            help='Coefficient of regularization.')
-
-        self.add_argument(
+        self.model_group.add_argument(
             '-rn',
             '--reg_norm',
             type=int,
             default=3,
             help='Order of regularization norm.')
 
-        self.add_argument(
-            '--loss_type',
-            default='Logsigmoid',
-            choices=['Hinge', 'Logistic', 'Logsigmoid', 'BCE', 'Softplus'],
-            help='Loss function of KGE Model.')
+        self.model_group.add_argument(
+            '--weighted_loss',
+            action='store_true',
+            help='Use weights of samples when computing loss. See details in'\
+                'https://arxiv.org/abs/1902.10197.')
 
-        self.add_argument(
+        self.model_group.add_argument(
             '-m',
             '--margin',
             type=float,
             default=1.0,
             help='Margin value in Hinge loss.')
 
-        self.add_argument(
+        self.model_group.add_argument(
             '-pw',
             '--pairwise',
             action='store_true',
             help='Compute pairwise loss of triplets and negative samples.')
 
-        # Optional parameters for score functions
-        self.add_argument(
+        self.opt_group = self.add_argument_group('score function optional')
+        self.opt_group.add_argument(
             '-g',
             '--gamma',
             type=float,
             default=12.0,
             help='Margin value of triplet scores.')
 
-        self.add_argument(
+        self.opt_group.add_argument(
             '--ote_scale',
             type=int,
             default=0,
             choices=[0, 1, 2],
             help='Scale method in OTE. 0-None; 1-abs; 2-exp.')
 
-        self.add_argument(
+        self.opt_group.add_argument(
             '--ote_size',
             type=int,
             default=1,
             help='Number of linear transform matrix in OTE.')
 
-        self.add_argument(
+        self.opt_group.add_argument(
             '--quate_lmbda1',
             type=float,
             default=0.,
             help='Coefficient of the first regularization in QuatE.')
 
-        self.add_argument(
+        self.opt_group.add_argument(
             '--quate_lmbda2',
             type=float,
             default=0.,
             help='Coefficient of the second regularization in QuatE.')
 
-        # Traning
-        self.add_argument(
-            '--max_steps',
-            type=int,
-            default=2000000,
-            help='Number of batches to train.')
-
-        self.add_argument(
+        self.train_group = self.add_argument_group('train optional')
+        self.train_group.add_argument(
             '--num_epoch',
             type=int,
             default=1000000,
             help='Number of epochs to train.')
 
-        self.add_argument(
-            '--lr',
-            type=float,
-            default=0.1,
-            help='Learning rate to optimize model parameters.')
-
-        self.add_argument(
-            '--optimizer',
-            type=str,
-            default='adagrad',
-            choices=['adam', 'adagrad'],
-            help='Optimizer of model parameters.')
-
-        self.add_argument(
-            '--cpu_lr',
-            type=float,
-            default=0.1,
-            help='Learning rate to optimize shared embeddings on CPU.')
-
-        self.add_argument(
-            '--cpu_optimizer',
-            type=str,
-            default='adagrad',
-            choices=['sgd', 'adagrad'],
-            help='Optimizer of shared embeddings on CPU.')
-
-        self.add_argument(
+        self.train_group.add_argument(
             '--scheduler_interval',
             type=int,
             default=-1,
             help='Interval size to update learning rate of model. -1 denotes constant.'
         )
 
-        self.add_argument(
+        self.train_group.add_argument(
             '--num_process',
             type=int,
             default=1,
             help='Number of processes for asynchroneous gradient update.')
 
-        self.add_argument(
-            '--mix_cpu_gpu',
-            action='store_true',
-            help='Use shared embeddings and store entity embeddings on CPU.')
-
-        self.add_argument(
-            '--async_update',
-            action='store_true',
-            help='Asynchronously update embeddings with gradients.')
-
-        self.add_argument(
+        self.train_group.add_argument(
             '--print_on_screen',
             action='store_true',
             help='Print logs in console.')
 
-        self.add_argument(
+        self.train_group.add_argument(
             '-log', '--log_interval', type=int, default=1000, help='Print'\
                 ' runtime of different components every x steps.')
 
-        self.add_argument(
-            '--valid', action='store_true', help='Evaluate the model on'\
-                ' the validation set during training.')
+        self.train_group.add_argument(
+            '--save_interval',
+            type=int,
+            default=-1,
+            help='Interval size to save model checkpoint.')
 
-        self.add_argument(
-            '--test', action='store_true', help='Evaluate the model on '\
-                'the test set after the model is trained.')
-
-        self.add_argument(
+        self.train_group.add_argument(
             '--eval_interval', type=int, default=50000, help='Print '\
                 'evaluation results on the validation dataset every x steps.')
 
 
 def load_model_config(config_file):
-    """Load configuration from config.yaml
+    """Load configuration from config.yaml.
     """
     with open(config_file, "r") as f:
         config = json.loads(f.read())
@@ -332,7 +335,7 @@ def load_model_config(config_file):
 
 
 def prepare_save_path(args):
-    """Create save path and makedirs if not exists
+    """Create save path and makedirs if not exists.
     """
     task_name = '{}_{}_d_{}_g_{}_e_{}_r_{}_l_{}_lr_{}_{}_{}'.format(
         args.model_name, args.data_name, args.embed_dim, args.gamma, 'cpu'
@@ -348,7 +351,7 @@ def prepare_save_path(args):
 
 
 def prepare_data_config(args):
-    """Adjust configuration for data processing
+    """Adjust configuration for data processing.
     """
     batch_size = args.batch_size
     neg_sample_size = args.neg_sample_size
@@ -372,7 +375,7 @@ def prepare_data_config(args):
 
 
 def prepare_embedding_config(args):
-    """Specify configuration of embeddings
+    """Specify configuration of embeddings.
     """
     # Device
     args.ent_emb_on_cpu = args.mix_cpu_gpu
@@ -391,7 +394,7 @@ def prepare_embedding_config(args):
 
 
 def prepare_model_config(args):
-    """Standardizing str arguments
+    """Standardizing str arguments.
     """
     args.model_name = args.model_name.lower()
     if args.async_update:

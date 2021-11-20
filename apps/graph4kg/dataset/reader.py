@@ -21,50 +21,38 @@ from utils import timer_wrapper
 
 
 class TripletDataset(object):
-    """ Load a knowledge graph in triplets
+    """
+    Load knowledge graph data from files
 
     Args:
-
-        path: the path of the data_name folder
-
-        data_name: the folder name of triplet data
-
-        hrt_mode: the order of head, relation and tail per line in triplet file
-                'hrt' denotes head, relation, tail
-
-        kv_mode: the order of keys and corresponding ids in dictionary file
-                'kv' denotes entity_name/relation_name, id
-
-        train_file: the file name of trainig dataset
-
-        valid_file: the file name of validation dataset
-
-        test_file: the file name of test dataset
-
-        ent_feat_path: the path of entity features
-
-        rel_feat_path: the path of relation features
-
-        delimiter: the delimiter of triplet and dictionary files
-
-        map_to_id: whether to map str entities and relations into their int ids
-
-        load_dict: whether to load dictionaries from the given path
-
-        skip_head: ignore the first line of files if True
-
-    Attributes:
-        ent_dict: store data values - {entity:id}
-        rel_dict: store data values - {relation:id}
-        n_ents: number of entities - int
-        n_rels: number of relations - int
-        train: a triplet per sample - [[h, r, t]]
-        valid: query, candidate, answer per sample - ([[h,r]],[[e]],[[t]])
-        test: query, candidate, answer per sample - ([[h,r]],[[e]],[[t]])
-        head_pair: set of h appear with (t, r) pair - {(t,r):set(h)}
-        tail_pair: set of t appear with (h, r) pair - {(h,r):set(t)}
-        entity_feat: n-dim features for entities - [[x1, x2, ..., xn]]
-        relation_feat: n-dim features for relations - [[x1, x2, ..., xn]]
+        path (str):
+            Directory of triplet dataset.
+        data_name (str):
+            The folder name of triplet dataset.
+        hrt_mode (str, optional):
+            The order of head, relation and tail per line in triplet file.
+            Choices: 'hrt', 'htr', 'trh', 'thr', 'rht', 'rth'.
+        kv_mode (str, optional):
+            The order of string names and ids in dictionary files.
+            'kv' denotes entity_name/relation_name, id.
+        train_file (str, optional):
+            Filename of training data.
+        valid_file (str, optional):
+            Filename of validation data.
+        test_file (str, optional):
+            Filename of test data.
+        ent_file (str, optional):
+            Filename of entity_to_id dictionary.
+        rel_file (str, optional):
+            Filename of relation_to_id dictionary.
+        delimiter (char, optional):
+            The delimiter in files.
+        map_to_id (bool, optional):
+            Whether to map loaded elements into int ids.
+        load_dict (bool, optional):
+            Whether to load dictionaries from files.
+        skip_head (bool, optional):
+            Whether to ignore the first line of dictionary files.
     """
 
     def __init__(self,
@@ -138,7 +126,7 @@ class TripletDataset(object):
 
     @staticmethod
     def load_dictionary(path, kv_mode, delimiter='\t', skip_head=False):
-        """Function to load dictionary from file, an item per line.
+        """Load dictionary from file, an item per line.
         """
         if not os.path.exists(path):
             raise ValueError('there is no dictionary file in %s' % path)
@@ -151,7 +139,7 @@ class TripletDataset(object):
 
     @staticmethod
     def load_triplet(path, hrt_idx, delimiter='\t', skip_head=False):
-        """Function to load triplets from file, a triplet per line.
+        """Load triplets from file, a triplet per line.
         """
         if not os.path.exists(path):
             raise ValueError('there is no triplet file in %s' % path)
@@ -162,7 +150,7 @@ class TripletDataset(object):
         return data
 
     def load_dataset(self):
-        """Function to load datasets from files, including train, value, test
+        """Load datasets from files, including train, value, test.
         """
         data = []
         for file in self._data_list:
@@ -193,7 +181,7 @@ class TripletDataset(object):
         else:
 
             def map_fn(x):
-                """Case ids of entities and relations into int.
+                """Cast elements in x into int type.
                 """
                 return [int(i) for i in x]
 
@@ -205,7 +193,7 @@ class TripletDataset(object):
 
 
 class WikiKG90MDataset(object):
-    """WikiKG90M dataset implementation
+    """Load WikiKG90M from files.
     """
 
     def __init__(self, path):
@@ -245,7 +233,7 @@ class WikiKG90MDataset(object):
 
 
 class WikiKG2Dataset(object):
-    """OGBL-WikiKG2 dataset implementation
+    """Load OGBL-WikiKG2 from files.
     """
 
     def __init__(self, path):
@@ -291,7 +279,7 @@ class WikiKG2Dataset(object):
 
 
 def read_trigraph(data_path, data_name):
-    """Load datasets from files
+    """Load datasets from files.
     """
     if data_name == "wikikg90m":
         dataset = WikiKG90MDataset(data_path)

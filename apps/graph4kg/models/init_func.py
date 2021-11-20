@@ -19,7 +19,7 @@ from utils import uniform, gram_schimidt_process
 
 
 class InitFunction(object):
-    """Return Initialized Embeddings in NumPyArray
+    """Initialization strategies.
     """
 
     def __init__(self, args):

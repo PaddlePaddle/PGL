@@ -29,7 +29,7 @@ from utils import uniform, timer_wrapper
 
 
 class Transform(nn.Layer):
-    """Transform model to combine embeddings and features
+    """Transform model to combine embeddings and features.
     """
 
     def __init__(self, in_dim, out_dim):
@@ -45,8 +45,7 @@ class Transform(nn.Layer):
 
 
 class KGEModel(nn.Layer):
-    """
-    Shallow model for knowledge representation learning.
+    """Shallow models for knowledge representation learning.
     """
 
     def __init__(self, model_name, trigraph, args=None):
@@ -80,7 +79,7 @@ class KGEModel(nn.Layer):
 
     @property
     def shared_ent_path(self):
-        """Return the embedding path of entities
+        """Return path of entities' shared embeddings.
         """
         if self._ent_emb_on_cpu:
             return self.ent_embedding.weight_path
@@ -88,14 +87,14 @@ class KGEModel(nn.Layer):
 
     @property
     def shared_rel_path(self):
-        """Return the embedding path of relations
+        """Return path of relations' shared embeddings.
         """
         if self._rel_emb_on_cpu:
             return self.rel_embedding.weight_path
         return None
 
     def set_train_mode(self):
-        """Set train mode
+        """Set train mode: tensor.stop_gradient=False.
         """
         if self._ent_emb_on_cpu:
             self.ent_embedding.train()
@@ -103,7 +102,7 @@ class KGEModel(nn.Layer):
             self.rel_embedding.train()
 
     def set_eval_mode(self):
-        """Set eval mode
+        """Set eval mode: tensor.stop_gradient=True.
         """
         if self._ent_emb_on_cpu:
             self.ent_embedding.eval()
@@ -120,7 +119,7 @@ class KGEModel(nn.Layer):
                        rel_emb=None,
                        mode='tail',
                        args=None):
-        """ Load embeddings of inputs
+        """ Load embeddings of inputs.
         """
         if ent_emb is not None:
             if self._use_feat and self._ent_feat is not None:
@@ -171,7 +170,7 @@ class KGEModel(nn.Layer):
         return pos_h, pos_r, pos_t, neg_ent_emb, mask
 
     def forward(self, h_emb, r_emb, t_emb):
-        """Function for training
+        """Compute scores of triplets.
         """
         self.set_train_mode()
 
@@ -184,7 +183,7 @@ class KGEModel(nn.Layer):
                       neg_emb,
                       neg_head=False,
                       mask=None):
-        """Calculate scores of negative samples
+        """Compute scores of negative samples
         """
         ent_emb = paddle.reshape(ent_emb,
                                  (self._num_chunks, -1, self._ent_dim))
@@ -206,7 +205,7 @@ class KGEModel(nn.Layer):
         return score
 
     def get_regularization(self, h_embed, r_embed, t_embed, neg_embed=None):
-        """Get regularization of input embeddings
+        """Compute regularization of input embeddings.
         """
         if self._args.reg_type == 'norm_hrt':
             if self._args.quate_lmbda1 == 0 and self._args.quate_lmbda2 == 0:
@@ -231,7 +230,7 @@ class KGEModel(nn.Layer):
 
     @paddle.no_grad()
     def predict(self, ent, rel, cand=None, mode='tail'):
-        """Predict scores
+        """Compute scores of given candidates.
         """
         self.set_eval_mode()
         if cand is None:
@@ -260,7 +259,7 @@ class KGEModel(nn.Layer):
         return scores
 
     def save(self, save_path):
-        """Save parameters
+        """Save model parameters.
         """
         if not os.path.exists(save_path):
             os.makedirs(save_path)
@@ -279,7 +278,7 @@ class KGEModel(nn.Layer):
                         os.path.join(save_path, 'trans_rels.pdparams'))
 
     def step(self, ent_trace=None, rel_trace=None):
-        """Update SharedEmbeddings
+        """Update shared embeddings.
         """
         if self._ent_emb_on_cpu:
             if ent_trace is None:
@@ -289,7 +288,7 @@ class KGEModel(nn.Layer):
         else:
             if ent_trace is not None:
                 raise ValueError(
-                    "You are using gpu ent_emb, ent_trace must be None")
+                    "You are using gpu ent_emb, ent_trace must be None.")
 
         if self._rel_emb_on_cpu:
             if rel_trace is None:
@@ -299,10 +298,13 @@ class KGEModel(nn.Layer):
         else:
             if rel_trace is not None:
                 raise ValueError(
-                    "You are using gpu rel_emb, rel_trace must be None")
+                    "You are using gpu rel_emb, rel_trace must be None.")
 
     def create_trace(self, ent_index, ent_emb, rel_index, rel_emb):
-        """Create NumPy trace for gradient update
+        """Create trace for gradient update.
+        Returns:
+            list of np.ndarray: Index and gradients of entities.
+            list of np.ndarray: Index and gradients of relations.
         """
         if self._ent_emb_on_cpu:
             ent_trace = self.ent_embedding.create_trace(ent_index, ent_emb)
@@ -316,7 +318,7 @@ class KGEModel(nn.Layer):
         return ent_trace, rel_trace
 
     def start_async_update(self):
-        """Initialize async update
+        """Initialize processes for asynchroneous update.
         """
         if self._ent_emb_on_cpu:
             self.ent_embedding.start_async_update()
@@ -324,7 +326,7 @@ class KGEModel(nn.Layer):
             self.rel_embedding.start_async_update()
 
     def finish_async_update(self):
-        """Finish async update
+        """Finish processes for async asynchroneous update.
         """
         if self._ent_emb_on_cpu:
             self.ent_embedding.finish_async_update()
@@ -366,7 +368,7 @@ class KGEModel(nn.Layer):
                                          self._rel_dim)
 
         if self._ent_emb_on_cpu:
-            assert self._ent_weight_path is not None, 'Entity embedding path is not given'
+            assert self._ent_weight_path is not None, 'Entity embedding path is not given!'
             ent_embeds = SharedEmbedding.from_array(
                 weight=ent_weight,
                 weight_path=self._ent_weight_path,
@@ -378,7 +380,7 @@ class KGEModel(nn.Layer):
             ent_embeds.weight.set_value(ent_weight)
 
         if self._rel_emb_on_cpu:
-            assert self._rel_weight_path is not None, 'Relation embedding path is not given'
+            assert self._rel_weight_path is not None, 'Relation embedding path is not given!'
             rel_embeds = SharedEmbedding.from_array(
                 weight=rel_weight,
                 weight_path=self._rel_weight_path,
@@ -392,7 +394,7 @@ class KGEModel(nn.Layer):
         return ent_embeds, rel_embeds
 
     def _init_features(self, trigraph):
-        """Initialize features and MLPs if use_feature is True
+        """Initialize features and linear layers when use_feature is True
         """
         self._use_feat = self._args.use_feature
         self._ent_feat = None
@@ -415,7 +417,7 @@ class KGEModel(nn.Layer):
                     ent_feat_dim))
             else:
                 warnings.warn(
-                    'No features given! ignore use_feature for entities')
+                    'No features given! Ignore use_feature for entities.')
 
             if self._rel_feat is not None:
                 rel_feat_dim = self._rel_feat.shape[-1]
@@ -424,7 +426,7 @@ class KGEModel(nn.Layer):
                     rel_feat_dim))
             else:
                 warnings.warn(
-                    'No features given! ignore use_feature for relations')
+                    'No features given! Ignore use_feature for relations.')
 
     def _init_score_function(self, model_name, args):
         if model_name == 'transe':
@@ -440,5 +442,5 @@ class KGEModel(nn.Layer):
         elif model_name == 'ote':
             score_func = OTEScore(args.gamma, args.ote_size, args.ote_scale)
         else:
-            raise ValueError('score function %s not implemented!' % model_name)
+            raise ValueError('Score function %s not implemented!' % model_name)
         return score_func
