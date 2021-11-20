@@ -26,6 +26,7 @@ from pgl.utils.logger import log
 from pgl.utils.data import Dataset
 from pgl.sampling.custom import subgraph
 from pgl.utils.data.dataloader import Dataloader
+from pgl.utils.transform import to_undirected, add_self_loops
 
 from utils import generate_mask
 
@@ -193,6 +194,11 @@ def load_dataset(data_name):
         y[dataset.val_index] = dataset.val_label
         y[dataset.test_index] = dataset.test_label
         dataset.y = y
+    elif data_name == 'arxiv':
+        mode = 'm'
+        dataset = pgl.dataset.OgbnArxivDataset()
+        dataset.graph = to_undirected(dataset.graph, copy_node_feat=False)
+        dataset.graph = add_self_loops(dataset.graph, copy_node_feat=False)
     elif data_name == 'cora':
         mode = 's'
         dataset = pgl.dataset.CoraDataset()
