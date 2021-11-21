@@ -24,7 +24,6 @@ from collections import defaultdict
 import numpy as np
 import paddle
 import paddle.distributed as dist
-from paddle.framework import core
 
 from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
@@ -43,20 +42,20 @@ class Graph(object):
 
     Args:
 
-        edges: list of (u, v) tuples, 2D numpy.ndarry or 2D paddle.Tensor 
+        edges: list of (u, v) tuples, 2D numpy.ndarray or 2D paddle.Tensor. 
 
         num_nodes (optional: int, numpy or paddle.Tensor): Number of nodes in a graph. 
                            If not provided, the number of nodes will be infered from edges. 
 
-        node_feat (optional): a dict of numpy array as node features
+        node_feat (optional): a dict of numpy array as node features.
 
         edge_feat (optional): a dict of numpy array as edge features (should
-                                have consistent order with edges)
+                                have consistent order with edges).
 
     Examples 1:
 
         - Create a graph with numpy.
-        - Convert it into paddle.Tensor .
+        - Convert it into paddle.Tensor.
         - Do send recv for graph neural network.
 
         .. code-block:: python
@@ -187,7 +186,7 @@ class Graph(object):
         self._nodes = None
 
     def recv(self, reduce_func, msg, recv_mode="dst"):
-        """Recv message and aggregate the message by reduce_func
+        """Recv message and aggregate the message by reduce_func.
 
         The UDF reduce_func function should has the following format.
 
@@ -215,7 +214,9 @@ class Graph(object):
 
             A tensor with shape (num_nodes, out_dims). The output for nodes with 
             no message will be zeros.
+
         """
+
         if not self._is_tensor:
             raise ValueError("You must call Graph.tensor()")
 
@@ -287,6 +288,7 @@ class Graph(object):
             path: The directory path of the stored Graph.
 
             mmap_mode: Default :code:`mmap_mode="r"`. If not None, memory-map the graph.  
+
         """
 
         num_nodes = np.load(
@@ -383,6 +385,7 @@ class Graph(object):
             inplace: (Default True) Whether to convert the graph into tensor inplace. 
         
         """
+
         if self._is_tensor:
             return self
 
@@ -893,8 +896,8 @@ class Graph(object):
 
             >>> [0, 0, 0, 0, 0, 1, 1, 1, 1 ,1]
  
-
         """
+
         return generate_segment_id_from_index(self._graph_node_index)
 
     @property
@@ -918,31 +921,55 @@ class Graph(object):
 
             >>> [0, 0, 0, 1, 1, 1]
  
-
         """
 
         return generate_segment_id_from_index(self._graph_edge_index)
 
     def send_recv(self, feature, reduce_func="sum"):
+        """This method combines the send and recv function using graph_send_recv API,
+           so as to reduce intermediate memory consumption in the process of message passing. 
+
+        Now, this method only supports default copy send function, and built-in receive 
+        function ('sum', 'mean', 'max', 'min').
+
+        Args:
+
+           feature (Tensor): The node feature of a graph.
+
+           reduce_func (str): Difference reduce functions of receive step, including 'sum', 
+                              'mean', 'max', 'min'.
+
+        """
+
+        assert isinstance(feature, paddle.Tensor), \
+            "The input of send_recv method should be paddle.Tensor."
+
+        assert reduce_func in ['sum', 'mean', 'max', 'min'], \
+            "Only support 'sum', 'mean', 'max', 'min' built-in reduce functions."
+
+        if paddle.__version__ < '2.2.1':
+            return self._send_recv(feature, reduce_func=reduce_func)
+
+        src, dst = self.edges[:, 0], self.edges[:, 1]
+        return paddle.incubate.graph_send_recv(
+            feature, src, dst, pool_type=reduce_func)
+
+    def _send_recv(self, feature, reduce_func="sum"):
         """This method combines the send and recv function.
 
-        Now, this method only supports default copy send function, 
-        and built-in receive function ('sum', 'mean', 'max', 'min').
+        Now, this method only supports default copy send function, and built-in receive 
+        function ('sum', 'mean', 'max', 'min').
 
         Args:
 
             feature (Tensor | Tensor List): the node feature of a graph.
 
             reduce_func (str): 'sum', 'mean', 'max', 'min' built-in receive function.
+
         """
+
         # TODO:@ZHUI add support for 'mean', 'max', 'min' function.
-        assert reduce_func in ['sum', 'mean', 'max', 'min'], \
-                "Only support 'sum', 'mean', 'max', 'min' built-in receive function."
-
-        assert reduce_func == "sum", "Only implement 'sum' function right now"
-
-        assert isinstance(feature, paddle.Tensor) or isinstance(feature, paddle.fluid.framework.Variable), \
-                "The input of send_recv method should be tensor."
+        assert reduce_func == "sum", "Only implement 'sum' function right now. Maybe you can update PaddlePaddle version to fix this problem."
 
         src, dst = self.edges[:, 0], self.edges[:, 1]
 
