@@ -36,6 +36,13 @@ Besides, it provides [the 1st place solution](https://ogb.stanford.edu/kddcup202
 
 You can implement your score function in ```models/score_func.py```. Besides shallow methods, CNN and GNN based methods are coming soon.
 
+**Negative Sampling**: Negative samples are constructed by randomly replacing head or tail entities with other entities. Here we implement three uniform sampling strategies.
+- ``full``: Randomly sample entities from all entities in KGs.
+- ``batch``: Randomly sample entities from entities arises in the same batch.
+- ``chunk``: Randomly sample entities from all entities in KGs. Besides, triplets in a batch are divided into K chunks and each chunk shares the same collection of negative samples.
+
+**Dimension**: ``embed_dim`` in ``config.py`` denoteds the dimension of real embeddings. Graph4KG will assign entity embeddings' dimension as ``embed_dim * 2`` for complex methods like RotatE and ComplEx, and as ``embed_dim * 4`` for quaternion methods like QuatE.
+
 ## Datasets
 
 - [x] FB15k
@@ -73,16 +80,25 @@ sh examples/wn18rr.sh
 
 ## Results
 
-- MRR of single GPU version
+### MRR of single GPU version
 
 | Model | FB15k | FB15k-237 | WN18 | WN18RR |
 | --- | --- | --- | --- | --- |
-| TransE | 0.657 | 0.316 | 0.569 | 0.189 |
-| DistMult | 0.744 | 0.288 | 0.823 | 0.435 | 
-| ComplEx | 0.789 | 0.285 | 0.941 | 0.455 | 
-| RotatE | 0.734 | 0.207 | 0.936 | 0.435 | 
-| OTE | 0.605 | 0.322 | 0.490 | 0.462 | 
+| TransE | 0.655 | 0.316 | 0.571 | 0.189 |
+| DistMult | 0.746 | 0.322 | 0.823 | 0.441 | 
+| ComplEx | 0.808 | 0.324 | 0.922 | 0.464 | 
+| RotatE | 0.736 | 0.225 | 0.856 | 0.469 | 
+| OTE | **0.605** | **0.322** | 0.529 |** 0.462** | 
 
+### MRR of Mix CPU and GPU version
+
+| Model | FB15k | FB15k-237 | WN18 | WN18RR |
+| --- | --- | --- | --- | --- |
+| TransE | 0.648 | 0.315 | 0.568| 0.187 |
+| DistMult | 0.744 | 0.305 | 0.822 | 0.441 | 
+| ComplEx | 0.789 | 0.312 | 0.925 | 0.464 | 
+| RotatE | 0.589 | 0.286 | 0.937 | 0.463 | 
+| OTE | **0.605** | **0.322 **| **0.490** | **0.462** | 
 
 
 
