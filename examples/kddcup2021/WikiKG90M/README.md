@@ -37,7 +37,8 @@ pgl>=2.1.2
 This will give you the manual features in `feature_output`.
 
 ## Running Knowledge Embedding Model
-### Running Training Script
+
+Please refer to [Graph4KG](https://github.com/PaddlePaddle/PGL/tree/main/apps/Graph4KG) for paddle version code.
 
 The DGL-KE version code is in [model_dglke](https://github.com/WeiyueSu/PGL/tree/wikikg90m-dglke/examples/kddcup2021/WikiKG90M/model_dglke).
 ```
@@ -45,11 +46,6 @@ sh ./model_dglke/run_train_all.sh
 sh ./model_dglke/run_infer_all.sh
 ```
 This will give you the manual features in `model_output`.
-In order for paddlepaddle users to understand better, we have also implemented the PGL-KE version in ./model.
-```
-sh ./model/run_train_all.sh
-sh ./model/run_infer_all.sh
-```
 
 ## Running Post Smoothing
 For the trained TransE and RotatE models, we use post smooothing technology to further improve the effect
