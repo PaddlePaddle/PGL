@@ -13,12 +13,16 @@
 # limitations under the License.
 
 __all__ = [
-    'segment_sum', 'segment_mean', 'segment_max', 'segment_min',
-    'segment_softmax', 'segment_padding'
+    'segment_pool',
+    'segment_sum',
+    'segment_mean',
+    'segment_max',
+    'segment_min',
+    'segment_softmax',
+    'segment_padding',
 ]
 
 import paddle
-
 from paddle.fluid.framework import core, in_dygraph_mode
 from paddle.fluid.layer_helper import LayerHelper, in_dygraph_mode
 from paddle.fluid.data_feeder import check_variable_and_dtype
@@ -81,6 +85,10 @@ def segment_sum(data, segment_ids, name=None):
             #Outputs: [[4., 4., 4.], [4., 5., 6.]]
 
     """
+
+    if paddle.__version__ >= '2.2.0':
+        return paddle.incubate.segment_sum(data, segment_ids, name)
+
     if in_dygraph_mode():
         out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "SUM")
         return out
@@ -133,6 +141,9 @@ def segment_mean(data, segment_ids, name=None):
             #Outputs: [[2., 2., 2.], [4., 5., 6.]]
 
     """
+    if paddle.__version__ >= '2.2.0':
+        return paddle.incubate.segment_mean(data, segment_ids, name)
+
     if in_dygraph_mode():
         out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "MEAN")
         return out
@@ -183,6 +194,9 @@ def segment_min(data, segment_ids, name=None):
             #Outputs:  [[1., 2., 1.], [4., 5., 6.]]
 
     """
+    if paddle.__version__ >= '2.2.0':
+        return paddle.incubate.segment_min(data, segment_ids, name)
+
     if in_dygraph_mode():
         out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "MIN")
         return out
@@ -234,6 +248,9 @@ def segment_max(data, segment_ids, name=None):
             #Outputs: [[3., 2., 3.], [4., 5., 6.]]
 
     """
+    if paddle.__version__ >= '2.2.0':
+        return paddle.incubate.segment_max(data, segment_ids, name)
+
     if in_dygraph_mode():
         out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "MAX")
         return out
