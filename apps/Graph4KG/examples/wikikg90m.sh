@@ -1,7 +1,7 @@
 # TransE
 python train.py \
     --model_name TransE \
-    --data_path ~/data \
+    --data_path ./data \
     --data_name wikikg90m \
     --embed_dim 100 --gamma 8. --reg_coef 1e-9 \
     -adv --mix_cpu_gpu --num_workers 4 \
@@ -17,7 +17,7 @@ python train.py \
 # RotatE
 python train.py \
     --model_name RotatE \
-    --data_path ~/data \
+    --data_path ./data \
     --data_name wikikg90m \
     --embed_dim 100 --gamma 8. --reg_coef 1e-9 \
     -adv --mix_cpu_gpu --num_workers 4 \
@@ -33,7 +33,7 @@ python train.py \
 # OTE
 python train.py \
     --model_name OTE \
-    --data_path ~/data \
+    --data_path ./data \
     --data_name wikikg90m \
     --embed_dim 200 --gamma 8. --reg_coef 1e-9 \
     -adv --mix_cpu_gpu --num_workers 4 \
