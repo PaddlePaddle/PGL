@@ -88,7 +88,8 @@ def segment_sum(data, segment_ids, name=None):
     """
 
     if paddle.__version__ >= '2.2.0':
-        paddle.incubate.segment_sum(data, segment_ids, name)
+        return paddle.incubate.segment_sum(data, segment_ids, name)
+
     if in_dygraph_mode():
         out, tmp = _C_ops.segment_pool(data, segment_ids, 'pooltype', "SUM")
         return out
@@ -142,7 +143,7 @@ def segment_mean(data, segment_ids, name=None):
 
     """
     if paddle.__version__ >= '2.2.0':
-        paddle.incubate.segment_mean(data, segment_ids, name)
+        return paddle.incubate.segment_mean(data, segment_ids, name)
 
     if in_dygraph_mode():
         out, tmp = _C_ops.segment_pool(data, segment_ids, 'pooltype', "MEAN")
@@ -195,7 +196,7 @@ def segment_min(data, segment_ids, name=None):
 
     """
     if paddle.__version__ >= '2.2.0':
-        paddle.incubate.segment_min(data, segment_ids, name)
+        return paddle.incubate.segment_min(data, segment_ids, name)
 
     if in_dygraph_mode():
         out, tmp = _C_ops.segment_pool(data, segment_ids, 'pooltype', "MIN")
@@ -249,7 +250,7 @@ def segment_max(data, segment_ids, name=None):
 
     """
     if paddle.__version__ >= '2.2.0':
-        paddle.incubate.segment_max(data, segment_ids, name)
+        return paddle.incubate.segment_max(data, segment_ids, name)
 
     if in_dygraph_mode():
         out, tmp = _C_ops.segment_pool(data, segment_ids, 'pooltype', "MAX")
