@@ -17,6 +17,7 @@
 """
 
 import os
+import math
 from functools import partial
 
 import numpy as np
@@ -76,18 +77,72 @@ class PartitionDataset(Dataset):
 
     Args:
 
+       graph (pgl.Graph): The input graph.
+
        part (numpy.ndarray): An 1-D numpy array, which helps distinguish different parts of partition graphs.
+
+       load_epoch (int): We use to `load_epoch` to load much more epochs of data in advance, so as to speed up
+                         the data loading process and reduce the numbers of process switching. It is useful 
+                         for dataset with small number of batches.
     
     """
 
-    def __init__(self, part):
+    def __init__(self, graph, part, load_epoch=1):
         self.part = part
+        self.load_epoch = load_epoch
+        batches_nid = np.split(np.arange(graph.num_nodes), self.part[1:-1])
+        self.batches_nid = [(i, batches_nid[i])
+                            for i in range(len(batches_nid))]
+        self.orig_len = len(self.part) - 1
 
     def __getitem__(self, idx):
-        return (idx, np.arange(self.part[idx], self.part[idx + 1]))
+        idx = idx % self.orig_len
+        return self.batches_nid[idx]
 
     def __len__(self):
-        return len(self.part) - 1
+        return (len(self.part) - 1) * self.load_epoch
+
+
+class PrePartitionDataset(Dataset):
+    """PrePartitionDataset helps build train dataset. The difference between PartitionDataset is that 
+       we generate each partition subgraph' data in advance, like one-hop neighbors, etc.
+
+    Args:
+
+       graph (pgl.Graph): The input graph.
+
+       part (numpy.ndarray): An 1-D numpy array, which helps distinguish different parts of partition graphs.
+
+       load_epoch (int): We use to `load_epoch` to load much more epochs of data in advance, so as to speed up
+                         the data loading process and reduce the numbers of process switching. It is useful
+                         for dataset with small number of batches.
+
+    """
+
+    def __init__(self, graph, part, load_epoch=1):
+        self.part = part
+        self.load_epoch = load_epoch
+        batches_nid = np.split(np.arange(graph.num_nodes), self.part[1:-1])
+        self.center_nodes = [nid for nid in batches_nid]
+        self.one_hops = [
+            graph.predecessor(
+                nid, return_eids=True) for nid in batches_nid
+        ]
+        self.one_hop_nodes = [
+            np.concatenate(item[0], -1) for item in self.one_hops
+        ]
+        self.one_hop_eids = [
+            np.concatenate(item[1], -1) for item in self.one_hops
+        ]
+        self.orig_len = len(self.part) - 1
+
+    def __getitem__(self, idx):
+        idx = idx % self.orig_len
+        return (idx, self.center_nodes[idx], self.one_hop_nodes[idx],
+                self.one_hop_eids[idx])
+
+    def __len__(self):
+        return (len(self.part) - 1) * self.load_epoch
 
 
 class EvalPartitionDataset(Dataset):
@@ -155,7 +210,8 @@ def one_hop_neighbor(graph, nodes, node_buffer):
 
 
 def subdata_batch_fn(batches_nid, graph, part, node_buffer):
-    """Basic function for creating batch subgraph data.
+    """Basic function for creating batch subgraph data, used for PartitionDataset
+       and EvalPartitionDataset.
     """
 
     batch_ids, n_ids = zip(*batches_nid)
@@ -169,6 +225,29 @@ def subdata_batch_fn(batches_nid, graph, part, node_buffer):
     return SubgraphData(sub_graph, batch_size, new_nid, offset, count)
 
 
+def presubdata_batch_fn(batches_load_graphs, graph, part, node_buffer):
+    """Basic function for creating batch subgraph data, used for PrePartitionDataset.
+    """
+
+    batch_ids, n_ids, one_hop_nodes, one_hop_eids = zip(*batches_load_graphs)
+    batch_ids = np.array(batch_ids)
+    n_id = np.concatenate(n_ids, axis=0)
+    batch_size = np.size(n_id)
+    pred_nids = np.concatenate(one_hop_nodes, axis=0)
+    pred_eids = np.unique(np.concatenate(one_hop_eids, axis=0))
+
+    node_buffer[n_id] = 1
+    out_of_batch_neighbors = pred_nids[node_buffer[pred_nids] == 0]
+    out_of_batch_neighbors = np.unique(out_of_batch_neighbors)
+    new_nids = np.concatenate((n_id, out_of_batch_neighbors))
+    node_buffer[n_id] = 0
+
+    batch_sub_graph = subgraph(graph, nodes=new_nids, eid=pred_eids)
+    offset = part[batch_ids]
+    count = part[batch_ids + 1] - part[batch_ids]
+    return SubgraphData(batch_sub_graph, batch_size, new_nids, offset, count)
+
+
 def load_dataset(data_name):
     """Load dataset.
 
@@ -180,14 +259,13 @@ def load_dataset(data_name):
 
         dataset (pgl.dataset): Return the corresponding dataset, containing graph information, feature, etc.
 
-        mode (str): Currently we have 's' and 'm' mode, which mean small dataset and medium dataset respectively. 
+        data_mode (str): Currently we have 's' and 'm' mode, which mean small dataset and medium dataset respectively. 
         
     """
 
     data_name = data_name.lower()
-    mode = None
     if data_name == 'reddit':
-        mode = 'm'
+        data_mode = 'm'
         dataset = pgl.dataset.RedditDataset()
         y = np.zeros(dataset.graph.num_nodes, dtype="int64")
         y[dataset.train_index] = dataset.train_label
@@ -195,23 +273,23 @@ def load_dataset(data_name):
         y[dataset.test_index] = dataset.test_label
         dataset.y = y
     elif data_name == 'arxiv':
-        mode = 'm'
+        data_mode = 'm'
         dataset = pgl.dataset.OgbnArxivDataset()
         dataset.graph = to_undirected(dataset.graph, copy_node_feat=False)
         dataset.graph = add_self_loops(dataset.graph, copy_node_feat=False)
     elif data_name == 'cora':
-        mode = 's'
+        data_mode = 's'
         dataset = pgl.dataset.CoraDataset()
     elif data_name == 'pubmed':
-        mode = 's'
+        data_mode = 's'
         dataset = pgl.dataset.CitationDataset("pubmed", symmetry_edges=True)
     elif data_name == 'citeseer':
-        mode = 's'
+        data_mode = 's'
         dataset = pgl.dataset.CitationDataset("citeseer", symmetry_edges=True)
     else:
         raise ValueError(data_name + " dataset doesn't exist currently.")
 
-    if mode == 's':
+    if data_mode == 's':
 
         def normalize(feat):
             return feat / np.maximum(np.sum(feat, -1, keepdims=True), 1)
@@ -228,10 +306,11 @@ def load_dataset(data_name):
     dataset.test_mask = generate_mask(dataset.graph.num_nodes,
                                       dataset.test_index)
 
-    return dataset, mode
+    return dataset, data_mode
 
 
-def create_dataloaders(graph, mode, part, num_workers, config):
+def create_dataloaders(graph, data_mode, part, num_workers, config,
+                       load_epoch):
     """Create train loader and eval loader for different datasets.
  
     **Notes**:
@@ -239,14 +318,36 @@ def create_dataloaders(graph, mode, part, num_workers, config):
         since current eval_loader might not be suitable for large dataset.
 
     """
+    final_epochs = config.epochs
+    # Give a PartitionDataset usage.
+    # train_dataset = PartitionDataset(graph, part)
+    # collate_fn = partial(
+    #     subdata_batch_fn,
+    #     graph=graph,
+    #     part=part,
+    #     node_buffer=np.zeros(
+    #         graph.num_nodes, dtype="int64"))
 
-    train_dataset = PartitionDataset(part)
+    if config.gen_train_data_in_advance:
+        new_load_epoch = 1
+    else:
+        num_batches = config.num_parts / config.batch_size
+        if num_batches > load_epoch:
+            # No need to use load_epoch inputs.
+            new_load_epoch = 1
+        else:
+            new_load_epoch = config.epochs if config.epochs < load_epoch else load_epoch
+
+    train_dataset = PrePartitionDataset(graph, part, load_epoch=new_load_epoch)
     collate_fn = partial(
-        subdata_batch_fn,
+        presubdata_batch_fn,
         graph=graph,
         part=part,
         node_buffer=np.zeros(
             graph.num_nodes, dtype="int64"))
+    final_epochs = int(math.ceil(config.epochs /
+                                 new_load_epoch))  # Maybe larger than origin.
+
     train_loader = Dataloader(
         train_dataset,
         batch_size=config.batch_size,
@@ -254,6 +355,7 @@ def create_dataloaders(graph, mode, part, num_workers, config):
         shuffle=True,
         num_workers=num_workers,
         collate_fn=collate_fn)
+
     if config.gen_train_data_in_advance:
         # For relatively small dataset, we can generate train data in advance.
         train_loader = list(train_loader)
@@ -266,4 +368,4 @@ def create_dataloaders(graph, mode, part, num_workers, config):
             graph.num_nodes, dtype="int64"))
     eval_loader = eval_dataset.dataloader_list
 
-    return train_loader, eval_loader
+    return train_loader, eval_loader, final_epochs

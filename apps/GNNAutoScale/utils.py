@@ -227,12 +227,10 @@ def compute_acc(logits, y, mask):
     return acc
 
 
-def compute_buffer_size(mode, eval_loader):
+def compute_buffer_size(eval_loader):
     """Calculate buffer size for different dataset.
 
     Args:
-
-        mode (str): Different mode for datasets, we have (citation, reddit) now.
 
         eval_loader (Dataloader|None): The eval loader of corresponding dataset.
 
