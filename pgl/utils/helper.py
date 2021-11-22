@@ -20,6 +20,8 @@ from paddle.fluid.data_feeder import convert_dtype, check_variable_and_dtype, ch
 from paddle.fluid.framework import Variable, in_dygraph_mode, convert_np_dtype_to_dtype_
 import paddle.fluid.layers as L
 
+from pgl.utils import op
+
 
 def check_is_tensor(*data):
     """Check if the given datas have paddle.Tensor
@@ -166,3 +168,52 @@ def unique_segment(data, dtype="int64"):
     else:
         unique, index, _ = L.unique_with_counts(data)
         return unique, index
+
+
+def graph_send_recv(x, src_index, dst_index, pool_type="sum"):
+    """This method combines the send and recv function in different pool_type.
+
+    Now, this method only supports default copy send function, and built-in receive pool_type
+    function ('sum', 'mean', 'max', 'min').
+
+    Args:
+
+        x (Tensor): The input tensor, and the available data type is float32, float64, int32, int64.
+
+        src_index (Tensor): An 1-D tensor, and the available data type is int32, int64.
+
+        dst_index (Tensor): An 1-D tensor, and should have the same shape as `src_index`. 
+                            The available data type is int32, int64. 
+
+        pool_type (str): The pooling type of graph_send_recv, including `sum`, `mean`, 
+                         `max`, `min`. Default value is `sum`.
+
+    Returns:
+
+        out (Tensor): The output tensor, should have the same shape and same dtype as input tensor `x`.
+
+    """
+
+    # TODO:@ZHUI add support for 'mean', 'max', 'min' pool_type.
+    assert pool_type == "sum", "Only implement 'sum' pool_type function right now. Maybe you can update PaddlePaddle version to fix this problem."
+
+    def send(message_func, src_feat):
+        src_feat_temp = {}
+        if src_feat is not None:
+            assert isinstance(src_feat,
+                              dict), "The input src_feat must be a dict"
+            src_feat_temp.update(src_feat)
+        src_feat = op.RowReader(src_feat_temp, src_index)
+        msg = message_func(src_feat)
+        return msg
+
+    def _sum_recv(feat):
+        output_dim = feat.shape[-1]
+        init_output = paddle.zeros(
+            shape=[x.shape[0], output_dim], dtype=feat.dtype)
+        final_output = scatter(init_output, dst_index, feat, overwrite=False)
+        return final_output
+
+    msg = send(lambda sf: {"msg": sf["h"]}, src_feat={"h": x})
+
+    return eval("_%s_recv" % pool_type)(msg["msg"])

@@ -155,20 +155,10 @@ class BiGraph(object):
             self._src_num_nodes = maybe_num_nodes(self._edges[:, 0])
         else:
             self._src_num_nodes = src_num_nodes
-            max_edge_id = maybe_num_nodes(self._edges[:, 0])
-            if self._src_num_nodes < max_edge_id:
-                raise ValueError("The max src edge ID should be less than the number of src nodes. "
-                        "But got max src edge ID [%s] >= src_num_nodes [%s]" \
-                        % (max_edge_id-1, self._src_num_nodes))
         if dst_num_nodes is None:
             self._dst_num_nodes = maybe_num_nodes(self._edges[:, 1])
         else:
             self._dst_num_nodes = dst_num_nodes
-            max_edge_id = maybe_num_nodes(self._edges[:, 1])
-            if self._dst_num_nodes < max_edge_id:
-                raise ValueError("The max dst edge ID should be less than the number of dst  nodes. "
-                        "But got max dst edge ID [%s] >= dst_num_nodes [%s]" \
-                        % (max_edge_id-1, self._dst_num_nodes))
 
         self._adj_src_index = kwargs.get("adj_src_index", None)
         self._adj_dst_index = kwargs.get("adj_dst_index", None)
@@ -1059,50 +1049,24 @@ class BiGraph(object):
         return generate_segment_id_from_index(self._graph_edge_index)
 
     def send_recv(self, feature, reduce_func="sum"):
-        """This method combines the send and recv function using graph_send_recv API,
-        so as to reduce intermediate memory consumption in the process of message passing.
-        
-        Now, this method only supports default copy send function, and built-in receive 
-        function ('sum', 'mean', 'max', 'min').
-
-        Args:
-
-            feature (Tensor): the node feature of a graph.
-
-            reduce_func (str): Difference reduce functions of receive step, including 'sum',
-                              'mean', 'max', 'min'.
-
-        """
-
-        assert isinstance(feature, paddle.Tensor), \
-            "The input of send_recv method should be paddle.Tensor."
-
-        assert reduce_func in ['sum', 'mean', 'max', 'min'], \
-            "Only support 'sum', 'mean', 'max', 'min' built-in reduce functions."
-
-        if paddle.__version__ < '2.2.1':
-            return self._send_recv(feature, reduce_func=reduce_func)
-
-        src, dst = self.edges[:, 0], self.edges[:, 1]
-        return paddle.incubate.graph_send_recv(
-            feature, src, dst, pool_type=reduce_func)
-
-    def _send_recv(self, feature, reduce_func="sum"):
         """This method combines the send and recv function.
 
-        Now, this method only supports default copy send function,
+        Now, this method only supports default copy send function, 
         and built-in receive function ('sum', 'mean', 'max', 'min').
 
         Args:
-
-            feature (Tensor): the node feature of a graph.
-
+            feature (Tensor | Tensor List): the node feature of a graph.
             reduce_func (str): 'sum', 'mean', 'max', 'min' built-in receive function.
 
         """
-
         # TODO:@ZHUI add support for 'mean', 'max', 'min' function.
-        assert reduce_func == "sum", "Only implement 'sum' function right now. Maybe you can update PaddlePaddle version to fix this problem."
+        assert reduce_func in ['sum', 'mean', 'max', 'min'], \
+                "Only support 'sum', 'mean', 'max', 'min' built-in receive function."
+
+        assert reduce_func == "sum", "Only implement 'sum' function right now"
+
+        assert isinstance(feature, paddle.Tensor), \
+                "The input of send_recv method should be tensor."
 
         src, dst = self.edges[:, 0], self.edges[:, 1]
 

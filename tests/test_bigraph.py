@@ -23,25 +23,6 @@ from testsuite import create_random_bigraph
 
 
 class BiGraphTest(unittest.TestCase):
-    def test_num_nodes_valid(self):
-        src_num_nodes = 1
-        dst_num_nodes = 5
-        dim = 4
-        edges = [(0, 1), (1, 2), (3, 4)]
-        src_nfeat = np.random.randn(src_num_nodes, dim)
-        dst_nfeat = np.random.randn(dst_num_nodes, dim)
-        efeat = np.random.randn(len(edges), dim)
-        
-        with self.assertRaises(ValueError):
-            g1 = pgl.BiGraph(
-                edges=edges,
-                src_num_nodes=src_num_nodes,
-                dst_num_nodes=dst_num_nodes,
-                src_node_feat={'src_nfeat': src_nfeat},
-                dst_node_feat={'dst_nfeat': dst_nfeat},
-                edge_feat={'efeat': efeat})
-
-
     def test_check_to_tensor_to_numpy(self):
 
         src_num_nodes = 4
@@ -51,7 +32,7 @@ class BiGraphTest(unittest.TestCase):
         src_nfeat = np.random.randn(src_num_nodes, dim)
         dst_nfeat = np.random.randn(dst_num_nodes, dim)
         efeat = np.random.randn(len(edges), dim)
-        
+
         g1 = pgl.BiGraph(
             edges=edges,
             src_num_nodes=src_num_nodes,
@@ -61,16 +42,16 @@ class BiGraphTest(unittest.TestCase):
             edge_feat={'efeat': efeat})
         # check inplace to tensor
         self.assertFalse(g1.is_tensor())
-        
+
         g2 = g1.tensor(inplace=False)
         g3 = g2.numpy(inplace=False)
-        
+
         self.assertFalse(g1.is_tensor())
         self.assertTrue(g2.is_tensor())
         self.assertFalse(g3.is_tensor())
 
     def test_build_graph(self):
-    
+
         src_num_nodes = 4
         dst_num_nodes = 5
         dim = 4
@@ -78,7 +59,7 @@ class BiGraphTest(unittest.TestCase):
         src_nfeat = np.random.randn(src_num_nodes, dim)
         dst_nfeat = np.random.randn(dst_num_nodes, dim)
         efeat = np.random.randn(len(edges), dim)
-        
+
         g1 = pgl.BiGraph(
             edges=edges,
             src_num_nodes=src_num_nodes,
@@ -86,7 +67,6 @@ class BiGraphTest(unittest.TestCase):
             src_node_feat={'src_nfeat': src_nfeat},
             dst_node_feat={'dst_nfeat': dst_nfeat},
             edge_feat={'efeat': efeat})
- 
 
     def test_build_tensor_graph(self):
         src_num_nodes = paddle.to_tensor(4)
@@ -94,8 +74,10 @@ class BiGraphTest(unittest.TestCase):
         e = np.array([(0, 1), (1, 2), (3, 4)])
         edges = paddle.to_tensor(e)
 
-        g2 = pgl.BiGraph(edges=edges, src_num_nodes=src_num_nodes,
-                    dst_num_nodes=dst_num_nodes)
+        g2 = pgl.BiGraph(
+            edges=edges,
+            src_num_nodes=src_num_nodes,
+            dst_num_nodes=dst_num_nodes)
 
     def test_build_graph_without_num_nodes(self):
         e = np.array([(0, 1), (1, 2), (3, 4)])
@@ -109,7 +91,10 @@ class BiGraphTest(unittest.TestCase):
         src_num_nodes = 4
         dst_num_nodes = 5
         edges = [(0, 1), (1, 2), (3, 4)]
-        g1 = pgl.BiGraph(edges=edges, src_num_nodes=src_num_nodes, dst_num_nodes=dst_num_nodes)
+        g1 = pgl.BiGraph(
+            edges=edges,
+            src_num_nodes=src_num_nodes,
+            dst_num_nodes=dst_num_nodes)
         indegree = np.array([0, 1, 1, 0, 1], dtype="int32")
         outdegree = np.array([1, 1, 0, 1], dtype="int32")
         # check degree in numpy
@@ -154,14 +139,10 @@ class BiGraphTest(unittest.TestCase):
             dst_num_nodes = np.random.randint(low=2, high=10)
             edges_size = np.random.randint(low=1, high=10)
             edges_src = np.random.randint(
-                low=1,
-                high=src_num_nodes,
-                size=[edges_size, 1])
+                low=1, high=src_num_nodes, size=[edges_size, 1])
 
             edges_dst = np.random.randint(
-                low=1,
-                high=dst_num_nodes,
-                size=[edges_size, 1])
+                low=1, high=dst_num_nodes, size=[edges_size, 1])
 
             edges = np.hstack([edges_src, edges_dst])
 
@@ -181,14 +162,20 @@ class BiGraphTest(unittest.TestCase):
         b_graph = pgl.BiGraph.batch(glist)
         multi_graph = pgl.BiGraph.disjoint(glist)
         # Check Graph Index
-        src_node_index = [np.ones(g.src_num_nodes) * n for n, g in enumerate(glist)]
-        dst_node_index = [np.ones(g.dst_num_nodes) * n for n, g in enumerate(glist)]
+        src_node_index = [
+            np.ones(g.src_num_nodes) * n for n, g in enumerate(glist)
+        ]
+        dst_node_index = [
+            np.ones(g.dst_num_nodes) * n for n, g in enumerate(glist)
+        ]
         edge_index = [np.ones(g.num_edges) * n for n, g in enumerate(glist)]
         src_node_index = np.concatenate(src_node_index)
         dst_node_index = np.concatenate(dst_node_index)
         edge_index = np.concatenate(edge_index)
-        self.assertTrue(np.all(src_node_index == multi_graph.graph_src_node_id))
-        self.assertTrue(np.all(dst_node_index == multi_graph.graph_dst_node_id))
+        self.assertTrue(
+            np.all(src_node_index == multi_graph.graph_src_node_id))
+        self.assertTrue(
+            np.all(dst_node_index == multi_graph.graph_dst_node_id))
         self.assertTrue(np.all(edge_index == multi_graph.graph_edge_id))
 
         multi_graph.tensor()
@@ -215,14 +202,10 @@ class BiGraphTest(unittest.TestCase):
             dst_num_nodes = np.random.randint(low=2, high=10)
             edges_size = np.random.randint(low=1, high=10)
             edges_src = np.random.randint(
-                low=1,
-                high=src_num_nodes,
-                size=[edges_size, 1])
+                low=1, high=src_num_nodes, size=[edges_size, 1])
 
             edges_dst = np.random.randint(
-                low=1,
-                high=dst_num_nodes,
-                size=[edges_size, 1])
+                low=1, high=dst_num_nodes, size=[edges_size, 1])
 
             edges = np.hstack([edges_src, edges_dst])
 
@@ -241,15 +224,22 @@ class BiGraphTest(unittest.TestCase):
         # Merge Graph
         multi_graph = pgl.BiGraph.disjoint(glist)
         # Check Graph Index
-        src_node_index = [np.ones(g.src_num_nodes) * n for n, g in enumerate(glist)]
-        dst_node_index = [np.ones(g.dst_num_nodes) * n for n, g in enumerate(glist)]
+        src_node_index = [
+            np.ones(g.src_num_nodes) * n for n, g in enumerate(glist)
+        ]
+        dst_node_index = [
+            np.ones(g.dst_num_nodes) * n for n, g in enumerate(glist)
+        ]
         edge_index = [np.ones(g.num_edges) * n for n, g in enumerate(glist)]
         src_node_index = np.concatenate(src_node_index)
         dst_node_index = np.concatenate(dst_node_index)
         edge_index = np.concatenate(edge_index)
-        self.assertTrue(np.all(src_node_index == multi_graph.graph_src_node_id.numpy()))
-        self.assertTrue(np.all(dst_node_index == multi_graph.graph_dst_node_id.numpy()))
-        self.assertTrue(np.all(edge_index == multi_graph.graph_edge_id.numpy()))
+        self.assertTrue(
+            np.all(src_node_index == multi_graph.graph_src_node_id.numpy()))
+        self.assertTrue(
+            np.all(dst_node_index == multi_graph.graph_dst_node_id.numpy()))
+        self.assertTrue(
+            np.all(edge_index == multi_graph.graph_edge_id.numpy()))
 
         multi_graph.tensor()
         self.assertTrue(
@@ -265,7 +255,6 @@ class BiGraphTest(unittest.TestCase):
         self.assertEqual(multi_graph.dst_node_feat['nfeat'].shape,
                          [glist[0].dst_num_nodes.numpy()[0], dim])
 
-
     def test_dump_numpy_load_numpy(self):
 
         path = './tmp'
@@ -274,14 +263,10 @@ class BiGraphTest(unittest.TestCase):
         dst_num_nodes = np.random.randint(low=2, high=10)
         edges_size = np.random.randint(low=1, high=10)
         edges_src = np.random.randint(
-            low=1,
-            high=src_num_nodes,
-            size=[edges_size, 1])
+            low=1, high=src_num_nodes, size=[edges_size, 1])
 
         edges_dst = np.random.randint(
-            low=1,
-            high=dst_num_nodes,
-            size=[edges_size, 1])
+            low=1, high=dst_num_nodes, size=[edges_size, 1])
 
         edges = np.hstack([edges_src, edges_dst])
 
@@ -318,14 +303,10 @@ class BiGraphTest(unittest.TestCase):
         dst_num_nodes = np.random.randint(low=2, high=10)
         edges_size = np.random.randint(low=1, high=10)
         edges_src = np.random.randint(
-            low=1,
-            high=src_num_nodes,
-            size=[edges_size, 1])
+            low=1, high=src_num_nodes, size=[edges_size, 1])
 
         edges_dst = np.random.randint(
-            low=1,
-            high=dst_num_nodes,
-            size=[edges_size, 1])
+            low=1, high=dst_num_nodes, size=[edges_size, 1])
 
         edges = np.hstack([edges_src, edges_dst])
 
@@ -340,7 +321,7 @@ class BiGraphTest(unittest.TestCase):
             src_node_feat={'nfeat': paddle.to_tensor(src_nfeat)},
             dst_node_feat={'nfeat': paddle.to_tensor(dst_nfeat)},
             edge_feat={'efeat': paddle.to_tensor(efeat)})
-       
+
         in_before = g.indegree()
         g.outdegree()
         g.tensor()
@@ -365,7 +346,7 @@ class BiGraphTest(unittest.TestCase):
         src_nfeat = np.arange(src_num_nodes).reshape(-1, 1)
         dst_nfeat = np.arange(dst_num_nodes).reshape(-1, 1)
         efeat = np.arange(len(edges)).reshape(-1, 1)
-        
+
         g1 = pgl.BiGraph(
             edges=edges,
             src_num_nodes=src_num_nodes,
@@ -409,11 +390,11 @@ class BiGraphTest(unittest.TestCase):
     def test_send_recv_func(self):
 
         np.random.seed(0)
-        src_num_nodes = 5 
+        src_num_nodes = 5
         dst_num_nodes = 4
         edges = [(0, 1), (1, 2), (3, 3), (4, 1), (1, 0)]
         src_nfeat = np.array([[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6],
-                          [4, 5, 6, 7], [5, 6, 7, 8]])
+                              [4, 5, 6, 7], [5, 6, 7, 8]])
 
         ground = np.array([[2, 3, 4, 5], [6, 8, 10, 12], [2, 3, 4, 5],
                            [4, 5, 6, 7]])
@@ -422,8 +403,7 @@ class BiGraphTest(unittest.TestCase):
             edges=edges,
             src_num_nodes=src_num_nodes,
             dst_num_nodes=dst_num_nodes,
-            src_node_feat={'src_nfeat': src_nfeat},
-            )
+            src_node_feat={'src_nfeat': src_nfeat}, )
         g.tensor()
 
         output = g.send_recv(g.src_node_feat['src_nfeat'], reduce_func="sum")
@@ -433,14 +413,17 @@ class BiGraphTest(unittest.TestCase):
 
     def test_send_and_recv(self):
         np.random.seed(0)
-        src_num_nodes = 5 
+        src_num_nodes = 5
         dst_num_nodes = 4
         edges = [(0, 1), (1, 2), (3, 3), (4, 1), (1, 0)]
-        src_nfeat = np.array([[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6],
-                          [4, 5, 6, 7], [5, 6, 7, 8]], dtype="float32")
+        src_nfeat = np.array(
+            [[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6], [4, 5, 6, 7],
+             [5, 6, 7, 8]],
+            dtype="float32")
 
-        dst_nfeat = np.array([[2, 3, 4, 5], [3, 4, 5, 6],
-                          [4, 5, 6, 7], [5, 6, 7, 8]], dtype="float32")
+        dst_nfeat = np.array(
+            [[2, 3, 4, 5], [3, 4, 5, 6], [4, 5, 6, 7], [5, 6, 7, 8]],
+            dtype="float32")
 
         src_ground = np.array(
             [[1, 2, 3, 4], [2, 3, 4, 5], [4, 5, 6, 7], [5, 6, 7, 8],
@@ -448,7 +431,7 @@ class BiGraphTest(unittest.TestCase):
             dtype="float32")
 
         src_recv = np.array([[2, 3, 4, 5], [6, 8, 10, 12], [2, 3, 4, 5],
-                           [4, 5, 6, 7]])
+                             [4, 5, 6, 7]])
 
         dst_ground = np.array(
             [[3, 4, 5, 6], [4, 5, 6, 7], [5, 6, 7, 8], [3, 4, 5, 6],
@@ -456,15 +439,14 @@ class BiGraphTest(unittest.TestCase):
             dtype="float32")
 
         dst_recv = np.array([[3, 4, 5, 6], [6, 8, 10, 12], [0, 0, 0, 0],
-                           [5, 6, 7, 8], [3, 4, 5, 6]])
+                             [5, 6, 7, 8], [3, 4, 5, 6]])
 
         g = pgl.BiGraph(
             edges=edges,
             src_num_nodes=src_num_nodes,
             dst_num_nodes=dst_num_nodes,
             src_node_feat={'src_nfeat': src_nfeat},
-            dst_node_feat={'dst_nfeat': dst_nfeat}
-            )
+            dst_node_feat={'dst_nfeat': dst_nfeat})
 
         g.tensor()
 
@@ -505,7 +487,8 @@ class BiGraphTest(unittest.TestCase):
             return msg.reduce_sum(msg['h'])
 
         # test send_func1
-        msg1 = g.send(send_func1_d, dst_feat={'h': g.dst_node_feat['dst_nfeat']})
+        msg1 = g.send(
+            send_func1_d, dst_feat={'h': g.dst_node_feat['dst_nfeat']})
         _msg = msg1['h'].numpy()
         self.assertTrue((dst_ground == _msg).all())
 
@@ -514,14 +497,14 @@ class BiGraphTest(unittest.TestCase):
         self.assertTrue((dst_recv == output).all())
 
         # test send_func2
-        msg2 = g.send(send_func2_d, dst_feat={'h': g.dst_node_feat['dst_nfeat']})
+        msg2 = g.send(
+            send_func2_d, dst_feat={'h': g.dst_node_feat['dst_nfeat']})
         _msg = msg2['h'].numpy()
         self.assertTrue((dst_ground == _msg).all())
 
         output = g.recv(reduce_func_d, msg2, recv_mode="src")
         output = output.numpy()
         self.assertTrue((dst_recv == output).all())
-
 
     def test_node_iter(self):
         np_graph = create_random_bigraph().numpy()
@@ -533,7 +516,7 @@ class BiGraphTest(unittest.TestCase):
             for shuffle in [True, False]:
                 for m in ["src_node", "dst_node"]:
                     for batch_data in graph.node_batch_iter(
-                        batch_size=3, shuffle=shuffle, mode=m):
+                            batch_size=3, shuffle=shuffle, mode=m):
                         break
 
 

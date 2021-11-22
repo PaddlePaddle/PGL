@@ -32,6 +32,11 @@ from pgl.utils.edge_index import EdgeIndex
 from pgl.utils.helper import check_is_tensor, scatter, maybe_num_nodes
 from pgl.utils.helper import generate_segment_id_from_index, unique_segment
 
+try:
+    from paddle.incubate import graph_send_recv
+except:
+    from pgl.utils.helper import graph_send_recv
+
 
 class Graph(object):
     """Implementation of graph interface in pgl.
@@ -926,8 +931,7 @@ class Graph(object):
         return generate_segment_id_from_index(self._graph_edge_index)
 
     def send_recv(self, feature, reduce_func="sum"):
-        """This method combines the send and recv function using graph_send_recv API,
-           so as to reduce intermediate memory consumption in the process of message passing. 
+        """This method combines the send and recv function using graph_send_recv API.
 
         Now, this method only supports default copy send function, and built-in receive 
         function ('sum', 'mean', 'max', 'min').
@@ -936,55 +940,18 @@ class Graph(object):
 
            feature (Tensor): The node feature of a graph.
 
-           reduce_func (str): Difference reduce functions of receive step, including 'sum', 
-                              'mean', 'max', 'min'.
+           reduce_func (str): Difference reduce function, including 'sum', 'mean', 'max', 'min'.
 
         """
 
-        assert isinstance(feature, paddle.Tensor), \
-            "The input of send_recv method should be paddle.Tensor."
+        assert isinstance(feature, paddle.Tensor) or isinstance(feature, paddle.fluid.framework.Variable), \
+            "The input of send_recv method should be Tensor."
 
         assert reduce_func in ['sum', 'mean', 'max', 'min'], \
             "Only support 'sum', 'mean', 'max', 'min' built-in reduce functions."
 
-        if paddle.__version__ < '2.2.1':
-            return self._send_recv(feature, reduce_func=reduce_func)
-
         src, dst = self.edges[:, 0], self.edges[:, 1]
-        return paddle.incubate.graph_send_recv(
-            feature, src, dst, pool_type=reduce_func)
-
-    def _send_recv(self, feature, reduce_func="sum"):
-        """This method combines the send and recv function.
-
-        Now, this method only supports default copy send function, and built-in receive 
-        function ('sum', 'mean', 'max', 'min').
-
-        Args:
-
-            feature (Tensor | Tensor List): the node feature of a graph.
-
-            reduce_func (str): 'sum', 'mean', 'max', 'min' built-in receive function.
-
-        """
-
-        # TODO:@ZHUI add support for 'mean', 'max', 'min' function.
-        assert reduce_func == "sum", "Only implement 'sum' function right now. Maybe you can update PaddlePaddle version to fix this problem."
-
-        src, dst = self.edges[:, 0], self.edges[:, 1]
-
-        msg = self.send(
-            lambda sf, df, ef: {"msg": sf["h"]}, src_feat={"h": feature})
-
-        def _sum_recv(feat):
-            output_dim = feat.shape[-1]
-            init_output = paddle.zeros(
-                shape=[self._num_nodes, output_dim], dtype=feat.dtype)
-            final_output = scatter(init_output, dst, feat, overwrite=False)
-
-            return final_output
-
-        return eval("_%s_recv" % reduce_func)(msg["msg"])
+        return graph_send_recv(feature, src, dst, pool_type=reduce_func)
 
     def send(
             self,
