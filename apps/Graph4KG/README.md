@@ -64,6 +64,8 @@ Scripts of different training settings are provided, including
 - [x] mix-CPU-GPU + async-update
 
 ```bash
+# download datasets
+sh examples/download.sh
 
 # FB15k
 sh examples/fb15k.sh
@@ -109,4 +111,3 @@ sh examples/wikikg90m.sh
 | TransE | 0.85 |
 | RotatE | 0.88 |
 | OTE | 0.89 |
-
