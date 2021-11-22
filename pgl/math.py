@@ -23,7 +23,6 @@ __all__ = [
 ]
 
 import paddle
-from paddle import _C_ops
 from paddle.fluid.framework import core, in_dygraph_mode
 from paddle.fluid.layer_helper import LayerHelper, in_dygraph_mode
 from paddle.fluid.data_feeder import check_variable_and_dtype
@@ -36,8 +35,8 @@ def segment_pool(data, segment_ids, pool_type, name=None):
     """
     pool_type = pool_type.upper()
     if in_dygraph_mode():
-        out, tmp = _C_ops.segment_pool(data, segment_ids, 'pooltype',
-                                       pool_type)
+        out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype',
+                                         pool_type)
         return out
 
     check_variable_and_dtype(data, "X", ("float32", "float64"), "segment_pool")
@@ -91,7 +90,7 @@ def segment_sum(data, segment_ids, name=None):
         return paddle.incubate.segment_sum(data, segment_ids, name)
 
     if in_dygraph_mode():
-        out, tmp = _C_ops.segment_pool(data, segment_ids, 'pooltype', "SUM")
+        out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "SUM")
         return out
 
     check_variable_and_dtype(data, "X", ("float32", "float64"), "segment_pool")
@@ -146,7 +145,7 @@ def segment_mean(data, segment_ids, name=None):
         return paddle.incubate.segment_mean(data, segment_ids, name)
 
     if in_dygraph_mode():
-        out, tmp = _C_ops.segment_pool(data, segment_ids, 'pooltype', "MEAN")
+        out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "MEAN")
         return out
 
     check_variable_and_dtype(data, "X", ("float32", "float64"), "segment_pool")
@@ -199,7 +198,7 @@ def segment_min(data, segment_ids, name=None):
         return paddle.incubate.segment_min(data, segment_ids, name)
 
     if in_dygraph_mode():
-        out, tmp = _C_ops.segment_pool(data, segment_ids, 'pooltype', "MIN")
+        out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "MIN")
         return out
 
     check_variable_and_dtype(data, "X", ("float32", "float64"), "segment_pool")
@@ -253,7 +252,7 @@ def segment_max(data, segment_ids, name=None):
         return paddle.incubate.segment_max(data, segment_ids, name)
 
     if in_dygraph_mode():
-        out, tmp = _C_ops.segment_pool(data, segment_ids, 'pooltype', "MAX")
+        out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "MAX")
         return out
 
     check_variable_and_dtype(data, "X", ("float32", "float64"), "segment_pool")
