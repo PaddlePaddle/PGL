@@ -105,6 +105,7 @@ sh examples/wikikg90m.sh
 
 ### MRR of WikiKG90M
 | Model | MRR |
+| --- | --- |
 | TransE | 0.85 |
 | RotatE | 0.88 |
 | OTE | 0.89 |
