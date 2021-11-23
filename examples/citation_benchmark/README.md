@@ -67,8 +67,8 @@ python train.py --conf config/transformer.yaml --dataset pubmed
 python train.py --conf config/transformer.yaml --dataset citeseer
 
 # SSGC
-python train.py --conf config/sgc.yaml --dataset cora
-python train.py --conf config/sgc.yaml --dataset pubmed
-python train.py --conf config/sgc.yaml --dataset citeseer
+python train.py --conf config/ssgc.yaml --dataset cora
+python train.py --conf config/ssgc.yaml --dataset pubmed
+python train.py --conf config/ssgc.yaml --dataset citeseer
 
 ```
