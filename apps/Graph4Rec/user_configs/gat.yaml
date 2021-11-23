@@ -1,10 +1,10 @@
-# configuration for graphsage
+# configuration for gat
 
-task_name: graphsage_sum.0712
+task_name: gat.0712
 
 # ------------------------Data Configuration--------------------------------------------#
-etype2files: "u2buy2t:../toy_data/u2buy2i.txt,u2click2i:../toy_data/u2click2i.txt"
-ntype2files: "u:../toy_data/node_types.txt,i:../toy_data/node_types.txt"
+etype2files: "u2buy2t:./toy_data/u2buy2i.txt,u2click2i:./toy_data/u2click2i.txt"
+ntype2files: "u:./toy_data/node_types.txt,i:./toy_data/node_types.txt"
 symmetry: True
 shard_num: 1000
 # [ntype, name, feat_type, length]
@@ -31,10 +31,10 @@ hidden_size: 64
 res_alpha: 0.9
 
 sage_mode: True
-sage_layer_type: GraphsageSumConv
+sage_layer_type: GATConv
 sage_act: relu
-sample_num_list: [5]
-infer_sample_num_list: [5]
+sample_num_list: [10]
+infer_sample_num_list: [100]
 
 # ----------------------Training Configuration------------------------------------------#
 epochs: 10
@@ -44,9 +44,9 @@ lazy_mode: True
 batch_node_size: 20
 batch_pair_size: 100
 pair_stream_shuffle_size: 10000
-log_dir: ../logs_custom
-output_dir: ../outputs_custom
-save_dir: ../ckpt_custom
+log_dir: ../../logs_custom
+output_dir: ../../outputs_custom
+save_dir: ../../ckpt_custom
 files2saved: ["*.yaml", "*.py", "*.sh", "./models", "./datasets", "./utils"]
 log_steps: 100
 

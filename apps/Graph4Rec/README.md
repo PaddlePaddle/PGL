@@ -122,8 +122,11 @@ python train.py --config ../../user_configs/metapath2vec.yaml --ip ../../toy_dat
 # Inference
 python infer.py --config ../../user_configs/metapath2vec.yaml \
                 --ip ../../toy_data/ip_list.txt \
-                --save_dir /your/path/to/save_embed \
-                --infer_from /your/path/of/trained_model
+                --save_dir ./save_embed/ \
+                --infer_from ../../ckpt_custom/metapath2vec.0712/ckpt.pdparams
+
+# The node embeddings will be saved in ./save_embed/embedding.txt
+
 ```
 
 ### Distributed CPU training and inference in a single machine
@@ -131,25 +134,28 @@ python infer.py --config ../../user_configs/metapath2vec.yaml \
 ```
 # Training
 cd ./env_run/src
-CPU_NUM=12 fleetrun --log_dir /your/path/to/fleet_logs \
+CPU_NUM=12 fleetrun --log_dir ../../fleet_logs \
                     --worker_num 4 \
                     --server_num 4 \
                     dist_cpu_train.py --config ../../user_configs/metapath2vec.yaml \
                                       --ip ../../toy_data/ip_list.txt
 
 # Inference
-CPU_NUM=12 fleetrun --log_dir /your/path/to/fleet_logs_infer \
+CPU_NUM=12 fleetrun --log_dir ../../fleet_logs_infer \
                     --worker_num 4 \
                     --server_num 4 \
                     dist_cpu_infer.py --config ../../user_configs/metapath2vec.yaml \
                                       --ip ../../toy_data/ip_list.txt \
-                                      --save_dir /your/path/to/save_embed \
-                                      --infer_from /your/path/of/trained_model
+                                      --save_dir ./save_dist_embed/ \
+                                      --infer_from ../../ckpt_custom/metapath2vec.0712/
+
+# The node embeddings will be saved in ./save_dist_embed/
+
 ```
 
 Note that the `worker_num` and `server_num` in inference stage should be the same as in training stage.
 
-The training log will be saved in `/your/path/to/fleet_logs`.
+The training log will be saved in `../../fleet_logs`.
 
 ### Distributed CPU training with multi-machine
 
@@ -164,7 +170,7 @@ cd ./env_run/src
 export PADDLE_WITH_GLOO=1
 export FLAGS_START_PORT=30510  # http port for multi-machine communication
 
-CPU_NUM=12 fleetrun --log_dir /your/path/to/fleet_logs \
+CPU_NUM=12 fleetrun --log_dir ../../fleet_logs \
                     --workers "xx.xx.xx.xx:8170,yy.yy.yy.yy:8171" \
                     --servers "xx.xx.xx.xx:8270,yy.yy.yy.yy:8271" \
                     dist_cpu_train.py --config ../../user_configs/metapath2vec.yaml \
