@@ -26,6 +26,7 @@ python run.py --conf config/cora/gcn.yaml
 python run.py --conf config/pubmed/gcn.yaml
 python run.py --conf config/citeseer/gcn.yaml
 python run.py --conf config/reddit/gcn.yaml
+python run.py --conf config/arxiv/gcn.yaml
 
 # GAT
 python run.py --conf config/cora/gat.yaml
@@ -42,6 +43,7 @@ python run.py --conf config/cora/gcnii.yaml
 python run.py --conf config/pubmed/gcnii.yaml
 python run.py --conf config/citeseer/gcnii.yaml
 python run.py --conf config/reddit/gcnii.yaml
+python run.py --conf config/arxiv/gcnii.yaml
 ```
 
 ## Results

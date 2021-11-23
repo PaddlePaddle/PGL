@@ -34,8 +34,9 @@ from utils import check_device, process_batch_data, compute_buffer_size
 from utils import generate_mask, permute, compute_gcn_norm, compute_acc
 
 
-def train(train_loader, model, feature, gcn_norm, label, train_mask, criterion,
-          optim):
+def train_eval(model, feature, gcn_norm, criterion, optim, dataset, data_mode,
+               eval_graph, best_val_acc, final_test_acc, batch_nums, log_epoch,
+               train_loader, eval_loader):
     model.train()
 
     batch_id = 0
@@ -54,8 +55,8 @@ def train(train_loader, model, feature, gcn_norm, label, train_mask, criterion,
         pred = pred[:batch_size]
 
         sub_train_mask = paddle.gather(
-            paddle.to_tensor(train_mask), n_id[:batch_size])
-        y = paddle.gather(paddle.to_tensor(label), n_id[:batch_size])
+            paddle.to_tensor(dataset.train_mask), n_id[:batch_size])
+        y = paddle.gather(paddle.to_tensor(dataset.label), n_id[:batch_size])
         true_index = paddle.nonzero(sub_train_mask)
         if true_index.shape[0] == 0:
             continue
@@ -70,7 +71,20 @@ def train(train_loader, model, feature, gcn_norm, label, train_mask, criterion,
         total_loss += loss.numpy() * true_index.shape[0]
         total_examples += true_index.shape[0]
 
-    return total_loss / total_examples
+        if batch_id % batch_nums == 0:
+            # Finish one training epoch, print evaluation results.
+            log_epoch += 1
+            train_acc, val_acc, test_acc, best_val_acc, final_test_acc = run_eval(
+                data_mode, dataset, eval_graph, model, feature, gcn_norm,
+                best_val_acc, final_test_acc, eval_loader)
+            log.info(f"Epoch: %d, Train Loss: %.4f, Train Acc: %.4f, "
+                     f"Valid Acc: %.4f, Test Acc: %.4f, Final Acc: %.4f" %
+                     (log_epoch, loss, train_acc, val_acc, test_acc,
+                      final_test_acc))
+            model.train()
+            batch_id = 0
+
+    return best_val_acc, final_test_acc, log_epoch
 
 
 @paddle.no_grad()
@@ -91,9 +105,34 @@ def mini_eval(graph, model, feature, norm, eval_loader):
     return out
 
 
+@paddle.no_grad()
+def run_eval(mode,
+             dataset,
+             graph,
+             model,
+             feature,
+             gcn_norm,
+             best_val_acc,
+             final_test_acc,
+             eval_loader=None):
+    if mode == 's':
+        out = full_eval(graph, model, feature, gcn_norm)
+    elif mode == 'm':
+        out = mini_eval(graph, model, feature, gcn_norm, eval_loader)
+    else:
+        raise ValueError("Mode %s not supported." % mode)
+    train_acc = compute_acc(out, dataset.label, dataset.train_mask)
+    val_acc = compute_acc(out, dataset.label, dataset.val_mask)
+    test_acc = compute_acc(out, dataset.label, dataset.test_mask)
+    if val_acc > best_val_acc:
+        best_val_acc = val_acc
+        final_test_acc = test_acc
+    return train_acc, val_acc, test_acc, best_val_acc, final_test_acc
+
+
 def main(args, config):
     log.info("Loading %s dataset." % config.data_name)
-    dataset, mode = load_dataset(config.data_name)
+    dataset, data_mode = load_dataset(config.data_name)
 
     log.info("Running into %d %s graph partitions." %
              (config.num_parts, args.partition))
@@ -113,12 +152,13 @@ def main(args, config):
     graph = dataset.graph
 
     log.info("Building data loader for training and inference.")
-    train_loader, eval_loader = create_dataloaders(graph, mode, part,
-                                                   args.num_workers, config)
+    train_loader, eval_loader, final_epochs = \
+        create_dataloaders(graph, data_mode, part, args.num_workers,
+                           config, args.load_epoch)
     gcn_norm = compute_gcn_norm(graph, config.gcn_norm)
 
     log.info("Calculating buffer size for GNNAutoScale.")
-    buffer_size = compute_buffer_size(mode, eval_loader)
+    buffer_size = compute_buffer_size(eval_loader)
     log.info("Buffer size: %d" % buffer_size)
 
     GNNModel = getattr(gnn_models, config.model_name)
@@ -141,27 +181,21 @@ def main(args, config):
 
     criterion = paddle.nn.loss.CrossEntropyLoss()
 
-    if mode == 's':
+    if data_mode == 's':
         eval_graph = pgl.Graph(edges=graph.edges, num_nodes=graph.num_nodes)
         eval_graph.tensor()
-    best_val_acc = final_test_acc = 0
-    for epoch in range(config.epochs):
-        loss = train(train_loader, model, feature, gcn_norm, dataset.label,
-                     dataset.train_mask, criterion, optim)
-        if mode == 's':
-            out = full_eval(eval_graph, model, feature, gcn_norm)
-        elif mode == 'm':
-            out = mini_eval(graph, model, feature, gcn_norm, eval_loader)
-        else:
-            raise ValueError("Mode %s not supported." % mode)
-        val_acc = compute_acc(out, dataset.label, dataset.val_mask)
-        test_acc = compute_acc(out, dataset.label, dataset.test_mask)
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            final_test_acc = test_acc
-        log.info(f"Epoch:%d, Train Loss: %.4f, Valid Acc: %.4f "
-                 f"Test Acc: %.4f, Final Acc: %.4f" %
-                 (epoch, loss, val_acc, test_acc, final_test_acc))
+    else:
+        eval_graph = graph
+    best_val_acc = final_test_acc = log_epoch = 0
+    num_batches = config.num_parts / config.batch_size
+    for epoch in range(final_epochs):
+        best_val_acc, final_test_acc, log_epoch = train_eval(
+            model, feature, gcn_norm, criterion, optim, dataset, data_mode,
+            eval_graph, best_val_acc, final_test_acc, num_batches, log_epoch,
+            train_loader, eval_loader)
+
+    log.info("Final Valid Acc: %.4f, Final Test Acc: %.4f" %
+             (best_val_acc, final_test_acc))
 
 
 if __name__ == "__main__":
@@ -172,8 +206,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_workers",
         type=int,
-        default=5,
-        help="Number of workers for Dataloader.")
+        default=10,
+        help="Number of workers for train dataloader.")
     parser.add_argument(
         "--partition",
         type=str,
@@ -181,6 +215,13 @@ if __name__ == "__main__":
         help=f"Set graph partition methods, including `metis` and `random`. "
         f"Note that we do not support metis partition on Windows system currently."
     )
+    parser.add_argument(
+        "--load_epoch",
+        type=int,
+        default=100,
+        help=f"Mainly used in creating train dataset, in order to speed up the "
+        f"data loading process and reduce process switching. It is useful "
+        f"for dataset with small number of batches.")
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
 
