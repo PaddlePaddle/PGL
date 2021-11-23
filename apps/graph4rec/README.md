@@ -4,7 +4,7 @@
 
 ## Requirements
 
- - paddlepaddle-gpu==2.2.1
+ - paddlepaddle-gpu==2.2.0
 
  - pgl==2.1.5
 
