@@ -3,8 +3,8 @@
 task_name: gat.0712
 
 # ------------------------Data Configuration--------------------------------------------#
-etype2files: "u2buy2t:../toy_data/u2buy2i.txt,u2click2i:../toy_data/u2click2i.txt"
-ntype2files: "u:../toy_data/node_types.txt,i:../toy_data/node_types.txt"
+etype2files: "u2buy2t:./toy_data/u2buy2i.txt,u2click2i:./toy_data/u2click2i.txt"
+ntype2files: "u:./toy_data/node_types.txt,i:./toy_data/node_types.txt"
 symmetry: True
 shard_num: 1000
 # [ntype, name, feat_type, length]
