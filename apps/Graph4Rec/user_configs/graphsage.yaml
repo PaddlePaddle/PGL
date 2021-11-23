@@ -44,9 +44,9 @@ lazy_mode: True
 batch_node_size: 20
 batch_pair_size: 100
 pair_stream_shuffle_size: 10000
-log_dir: ../logs_custom
-output_dir: ../outputs_custom
-save_dir: ../ckpt_custom
+log_dir: ../../logs_custom
+output_dir: ../../outputs_custom
+save_dir: ../../ckpt_custom
 files2saved: ["*.yaml", "*.py", "*.sh", "./models", "./datasets", "./utils"]
 log_steps: 100
 
