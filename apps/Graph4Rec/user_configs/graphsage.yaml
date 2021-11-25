@@ -1,33 +1,40 @@
-# configuration for deepwalk
+# configuration for graphsage
 
-task_name: deepwalk.0712
+task_name: graphsage_sum.0712
 
 # ------------------------Data Configuration--------------------------------------------#
-etype2files: "u2click2i:../toy_data/u2click2i.txt"
-ntype2files: "u:../toy_data/node_types.txt,i:../toy_data/node_types.txt"
+etype2files: "u2buy2t:./toy_data/u2buy2i.txt,u2click2i:./toy_data/u2click2i.txt"
+ntype2files: "u:./toy_data/node_types.txt,i:./toy_data/node_types.txt"
 symmetry: True
 shard_num: 1000
 # [ntype, name, feat_type, length]
 nfeat_info: null
 slots: []
 
-meta_path: "u2click2i-i2click2u;i2click2u-u2click2i"
+meta_path: "u2buy2i-i2buy2u;u2click2i-i2click2u;i2buy2u-u2buy2i;i2click2u-u2click2i"
 
 
-walk_len: 24
+walk_len: 4
 win_size: 3
 neg_num: 10
 walk_times: 10
 
 
 # -----------------Model HyperParams Configuration--------------------------------------#
-dataset_type: WalkBasedDataset
-collatefn: CollateFn
-model_type: WalkBasedModel
+dataset_type: SageDataset
+collatefn: SageCollateFn
+model_type: SageModel
 warm_start_from: null
 num_nodes: 5500
 embed_size: 64
 hidden_size: 64
+res_alpha: 0.9
+
+sage_mode: True
+sage_layer_type: GraphsageSumConv
+sage_act: relu
+sample_num_list: [5]
+infer_sample_num_list: [5]
 
 # ----------------------Training Configuration------------------------------------------#
 epochs: 10
@@ -37,9 +44,9 @@ lazy_mode: True
 batch_node_size: 20
 batch_pair_size: 100
 pair_stream_shuffle_size: 10000
-log_dir: ../logs_custom
-output_dir: ../outputs_custom
-save_dir: ../ckpt_custom
+log_dir: ../../logs_custom
+output_dir: ../../outputs_custom
+save_dir: ../../ckpt_custom
 files2saved: ["*.yaml", "*.py", "*.sh", "./models", "./datasets", "./utils"]
 log_steps: 100
 
