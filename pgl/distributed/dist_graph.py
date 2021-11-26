@@ -211,7 +211,13 @@ class DistGraphClient(object):
             log.info("load nodes of type %s from %s" % (ntype, filepath))
             self._client.load_node_file(ntype, filepath)
 
-    def sample_predecessor(self, nodes, max_degree, edge_type=None):
+    def sample_predecessor(self,
+                           nodes,
+                           max_degree,
+                           edge_type=None,
+                           return_weight=False,
+                           return_edges=False,
+                           split=True):
         """
         Args:
             nodes: list of node ID
@@ -219,6 +225,42 @@ class DistGraphClient(object):
             max_degree: int, sample number of each node
 
             edge_type: str, edge type
+
+            return_weight: bool, if True, then the edge weight will return
+
+            return_edges: bool, if True, the complete edges will return
+
+            split: bool, if True, the neighbors of nodes will be splited to corresponding node
+        """
+
+        return self.sample_successor(
+            nodes,
+            max_degree,
+            edge_type=edge_type,
+            return_weight=return_weight,
+            return_edges=return_edges,
+            split=split)
+
+    def sample_successor(self,
+                         nodes,
+                         max_degree,
+                         edge_type=None,
+                         return_weight=False,
+                         return_edges=False,
+                         split=True):
+        """
+        Args:
+            nodes: list of node ID
+
+            max_degree: int, sample number of each node
+
+            edge_type: str, edge type
+
+            return_weight: bool, if True, then the edge weight will return
+
+            return_edges: bool, if True, the complete edges will return
+
+            split: bool, if True, the neighbors of nodes will be splited to corresponding node
         """
 
         if edge_type is None:
@@ -231,48 +273,39 @@ class DistGraphClient(object):
             else:
                 edge_type = self.edge_type_list[0]
 
-        res = self._client.batch_sample_neighboors(edge_type, nodes,
-                                                   max_degree)
-        neighs = [[] for _ in range(len(res))]
-        for idx, n_neighs in enumerate(res):
-            for pair in n_neighs:
-                neighs[idx].append(pair[0])
-        return neighs
+        # res[0][0]: neigbors (nodes)
+        # res[0][1]: numpy split index
+        # res[0][2]: src nodes
+        # res[1]: edge weights
+        res = self._client.batch_sample_neighboors(
+            edge_type, nodes, max_degree, return_weight, return_edges)
 
-    def sample_successor(self, nodes, max_degree, edge_type=None):
-        """
-        Args:
-            nodes: list of node ID
-
-            max_degree: int, sample number of each node
-
-            edge_type: str, edge type
-        """
-        if edge_type is None:
-            if len(self.edge_type_list) > 1:
-                msg = "There are %s (%s) edge types in the Graph, " \
-                        % (len(self.edge_type_list), self.edge_type_list)
-                msg += "The argument of edge_type should be specified, "
-                msg += "but got [None]."
-                raise ValueError(msg)
+        if return_edges:
+            if return_weight:
+                return np.array([res[0][2], res[0][0]]).reshape(-1, 2), res[1]
             else:
-                edge_type = self.edge_type_list[0]
+                return np.array([res[0][2], res[0][0]]).reshape(-1, 2)
+        else:
+            if return_weight:
+                return res[0][0], res[1]
+            else:
+                if split:
+                    return [
+                        neighs.tolist()
+                        for neighs in np.split(res[0][0], res[0][1])
+                    ]
+                else:
+                    return res[0][0]
 
-        res = self._client.batch_sample_neighboors(edge_type, nodes,
-                                                   max_degree)
-        neighs = [[] for _ in range(len(res))]
-        for idx, n_neighs in enumerate(res):
-            for pair in n_neighs:
-                neighs[idx].append(pair[0])
-        return neighs
-
-    def random_sample_nodes(self, node_type, size):
+    def random_sample_nodes(self, node_type=None, size=1):
         """
         Args:
-            node_type: str,
+            node_type: str, if None, then random select one type from node_type_list
 
             size: int
         """
+        if node_type is None:
+            node_type = np.random.choice(self.node_type_list)
         sampled_nodes = []
         server_list = list(range(self.server_num))
         np.random.shuffle(server_list)
