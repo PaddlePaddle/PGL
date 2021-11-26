@@ -34,7 +34,7 @@ export CUDA_VISIBLE_DEVICES=
 # This will only speed up models that have more computation on edges.
 # For example, the TransformerConv in [Yun 2020](https://arxiv.org/abs/2009.03509).
 
-CUDA_VISIBLE_DEVICES=0,1 multi_gpu_train.py --conf config/transformer.yaml
+CUDA_VISIBLE_DEVICES=0,1 python multi_gpu_train.py --conf config/transformer.yaml
 
 # GCN
 python train.py --conf config/gcn.yaml  --dataset cora
