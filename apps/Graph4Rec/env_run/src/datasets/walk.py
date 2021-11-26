@@ -65,12 +65,9 @@ class WalkGenerator(object):
                                               self.walk_stream_shuffle_size):
             walk_cc += len(walks)
             batch_count += 1
-            if batch_count % 400 == 0 and self.rank == 0:
-                try:
-                    log.info("the walk length is [%s] in rank [%s]" \
-                            % (len(walks[0]), self.rank))
-                except Exception as e:
-                    log.info(e)
+            if walk_cc % 40000 == 0 and self.rank == 0:
+                log.info("the walk length is [%s] in rank [%s]" \
+                        % (len(walks[0]), self.rank))
             yield walks
         log.info("total [%s] number walks in rank [%s]" % (walk_cc, self.rank))
 
