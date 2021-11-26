@@ -132,7 +132,8 @@ class DistGraphServer(object):
 
 
 class DistGraphClient(object):
-    def __init__(self, config, shard_num, ip_config, client_id):
+    def __init__(self, config, shard_num, ip_config, client_id,
+                 use_cache=True):
         """
         Args:
             config: a yaml configure file or a dict of parameters
@@ -156,6 +157,8 @@ class DistGraphClient(object):
                 172.31.50.126:8245
 
             client_id: int 
+
+            use_cache: bool
 
         """
         self.config = helper.load_config(config)
@@ -193,6 +196,9 @@ class DistGraphClient(object):
         self._client.set_up(self.ip_addr, self.shard_num, self.node_type_list,
                             self.edge_type_list, self.client_id)
         self._client.start_client()
+
+        for etype in self.edge_type_list:
+            self._client.use_neighbors_sample_cache(etype, 100000, 6)
 
     def load_edges(self):
         for etype, file_or_dir in self.etype2files.items():
@@ -273,6 +279,10 @@ class DistGraphClient(object):
             else:
                 edge_type = self.edge_type_list[0]
 
+        def _split_by_index(x, index):
+            splited = [tmp.tolist() for tmp in np.split(x, index)]
+            return splited
+
         # res[0][0]: neigbors (nodes)
         # res[0][1]: numpy split index
         # res[0][2]: src nodes
@@ -282,18 +292,21 @@ class DistGraphClient(object):
 
         if return_edges:
             if return_weight:
-                return np.array([res[0][2], res[0][0]]).reshape(-1, 2), res[1]
+                return np.array([res[0][2], res[0][0]]).T, res[1]
             else:
-                return np.array([res[0][2], res[0][0]]).reshape(-1, 2)
+                return np.array([res[0][2], res[0][0]]).T
         else:
             if return_weight:
-                return res[0][0], res[1]
+                if split:
+                    neighs = _split_by_index(res[0][0], res[0][1])
+                    weights = _split_by_index(res[1], res[0][1])
+                    return neighs, weights
+                else:
+                    return res[0][0], res[1]
             else:
                 if split:
-                    return [
-                        neighs.tolist()
-                        for neighs in np.split(res[0][0], res[0][1])
-                    ]
+                    neighs = _split_by_index(res[0][0], res[0][1])
+                    return neighs
                 else:
                     return res[0][0]
 
