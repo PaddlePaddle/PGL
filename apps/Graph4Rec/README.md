@@ -4,9 +4,13 @@
 
 ## Requirements
 
- - paddlepaddle-gpu==2.2.0
+Please install paddlepaddle and pgl before using Graph4Rec.
 
- - pgl==2.1.5
+```
+python -m pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
+
+pip install pgl -U
+```
 
 ## Usage
 

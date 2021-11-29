@@ -221,6 +221,34 @@ python run.py --conf config/arxiv/gcnii.yaml
    </tr>
 </table>
 
+### Ogbn-arxiv Dataset
+
+<table>
+   <tr align="center">
+      <th>Accuracy</th>
+      <th colspan="2" align="center">GNNAutoScale</th>
+      <th>PyGAS</th>
+   </tr>
+   <tr align="center">
+      <td>Partition Method</td>
+      <td>Metis</td>
+      <td>Random </td>
+      <td>Metis</td>
+   </tr>
+   <tr align="center">
+      <td>GCN</td>
+      <td>71.8</td>
+      <td>70.7</td>
+      <td>71.68</td>
+   </tr>
+   <tr align="center">
+      <td>GCNII</td>
+      <td>72.4</td>
+      <td>71.5</td>
+      <td>73.0</td>
+   </tr>
+</table>
+
 ## Coming new features
 
 - Multi-GPUs support.
