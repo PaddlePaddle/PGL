@@ -92,7 +92,7 @@ class AttrDict(dict):
 
     def pop(self, k, d=None):
         delattr(self, k)
-        return super(EasyDict, self).pop(k, d)
+        return super(AttrDict, self).pop(k, d)
 
 
 def make_dir(path):
