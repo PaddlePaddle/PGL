@@ -22,7 +22,7 @@ Besides, it provides [the 1st place solution](https://ogb.stanford.edu/kddcup202
 
 ## Requirements
 
- - paddlepaddle-gpu==2.2.0
+ - paddlepaddle-gpu>=2.2.1
  - pgl
  - ogb==1.3.1 (optional for wikikg2 and WikiKG90M)
 
