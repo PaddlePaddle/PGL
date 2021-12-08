@@ -1,18 +1,23 @@
-# Graph4Rec: A Universal and Large-scale Toolkit with Graph Neural Networks for Recommender Systems
+<h2 align="center">Graph4Rec: A Universal and Large-scale Toolkit with Graph Neural Networks for Recommender Systems</h2>
+<p align="center">
+  <a href="https://arxiv.org/abs/2112.01035"><img src="http://img.shields.io/badge/Paper-PDF-59d.svg"></a>
+</p>
 
 ## Introduction
 
 **Graph4Rec** is a universal and large-scale toolkit with graph neural networks for recommender systems. It contains a large-scale graph engine to store graph data and a parameter server to support distributed GNN training. We also unify the paradigm to train GNN models into the following parts: graphs input, random walk generation, ego graphs genera- tion, pairs generation and GNNs selection. From this training pipeline, one can easily establish his own GNN model with a few configurations. 
 
+<h2 align="center">
 <img src="./img/architecture.png" alt=“graph4rec” width="800">
+</h2>
 
 Highlighted features:
 
-* **Richness:** Pre-built rich graph models, including walk-based and GNN-based models.
+- **Richness:** Pre-built rich graph models, including walk-based and GNN-based models.
 
-* **Flexibility:** With a few configurations, one can easily launch single or distributed training.
+- **Flexibility:** With a few configurations, one can easily launch single or distributed training.
 
-* **Large-scale:** With the help of graph engine and parameter server, Graph4Rec supports industrial graph representation training.
+- **Large-scale:** With the help of graph engine and parameter server, Graph4Rec supports industrial graph representation training.
 
 ## Requirements
 
