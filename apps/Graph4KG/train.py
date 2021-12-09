@@ -20,7 +20,6 @@ from collections import defaultdict
 
 import paddle
 import numpy as np
-import paddle.distributed as dist
 from paddle.optimizer.lr import StepDecay
 
 from dataset.reader import read_trigraph
@@ -52,16 +51,10 @@ def main():
     else:
         filter_dict = None
 
-    if dist.get_world_size() > 1:
-        dist.init_parallel_env()
-
     model = KGEModel(args.model_name, trigraph, args)
 
     if args.async_update:
         model.start_async_update()
-
-    if dist.get_world_size() > 1 and len(model.parameters()) > 0:
-        model = paddle.DataParallel(model)
 
     if len(model.parameters()) > 0:
         if args.optimizer == 'adam':
@@ -185,9 +178,8 @@ def main():
                 scheduler.step()
 
             step += 1
-            if dist.get_rank() == 0:
-                if args.save_interval > 0 and step % args.save_interval == 0:
-                    model.save(args.step_path)
+            if args.save_interval > 0 and step % args.save_interval == 0:
+                model.save(args.step_path)
             if step >= args.max_steps:
                 stop = True
                 break

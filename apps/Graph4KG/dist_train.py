@@ -23,7 +23,6 @@ import numpy as np
 import paddle.nn as nn
 import paddle.distributed as dist
 from paddle.optimizer.lr import StepDecay
-from paddle.distributed.fleet.utils.hybrid_parallel_util import fused_allreduce_gradients
 
 from dataset.reader import read_trigraph
 from dataset.dataset import create_dataloaders
@@ -35,6 +34,9 @@ from config import prepare_config
 
 
 class KEModelDP(nn.Layer):
+    """
+    KEModel for DataParallel mode.
+    """
     def __init__(self, model, args):
         super(KEModelDP, self).__init__()
         self.model = model
@@ -69,10 +71,15 @@ class KEModelDP(nn.Layer):
             loss = loss + reg_loss
         return loss
 
+
 def main():
     """Main function for shallow knowledge embedding methods.
     """
     args = prepare_config()
+
+    if dist.get_world_size() > 1:
+        dist.init_parallel_env()
+
     set_seed(args.seed)
     set_logger(args)
 
@@ -88,9 +95,6 @@ def main():
         }
     else:
         filter_dict = None
-
-    if dist.get_world_size() > 1:
-        dist.init_parallel_env()
 
     model = KGEModel(args.model_name, trigraph, args)
 
@@ -144,9 +148,6 @@ def main():
         filter_dict=filter_dict if use_filter_set else None,
         shared_ent_path=model.shared_ent_path if args.mix_cpu_gpu else None)
 
-    #print(dpmodel.parameters())
-    #sys.exit()
-
     timer = defaultdict(int)
     log = defaultdict(int)
     ts = t_step = time.time()
@@ -157,30 +158,21 @@ def main():
             h, r, t, neg_ents, all_ents = indexes
             all_ents_emb, rel_emb, weights = prefetch_embeddings
 
-            #print('h', h)
-            #print('r', r)
-            #print('t', t)
-            #print('neg', neg_ents)
-
             if rel_emb is not None:
                 rel_emb.stop_gradient = False
             if all_ents_emb is not None:
                 all_ents_emb.stop_gradient = False
             timer['sample'] += (time.time() - ts)
 
-            #with dpmodel.no_sync():
-            if True:
-                ts = time.time()
-                loss = dpmodel(h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, weights)
-                timer['forward'] += (time.time() - ts)
+            ts = time.time()
+            loss = dpmodel(h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, weights)
+            timer['forward'] += (time.time() - ts)
 
-                log['loss'] += loss.numpy()[0]
+            log['loss'] += loss.numpy()[0]
 
-                ts = time.time()
-                loss.backward()
-                timer['backward'] += (time.time() - ts)
-            #fused_allreduce_gradients(list(dpmodel.parameters()), None)
-            #fused_allreduce_gradients([model.ent_embedding.weight], None)
+            ts = time.time()
+            loss.backward()
+            timer['backward'] += (time.time() - ts)
 
             ts = time.time()
             if optimizer is not None:
@@ -229,7 +221,7 @@ def main():
     if args.async_update:
         model.finish_async_update()
 
-    if args.test: # and dist.get_rank() == 0:
+    if args.test and dist.get_rank() == 0:
         evaluate(
             model,
             test_loader,
