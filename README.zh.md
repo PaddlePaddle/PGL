@@ -7,9 +7,26 @@
 
 ## 最新消息
 
-PGL v2.0 正在到来
+&#x1F525; &#x1F525; &#x1F525; **OGB-LSC KDD CUP 2021 冠军宣布!!**  (2021.06.17)
 
-- 更易用了！支持PaddlePaddle 2.0动态图版
+非常兴奋地宣布，我们PGL团队在 OGB-LSC KDD CUP 2021 的三个赛道中获得了<font color=Red>**两个冠军**</font>和<font color=Red>**一个亚军**</font>。官方排行榜可以参考[这里](https://ogb.stanford.edu/kddcup2021/results/).
+
+
+- **MAG240M-LSC 赛道第一名**: 代码和技术报告可以参考[这里](./examples/kddcup2021/MAG240M/r_unimp).
+
+- **WikiKG90M-LSC 赛道第一名**: 代码和技术报告可以参考[这里](./examples/kddcup2021/WikiKG90M).
+
+- **PCQM4M-LSC 赛道第二名**: 代码和技术报告可以参考[这里](./examples/kddcup2021/PCQM4M).
+
+**两篇使用PGL的论文被接收！！** (2021.06.17)
+
+- Masked Label Prediction: Unified Message Passing Model for Semi-Supervised Classification, to appear in **IJCAI2021**.
+- HGAMN: Heterogeneous Graph Attention Matching Network for Multilingual POI Retrieval at Baidu Maps, to appear in **KDD2021**.
+
+PGL v2.1 2021.02.02
+
+- 更易用了！正式发布PGL 2.1版本，正式支持PaddlePaddle 2.0
+- 之前静态图版本（<2.0）的PGL放在“static_stable”分支
 
 PGL v1.2 2020.11.20
 
@@ -21,7 +38,7 @@ PGL v1.2 2020.11.20
 
 PGL v1.1 2020.4.29
 
-- **ERNIESage**是PGL团队最新提出的模型，可以用于建模文本以及图结构信息。你可以在[这里](./examples/erniesage)看到详细的介绍。
+- **ERNIESage**是PGL团队最新提出的模型，可以用于建模文本以及图结构信息。你可以在[这里](./legacy/examples/erniesage/)看到详细的介绍。
 
 - PGL现在提供[Open Graph Benchmark](https://github.com/snap-stanford/ogb)的一些例子，你可以在[这里](./ogb_examples)找到。
 
@@ -106,7 +123,7 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 
 | 模型 | 特点 |
 |---|---|
-| [**ERNIESage**](./examples/erniesage/) | 能同时建模文本以及图结构的ERNIE SAmple aggreGatE |
+| [**ERNIESage**](./legacy/examples/erniesage/) | 能同时建模文本以及图结构的ERNIE SAmple aggreGatE |
 | [GCN](./examples/gcn/) | 图卷积网络 |
 | [GAT](./examples/gat/) | 基于Attention的图卷积网络 |
 | [GraphSage](./examples/graphsage/) | 基于邻居采样的大规模图卷积网络 |
@@ -128,7 +145,7 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 
 PGL依赖于:
 
-* paddle >= 2.0.0 
+* paddlepaddle >= 2.2.0 
 * cython
 
 

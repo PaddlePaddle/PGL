@@ -1,0 +1,16 @@
+model_name: GCNII
+data_name: citeseer 
+num_layers: 32
+num_parts: 40
+batch_size: 20
+hidden_size: 256
+lr: 0.01
+weight_decay: 0.0005
+dropout: 0.0
+alpha: 0.1
+lamba_l: 0.5
+gcn_norm: True
+grad_norm: True
+gen_train_data_in_advance: True
+feat_gpu: True
+epochs: 1000

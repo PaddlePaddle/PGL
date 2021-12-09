@@ -17,44 +17,50 @@
 
 import os
 import json
-import paddle
 import copy
+import warnings
+from collections import defaultdict
+
 import numpy as np
+import paddle
+import paddle.distributed as dist
 
 from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
-
 from pgl.message import Message
-from collections import defaultdict
-from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes
 from pgl.utils.edge_index import EdgeIndex
-import paddle.distributed as dist
-import warnings
+from pgl.utils.helper import check_is_tensor, scatter, maybe_num_nodes
+from pgl.utils.helper import generate_segment_id_from_index, unique_segment
+
+try:
+    from paddle.incubate import graph_send_recv
+except:
+    from pgl.utils.helper import graph_send_recv
 
 
 class Graph(object):
     """Implementation of graph interface in pgl.
 
-    This is a simple implementation of graph structure in pgl.
+    This is a simple implementation of graph structure in pgl. 
 
-    `pgl.Graph` is alias on `pgl.graph.Graph` 
+    `pgl.Graph` is an alias for `pgl.graph.Graph` 
 
     Args:
 
-        edges: list of (u, v) tuples, 2D numpy.ndarry or 2D paddle.Tensor 
+        edges: list of (u, v) tuples, 2D numpy.ndarray or 2D paddle.Tensor. 
 
         num_nodes (optional: int, numpy or paddle.Tensor): Number of nodes in a graph. 
                            If not provided, the number of nodes will be infered from edges. 
 
-        node_feat (optional): a dict of numpy array as node features
+        node_feat (optional): a dict of numpy array as node features.
 
         edge_feat (optional): a dict of numpy array as edge features (should
-                                have consistent order with edges)
+                                have consistent order with edges).
 
     Examples 1:
 
         - Create a graph with numpy.
-        - Convert it into paddle.Tensor .
+        - Convert it into paddle.Tensor.
         - Do send recv for graph neural network.
 
         .. code-block:: python
@@ -128,14 +134,14 @@ class Graph(object):
             if isinstance(edges, np.ndarray):
                 if edges.dtype != "int64":
                     edges = edges.astype("int64")
-            edges = np.array(edges, dtype="int64")
+            else:
+                edges = np.array(edges, dtype="int64")
 
         self._edges = edges
 
         if num_nodes is None:
             self._num_nodes = maybe_num_nodes(self._edges)
         else:
-            # TODO: check num_nodes is valid
             self._num_nodes = num_nodes
 
         self._adj_src_index = kwargs.get("adj_src_index", None)
@@ -177,7 +183,7 @@ class Graph(object):
                     self._adj_src_index.tensor(inplace=True)
 
             if self._adj_dst_index is not None:
-                if not self._adj_dst_idnex.is_tensor():
+                if not self._adj_dst_index.is_tensor():
                     self._adj_dst_index.tensor(inplace=True)
 
         # preprocess graph level informations
@@ -185,7 +191,7 @@ class Graph(object):
         self._nodes = None
 
     def recv(self, reduce_func, msg, recv_mode="dst"):
-        """Recv message and aggregate the message by reduce_func
+        """Recv message and aggregate the message by reduce_func.
 
         The UDF reduce_func function should has the following format.
 
@@ -195,19 +201,17 @@ class Graph(object):
                 '''
                     Args:
 
-                        msg: A LodTensor or a dictionary of LodTensor whose batch_size
-                             is equals to the number of unique dst nodes.
+                        msg: An instance of Message class.
 
                     Return:
 
-                        It should return a tensor with shape (batch_size, out_dims). The
-                        batch size should be the same as msg.
+                        It should return a tensor with shape (batch_size, out_dims).
                 '''
                 pass
 
         Args:
 
-            msg: A tensor or a dictionary of tensor created by send function..
+            msg: A dictionary of tensor created by send function..
 
             reduce_func: A callable UDF reduce function.
 
@@ -215,7 +219,9 @@ class Graph(object):
 
             A tensor with shape (num_nodes, out_dims). The output for nodes with 
             no message will be zeros.
+
         """
+
         if not self._is_tensor:
             raise ValueError("You must call Graph.tensor()")
 
@@ -231,10 +237,15 @@ class Graph(object):
 
         msg = op.RowReader(msg, eid)
 
+        if (recv_mode == "dst") and (not hasattr(self, "_dst_uniq_ind")):
+            self._dst_uniq_ind, self._dst_segment_ids = unique_segment(dst)
+        if (recv_mode == "src") and (not hasattr(self, "_src_uniq_ind")):
+            self._src_uniq_ind, self._src_segment_ids = unique_segment(src)
+
         if recv_mode == "dst":
-            uniq_ind, segment_ids = paddle.unique(dst, return_inverse=True)
+            uniq_ind, segment_ids = self._dst_uniq_ind, self._dst_segment_ids
         elif recv_mode == "src":
-            uniq_ind, segment_ids = paddle.unique(src, return_inverse=True)
+            uniq_ind, segment_ids = self._src_uniq_ind, self._src_segment_ids
 
         bucketed_msg = Message(msg, segment_ids)
         output = reduce_func(bucketed_msg)
@@ -282,6 +293,7 @@ class Graph(object):
             path: The directory path of the stored Graph.
 
             mmap_mode: Default :code:`mmap_mode="r"`. If not None, memory-map the graph.  
+
         """
 
         num_nodes = np.load(
@@ -289,14 +301,14 @@ class Graph(object):
         edges = np.load(os.path.join(path, 'edges.npy'), mmap_mode=mmap_mode)
         num_graph = np.load(
             os.path.join(path, 'num_graph.npy'), mmap_mode=mmap_mode)
-        if os.path.isdir(os.path.join(path, 'graph_node_index.npy')):
+        if os.path.exists(os.path.join(path, 'graph_node_index.npy')):
             graph_node_index = np.load(
                 os.path.join(path, 'graph_node_index.npy'),
                 mmap_mode=mmap_mode)
         else:
             graph_node_index = None
 
-        if os.path.isdir(os.path.join(path, 'graph_edge_index.npy')):
+        if os.path.exists(os.path.join(path, 'graph_edge_index.npy')):
             graph_edge_index = np.load(
                 os.path.join(path, 'graph_edge_index.npy'),
                 mmap_mode=mmap_mode)
@@ -378,6 +390,7 @@ class Graph(object):
             inplace: (Default True) Whether to convert the graph into tensor inplace. 
         
         """
+
         if self._is_tensor:
             return self
 
@@ -888,8 +901,8 @@ class Graph(object):
 
             >>> [0, 0, 0, 0, 0, 1, 1, 1, 1 ,1]
  
-
         """
+
         return generate_segment_id_from_index(self._graph_node_index)
 
     @property
@@ -913,47 +926,32 @@ class Graph(object):
 
             >>> [0, 0, 0, 1, 1, 1]
  
-
         """
 
         return generate_segment_id_from_index(self._graph_edge_index)
 
     def send_recv(self, feature, reduce_func="sum"):
-        """This method combines the send and recv function.
+        """This method combines the send and recv function using graph_send_recv API.
 
-        Now, this method only supports default copy send function, 
-        and built-in receive function ('sum', 'mean', 'max', 'min').
+        Now, this method only supports default copy send function, and built-in receive 
+        function ('sum', 'mean', 'max', 'min').
 
         Args:
 
-            feature (Tensor | Tensor List): the node feature of a graph.
+           feature (Tensor): The node feature of a graph.
 
-            reduce_func (str): 'sum', 'mean', 'max', 'min' built-in receive function.
+           reduce_func (str): Difference reduce function, including 'sum', 'mean', 'max', 'min'.
+
         """
-        # TODO:@ZHUI add support for 'mean', 'max', 'min' function.
+
+        assert isinstance(feature, paddle.Tensor) or isinstance(feature, paddle.fluid.framework.Variable), \
+            "The input of send_recv method should be Tensor."
+
         assert reduce_func in ['sum', 'mean', 'max', 'min'], \
-                "Only support 'sum', 'mean', 'max', 'min' built-in receive function."
+            "Only support 'sum', 'mean', 'max', 'min' built-in reduce functions."
 
-        assert reduce_func == "sum", "Only implement 'sum' function right now"
-
-        assert isinstance(feature, paddle.Tensor), \
-                "The input of send_recv method should be tensor."
-
-        src, dst, eid = self.sorted_edges(sort_by="dst")
-
-        msg = self.send(
-            lambda sf, df, ef: {"msg": sf["h"]}, src_feat={"h": feature})
-
-        def _sum_recv(feat):
-            feat = paddle.gather(feat, eid)
-            output_dim = feat.shape[-1]
-            init_output = paddle.zeros(
-                shape=[self._num_nodes, output_dim], dtype=feat.dtype)
-            final_output = scatter(init_output, dst, feat, overwrite=False)
-
-            return final_output
-
-        return eval("_%s_recv" % reduce_func)(msg["msg"])
+        src, dst = self.edges[:, 0], self.edges[:, 1]
+        return graph_send_recv(feature, src, dst, pool_type=reduce_func)
 
     def send(
             self,
@@ -1113,8 +1111,10 @@ class Graph(object):
         # TODO:@Yelrose supporting disjoint a disjointed graph_list.
         assert len(
             graph_list
-        ) > 0, "The input graph_list of Graph.disjoint has length $s. It should be greater than 0. " % len(
+        ) > 0, "The input graph_list of Graph.disjoint has length %s. It should be greater than 0. " % len(
             graph_list)
+
+        is_tensor = graph_list[0].is_tensor()
 
         edges = cls._join_edges(graph_list)
         num_nodes = cls._join_nodes(graph_list)
@@ -1126,7 +1126,8 @@ class Graph(object):
             graph_node_index = None
             graph_edge_index = None
         else:
-            num_graph = len(graph_list)
+            num_graph = paddle.to_tensor([len(graph_list)], "int64") \
+                    if is_tensor else len(graph_list)
             graph_node_index = cls._join_graph_index(graph_list, mode="node")
             graph_edge_index = cls._join_graph_index(graph_list, mode="edge")
 
@@ -1153,7 +1154,7 @@ class Graph(object):
             counts = [g.num_edges for g in graph_list]
         else:
             raise ValueError(
-                "mode must be in ['node', 'edge']. But recieved model=%s" %
+                "mode must be in ['node', 'edge']. But received model=%s" %
                 mode)
 
         if is_tensor:
@@ -1182,18 +1183,18 @@ class Graph(object):
                     feat[key].append(graph.edge_feat[key])
         else:
             raise ValueError(
-                "mode must be in ['node', 'edge']. But recieved model=%s" %
+                "mode must be in ['node', 'edge']. But received model=%s" %
                 mode)
 
         ret_feat = {}
         for key in feat:
             if len(feat[key]) == 1:
-                ret_feat[key] = feat[key]
+                ret_feat[key] = feat[key][0]
             else:
                 if is_tensor:
                     ret_feat[key] = paddle.concat(feat[key], 0)
                 else:
-                    ret_feat[key] = np.vstack(feat[key])
+                    ret_feat[key] = np.concatenate(feat[key], axis=0)
         return ret_feat
 
     @staticmethod
@@ -1214,7 +1215,7 @@ class Graph(object):
         if is_tensor:
             edges = paddle.concat(list_edges, 0)
         else:
-            edges = np.vstack(list_edges)
+            edges = np.concatenate(list_edges, axis=0)
         return edges
 
     def node_batch_iter(self, batch_size, shuffle=True):

@@ -1,0 +1,36 @@
+# configuration
+
+data_dir: "./lsc/dataset/"
+samples: "25-15"
+num_workers: 2
+batch_size: 1024 
+
+# Model
+model:
+    name: "rgat"
+    input_size: 768
+    num_class: 153
+    num_layers: 2
+    feat_drop: 0
+    attn_drop: 0
+    num_heads: 4
+    hidden_size: 1024
+    activation: False
+    drop: 0.5
+    edge_type: 5
+
+# trainer
+output_path: "./output/rgat_output"
+epochs: 100
+eval_step: 0
+eval_per_steps: 1
+eval_max_steps: 50000
+max_steps: -1
+
+
+# opt & lr_scheduler hparam
+warmup_proportion: -1
+weight_decay: 0.0
+lr: 0.0005
+clip: -1
+use_lr_decay: True

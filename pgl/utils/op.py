@@ -61,8 +61,10 @@ def get_index_from_counts(counts):
     """
     if check_is_tensor(counts):
         index = paddle.concat(
-            [paddle.zeros(
-                shape=[1, ], dtype="int64"), paddle.cumsum(counts)],
+            [
+                paddle.zeros(
+                    shape=[1, ], dtype=counts.dtype), paddle.cumsum(counts)
+            ],
             axis=-1)
     else:
         index = np.cumsum(counts, dtype="int64")
@@ -116,6 +118,5 @@ def all_reduce_sum_with_grad(tensor, group=0):
             [[ 0.5, 0.5, 0.5], [0.5, 0.5, 0.5]]
                    
     """
-    return core.ops.c_allreduce_sum(tensor,
-                                    paddle.zeros_like(tensor),
-                                    'use_calc_stream', True, 'ring_id', group)
+    return core.ops.c_allreduce_sum(tensor, 'ring_id', group,
+                                    'use_calc_stream', True)

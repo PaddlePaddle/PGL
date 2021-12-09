@@ -1,0 +1,14 @@
+model_name: GCN
+data_name: citeseer 
+num_layers: 2
+num_parts: 24
+batch_size: 8
+hidden_size: 16
+lr: 0.01
+weight_decay: 0.0005
+dropout: 0.0
+gcn_norm: True
+grad_norm: False
+gen_train_data_in_advance: True
+feat_gpu: True
+epochs: 200

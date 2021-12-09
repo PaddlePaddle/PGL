@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-This package implements some benchmark dataset for graph network
-and node representation learning.
+    This package implements some benchmark dataset for graph network
+    and node representation learning.
 """
+
 import os
 import io
 import sys
@@ -30,6 +31,7 @@ __all__ = [
     "ArXivDataset",
     "BlogCatalogDataset",
     "RedditDataset",
+    "OgbnArxivDataset",
 ]
 
 
@@ -58,27 +60,30 @@ def _parse_index_file(filename):
 
 
 class CitationDataset(object):
-    """Citation dataset helps to create data for citation dataset (Pubmed and Citeseer)
+    """Citation dataset helps to create data for citation dataset (Pubmed and Citeseer).
 
     Args:
-        name: The name for the dataset ("pubmed" or "citeseer")
 
-        symmetry_edges: Whether to create symmetry edges.
+        name (str): The name for the dataset ("pubmed" or "citeseer").
 
-        self_loop:  Whether to contain self loop edges.
+        symmetry_edges (bool): Whether to create symmetry edges.
+
+        self_loop (bool):  Whether to contain self loop edges.
 
     Attributes:
-        graph: The :code:`Graph` data object
 
-        y: Labels for each nodes
+        graph (pgl.Graph): The :code:`Graph` data object.
 
-        num_classes: Number of classes.
+        y (numpy.ndarray): Labels for each nodes.
 
-        train_index: The index for nodes in training set.
+        num_classes (int): Number of classes.
 
-        val_index: The index for nodes in validation set.
+        train_index (numpy.ndarray): The index for nodes in training set.
 
-        test_index: The index for nodes in test set.
+        val_index (numpy.ndarray): The index for nodes in validation set.
+
+        test_index (numpy.ndarray): The index for nodes in test set.
+
     """
 
     def __init__(self, name, symmetry_edges=True, self_loop=True):
@@ -157,25 +162,28 @@ class CitationDataset(object):
 
 
 class CoraDataset(object):
-    """Cora dataset implementation
+    """Cora dataset implementation.
 
     Args:
-        symmetry_edges: Whether to create symmetry edges.
 
-        self_loop:  Whether to contain self loop edges.
+        symmetry_edges (bool): Whether to create symmetry edges.
+
+        self_loop (bool):  Whether to contain self loop edges.
 
     Attributes:
-        graph: The :code:`Graph` data object
 
-        y: Labels for each nodes
+        graph (pgl.Graph): The :code:`Graph` data object.
 
-        num_classes: Number of classes.
+        y (numpy.ndarray): Labels for each nodes.
 
-        train_index: The index for nodes in training set.
+        num_classes (int): Number of classes.
 
-        val_index: The index for nodes in validation set.
+        train_index (numpy.ndarray): The index for nodes in training set.
 
-        test_index: The index for nodes in test set.
+        val_index (numpy.ndarray): The index for nodes in validation set.
+
+        test_index (numpy.ndarray): The index for nodes in test set.
+
     """
 
     def __init__(self, symmetry_edges=True, self_loop=True):
@@ -239,21 +247,24 @@ class CoraDataset(object):
 
 
 class BlogCatalogDataset(object):
-    """BlogCatalog dataset implementation
+    """BlogCatalog dataset implementation.
 
     Args:
-        symmetry_edges: Whether to create symmetry edges.
 
-        self_loop:  Whether to contain self loop edges.
+        symmetry_edges (bool): Whether to create symmetry edges.
+
+        self_loop (bool):  Whether to contain self loop edges.
 
     Attributes:
-        graph: The :code:`Graph` data object.
 
-        num_groups: Number of classes.
+        graph (pgl.Graph): The :code:`Graph` data object.
 
-        train_index: The index for nodes in training set.
+        num_groups (int): Number of classes.
 
-        test_index: The index for nodes in validation set.
+        train_index (numpy.ndarray): The index for nodes in training set.
+
+        test_index (numpy.ndarray): The index for nodes in validation set.
+
     """
 
     def __init__(self, symmetry_edges=True, self_loop=False):
@@ -307,13 +318,16 @@ class BlogCatalogDataset(object):
 
 
 class ArXivDataset(object):
-    """ArXiv dataset implementation
+    """ArXiv dataset implementation.
 
     Args:
-        np_random_seed: The random seed for numpy.
+
+        np_random_seed (int): The random seed for numpy.
 
     Attributes:
-        graph: The :code:`Graph` data object.
+
+        graph (pgl.Graph): The :code:`Graph` data object.
+
     """
 
     def __init__(self, np_random_seed=123):
@@ -370,6 +384,36 @@ class ArXivDataset(object):
 
 
 class RedditDataset(object):
+    """Reddit dataset implementation.
+
+    Args:
+
+        normalize (bool): Whether to normalize feature.
+
+        symmetry (bool): Whether to create symmetry edges.
+
+    Attributes:
+
+        graph (pgl.Graph): The :code:`Graph` data object.
+
+        feature (numpy.ndarray): The feature of nodes.
+
+        num_classes (int): Number of classes.
+
+        train_index (numpy.ndarray): The index for nodes in training set.
+
+        val_index (numpy.ndarray): The index for nodes in validation set.
+
+        test_index (numpy.ndarray): The index for nodes in test set.
+
+        train_label (numpy.ndarray): The label for nodes in training set.
+
+        val_label (numpy.ndarray): The label for nodes in validation set.
+
+        test_label (numpy.ndarray): The label for nodes in test set.
+
+    """
+
     def __init__(self, normalize=True, symmetry=True):
         download_help_str = r"""
             data from https://github.com/matenure/FastGCN/issues/8
@@ -427,3 +471,53 @@ class RedditDataset(object):
         self.test_label = test_label
         self.feature = feature
         self.num_classes = 41
+
+
+class OgbnArxivDataset(object):
+    """Ogbn Arxiv Dataset import and implementation.
+
+    Attributes:
+
+        graph (pgl.Graph): The :code:`Graph` data object.
+
+        feature (numpy.ndarray): The feature of all nodes.
+
+        y (numpy.ndarray): Labels for each nodes.
+
+        num_classes (int): Number of classes.
+
+        train_index (numpy.ndarray): The index for nodes in training set.
+
+        val_index (numpy.ndarray): The index for nodes in validation set.
+
+        test_index (numpy.ndarray): The index for nodes in test set.
+
+    """
+
+    def __init__(self):
+        try:
+            from ogb.nodeproppred import NodePropPredDataset
+        except:
+            raise ImportError(
+                "Please run `pip install ogb` to install ogb library.")
+
+        self.dataset = NodePropPredDataset(name="ogbn-arxiv")
+        self._load_data()
+
+    def _load_data(self):
+        split_idx = self.dataset.get_idx_split()
+        train_idx = split_idx["train"]
+        valid_idx = split_idx["valid"]
+        test_idx = split_idx["test"]
+        ogb_graph, label = self.dataset[0]
+
+        edges = ogb_graph["edge_index"].T
+        graph = Graph(num_nodes=ogb_graph["num_nodes"], edges=edges)
+
+        self.graph = graph
+        self.feature = ogb_graph["node_feat"]
+        self.y = label
+        self.num_classes = self.dataset.num_classes
+        self.train_index = train_idx
+        self.val_index = valid_idx
+        self.test_index = test_idx

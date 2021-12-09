@@ -1,5 +1,6 @@
 model_name: GCNII 
 k_hop: 64 
+lambda_l: 0.5
 alpha: 0.1
 num_layer: 1
 learning_rate: 0.01

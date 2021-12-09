@@ -16,6 +16,8 @@
 import logging
 log = logging.getLogger(__name__)
 import multiprocessing
+multiprocessing.set_start_method('fork')
+log.info("We set multiprocessing start method as 'fork' by default.")
 import copy
 try:
     import ujson as json

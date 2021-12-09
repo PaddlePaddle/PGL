@@ -57,6 +57,16 @@ coverage.xml
 
 # Sphinx documentation
 /docs/_build/
+docs/build
 
 # tutorials: jupyter log
 tutorials/.ipynb_checkpoints/
+.ipynb_checkpoints
+**checkpoints
+**logs
+**outputs
+pgl/tests/local*
+jupyter
+.gitignore.bak
+
+.DS_Store

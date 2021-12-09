@@ -1,0 +1,51 @@
+# configuration for multi-metapath2vec
+
+task_name: metapath2vec.0712
+
+# ------------------------Data Configuration--------------------------------------------#
+etype2files: "u2buy2t:./toy_data/u2buy2i.txt,u2click2i:./toy_data/u2click2i.txt"
+ntype2files: "u:./toy_data/node_types.txt,i:./toy_data/node_types.txt"
+symmetry: True
+shard_num: 1000
+# [ntype, name, feat_type, length]
+nfeat_info: null
+slots: []
+
+meta_path: "u2buy2i-i2buy2u;u2click2i-i2click2u;i2buy2u-u2buy2i;i2click2u-u2click2i"
+
+
+walk_len: 24
+win_size: 3
+neg_num: 10
+walk_times: 10
+
+
+# -----------------Model HyperParams Configuration--------------------------------------#
+dataset_type: WalkBasedDataset
+collatefn: CollateFn
+model_type: WalkBasedModel
+warm_start_from: null
+num_nodes: 5500
+embed_size: 64
+hidden_size: 64
+
+# ----------------------Training Configuration------------------------------------------#
+epochs: 10
+num_workers: 1
+lr: 0.001
+lazy_mode: True
+batch_node_size: 20
+batch_pair_size: 100
+pair_stream_shuffle_size: 10000
+log_dir: ../../logs_custom
+output_dir: ../../outputs_custom
+save_dir: ../../ckpt_custom
+files2saved: ["*.yaml", "*.py", "*.sh", "./models", "./datasets", "./utils"]
+log_steps: 100
+
+# -------------Distributed CPU Training Configuration-----------------------------------#
+
+# if you want to save model per epoch, then save_steps will be set by below equation
+# save_steps = num_nodes * walk_len * win_size * walk_times / batch_pair_size / worker_num
+# but the equation is not very precise since the neighbors of each node is not the same.
+save_steps: 100000

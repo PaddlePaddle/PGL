@@ -14,6 +14,7 @@
 """This package implements common layers to help building
 graph neural networks.
 """
+
 import numpy as np
 import paddle
 import paddle.nn as nn
@@ -23,14 +24,19 @@ import pgl
 from pgl.nn import functional as GF
 
 __all__ = [
-    'GCNConv',
+    "GCNConv",
     "GATConv",
-    'APPNP',
-    'GCNII',
-    'TransformerConv',
-    'GINConv',
+    "APPNP",
+    "GCNII",
+    "TransformerConv",
+    "GINConv",
     "GraphSageConv",
     "PinSageConv",
+    "RGCNConv",
+    "SGCConv",
+    "SSGCConv",
+    "NGCFConv",
+    "LightGCNConv",
 ]
 
 
@@ -356,14 +362,17 @@ class APPNP(nn.Layer):
 
         alpha: The hyperparameter of alpha in the paper.
 
+        self_loop: Whether add self loop in APPNP layer.
+
     Return:
         A tensor with shape (num_nodes, hidden_size)
     """
 
-    def __init__(self, alpha=0.2, k_hop=10):
+    def __init__(self, alpha=0.2, k_hop=10, self_loop=False):
         super(APPNP, self).__init__()
         self.alpha = alpha
         self.k_hop = k_hop
+        self.self_loop = self_loop
 
     def forward(self, graph, feature, norm=None):
         """
@@ -381,6 +390,19 @@ class APPNP(nn.Layer):
             A tensor with shape (num_nodes, output_size)
 
         """
+        if self.self_loop:
+            index = paddle.arange(start=0, end=graph.num_nodes, dtype="int64")
+            self_loop_edges = paddle.transpose(
+                paddle.stack((index, index)), [1, 0])
+
+            mask = graph.edges[:, 0] != graph.edges[:, 1]
+            mask_index = paddle.masked_select(
+                paddle.arange(end=graph.num_edges), mask)
+            edges = paddle.gather(graph.edges, mask_index)  # remove self loop
+
+            edges = paddle.concat((self_loop_edges, edges), axis=0)
+            graph = pgl.Graph(num_nodes=graph.num_nodes, edges=edges)
+
         if norm is None:
             norm = GF.degree_norm(graph)
         h0 = feature
@@ -472,6 +494,33 @@ class GCNII(nn.Layer):
 
 
 class TransformerConv(nn.Layer):
+    """Implementation of TransformerConv from UniMP
+
+    This is an implementation of the paper Unified Message Passing Model for Semi-Supervised Classification
+    (https://arxiv.org/abs/2009.03509).
+    Args:
+    
+        input_size: The size of the inputs. 
+ 
+        hidden_size: The hidden size for gat.
+ 
+        activation: (default None) The activation for the output.
+ 
+        num_heads: (default 4) The head number in transformerconv.
+ 
+        feat_drop: (default 0.6) Dropout rate for feature.
+ 
+        attn_drop: (default 0.6) Dropout rate for attention.
+ 
+        concat: (default True) Whether to concat output heads or average them.
+
+        skip_feat: (default True) Whether to add a skip conect from input to output.
+
+        gate: (default False) Whether to use a gate function in skip conect.
+
+        layer_norm: (default True) Whether to aply layer norm in output
+    """
+
     def __init__(self,
                  input_size,
                  hidden_size,
@@ -484,6 +533,7 @@ class TransformerConv(nn.Layer):
                  layer_norm=True,
                  activation='relu'):
         super(TransformerConv, self).__init__()
+
         self.hidden_size = hidden_size
         self.num_heads = num_heads
         self.feat_drop = feat_drop
@@ -580,7 +630,7 @@ class TransformerConv(nn.Layer):
         k = paddle.reshape(k, [-1, self.num_heads, self.hidden_size])
         v = paddle.reshape(v, [-1, self.num_heads, self.hidden_size])
         if edge_feat is not None:
-            if self.feat_dropout > 1e-5:
+            if self.feat_drop > 1e-5:
                 edge_feat = self.feat_dropout(edge_feat)
             edge_feat = paddle.reshape(edge_feat,
                                        [-1, self.num_heads, self.hidden_size])
@@ -679,3 +729,342 @@ class GINConv(nn.Layer):
         output = self.linear2(output)
 
         return output
+
+
+class RGCNConv(nn.Layer):
+    """Implementation of Relational Graph Convolutional Networks (R-GCN)
+
+    This is an implementation of the paper 
+    Modeling Relational Data with Graph Convolutional Networks 
+    (http://arxiv.org/abs/1703.06103).
+
+    Args:
+        
+        in_dim: The input dimension.
+
+        out_dim: The output dimension.
+
+        etypes: A list of edge types of the heterogeneous graph.
+
+        num_bases: int, number of basis decomposition. Details can be found in the paper.
+
+    """
+
+    def __init__(self, in_dim, out_dim, etypes, num_bases=0):
+        super(RGCNConv, self).__init__()
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        self.etypes = etypes
+        self.num_rels = len(self.etypes)
+        self.num_bases = num_bases
+
+        if self.num_bases <= 0 or self.num_bases >= self.num_rels:
+            self.num_bases = self.num_rels
+
+        self.weight = self.create_parameter(
+            shape=[self.num_bases, self.in_dim, self.out_dim])
+
+        if self.num_bases < self.num_rels:
+            self.w_comp = self.create_parameter(
+                shape=[self.num_rels, self.num_bases])
+
+    def forward(self, graph, feat):
+        """
+        Args:
+            graph: `pgl.HeterGraph` instance or a dictionary of `pgl.Graph` with their edge type.
+
+            feat: A tensor with shape (num_nodes, in_dim)
+        """
+
+        if self.num_bases < self.num_rels:
+            weight = paddle.transpose(self.weight, perm=[1, 0, 2])
+            weight = paddle.matmul(self.w_comp, weight)
+            # [num_rels, in_dim, out_dim]
+            weight = paddle.transpose(weight, perm=[1, 0, 2])
+        else:
+            weight = self.weight
+
+        def send_func(src_feat, dst_feat, edge_feat):
+            return src_feat
+
+        def recv_func(msg):
+            return msg.reduce_mean(msg["h"])
+
+        feat_list = []
+        for idx, etype in enumerate(self.etypes):
+            w = weight[idx, :, :].squeeze()
+            h = paddle.matmul(feat, w)
+            msg = graph[etype].send(send_func, src_feat={"h": h})
+            h = graph[etype].recv(recv_func, msg)
+            feat_list.append(h)
+
+        h = paddle.stack(feat_list, axis=0)
+        h = paddle.sum(h, axis=0)
+
+        return h
+
+
+class SGCConv(nn.Layer):
+    """Implementation of simplified graph convolutional neural networks (SGC)
+
+    This is an implementation of the paper Simplifying Graph Convolutional Networks
+    (https://arxiv.org/pdf/1902.07153.pdf).
+
+    Args:
+
+        input_size: The size of the inputs. 
+
+        output_size: The size of outputs
+
+        k_hop: K Steps for Propagation
+
+        activation: The activation for the output.
+
+        cached: If :code:`cached` is True, then the graph convolution will be pre-computed and stored.
+
+    """
+
+    def __init__(self,
+                 input_size,
+                 output_size,
+                 k_hop=2,
+                 cached=True,
+                 activation=None,
+                 bias=False):
+        super(SGCConv, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        self.k_hop = k_hop
+        self.linear = nn.Linear(input_size, output_size, bias_attr=False)
+        if bias:
+            self.bias = self.create_parameter(
+                shape=[output_size], is_bias=True)
+
+        self.cached = cached
+        self.cached_output = None
+        if isinstance(activation, str):
+            activation = getattr(F, activation)
+        self.activation = activation
+
+    def forward(self, graph, feature):
+        """
+         
+        Args:
+ 
+            graph: `pgl.Graph` instance.
+
+            feature: A tensor with shape (num_nodes, input_size)
+     
+        Return:
+
+            A tensor with shape (num_nodes, output_size)
+
+        """
+        if self.cached:
+            if self.cached_output is None:
+                norm = GF.degree_norm(graph)
+                for hop in range(self.k_hop):
+                    feature = feature * norm
+                    feature = graph.send_recv(feature, "sum")
+                    feature = feature * norm
+                self.cached_output = feature
+            else:
+                feature = self.cached_output
+        else:
+            norm = GF.degree_norm(graph)
+            for hop in range(self.k_hop):
+                feature = feature * norm
+                feature = graph.send_recv(feature, "sum")
+                feature = feature * norm
+
+        output = self.linear(feature)
+        if hasattr(self, "bias"):
+            output = output + self.bias
+
+        if self.activation is not None:
+            output = self.activation(output)
+        return output
+
+
+class SSGCConv(nn.Layer):
+    """Implementation of Simple Spectral Graph Convolution (SSGC)
+
+    This is an implementation of the paper Simple Spectral Graph Convolution 
+    (https://openreview.net/forum?id=CYO5T-YjWZV).
+
+    Args:
+
+        input_size: The size of the inputs. 
+
+        output_size: The size of outputs
+
+        k_hop: K Steps for Propagation
+
+        alpha: The hyper parameter in paper. 
+
+        activation: The activation for the output.
+
+        cached: If :code:`cached` is True, then the graph convolution will be pre-computed and stored.
+
+    """
+
+    def __init__(self,
+                 input_size,
+                 output_size,
+                 k_hop=16,
+                 alpha=0.05,
+                 cached=True,
+                 activation=None,
+                 bias=False):
+        super(SSGCConv, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        self.k_hop = k_hop
+        self.alpha = alpha
+        self.linear = nn.Linear(input_size, output_size, bias_attr=False)
+        if bias:
+            self.bias = self.create_parameter(
+                shape=[output_size], is_bias=True)
+
+        self.cached = cached
+        self.cached_output = None
+        if isinstance(activation, str):
+            activation = getattr(F, activation)
+        self.activation = activation
+
+    def forward(self, graph, feature):
+        """
+         
+        Args:
+ 
+            graph: `pgl.Graph` instance.
+
+            feature: A tensor with shape (num_nodes, input_size)
+     
+        Return:
+
+            A tensor with shape (num_nodes, output_size)
+
+        """
+        if self.cached:
+            if self.cached_output is None:
+                norm = GF.degree_norm(graph)
+                ori_feature = feature
+                sum_feature = feature
+                for hop in range(self.k_hop):
+                    feature = feature * norm
+                    feature = graph.send_recv(feature, "sum")
+                    feature = feature * norm
+                    feature = (1 - self.alpha) * feature
+                    sum_feature += feature
+                feature = sum_feature / self.k_hop + self.alpha * ori_feature
+                self.cached_output = feature
+            else:
+                feature = self.cached_output
+        else:
+
+            norm = GF.degree_norm(graph)
+            ori_feature = feature
+            sum_feature = feature
+            for hop in range(self.k_hop):
+                feature = feature * norm
+                feature = graph.send_recv(feature, "sum")
+                feature = feature * norm
+                feature = (1 - self.alpha) * feature
+                sum_feature += feature
+            feature = sum_feature / self.k_hop + self.alpha * ori_feature
+
+        output = self.linear(feature)
+        if hasattr(self, "bias"):
+            output = output + self.bias
+
+        if self.activation is not None:
+            output = self.activation(output)
+        return output
+
+
+class NGCFConv(nn.Layer):
+    """
+    Implementation of Neural Graph Collaborative Filtering (NGCF)
+
+    This is an implementation of the paper Neural Graph Collaborative Filtering  
+    (https://arxiv.org/pdf/1905.08108.pdf).
+
+    Args:
+
+        input_size: The size of the inputs. 
+
+        output_size: The size of outputs
+
+    """
+
+    def __init__(self, input_size, output_size):
+        super(NGCFConv, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        weight_attr = paddle.ParamAttr(
+            initializer=nn.initializer.XavierUniform())
+        bias_attr = paddle.ParamAttr(initializer=nn.initializer.XavierUniform(
+            fan_in=1, fan_out=output_size))
+        self.linear = nn.Linear(input_size, output_size, weight_attr,
+                                bias_attr)
+        self.linear2 = nn.Linear(input_size, output_size, weight_attr,
+                                 bias_attr)
+        self.leaky_relu = nn.LeakyReLU(negative_slope=0.2)
+
+    def forward(self, graph, feature):
+        """
+         
+        Args:
+ 
+            graph: `pgl.Graph` instance.
+
+            feature: A tensor with shape (num_nodes, input_size)
+     
+        Return:
+
+            A tensor with shape (num_nodes, output_size)
+
+        """
+        norm = GF.degree_norm(graph)
+        neigh_feature = graph.send_recv(feature, "sum")
+        output = neigh_feature + feature
+        output = output * norm
+        output = self.linear(output) + self.linear2(feature * output)
+        output = self.leaky_relu(output)
+        return output
+
+
+class LightGCNConv(nn.Layer):
+    """
+    
+    Implementation of LightGCN
+    
+    This is an implementation of the paper LightGCN: Simplifying 
+    and Powering Graph Convolution Network for Recommendation 
+    (https://dl.acm.org/doi/10.1145/3397271.3401063).
+
+    """
+
+    def __init__(self):
+        super(LightGCNConv, self).__init__()
+
+    def forward(self, graph, feature):
+        """
+        Args:
+ 
+            graph: `pgl.Graph` instance.
+
+            feature: A tensor with shape (num_nodes, input_size)
+
+        Return:
+
+            A tensor with shape (num_nodes, output_size)
+
+        """
+
+        norm = GF.degree_norm(graph)
+        feature = feature * norm
+        feature = graph.send_recv(feature, "sum")
+        feature = feature * norm
+        return feature

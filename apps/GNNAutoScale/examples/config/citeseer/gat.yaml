@@ -1,0 +1,15 @@
+model_name: GAT
+data_name: citeseer
+num_layers: 2
+num_parts: 24
+batch_size: 8
+hidden_size: 8
+num_heads: 8
+lr: 0.005
+weight_decay: 0.0005
+dropout: 0.0
+gcn_norm: False
+grad_norm: False
+gen_train_data_in_advance: True
+feat_gpu: True
+epochs: 400

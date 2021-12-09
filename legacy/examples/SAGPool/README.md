@@ -4,7 +4,7 @@ SAGPool is a graph pooling method based on self-attention. Self-attention uses g
 
 ## Datasets
 
-There are five datasets, including D&D, PROTEINS, NCI1, NCI109 and FRANKENSTEIN. You can download the datasets from [here](https://bj.bcebos.com/paddle-pgl/SAGPool/data.zip), and unzip it directly. The pkl format datasets should be in directory ./data.
+There are five datasets, including D&D, PROTEINS, NCI1, NCI109 and FRANKENSTEIN. You can download the datasets from [here](https://baidu-pgl.gz.bcebos.com/pgl-data/SAGPool_data.zip), and unzip it directly. The pkl format datasets should be in directory ./data.
 
 ## Dependencies
 

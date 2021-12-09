@@ -1,7 +1,7 @@
-pgl.graph: Graph Storage
+pgl.heter_graph
 ===============================
 
-.. automodule:: pgl.graph
+.. automodule:: pgl.heter_graph
    :members:
    :undoc-members:
    :show-inheritance:

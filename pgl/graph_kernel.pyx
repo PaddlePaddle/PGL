@@ -23,6 +23,38 @@ from libcpp.unordered_set cimport unordered_set
 from libcpp.unordered_map cimport unordered_map
 from libcpp.vector cimport vector
 from libc.stdlib cimport rand, RAND_MAX
+from libcpp cimport bool
+
+cdef extern from "stdint.h":
+    ctypedef signed int int64_t
+
+cdef extern from *:
+    """
+    #if defined(_WIN32) || defined(MS_WINDOWS) || defined(_MSC_VER)
+        #include "third_party/metis/include/win.h"
+        #define win32 1
+        #define METIS_Recursive_(a,b,c,d,e,f,g,h,i,j,k,l,m) METIS_Recursive_win32(a,b,c,d,e,f,g,h,i,j,k,l,m)
+        #define METIS_Kway_(a,b,c,d,e,f,g,h,i,j,k,l,m) METIS_Kway_win32(a,b,c,d,e,f,g,h,i,j,k,l,m)
+        #define METIS_DefaultOptions_(m) METIS_DefaultOptions_win32(m)
+    #else
+        #include "third_party/metis/include/metis.h"
+        #define win32 0
+        #define METIS_Recursive_(a,b,c,d,e,f,g,h,i,j,k,l,m) METIS_PartGraphRecursive(a,b,c,d,e,f,g,h,i,j,k,l,m)
+        #define METIS_Kway_(a,b,c,d,e,f,g,h,i,j,k,l,m) METIS_PartGraphKway(a,b,c,d,e,f,g,h,i,j,k,l,m)
+        #define METIS_DefaultOptions_(m) METIS_SetDefaultOptions(m)
+    #endif
+    """
+    bool win "win32"
+    int METIS_Recursive "METIS_Recursive_"(int64_t *nvtxs, int64_t *ncon, int64_t *xadj,
+                  int64_t *adjncy, int64_t *vwgt, int64_t *vsize, int64_t *adjwgt,
+                  int64_t *nparts, float *tpwgts, float *ubvec, int64_t *options,
+                  int64_t *edgecut, int64_t *part) nogil
+    int METIS_Kway "METIS_Kway_"(int64_t *nvtxs, int64_t *ncon, int64_t *xadj,
+                  int64_t *adjncy, int64_t *vwgt, int64_t *vsize, int64_t *adjwgt,
+                  int64_t *nparts, float *tpwgts, float *ubvec, int64_t *options,
+                  int64_t *edgecut, int64_t *part) nogil 
+    int METIS_DefaultOptions "METIS_DefaultOptions_"(int64_t *options)
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -145,6 +177,55 @@ def node2vec_sample(np.ndarray[np.int64_t, ndim=1] succ,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+def node2vec_plus_sample(np.ndarray[np.int64_t, ndim=1] succ,
+        np.ndarray[np.int64_t, ndim=1] prev_succ, long long prev_node,
+        float p, float q):
+    """Fast implement of node2vec sampling
+    """
+    cdef long long i
+    cdef succ_len = len(succ)
+    cdef prev_succ_len = len(prev_succ)
+
+    cdef vector[float] probs
+    cdef float prob_sum = 0
+
+    cdef unordered_set[long long] prev_succ_set
+    for i in xrange(prev_succ_len):
+        prev_succ_set.insert(prev_succ[i])
+
+    cdef float prob
+    for i in xrange(succ_len):
+        if succ[i] == prev_node:
+            prob = 1. / p
+        elif prev_succ_set.find(succ[i]) != prev_succ_set.end():
+            prob = 1.
+        else:
+            prob = 1. / q
+        probs.push_back(prob)
+        prob_sum += prob
+
+    for i in xrange(succ_len):
+        prev_succ_set.insert(succ[i])
+
+    cdef int new_prev_succ_size = prev_succ_set.size()
+    cdef np.ndarray[np.int64_t, ndim=1] new_prev_succ = np.zeros([new_prev_succ_size], dtype=np.int64)
+    cdef int idx = 0
+    for node in prev_succ_set:
+        new_prev_succ[idx] = node
+        idx += 1
+
+    cdef float rand_num = float(rand())/RAND_MAX * prob_sum
+
+    cdef long long sample_succ = 0
+    for i in xrange(succ_len):
+        rand_num -= probs[i]
+        if rand_num <= 0:
+            sample_succ = succ[i]
+            return sample_succ, new_prev_succ
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def subset_choose_index(long long s_size,
                             np.ndarray[ndim=1, dtype=np.int64_t] nid,
                             np.ndarray[ndim=1, dtype=np.int64_t] rnd,
@@ -156,13 +237,9 @@ def subset_choose_index(long long s_size,
     cdef unordered_map[long long, long long] m
     with nogil:
         for i in xrange(s_size):
-            j = rnd[offset + i] % n_size
-            if j >= i:
-                buff_nid[offset + i] = nid[j] if m.find(j) == m.end() else nid[m[j]]
-                m[j] = i if m.find(i) == m.end() else m[i]
-            else:
-                buff_nid[offset + i] = buff_nid[offset + j]
-                buff_nid[offset + j] = nid[i] if m.find(i) == m.end() else nid[m[i]]
+            j = rnd[offset + i] % (n_size - i)
+            buff_nid[offset + i] = nid[j] if m.find(j) == m.end() else nid[m[j]]
+            m[j] = n_size - i - 1 if m.find(n_size - i - 1) == m.end() else m[n_size - i -1]
 
 
 @cython.boundscheck(False)
@@ -180,19 +257,11 @@ def subset_choose_index_eid(long long s_size,
     cdef unordered_map[long long, long long] m
     with nogil:
         for i in xrange(s_size):
-            j = rnd[offset + i] % n_size
-            if j >= i:
-                if m.find(j) == m.end():
-                    buff_nid[offset + i], buff_eid[offset + i] = nid[j], eid[j]
-                else:
-                    buff_nid[offset + i], buff_eid[offset + i] = nid[m[j]], eid[m[j]]
-                m[j] = i if m.find(i) == m.end() else m[i]
-            else:
-                buff_nid[offset + i], buff_eid[offset + i] = buff_nid[offset + j], buff_eid[offset + j]
-                if m.find(i) == m.end():
-                    buff_nid[offset + j], buff_eid[offset + j] = nid[i], eid[i]
-                else:
-                    buff_nid[offset + j], buff_eid[offset + j] = nid[m[i]], eid[m[i]]
+            j = rnd[offset + i] % (n_size - i)
+            buff_nid[offset + i] = nid[j] if m.find(j) == m.end() else nid[m[j]]
+            buff_eid[offset + i] = eid[j] if m.find(j) == m.end() else eid[m[j]]
+            m[j] = n_size - i - 1 if m.find(n_size - i - 1) == m.end() else m[n_size - i -1]
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -361,3 +430,45 @@ def extract_edges_from_nodes(
                 j = j + 1
             i = i + 1
     return ret_edge_index
+   
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def metis_partition(
+    int64_t num_nodes,
+    np.ndarray[np.int64_t, ndim=1] adj_indptr,
+    np.ndarray[np.int64_t, ndim=1] sorted_v,
+    int64_t nparts,
+    np.ndarray[np.int64_t, ndim=1] node_weights=None,
+    np.ndarray[np.int64_t, ndim=1] edge_weights=None,
+    bool recursive=True,
+):
+    cdef int64_t edgecut = -1
+    cdef int64_t ncon = 1
+
+    cdef np.ndarray part = np.zeros((num_nodes, ), dtype="int64")
+
+    cdef int64_t * node_weight_ptr = NULL
+
+    if node_weights is not None:
+        node_weight_ptr = <int64_t *> node_weights.data
+
+    cdef int64_t * edge_weight_ptr = NULL
+    if edge_weights is not None:
+        edge_weight_ptr = <int64_t *> edge_weights.data
+
+
+    if win == 0:
+        with nogil:
+            if recursive:
+                METIS_Recursive(nvtxs=&num_nodes, ncon=&ncon, xadj=<int64_t *> adj_indptr.data,
+                             adjncy=<int64_t *> sorted_v.data, vwgt=node_weight_ptr, vsize=NULL, adjwgt=edge_weight_ptr,
+                             nparts=&nparts, tpwgts=NULL, ubvec=NULL, options=NULL,
+                             edgecut=&edgecut, part=<int64_t *> part.data)
+            else:
+                METIS_Kway(nvtxs=&num_nodes, ncon=&ncon, xadj=<int64_t *> adj_indptr.data,
+                             adjncy=<int64_t *> sorted_v.data, vwgt=node_weight_ptr, vsize=NULL, adjwgt=edge_weight_ptr,
+                             nparts=&nparts, tpwgts=NULL, ubvec=NULL, options=NULL,
+                             edgecut=&edgecut, part=<int64_t *> part.data)
+    return part
+    
+
