@@ -124,7 +124,7 @@ class KGEArgParser(ArgumentParser):
             '--optimizer',
             type=str,
             default='adagrad',
-            choices=['adam', 'adagrad'],
+            choices=['adam', 'adagrad', 'sgd'],
             help='Optimizer of model parameters.')
 
         self.basic_group.add_argument(

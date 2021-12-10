@@ -22,7 +22,7 @@ Besides, it provides [the 1st place solution](https://ogb.stanford.edu/kddcup202
 
 ## Requirements
 
- - paddlepaddle-gpu==2.2.0
+ - paddlepaddle-gpu>=2.2.1
  - pgl
  - ogb==1.3.1 (optional for wikikg2 and WikiKG90M)
 
@@ -92,8 +92,8 @@ sh examples/wikikg90m.sh
 | TransE | 0.655 | 0.316 | 0.571 | 0.189 |
 | DistMult | 0.746 | 0.322 | 0.823 | 0.441 | 
 | ComplEx | 0.808 | 0.324 | 0.922 | 0.464 | 
-| RotatE | 0.736 | 0.225 | 0.856 | 0.469 | 
-| OTE | 0.617 | 0.299 | 0.812 | 0.311 | 
+| RotatE | 0.736 | 0.225 | 0.947 | 0.469 | 
+| OTE | 0.617 | 0.299 | 0.812 | 0.466 | 
 
 ### MRR of Mix CPU and GPU version
 
@@ -102,7 +102,7 @@ sh examples/wikikg90m.sh
 | TransE | 0.648 | 0.315 | 0.568| 0.187 |
 | DistMult | 0.744 | 0.305 | 0.822 | 0.441 | 
 | ComplEx | 0.789 | 0.312 | 0.925 | 0.464 | 
-| RotatE | 0.589 | 0.286 | 0.937 |  0.463 |
+| RotatE | 0.589 | 0.286 | 0.943 |  0.463 |
 | OTE | 0.512 | 0.297 | 0.656 | 0.302 | 
 
 ### MRR of WikiKG90M

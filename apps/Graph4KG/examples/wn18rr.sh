@@ -24,8 +24,8 @@ python -u train.py --model_name RotatE --data_name WN18RR --data_path $DATA_PATH
 
 # OTE
 python -u train.py --model_name OTE --data_name WN18RR --data_path $DATA_PATH --save_path output/ote_wnrr_sgpu \
---batch_size 512 --neg_sample_size 256 --neg_sample_type 'chunk' --embed_dim 400 --gamma 5.0 --lr 0.001 -adv -a 1.8 \
---num_workers 8 --max_steps 10000 --test --print_on_screen --ote_size 4 --ote_scale 2 --optimizer adam
+--batch_size 512 --neg_sample_size 256 --neg_sample_type 'chunk' --embed_dim 400 --gamma 5.0 --lr 0.0001 -adv -a 1.8 \
+--num_workers 8 --max_steps 50000 --test --print_on_screen --ote_size 4 --ote_scale 2 --optimizer adam --filter_eval
 
 ## CPU GPU
 

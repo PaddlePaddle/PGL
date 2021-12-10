@@ -32,7 +32,7 @@ def uniform(low, high, size, dtype=np.float32):
 
 class SharedEmbedding(object):
     """
-    SharedEmbedding in mmap mode。
+    SharedEmbedding in mmap mode.
 
     Args:
         num_embeddings (int):

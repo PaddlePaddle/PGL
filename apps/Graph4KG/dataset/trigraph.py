@@ -74,8 +74,8 @@ class TriGraph(object):
         repr_dict['ent_feat'] = []
         repr_dict['rel_feat'] = []
         repr_dict['num_train'] = self._train.shape[0]
-        repr_dict['num_valid'] = self._valid['r'].shape[0]
-        repr_dict['num_test'] = self._test['r'].shape[0]
+        repr_dict['num_valid'] = self._valid['r'].shape[0] if self._valid is not None else 0
+        repr_dict['num_test'] = self._test['r'].shape[0] if self._test is not None else 0
         repr_dict['ent_feat'] = self._ent_feat.shape(
         ) if self._ent_feat is not None else -1
         repr_dict['rel_feat'] = self._rel_feat.shape(

@@ -20,6 +20,8 @@ from collections import defaultdict
 
 import paddle
 import numpy as np
+import paddle.nn as nn
+import paddle.distributed as dist
 from paddle.optimizer.lr import StepDecay
 
 from dataset.reader import read_trigraph
@@ -31,10 +33,53 @@ from utils import evaluate
 from config import prepare_config
 
 
+class KEModelDP(nn.Layer):
+    """
+    KEModel for DataParallel mode.
+    """
+    def __init__(self, model, args):
+        super(KEModelDP, self).__init__()
+        self.model = model
+        self.args = args
+        self.loss_func = LossFunction(
+            name=args.loss_type,
+            pairwise=args.pairwise,
+            margin=args.margin,
+            neg_adv_spl=args.neg_adversarial_sampling,
+            neg_adv_temp=args.adversarial_temperature)
+
+    def forward(self, h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, weights):
+        h_emb, r_emb, t_emb, neg_emb, mask = self.model.prepare_inputs(
+            h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, self.args)
+        pos_score = self.model.forward(h_emb, r_emb, t_emb)
+
+        if mode == 'head':
+            neg_score = self.model.get_neg_score(t_emb, r_emb, neg_emb, True,
+                                            mask)
+        elif mode == 'tail':
+            neg_score = self.model.get_neg_score(h_emb, r_emb, neg_emb, False,
+                                            mask)
+        else:
+            raise ValueError('Unsupported negative mode {}.'.format(mode))
+        neg_score = neg_score.reshape([self.args.batch_size, -1])
+
+        loss = self.loss_func(pos_score, neg_score, weights)
+        if self.args.use_embedding_regularization:
+            reg_loss = self.model.get_regularization(h_emb, r_emb, t_emb,
+                                                neg_emb)
+
+            loss = loss + reg_loss
+        return loss
+
+
 def main():
     """Main function for shallow knowledge embedding methods.
     """
     args = prepare_config()
+
+    if dist.get_world_size() > 1:
+        dist.init_parallel_env()
+
     set_seed(args.seed)
     set_logger(args)
 
@@ -56,11 +101,18 @@ def main():
     if args.async_update:
         model.start_async_update()
 
-    if len(model.parameters()) > 0:
+    if dist.get_world_size() > 1 and len(model.parameters()) > 0:
+        dpmodel = paddle.DataParallel(KEModelDP(model, args))
+    else:
+        dpmodel = KEModelDP(model, args)
+
+    if len(dpmodel.parameters()) > 0:
         if args.optimizer == 'adam':
             optim_func = paddle.optimizer.Adam
         elif args.optimizer == 'adagrad':
             optim_func = paddle.optimizer.Adagrad
+        elif args.optimizer == 'sgd':
+            optim_func = paddle.optimizer.SGD
         else:
             errors = 'Optimizer {} not supported!'.format(args.optimizer)
             raise ValueError(errors)
@@ -74,23 +126,21 @@ def main():
             optimizer = optim_func(
                 learning_rate=scheduler,
                 epsilon=1e-10,
-                parameters=model.parameters())
+                parameters=dpmodel.parameters())
         else:
-            optimizer = optim_func(
-                learning_rate=args.lr,
-                epsilon=1e-10,
-                parameters=model.parameters())
+            if args.optimizer in {'sgd'}:
+                optimizer = optim_func(
+                    learning_rate=args.lr,
+                    parameters=dpmodel.parameters())
+            else:
+                optimizer = optim_func(
+                    learning_rate=args.lr,
+                    epsilon=1e-10,
+                    parameters=dpmodel.parameters())
     else:
         warnings.warn('There is no model parameter on gpu, optimizer is None.',
                       RuntimeWarning)
         optimizer = None
-
-    loss_func = LossFunction(
-        name=args.loss_type,
-        pairwise=args.pairwise,
-        margin=args.margin,
-        neg_adv_spl=args.neg_adversarial_sampling,
-        neg_adv_temp=args.adversarial_temperature)
 
     train_loader, valid_loader, test_loader = create_dataloaders(
         trigraph,
@@ -112,34 +162,13 @@ def main():
                 rel_emb.stop_gradient = False
             if all_ents_emb is not None:
                 all_ents_emb.stop_gradient = False
-
             timer['sample'] += (time.time() - ts)
 
             ts = time.time()
-            h_emb, r_emb, t_emb, neg_emb, mask = model.prepare_inputs(
-                h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, args)
-            pos_score = model.forward(h_emb, r_emb, t_emb)
-
-            if mode == 'head':
-                neg_score = model.get_neg_score(t_emb, r_emb, neg_emb, True,
-                                                mask)
-            elif mode == 'tail':
-                neg_score = model.get_neg_score(h_emb, r_emb, neg_emb, False,
-                                                mask)
-            else:
-                raise ValueError('Unsupported negative mode {}.'.format(mode))
-            neg_score = neg_score.reshape([args.batch_size, -1])
-
-            loss = loss_func(pos_score, neg_score, weights)
-            log['loss'] += loss.numpy()[0]
-
-            if args.use_embedding_regularization:
-                reg_loss = model.get_regularization(h_emb, r_emb, t_emb,
-                                                    neg_emb)
-                log['reg'] += reg_loss.numpy()[0]
-
-                loss = loss + reg_loss
+            loss = dpmodel(h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, weights)
             timer['forward'] += (time.time() - ts)
+
+            log['loss'] += loss.numpy()[0]
 
             ts = time.time()
             loss.backward()
@@ -152,7 +181,7 @@ def main():
 
             if args.mix_cpu_gpu:
                 ent_trace, rel_trace = model.create_trace(
-                    all_ents, all_ents_emb, r, r_emb)
+                    all_ents, all_ents_emb, r, rel_emb)
                 model.step(ent_trace, rel_trace)
             else:
                 model.step()
@@ -166,7 +195,7 @@ def main():
                 log = defaultdict(int)
                 t_step = time.time()
 
-            if args.valid and (step + 1) % args.eval_interval == 0:
+            if args.valid and dist.get_rank() == 0 and (step + 1) % args.eval_interval == 0:
                 evaluate(
                     model,
                     valid_loader,
@@ -178,8 +207,9 @@ def main():
                 scheduler.step()
 
             step += 1
-            if args.save_interval > 0 and step % args.save_interval == 0:
-                model.save(args.step_path)
+            if dist.get_rank() == 0:
+                if args.save_interval > 0 and step % args.save_interval == 0:
+                    model.save(args.step_path)
             if step >= args.max_steps:
                 stop = True
                 break
@@ -191,7 +221,7 @@ def main():
     if args.async_update:
         model.finish_async_update()
 
-    if args.test:
+    if args.test and dist.get_rank() == 0:
         evaluate(
             model,
             test_loader,

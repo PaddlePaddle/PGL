@@ -25,14 +25,16 @@ from collections import defaultdict
 from _thread import start_new_thread
 from multiprocessing import Queue, Process
 
-import paddle
 import numpy as np
 from tqdm import tqdm
+import paddle
+import paddle.distributed as dist
 
 
 def set_seed(seed):
     """Set seed for reproduction.
     """
+    seed = seed + dist.get_rank()
     random.seed(seed)
     np.random.seed(seed)
     paddle.seed(seed)
@@ -65,8 +67,8 @@ def print_log(step, interval, log, timer, time_sum):
     """Print log to logger.
     """
     logging.info(
-        'step: %d, loss: %.5f, reg: %.4e, speed: %.2f steps/s, time: %.2f s' %
-        (step, log['loss'] / interval, log['reg'] / interval,
+        '[GPU %d] step: %d, loss: %.5f, reg: %.4e, speed: %.2f steps/s, time: %.2f s' %
+        (dist.get_rank(), step, log['loss'] / interval, log['reg'] / interval,
          interval / time_sum, time_sum))
     logging.info('sample: %f, forward: %f, backward: %f, update: %f' % (
         timer['sample'], timer['forward'], timer['backward'], timer['update']))
