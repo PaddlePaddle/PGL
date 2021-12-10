@@ -5,7 +5,11 @@
 
 ## Introduction
 
-**Graph4Rec** is a universal and large-scale toolkit with graph neural networks for recommender systems. It contains a large-scale graph engine to store graph data and a parameter server to support distributed GNN training. We also unify the paradigm to train GNN models into the following parts: graphs input, random walk generation, ego graphs genera- tion, pairs generation and GNNs selection. From this training pipeline, one can easily establish his own GNN model with a few configurations. 
+**Graph4Rec** is a universal and large-scale toolkit with graph neural networks for recommender systems. 
+It contains a large-scale graph engine to store graph data and a parameter server to support distributed GNN training. 
+We also unify the paradigm to train GNN models into the following parts: 
+graph inputs, random walk generation, ego graphs generation, pairs generation and GNNs selection. 
+From this training pipeline, one can easily establish his own GNN model with a few configurations. 
 
 <h2 align="center">
 <img src="./img/architecture.png" alt=“graph4rec” width="800">
@@ -47,7 +51,7 @@ for example:
 12346 \t 23345
 ```
 
-If there is an edge weight, one can directly add the weight behind each edge, the format is as follows:
+If there are edge weights, one can directly add the weight behind each edge, the format is as follows:
 
 ```
 src_node_id \t dst_node_id \t edge_weight
