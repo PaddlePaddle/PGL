@@ -25,6 +25,7 @@ from pgl import message
 from pgl import dataset
 from pgl import utils
 from pgl import sampling
+from pgl import distributed
 
 from pgl.graph import *
 from pgl.bigraph import *
