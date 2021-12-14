@@ -13,6 +13,7 @@ __all__ = [
     "GINConv",
     "GATConv",
     "LightGCNConv",
+    "GATNEInteract",
 ]
 
 
@@ -227,3 +228,29 @@ class LightGCNConv(nn.Layer):
         """
         feature = graph.send_recv(feature, "sum")
         return feature
+
+
+class GATNEInteract(nn.Layer):
+    def __init__(self, hidden_size):
+        super(GATNEInteract, self).__init__()
+        self.hidden_size = hidden_size
+
+        self.fc1 = nn.Linear(hidden_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, 1)
+
+    def forward(self, feature_list):
+        # stack [num_nodes, num_etype, hidden_size]
+        U = paddle.stack(feature_list, axis=1)
+        # [num_nodes * num_etype, hidden_size]
+        tmp = paddle.reshape(U, shape=[-1, self.hidden_size])
+        tmp = self.fc1(tmp)
+        tmp = paddle.tanh(tmp)
+        tmp = self.fc2(tmp)
+        #  [num_nodes, num_etype]
+        tmp = paddle.reshape(tmp, shape=[-1, len(feature_list)])
+        # [num_nodes, 1, num_etype]
+        a = paddle.unsqueeze(
+            paddle.nn.functional.softmax(
+                tmp, axis=-1), axis=1)
+        out = paddle.squeeze(paddle.matmul(a, U), axis=1)
+        return out
