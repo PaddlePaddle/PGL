@@ -132,8 +132,12 @@ class DistGraphServer(object):
 
 
 class DistGraphClient(object):
-    def __init__(self, config, shard_num, ip_config, client_id,
-                 use_cache=True):
+    def __init__(self,
+                 config,
+                 shard_num,
+                 ip_config,
+                 client_id,
+                 use_cache=False):
         """
         Args:
             config: a yaml configure file or a dict of parameters
@@ -197,8 +201,9 @@ class DistGraphClient(object):
                             self.edge_type_list, self.client_id)
         self._client.start_client()
 
-        for etype in self.edge_type_list:
-            self._client.use_neighbors_sample_cache(etype, 100000, 6)
+        if use_cache:
+            for etype in self.edge_type_list:
+                self._client.use_neighbors_sample_cache(etype, 100000, 6)
 
     def load_edges(self):
         for etype, file_or_dir in self.etype2files.items():
