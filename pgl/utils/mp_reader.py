@@ -16,7 +16,7 @@
 import logging
 log = logging.getLogger(__name__)
 import multiprocessing
-multiprocessing.set_start_method('fork')
+multiprocessing.set_start_method('fork', force=True)
 log.info("We set multiprocessing start method as 'fork' by default.")
 import copy
 try:
