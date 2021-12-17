@@ -123,7 +123,7 @@ def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
                 p.start()
             except:
                 raise RuntimeError(
-                    f"The program met some problems. If you system is Mac OS and python >= 3.8, "
+                    f"The program met some problems. If your system is Mac OS and python >= 3.8, "
                     f"please checkout https://github.com/PaddlePaddle/PGL/issues/305 to fix the problem."
                 )
 
@@ -158,7 +158,7 @@ def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
                 p.start()
             except:
                 raise RuntimeError(
-                    f"The program met some problems. If you system is Mac OS and python >= 3.8, "
+                    f"The program met some problems. If your system is Mac OS and python >= 3.8, "
                     f"please checkout https://github.com/PaddlePaddle/PGL/issues/305 to fix the problem."
                 )
 
