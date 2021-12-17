@@ -31,4 +31,4 @@ from pgl.graph import *
 from pgl.bigraph import *
 from pgl.heter_graph import *
 
-__version__ = "2.2.1"
+__version__ = "2.2.2"
