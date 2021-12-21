@@ -1,6 +1,13 @@
 DATA_PATH=./data
 
 ## Single GPU
+# TransE
+python -u train.py --model_name TransE --data_name FB15k --data_path $DATA_PATH --save_path output/transe_fb_mgpu \
+--batch_size 1000 --test_batch_size 16 --log_interval 100 --eval_interval 24000 --reg_coef 1e-9 --reg_norm 3 \
+--neg_sample_size 200 --neg_sample_type 'chunk' --embed_dim 400 --gamma 19.9 -adv --lr 0.25 --optimizer adagrad --cpu_lr 0.25 \
+--num_workers 8 --num_epoch 50 --valid --test --print_on_screen --async_update --mix_cpu_gpu --filter_eval
+
+exit
 
 # TransE
 python -u train.py --model_name TransE --data_name FB15k --data_path $DATA_PATH --save_path output/transe_fb_sgpu \
