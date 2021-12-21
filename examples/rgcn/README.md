@@ -21,7 +21,7 @@ Here, we use MUTAG dataset to reproduce this model. The dataset can be downloade
 ### Dependencies
 
 - paddlepaddle>=1.6
-- pgl
+- pgl < 2.0
 
 ### How to run
 
@@ -36,7 +36,7 @@ python train.py --data_path /your/path/to/mutag_data
 If you want to train a RGCN model with multiple GPUs, you can just run with fleetrun API with `CUDA_VISIBLE_DEVICES`
 
 ```
-CUDA_VISIBLE_DEVICES=0,1 fleetrun train.py --data_path /your/path/to/mutag_data
+CUDA_VISIBLE_DEVICES=0 train.py --data_path /your/path/to/mutag_data
 ```
 
 #### Hyperparameters
