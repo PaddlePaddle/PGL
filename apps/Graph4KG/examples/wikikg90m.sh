@@ -1,7 +1,9 @@
+DATA_PATH=./data/
+
 # TransE
 python train.py \
     --model_name TransE \
-    --data_path ./data \
+    --data_path $DATA_PATH \
     --data_name wikikg90m \
     --embed_dim 100 --gamma 8. --reg_coef 1e-9 \
     -adv --mix_cpu_gpu --num_workers 4 \
@@ -12,12 +14,13 @@ python train.py \
     --neg_sample_type 'chunk' \
     --log_interval 1000 --num_process 1 \
     --async_update --use_feature \
-    --print_on_screen --save_path output/wikikg90m_transe/
+    --print_on_screen --save_path output/wikikg90m_transe/ \
+    --test --valid --eval_interval 20000
 
 # RotatE
 python train.py \
     --model_name RotatE \
-    --data_path ./data \
+    --data_path $DATA_PATH \
     --data_name wikikg90m \
     --embed_dim 100 --gamma 8. --reg_coef 1e-9 \
     -adv --mix_cpu_gpu --num_workers 4 \
@@ -28,12 +31,13 @@ python train.py \
     --neg_sample_type 'chunk' \
     --log_interval 1000 --num_process 1 \
     --async_update --use_feature \
-    --print_on_screen --save_path output/wikikg90m_rotate/
+    --print_on_screen --save_path output/wikikg90m_rotate/ \
+    --test --valid --eval_interval 20000
 
 # OTE
 python train.py \
     --model_name OTE \
-    --data_path ./data \
+    --data_path $DATA_PATH \
     --data_name wikikg90m \
     --embed_dim 200 --gamma 8. --reg_coef 1e-9 \
     -adv --mix_cpu_gpu --num_workers 4 \
@@ -45,4 +49,5 @@ python train.py \
     --neg_sample_type 'chunk' \
     --log_interval 1000 --num_process 1 \
     --async_update --use_feature \
-    --print_on_screen --save_path output/wikikg90m_ote/
+    --print_on_screen --save_path output/wikikg90m_ote/ \
+    --test --valid --valid_percent 0.1 --eval_interval 20000

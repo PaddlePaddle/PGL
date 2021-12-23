@@ -15,6 +15,7 @@
 import os
 
 import numpy as np
+import paddle.distributed as dist
 
 from dataset.trigraph import TriGraph
 from utils import timer_wrapper
@@ -90,6 +91,7 @@ class TripletDataset(object):
         if load_dict:
             ent_dict_path = os.path.join(self._path, ent_file)
             rel_dict_path = os.path.join(self._path, rel_file)
+            self.create_dict(ent_dict_path, rel_dict_path)
             self._ent_dict = self.load_dictionary(
                 ent_dict_path, self._kv, self._delimiter, self._skip_head)
             self._rel_dict = self.load_dictionary(
@@ -149,6 +151,35 @@ class TripletDataset(object):
             data = [map_fn(l.strip().split(delimiter)) for l in rp.readlines()]
         return data
 
+    def create_dict(self, ent_path, rel_path):
+        while not (os.path.exists(ent_path) and os.path.exists(rel_path)):
+            if dist.get_rank() == 0:
+                data = []
+                for file in self._data_list:
+                    path = os.path.join(self._path, file)
+                    data.append(
+                        self.load_triplet(path, self._hrt, self._delimiter,
+                                          self._skip_head))
+                all_ents = set()
+                all_rels = set()
+                for triplets in data:
+                    for h, r, t in triplets:
+                        all_ents.add(h)
+                        all_ents.add(t)
+                        all_rels.add(r)
+                self._ent_dict = dict([(x, i) for i, x in enumerate(all_ents)])
+                self._rel_dict = dict([(x, i) for i, x in enumerate(all_rels)])
+                if not os.path.exists(ent_path):
+                    with open(ent_path, 'w') as fp:
+                        for k, v in self._ent_dict.items():
+                            fp.write('{}\t{}\n'.format(k, v))
+                if not os.path.exists(rel_path):
+                    with open(rel_path, 'w') as fp:
+                        for k, v in self._rel_dict.items():
+                            fp.write('{}\t{}\n'.format(k, v))
+            else:
+                time.sleep(1)
+
     def load_dataset(self):
         """Load datasets from files, including train, value, test.
         """
@@ -160,17 +191,6 @@ class TripletDataset(object):
                                   self._skip_head))
 
         if self._map_to_id:
-            if not self._load_dict:
-                all_ents = set()
-                all_rels = set()
-                for triplets in data:
-                    for h, r, t in triplets:
-                        all_ents.add(h)
-                        all_ents.add(t)
-                        all_rels.add(r)
-                self._ent_dict = dict([(x, i) for i, x in enumerate(all_ents)])
-                self._rel_dict = dict([(x, i) for i, x in enumerate(all_rels)])
-
             def map_fn(x):
                 """Map entities and relations into ids.
                 """
@@ -179,7 +199,6 @@ class TripletDataset(object):
                 t = self._ent_dict[x[2]]
                 return [h, r, t]
         else:
-
             def map_fn(x):
                 """Cast elements in x into int type.
                 """
@@ -287,7 +306,7 @@ def read_trigraph(data_path, data_name):
         dataset = WikiKG2Dataset(data_path)
     elif data_name in ['FB15k-237', 'WN18RR', 'FB15k', 'wn18']:
         dataset = TripletDataset(
-            data_path, data_name, map_to_id=True, load_dict=False)
+            data_path, data_name, map_to_id=True, load_dict=True)
     else:
         raise NotImplementedError('Please add %s to read_trigraph function '
                                   'in dataset/reader.py to load this dataset' %
