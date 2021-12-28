@@ -28,6 +28,7 @@ from pgl.utils.data import Dataloader, StreamDataset
 from utils.config import prepare_config
 from datasets.node import NodeGenerator
 from datasets.walk import WalkGenerator
+from datasets.helper import stream_shuffle_generator, AsynchronousGenerator
 
 
 class PairGenerator(object):
@@ -49,6 +50,14 @@ class PairGenerator(object):
             generator: a instance of generator as the input of PairGenerator
         """
         self.generator = generator
+
+        pair_generator = self.base_pair_generator
+        pair_generator = AsynchronousGenerator(pair_generator, maxsize=10000)
+
+        for pair in pair_generator():
+            yield pair
+
+    def base_pair_generator(self):
 
         iterval = 20000000 * 24 // self.config.walk_len
         pair_count = 0
