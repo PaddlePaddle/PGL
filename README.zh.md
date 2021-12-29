@@ -7,6 +7,15 @@
 
 ## 最新消息
 
+PGL v2.2 2021.12.20
+
+- **Graph4Rec**: 我们发布了一个用于推荐系统的通用大规模分布式图表示学习工具包，详情请参考[这里](./apps/Graph4Rec)。
+
+- **Graph4KG**: 我们发布了一个用于大规模知识图谱表示学习的工具包，详情请参考[这里](./apps/Graph4KG)。
+
+- **GNNAutoScale**: PGL现在支持GNNAutoScale框架了，这是一个用于图学习异构设备训练的工具包，详情请参考[这里](./apps/GNNAutoScale)。
+
+
 &#x1F525; &#x1F525; &#x1F525; **OGB-LSC KDD CUP 2021 冠军宣布!!**  (2021.06.17)
 
 非常兴奋地宣布，我们PGL团队在 OGB-LSC KDD CUP 2021 的三个赛道中获得了<font color=Red>**两个冠军**</font>和<font color=Red>**一个亚军**</font>。官方排行榜可以参考[这里](https://ogb.stanford.edu/kddcup2021/results/).
