@@ -32,28 +32,6 @@ PGL v2.2 2021.12.20
 - Masked Label Prediction: Unified Message Passing Model for Semi-Supervised Classification, to appear in **IJCAI2021**.
 - HGAMN: Heterogeneous Graph Attention Matching Network for Multilingual POI Retrieval at Baidu Maps, to appear in **KDD2021**.
 
-PGL v2.1 2021.02.02
-
-- 更易用了！正式发布PGL 2.1版本，正式支持PaddlePaddle 2.0
-- 之前静态图版本（<2.0）的PGL放在“static_stable”分支
-
-PGL v1.2 2020.11.20
-
-- PGL团队提出统一的消息传递模型**UniMP**，刷新OGB**三**项榜单SOTA。你可以在[这里](./ogb_examples/nodeproppred/unimp)看到详细的代码。
-
-- PGL团队提出基于**ERNIEsage**的二阶段召回与排序模型, 在COLING协办的[TextGraphs2020](https://competitions.codalab.org/competitions/23615)比赛中取得**第一名**。
-
-- PGL团队倾力开发了**图神经网络公开课**,带你七天高效入门图神经网络。课程详情请参考[course](https://github.com/PaddlePaddle/PGL/tree/main/course)。
-
-PGL v1.1 2020.4.29
-
-- **ERNIESage**是PGL团队最新提出的模型，可以用于建模文本以及图结构信息。你可以在[这里](./legacy/examples/erniesage/)看到详细的介绍。
-
-- PGL现在提供[Open Graph Benchmark](https://github.com/snap-stanford/ogb)的一些例子，你可以在[这里](./ogb_examples)找到。
-
-- 新增了图级别的算子包括**GraphPooling**以及[**GraphNormalization**](https://arxiv.org/abs/2003.00982)，这样你就能实现更多复杂的图级别分类模型。
-
-- 新增PGL-KE工具包，里面包含许多经典知识图谱图嵌入算法，包括TransE, TransR, RotatE，详情可见[这里](./examples/pgl-ke)
 
 ------
 
