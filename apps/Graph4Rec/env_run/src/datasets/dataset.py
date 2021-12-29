@@ -120,7 +120,11 @@ class WalkBasedDataset(StreamDataset):
         pipeline = []
         pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank))
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_node_generator"))
         pipeline.append(
             WalkGenerator(
                 self.config,
@@ -158,7 +162,11 @@ class WalkBasedDataset(StreamDataset):
         pipeline = []
         pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank))
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_node_generator"))
         pipeline.append(
             WalkGenerator(
                 self.config,
@@ -346,7 +354,11 @@ class SageDataset(StreamDataset):
         pipeline = []
         pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank))
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_node_generator"))
         pipeline.append(
             WalkGenerator(
                 self.config,
@@ -388,7 +400,11 @@ class SageDataset(StreamDataset):
         pipeline = []
         pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank))
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_node_generator"))
         pipeline.append(
             WalkGenerator(
                 self.config,
