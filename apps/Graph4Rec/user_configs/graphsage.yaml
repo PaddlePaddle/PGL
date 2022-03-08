@@ -31,7 +31,7 @@ hidden_size: 64
 res_alpha: 0.9
 
 sage_mode: True
-sage_layer_type: GraphsageSumConv
+sage_layer_type: GraphSageSumConv
 sage_act: relu
 sample_num_list: [5]
 infer_sample_num_list: [5]
