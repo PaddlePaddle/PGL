@@ -19,7 +19,7 @@ __all__ = [
 
 class GraphSageSumConv(nn.Layer):
     def __init__(self, input_size, output_size, act=None):
-        super(GraphSageConv, self).__init__()
+        super(GraphSageSumConv, self).__init__()
         self.aggr_func = "reduce_sum"
 
         self.self_linear = nn.Linear(input_size, output_size)
@@ -51,7 +51,7 @@ class GraphSageSumConv(nn.Layer):
 
 class GraphSageMeanConv(nn.Layer):
     def __init__(self, input_size, output_size, act=None):
-        super(GraphSageConv, self).__init__()
+        super(GraphSageMeanConv, self).__init__()
         self.aggr_func = "reduce_mean"
 
         self.self_linear = nn.Linear(input_size, output_size)
