@@ -39,7 +39,8 @@ def main():
     set_seed(args.seed)
     set_logger(args)
 
-    trigraph = read_trigraph(args.data_path, args.data_name)
+    trigraph = read_trigraph(args.data_path, args.data_name, args.use_dict,
+                             args.kv_mode)
     if args.valid_percent < 1:
         trigraph.sampled_subgraph(args.valid_percent, dataset='valid')
 
@@ -205,8 +206,10 @@ def main():
             test_loader,
             'test',
             filter_dict if args.filter_eval else None,
-            os.path.join(args.save_path, 'test.pkl'),
+            args.save_path,
             data_mode=args.data_name)
+        paddle.save(model.state_dict(),
+                    os.path.join(args.save_path, "params.pdparams"))
 
 
 if __name__ == '__main__':

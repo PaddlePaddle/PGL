@@ -135,6 +135,7 @@ class TripletDataset(object):
         with open(path, 'r') as rp:
             rp.readline() if skip_head else None
             data = [map_fn(l.strip().split(delimiter)) for l in rp.readlines()]
+
         return dict(data)
 
     @staticmethod
@@ -278,7 +279,7 @@ class WikiKG2Dataset(object):
         self.rel_feat = None
 
 
-def read_trigraph(data_path, data_name):
+def read_trigraph(data_path, data_name, use_dict, kv_mode):
     """Load datasets from files.
     """
     if data_name == "wikikg90m":
@@ -287,7 +288,11 @@ def read_trigraph(data_path, data_name):
         dataset = WikiKG2Dataset(data_path)
     elif data_name in ['FB15k-237', 'WN18RR', 'FB15k', 'wn18']:
         dataset = TripletDataset(
-            data_path, data_name, map_to_id=True, load_dict=False)
+            data_path,
+            data_name,
+            map_to_id=True,
+            load_dict=use_dict,
+            kv_mode=kv_mode)
     else:
         raise NotImplementedError('Please add %s to read_trigraph function '
                                   'in dataset/reader.py to load this dataset' %
