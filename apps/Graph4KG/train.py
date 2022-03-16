@@ -39,7 +39,8 @@ def main():
     set_seed(args.seed)
     set_logger(args)
 
-    trigraph = read_trigraph(args.data_path, args.data_name, args.use_dict)
+    trigraph = read_trigraph(args.data_path, args.data_name, args.use_dict,
+                             args.kv_mode)
     if args.valid_percent < 1:
         trigraph.sampled_subgraph(args.valid_percent, dataset='valid')
 

@@ -71,6 +71,13 @@ class KGEArgParser(ArgumentParser):
             help='Use the dict to index the data.')
 
         self.basic_group.add_argument(
+            '--kv_mode',
+            type=bool,
+            default=False,
+            help='The order of string names and ids in dictionary files. kv denotes entity_name/relation_name, id.'
+        )
+
+        self.basic_group.add_argument(
             '--batch_size',
             type=int,
             default=1000,
