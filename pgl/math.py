@@ -23,8 +23,13 @@ __all__ = [
 ]
 
 import paddle
-from paddle.fluid.framework import core, in_dygraph_mode
-from paddle.fluid.layer_helper import LayerHelper, in_dygraph_mode
+from paddle.fluid.framework import core
+from paddle.fluid.layer_helper import LayerHelper
+try:
+    from paddle.fluid.layer_helper import in_dygraph_mode as non_static_mode
+except ImportError:
+    from paddle.fluid.layer_helper import _non_static_mode as non_static_mode
+
 from paddle.fluid.data_feeder import check_variable_and_dtype
 from pgl.utils.op import get_index_from_counts
 
@@ -34,7 +39,7 @@ def segment_pool(data, segment_ids, pool_type, name=None):
     Segment Operator.
     """
     pool_type = pool_type.upper()
-    if in_dygraph_mode():
+    if non_static_mode():
         out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype',
                                          pool_type)
         return out
@@ -89,7 +94,7 @@ def segment_sum(data, segment_ids, name=None):
     if paddle.__version__ >= '2.2.0':
         return paddle.incubate.segment_sum(data, segment_ids, name)
 
-    if in_dygraph_mode():
+    if non_static_mode():
         out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "SUM")
         return out
 
@@ -144,7 +149,7 @@ def segment_mean(data, segment_ids, name=None):
     if paddle.__version__ >= '2.2.0':
         return paddle.incubate.segment_mean(data, segment_ids, name)
 
-    if in_dygraph_mode():
+    if non_static_mode():
         out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "MEAN")
         return out
 
@@ -197,7 +202,7 @@ def segment_min(data, segment_ids, name=None):
     if paddle.__version__ >= '2.2.0':
         return paddle.incubate.segment_min(data, segment_ids, name)
 
-    if in_dygraph_mode():
+    if non_static_mode():
         out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "MIN")
         return out
 
@@ -251,7 +256,7 @@ def segment_max(data, segment_ids, name=None):
     if paddle.__version__ >= '2.2.0':
         return paddle.incubate.segment_max(data, segment_ids, name)
 
-    if in_dygraph_mode():
+    if non_static_mode():
         out, tmp = core.ops.segment_pool(data, segment_ids, 'pooltype', "MAX")
         return out
 
