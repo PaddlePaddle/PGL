@@ -112,20 +112,20 @@ def main():
     step = 1
     stop = False
     for epoch in range(args.num_epoch):
-        print("new epoch:", epoch)
         for indexes, prefetch_embeddings, mode in train_loader:
             h, r, t, neg_ents, all_ents = indexes
             all_ents_emb, rel_emb, weights = prefetch_embeddings
 
-            all_ents = all_ents.cuda()
-            all_ents_emb = all_ents_emb.cuda()
             r = r.cuda()
-            if rel_emb is not None:
-                rel_emb = rel_emb.cuda()
+
+            if all_ents is not None:
+                all_ents = all_ents.cuda()
 
             if rel_emb is not None:
+                rel_emb = rel_emb.cuda()
                 rel_emb.stop_gradient = False
             if all_ents_emb is not None:
+                all_ents_emb = all_ents_emb.cuda()
                 all_ents_emb.stop_gradient = False
 
             timer['sample'] += (time.time() - ts)

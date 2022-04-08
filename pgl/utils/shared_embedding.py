@@ -14,7 +14,7 @@
 
 import os
 import time
-import paddle.multiprocessing as mp
+import paddle.incubate.multiprocessing as mp
 mp = mp.get_context("spawn")
 
 import numpy as np
@@ -64,7 +64,7 @@ def async_update(self, queue, event):
 
 class SharedEmbedding(object):
     """
-    SharedEmbedding in mmap mode。
+    SharedEmbedding in mmap mode.
 
     Args:
         num_embeddings (int):

@@ -68,8 +68,8 @@ def print_log(step, interval, log, timer, time_sum):
         'step: %d, loss: %.5f, reg: %.4e, speed: %.2f steps/s, time: %.2f s' %
         (step, log['loss'] / interval, log['reg'] / interval,
          interval / time_sum, time_sum))
-    # logging.info('sample: %f, forward: %f, backward: %f, update: %f' % (
-    #     timer['sample'], timer['forward'], timer['backward'], timer['update']))
+    logging.info('sample: %f, forward: %f, backward: %f, update: %f' % (
+        timer['sample'], timer['forward'], timer['backward'], timer['update']))
 
 
 def uniform(low, high, size, dtype=np.float32, seed=0):

@@ -22,9 +22,11 @@ Besides, it provides [the 1st place solution](https://ogb.stanford.edu/kddcup202
 
 ## Requirements
 
- - paddlepaddle-gpu==2.2.0
+ - paddlepaddle-gpu>=2.3rc
  - pgl
  - ogb==1.3.1 (optional for wikikg2 and WikiKG90M)
+
+paddle建议使用最新develop版本。
 
 ## Models
 
