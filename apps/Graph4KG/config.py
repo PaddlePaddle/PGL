@@ -72,8 +72,8 @@ class KGEArgParser(ArgumentParser):
 
         self.basic_group.add_argument(
             '--kv_mode',
-            type=bool,
-            default=False,
+            type=str,
+            default='kv',
             help='The order of string names and ids in dictionary files. kv denotes entity_name/relation_name, id.'
         )
 
