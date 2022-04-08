@@ -24,7 +24,7 @@ python -u train.py --model_name ComplEx --data_name wn18 --data_path $DATA_PATH 
 
 # RotatE
 python -u train.py --model_name RotatE --data_name wn18 --data_path $DATA_PATH --save_path output/rotate_wn_sgpu \
---batch_size 2048 --reg_coef 2e-7 --neg_sample_size 64 --neg_sample_type 'chunk' --embed_dim 256 --gamma 9.0 --lr 0.0025 -adv \
+--batch_size 2048 --reg_coef 2e-7 --neg_sample_size 64 --neg_sample_type 'chunk' --embed_dim 256 --gamma 9.0 --lr 0.0001 -adv \
 --num_workers 2 --num_epoch 200 --test --print_on_screen  --filter_eval --neg_deg_sample --optimizer adam
 
 # OTE
@@ -56,8 +56,8 @@ python -u train.py --model_name ComplEx --data_name wn18 --data_path $DATA_PATH 
 
 
 # RotatE
-python -u train.py --model_name RotatE --data_name wn18 --data_path $DATA_PATH --save_path output/rotate_wn_mgpu \
---batch_size 2048 --reg_coef 2e-7 --neg_sample_size 64 --neg_sample_type 'chunk' --embed_dim 256 --gamma 9.0 --lr 0.0025 -adv \
+python -u train.py --model_name RotatE --data_name wn18 --data_path $DATA_PATH --save_path output/rotate_wn_mgpu --lr 0.0001 \
+--batch_size 2048 --reg_coef 2e-7 --neg_sample_size 64 --neg_sample_type 'chunk' --embed_dim 256 --gamma 9.0 --cpu_lr 0.0025 -adv \
 --num_workers 2 --num_epoch 200 --test --print_on_screen  --filter_eval --neg_deg_sample --optimizer adam  --mix_cpu_gpu --async_update
 
 # OTE

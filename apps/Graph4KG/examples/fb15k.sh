@@ -43,7 +43,7 @@ python -u train.py --model_name TransE --data_name FB15k --data_path $DATA_PATH 
 python -u train.py --model_name DistMult --data_name FB15k --data_path $DATA_PATH --save_path output/distmult_fb_mgpu \
 --batch_size 1000 --test_batch_size 16 --log_interval 1000 --eval_interval 24000  --neg_sample_type 'chunk' \
 --num_workers 2 --neg_sample_size 200 --embed_dim 400 --gamma 143.0 --lr 0.08 --optimizer adagrad --cpu_lr 0.1 \
---test -adv --num_epoch 50 --filter_eval --print_on_screen --reg_coef 2e-6 --reg_norm 3 --async_update --mix_cpu_gpu  --task_name 'mix-mgpu'
+--test -adv --num_epoch 50 --filter_eval --print_on_screen --reg_coef 2e-6 --reg_norm 3 --mix_cpu_gpu --async_update
 
 # ComplEx
 python -u train.py --model_name ComplEx --data_name FB15k --data_path $DATA_PATH --save_path output/complex_fb_mgpu \
