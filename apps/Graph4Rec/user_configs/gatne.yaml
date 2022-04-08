@@ -1,6 +1,6 @@
-# configuration for graphsage
+# configuration for GATNE
 
-task_name: graphsage_sum.0712
+task_name: gatne.0712
 
 # ------------------------Data Configuration--------------------------------------------#
 etype2files: "u2buy2t:./toy_data/u2buy2i.txt,u2click2i:./toy_data/u2click2i.txt"
@@ -31,10 +31,11 @@ hidden_size: 64
 res_alpha: 0.9
 
 sage_mode: True
-sage_layer_type: GraphSageSumConv
-sage_act: relu
-sample_num_list: [5]
-infer_sample_num_list: [5]
+sage_layer_type: LightGCNConv
+sage_act: null
+interact_mode: gatne
+sample_num_list: [10]
+infer_sample_num_list: [100]
 
 # ----------------------Training Configuration------------------------------------------#
 epochs: 10

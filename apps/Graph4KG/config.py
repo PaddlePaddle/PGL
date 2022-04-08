@@ -50,6 +50,12 @@ class KGEArgParser(ArgumentParser):
             help='Directory to save model and log.')
 
         self.basic_group.add_argument(
+            '--init_from_ckpt',
+            type=str,
+            default=None,
+            help='Directory to load the model.')
+
+        self.basic_group.add_argument(
             '--data_name',
             type=str,
             default='FB15k',
@@ -57,6 +63,19 @@ class KGEArgParser(ArgumentParser):
                 'FB15k', 'FB15k-237', 'wn18', 'WN18RR', 'wikikg2', 'wikikg90m'
             ],
             help='Dataset name.')
+
+        self.basic_group.add_argument(
+            '--use_dict',
+            type=bool,
+            default=False,
+            help='Use the dict to index the data.')
+
+        self.basic_group.add_argument(
+            '--kv_mode',
+            type=bool,
+            default=False,
+            help='The order of string names and ids in dictionary files. kv denotes entity_name/relation_name, id.'
+        )
 
         self.basic_group.add_argument(
             '--batch_size',

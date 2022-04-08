@@ -1,14 +1,39 @@
-# Graph4Rec: A Universal and Large-scale Toolkit with Graph Neural Networks for Recommender Systems
+<h2 align="center">Graph4Rec: A Universal and Large-scale Toolkit with Graph Neural Networks for Recommender Systems</h2>
+<p align="center">
+  <a href="https://arxiv.org/abs/2112.01035"><img src="http://img.shields.io/badge/Paper-PDF-59d.svg"></a>
+</p>
 
-**Graph4Rec** is a universal and large-scale toolkit with graph neural networks for recommender systems.
+## Introduction
+
+**Graph4Rec** is a universal and large-scale toolkit with graph neural networks for recommender systems. 
+It contains a large-scale graph engine to store graph data and a parameter server to support distributed GNN training. 
+We also unify the paradigm to train GNN models into the following parts: 
+graph inputs, random walk generation, ego graphs generation, pairs generation and GNNs selection. 
+From this training pipeline, one can easily establish his own GNN model with a few configurations. 
+
+<h2 align="center">
+<img src="./img/architecture.png" alt=“graph4rec” width="800">
+</h2>
+
+Highlighted features:
+
+- **Richness:** Pre-built rich graph models, including walk-based and GNN-based models.
+
+- **Flexibility:** With a few configurations, one can easily launch single or distributed training.
+
+- **Large-scale:** With the help of graph engine and parameter server, Graph4Rec supports industrial graph representation training.
 
 ## Requirements
 
- - paddlepaddle-gpu==2.2.0
+Please install paddlepaddle and pgl before using Graph4Rec.
 
- - pgl==2.1.5
+```
+python -m pip install paddlepaddle==0.0.0 -f https://www.paddlepaddle.org.cn/whl/linux/cpu-mkl/develop.html
 
-## Usage
+pip install pgl -U
+```
+
+## Quick start
 
 ### Input format
 
@@ -26,7 +51,7 @@ for example:
 12346 \t 23345
 ```
 
-If there is an edge weight, one can directly add the weight behind each edge, the format is as follows:
+If there are edge weights, one can directly add the weight behind each edge, the format is as follows:
 
 ```
 src_node_id \t dst_node_id \t edge_weight
@@ -176,4 +201,18 @@ CPU_NUM=12 fleetrun --log_dir ../../fleet_logs \
                     dist_cpu_train.py --config ../../user_configs/metapath2vec.yaml \
                                       --ip ../../toy_data/ip_list.txt
 
+```
+
+
+## Cite
+
+If you use Graph4Rec in a scientific publication, we would appreciate citations to the following paper:
+
+```bibtex
+@article{Graph4Rec,
+  title={Graph4Rec: A Universal Toolkit with Graph Neural Networks for Recommender Systems},
+  author={Li, Weibin and He, Mingkai and Huang, Zhengjie and Wang, Xianming and Feng, Shikun and Wu, Zhihua and Su, Weiyue and Sun, Yu},
+  journal={arXiv preprint arXiv:2112.01035},
+  year={2021}
+}
 ```

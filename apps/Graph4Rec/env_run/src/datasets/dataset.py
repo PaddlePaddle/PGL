@@ -28,6 +28,7 @@ from pgl.utils.logger import log
 from pgl.distributed import DistGraphClient, DistGraphServer
 from pgl.utils.data import Dataloader, StreamDataset
 from pgl.distributed import helper
+from pgl.utils.logger import log
 
 from utils.config import prepare_config
 from datasets.node import NodeGenerator
@@ -120,7 +121,11 @@ class WalkBasedDataset(StreamDataset):
         pipeline = []
         pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank))
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_node_generator"))
         pipeline.append(
             WalkGenerator(
                 self.config,
@@ -158,7 +163,11 @@ class WalkBasedDataset(StreamDataset):
         pipeline = []
         pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank))
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_node_generator"))
         pipeline.append(
             WalkGenerator(
                 self.config,
@@ -219,6 +228,11 @@ class WalkBasedDataset(StreamDataset):
 
 
 def index2segment_id(num_count):
+    """
+    num_count: [1, 2, 1]
+    return:
+        [0, 1, 1, 2]
+    """
     index = np.cumsum(num_count, dtype="int64")
     index = np.insert(index, 0, 0)
 
@@ -248,16 +262,13 @@ class CollateFn(object):
 
             for slot in self.config.slots:
                 feed_dict[slot].extend(src.feature[slot][0])
-                # lod_id2segment_id
-                segments = index2segment_id(src.feature[slot][1])
-                segments = segments + offset
-                #  print(src.node_id, slot, src.feature[slot][1], segments)
+                segments = np.array(
+                    src.feature[slot][1], dtype="int64") + offset
                 feed_dict["%s_info" % slot].append(segments)
 
                 feed_dict[slot].extend(pos.feature[slot][0])
-                # lod_id2segment_id
-                segments = index2segment_id(pos.feature[slot][1])
-                segments = segments + offset + 1
+                segments = np.array(
+                    pos.feature[slot][1], dtype="int64") + offset + 1
                 feed_dict["%s_info" % slot].append(segments)
 
             offset += 2
@@ -346,7 +357,11 @@ class SageDataset(StreamDataset):
         pipeline = []
         pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank))
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_node_generator"))
         pipeline.append(
             WalkGenerator(
                 self.config,
@@ -388,7 +403,11 @@ class SageDataset(StreamDataset):
         pipeline = []
         pipeline.append(
             NodeGenerator(
-                self.config, graph, rank=rank, nrank=nrank))
+                self.config,
+                graph,
+                rank=rank,
+                nrank=nrank,
+                gen_mode="infer_node_generator"))
         pipeline.append(
             WalkGenerator(
                 self.config,
@@ -487,15 +506,12 @@ class SageCollateFn(object):
 
             for slot in self.config.slots:
                 feed_dict[slot].extend(src.feature[slot][0])
-                # lod_id2segment_id
-                segments = index2segment_id(src.feature[slot][1])
-                segments = segments + offset
-                #  print(src.node_id, slot, src.feature[slot][1], segments)
+                segments = np.array(
+                    src.feature[slot][1], dtype="int64") + offset
                 feed_dict["%s_info" % slot].append(segments)
 
                 feed_dict[slot].extend(pos.feature[slot][0])
-                # lod_id2segment_id
-                segments = index2segment_id(pos.feature[slot][1])
+                segments = np.array(pos.feature[slot][1], dtype="int64")
                 segments = segments + offset + len(
                     src.node_id)  # for pos offset 
                 feed_dict["%s_info" % slot].append(segments)

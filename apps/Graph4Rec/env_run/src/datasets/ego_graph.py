@@ -133,7 +133,6 @@ def ego_graph_sample(graph, node_ids, samples, edge_types):
             node_feat={"node_id": np.array(
                 ego.node_id, dtype="int64"), })
         ego.graph = pg
-
     return ego_graph_list, list(unique_nodes)
 
 
@@ -166,18 +165,23 @@ def get_slots_feat(graph, nodes, slots):
 
 def make_slot_feat(node_id, slots, node_feat_dict):
     slot_dict = {}
+    slot_cout = {}
     for slot in slots:
         slot_dict[slot] = ([], [])
+        slot_cout[slot] = 0
 
     for n in node_id:
         nf = node_feat_dict[n]
         for slot in slots:
             if slot in nf:
                 slot_dict[slot][0].extend(nf[slot])
-                slot_dict[slot][1].append(len(nf[slot]))
+                seg = np.zeros(len(nf[slot]), dtype="int64") + slot_cout[slot]
+                slot_dict[slot][1].extend(seg)
             else:
                 slot_dict[slot][0].append(0)
-                slot_dict[slot][1].append(1)
+                slot_dict[slot][1].extend([slot_cout[slot]])
+            slot_cout[slot] += 1
+
     return slot_dict
 
 
@@ -185,6 +189,8 @@ class EgoGraphGenerator(object):
     def __init__(self, config, graph, **kwargs):
         self.config = config
         self.graph = graph
+        self.rank = kwargs.get("rank", 0)
+        self.nrank = kwargs.get("nrank", 1)
         self.kwargs = kwargs
         self.edge_types = self.graph.get_edge_types()
         self.sample_num_list = kwargs.get("sample_list",
@@ -192,9 +198,18 @@ class EgoGraphGenerator(object):
         log.info("sample_num_list is %s" % repr(self.sample_num_list))
 
     def __call__(self, generator):
+        self.generator = generator
+
+        ego_generator = self.base_ego_generator
+        ego_generator = AsynchronousGenerator(ego_generator, maxsize=10000)
+
+        for data in ego_generator():
+            yield data
+
+    def base_ego_generator(self):
         """Input Batch of Walks
         """
-        for walks in generator():
+        for walks in self.generator():
             # unique walk
             nodes = []
             for walk in walks:

@@ -1,40 +1,33 @@
-# configuration for graphsage
+# configuration for metapath2vec with slot features
 
-task_name: graphsage_sum.0712
+task_name: metapath2vec_with_slot_features.0712
 
 # ------------------------Data Configuration--------------------------------------------#
 etype2files: "u2buy2t:./toy_data/u2buy2i.txt,u2click2i:./toy_data/u2click2i.txt"
-ntype2files: "u:./toy_data/node_types.txt,i:./toy_data/node_types.txt"
+ntype2files: "u:./toy_data/node_types_with_features.txt,i:./toy_data/node_types_with_features.txt"
 symmetry: True
 shard_num: 1000
 # [ntype, name, feat_type, length]
-nfeat_info: null
-slots: []
+nfeat_info: [["u", "s", "string", 1], ["i", "s", "string", 1]]
+slots: ["1", "2"]
 
 meta_path: "u2buy2i-i2buy2u;u2click2i-i2click2u;i2buy2u-u2buy2i;i2click2u-u2click2i"
 
 
-walk_len: 4
+walk_len: 24
 win_size: 3
 neg_num: 10
 walk_times: 10
 
 
 # -----------------Model HyperParams Configuration--------------------------------------#
-dataset_type: SageDataset
-collatefn: SageCollateFn
-model_type: SageModel
+dataset_type: WalkBasedDataset
+collatefn: CollateFn
+model_type: WalkBasedModel
 warm_start_from: null
 num_nodes: 5500
 embed_size: 64
 hidden_size: 64
-res_alpha: 0.9
-
-sage_mode: True
-sage_layer_type: GraphSageSumConv
-sage_act: relu
-sample_num_list: [5]
-infer_sample_num_list: [5]
 
 # ----------------------Training Configuration------------------------------------------#
 epochs: 10

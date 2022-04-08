@@ -213,6 +213,9 @@ class SageModel(nn.Layer):
                 self.slot_embed_dict = nn.LayerDict(
                     sublayers=self.slot_embed_dict)
 
+        if self.config.interact_mode == "gatne":
+            self.gatne = GNNLayers.GATNEInteract(self.hidden_size)
+
     def get_static_input(self):
         """handle static input
         """
@@ -279,8 +282,11 @@ class SageModel(nn.Layer):
                                                       nfeat)
                 nxt_fs.append(nxt_f)
 
-            nfeat = paddle.stack(nxt_fs, axis=1)
-            nfeat = paddle.sum(nfeat, axis=1)
+            if self.config.interact_mode == "gatne":
+                nfeat = self.gatne(nxt_fs)
+            else:
+                nfeat = paddle.stack(nxt_fs, axis=1)
+                nfeat = paddle.sum(nfeat, axis=1)
             nfeat = init_nfeat * self.config.res_alpha + nfeat * (
                 1 - self.config.res_alpha)
 

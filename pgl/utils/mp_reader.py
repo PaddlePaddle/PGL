@@ -13,6 +13,7 @@
 # limitations under the License.
 """Optimized Multiprocessing Reader for PaddlePaddle
 """
+
 import logging
 log = logging.getLogger(__name__)
 import multiprocessing
@@ -118,7 +119,13 @@ def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
             queues.append(queue)
             p = multiprocessing.Process(
                 target=_read_into_queue, args=(reader, queue))
-            p.start()
+            try:
+                p.start()
+            except:
+                raise RuntimeError(
+                    f"The program met some problems. If your system is Mac OS and python >= 3.8, "
+                    f"please checkout https://github.com/PaddlePaddle/PGL/issues/305 to fix the problem."
+                )
 
         reader_num = len(readers)
         alive_queue_indices = [i for i in range(reader_num)]
@@ -147,7 +154,13 @@ def multiprocess_reader(readers, use_pipe=True, queue_size=1000, pipe_size=10):
             conns.append(parent_conn)
             p = multiprocessing.Process(
                 target=_read_into_pipe, args=(reader, child_conn, pipe_size))
-            p.start()
+            try:
+                p.start()
+            except:
+                raise RuntimeError(
+                    f"The program met some problems. If your system is Mac OS and python >= 3.8, "
+                    f"please checkout https://github.com/PaddlePaddle/PGL/issues/305 to fix the problem."
+                )
 
         reader_num = len(readers)
         conn_to_remove = []

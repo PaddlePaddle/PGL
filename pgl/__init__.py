@@ -24,9 +24,11 @@ from pgl import nn
 from pgl import message
 from pgl import dataset
 from pgl import utils
+from pgl import sampling
+from pgl import partition
 
 from pgl.graph import *
 from pgl.bigraph import *
 from pgl.heter_graph import *
 
-__version__ = "2.1.5"
+__version__ = "2.2.2"

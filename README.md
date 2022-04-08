@@ -6,6 +6,17 @@
 [DOC](https://pgl.readthedocs.io/en/latest/) | [Quick Start](https://pgl.readthedocs.io/en/latest/quick_start/instruction.html) | [中文](./README.zh.md)
 
 ## Breaking News !!
+
+PGL v2.2 2021.12.20
+
+- **Graph4Rec**: We released a universal and large-scale toolkit with graph neural networks for recommender systems. Details can be found [here](./apps/Graph4Rec).
+
+- **Graph4KG**: We released a flexible framework named Graph4KG to learn embeddings of entities and relations in KGs, which supports training on massive KGs. Details can be found [here](./apps/Graph4KG).
+
+- **GNNAutoScale**: PGL now supports GNNAutoScale framework, which can scale arbitrary message-passing GNNs to large graphs. Details can be found [here](./apps/GNNAutoScale).
+
+
+
 &#x1F525; &#x1F525; &#x1F525; **OGB-LSC KDD CUP 2021 winners announced!!**  (2021.06.17)
 
 
@@ -27,29 +38,6 @@ Leaderboards can be found [here](https://ogb.stanford.edu/kddcup2021/results/).
 
 - Our Dstributed Graph Engine API has been released and we developed a [tutorial](./tutorials/working_with_distributed_graph_engine.ipynb) to show how to launch a graph engine and a [demo](./examples/metapath2vec) for training model using graph engine.
 
-
-PGL v2.1 2021.02.02
-
-- We are now support dygraph version of PaddlePaddle 2.0, and release PGL v2.1.
-- You can find the stable staic version of PGL in the branch "static_stable"
-
-PGL v1.2 2020.11.20
-
-- The PGL team proposed a new **Uni**fied **M**essage **P**assing Model (UniMP), and achieved the State of the Art on three tasks on the OGB leaderboards. You can find the code [here](./ogb_examples/nodeproppred/unimp).
-
-- The PGL team proposed a two-stage recall and ranking model based on **ERNIEsage**, and won the **first place** in the [TextGraphs-2020](https://competitions.codalab.org/competitions/23615) competition co-organized by COLING.
-
-- The PGL team worked hard to develop an **open course of Graph Neural Network (GNN)**, which will help you getting started with Graph Neural Network in seven days. Details can be found in [course](https://github.com/PaddlePaddle/PGL/tree/main/course).
-
-PGL v1.1 2020.4.29
-
-- You can find **ERNIESage**, a novel model for modeling text and graph structures, and its introduction [here](./legacy/examples/erniesage/).
-
-- PGL for [Open Graph Benchmark](https://github.com/snap-stanford/ogb) examples can be found [here](./ogb_examples/).
-
-- We add newly graph level operators like **GraphPooling** and [**GraphNormalization**](https://arxiv.org/abs/2003.00982) for graph level predictions.
-
-- We relase a PGL-KE toolkit [here](./examples/pgl-ke) including classical knowledge graph embedding t algorithms like TransE, TransR, RotatE.
 
 ------
 

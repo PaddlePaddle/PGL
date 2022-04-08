@@ -32,6 +32,7 @@ class NodeGenerator(object):
         self.graph = graph
         self.rank = kwargs.get("rank", 0)
         self.nrank = kwargs.get("nrank", 1)
+        self.gen_mode = kwargs.get("gen_mode", "base_node_generator")
 
         self.batch_node_size = self.config.batch_node_size
 
@@ -44,7 +45,7 @@ class NodeGenerator(object):
         Args:
             generator: fake generator, ignore it
         """
-        node_generator = self.base_node_generator
+        node_generator = getattr(self, self.gen_mode)
 
         nodes_count = 0
         for nodes in node_generator():
@@ -53,6 +54,18 @@ class NodeGenerator(object):
 
         log.info("total [%s] number nodes have been processed in rank [%s]" \
                 % (nodes_count, self.rank))
+
+    def infer_node_generator(self):
+        ntype_list = self.graph.get_node_types()
+        node_generators = {}
+        for ntype in ntype_list:
+            for batch_nodes in self.graph.node_batch_iter(
+                    batch_size=self.batch_node_size,
+                    shuffle=False,
+                    node_type=ntype,
+                    rank=self.rank,
+                    nrank=self.nrank):
+                yield (batch_nodes, 0)
 
     def base_node_generator(self):
         ntype_list = self.graph.get_node_types()
