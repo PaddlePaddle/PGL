@@ -14,8 +14,6 @@
 
 import os
 import time
-import paddle.incubate.multiprocessing as mp
-mp = mp.get_context("spawn")
 
 import numpy as np
 import paddle
@@ -193,6 +191,9 @@ class SharedEmbedding(object):
     def start_async_update(self):
         """initialize the async update
         """
+        import paddle.incubate.multiprocessing as mp
+        mp = mp.get_context("spawn")
+
         self._async_q = mp.Queue(1)
         self._async_e = mp.Event()
         for i in range(self._process_worker):
