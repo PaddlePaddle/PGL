@@ -88,19 +88,16 @@ class TripletDataset(object):
         if not os.path.exists(self._path):
             raise ValueError('data path %s not exists!' % self._path)
 
-        if load_dict:
-            ent_dict_path = os.path.join(self._path, ent_file)
-            rel_dict_path = os.path.join(self._path, rel_file)
+        ent_dict_path = os.path.join(self._path, ent_file)
+        rel_dict_path = os.path.join(self._path, rel_file)
+        if not self._load_dict:
             self.create_dict(ent_dict_path, rel_dict_path)
-            self._ent_dict = self.load_dictionary(
-                ent_dict_path, self._kv, self._delimiter, self._skip_head)
-            self._rel_dict = self.load_dictionary(
-                rel_dict_path, self._kv, self._delimiter, self._skip_head)
-            self.num_ents = len(self._ent_dict)
-            self.num_rels = len(self._rel_dict)
-        else:
-            self.num_ents = None
-            self.num_rels = None
+        self._ent_dict = self.load_dictionary(
+            ent_dict_path, self._kv, self._delimiter, self._skip_head)
+        self._rel_dict = self.load_dictionary(
+            rel_dict_path, self._kv, self._delimiter, self._skip_head)
+        self.num_ents = len(self._ent_dict)
+        self.num_rels = len(self._rel_dict)
 
         self.ent_feat = None
         self.rel_feat = None
