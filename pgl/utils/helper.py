@@ -14,6 +14,7 @@
 
 import numpy as np
 import paddle
+from paddle import _C_ops
 from paddle.fluid.layers import core
 from paddle.fluid.layer_helper import LayerHelper
 from paddle.fluid.data_feeder import convert_dtype, check_variable_and_dtype, check_type, check_dtype
@@ -105,7 +106,7 @@ def scatter(x, index, updates, overwrite=True, name=None):
             #  [1., 1.]]
     """
     if non_static_mode():
-        return core.ops.scatter(x, index, updates, 'overwrite', overwrite)
+        return _C_ops.scatter(x, index, updates, 'overwrite', overwrite)
 
     check_variable_and_dtype(
         x, 'dtype', ['float32', 'int32', 'int64', 'float64'], 'scatter')
@@ -167,8 +168,7 @@ def unique_segment(data, dtype="int64"):
     """
     if non_static_mode():
         attr_dtype = convert_np_dtype_to_dtype_(dtype)
-        unique, index, _ = core.ops.unique_with_counts(data, "dtype",
-                                                       attr_dtype)
+        unique, index, _ = _C_ops.unique_with_counts(data, "dtype", attr_dtype)
         return unique, index
     else:
         unique, index, _ = L.unique_with_counts(data)

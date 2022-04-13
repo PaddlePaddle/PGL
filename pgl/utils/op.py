@@ -16,6 +16,7 @@ op package provide some common ops for building paddle model.
 
 """
 import paddle
+from paddle import _C_ops
 import numpy as np
 from pgl.utils.helper import check_is_tensor
 import paddle.fluid.core as core
@@ -118,5 +119,5 @@ def all_reduce_sum_with_grad(tensor, group=0):
             [[ 0.5, 0.5, 0.5], [0.5, 0.5, 0.5]]
                    
     """
-    return core.ops.c_allreduce_sum(tensor, 'ring_id', group,
-                                    'use_calc_stream', True)
+    return _C_ops.c_allreduce_sum(tensor, 'ring_id', group, 'use_calc_stream',
+                                  True)
