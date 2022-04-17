@@ -20,6 +20,24 @@ import paddle
 import paddle.distributed as dist
 
 
+def set_current_device_id():
+    """ The except place may not consist with cuda current device id.
+        we reset is in here.
+    """
+    import paddle
+    curr_dev = paddle.device.get_device()
+    select_gpu = os.getenv("FLAGS_selected_gpus", "0")
+    paddle.fluid.framework.set_flags({
+        'FLAGS_selected_gpus': os.getenv("FLAGS_selected_gpus", 0)
+    })
+    if "gpu" in curr_dev and select_gpu != curr_dev.split(":")[-1]:
+        paddle.set_device("gpu:" + select_gpu)
+
+    curr_dev_id = paddle.fluid.core.get_cuda_current_device_id()
+    if "gpu" in curr_dev and select_gpu != str(curr_dev_id):
+        paddle.zeros([])
+
+
 def uniform(low, high, size, dtype=np.float32):
     """Memory efficient uniform implementation.
     """
@@ -31,8 +49,10 @@ def uniform(low, high, size, dtype=np.float32):
 def async_update(self, queue, event):
     """Update embeddings asynchronously
     """
+    set_current_device_id()
     weight = None
     _moment = None
+
     while True:
         (index, grad_trace) = queue.get()
         if index is None:
@@ -191,15 +211,25 @@ class SharedEmbedding(object):
     def start_async_update(self):
         """initialize the async update
         """
+
+        #import paddle.incubate.multiprocessing as mp
+        def device_id_hook(*args, **kwargs):
+            set_current_device_id()
+            return paddle.incubate.multiprocessing.reductions.reduce_tensor(
+                *args, **kwargs)
+
         import paddle.incubate.multiprocessing as mp
         mp = mp.get_context("spawn")
+        import multiprocessing
+        multiprocessing.reduction.ForkingPickler._extra_reducers[
+            paddle.Tensor] = device_id_hook
 
         self._async_q = mp.Queue(1)
         self._async_e = mp.Event()
         for i in range(self._process_worker):
             self._async_p[i] = mp.Process(
                 target=async_update, args=(self, self._async_q, self._async_e))
-
+            self._async_p[i].daemon = False
         for i in range(self._process_worker):
             self._async_p[i].start()
 

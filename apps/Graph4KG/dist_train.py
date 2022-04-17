@@ -37,6 +37,7 @@ class KEModelDP(nn.Layer):
     """
     KEModel for DataParallel mode.
     """
+
     def __init__(self, model, args):
         super(KEModelDP, self).__init__()
         self.model = model
@@ -48,17 +49,19 @@ class KEModelDP(nn.Layer):
             neg_adv_spl=args.neg_adversarial_sampling,
             neg_adv_temp=args.adversarial_temperature)
 
-    def forward(self, h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, weights):
+    def forward(self, h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode,
+                weights):
         h_emb, r_emb, t_emb, neg_emb, mask = self.model.prepare_inputs(
-            h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, self.args)
+            h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode,
+            self.args)
         pos_score = self.model.forward(h_emb, r_emb, t_emb)
 
         if mode == 'head':
             neg_score = self.model.get_neg_score(t_emb, r_emb, neg_emb, True,
-                                            mask)
+                                                 mask)
         elif mode == 'tail':
             neg_score = self.model.get_neg_score(h_emb, r_emb, neg_emb, False,
-                                            mask)
+                                                 mask)
         else:
             raise ValueError('Unsupported negative mode {}.'.format(mode))
         neg_score = neg_score.reshape([self.args.batch_size, -1])
@@ -66,7 +69,7 @@ class KEModelDP(nn.Layer):
         loss = self.loss_func(pos_score, neg_score, weights)
         if self.args.use_embedding_regularization:
             reg_loss = self.model.get_regularization(h_emb, r_emb, t_emb,
-                                                neg_emb)
+                                                     neg_emb)
 
             loss = loss + reg_loss
         return loss
@@ -131,8 +134,7 @@ def main():
         else:
             if args.optimizer in {'sgd'}:
                 optimizer = optim_func(
-                    learning_rate=args.lr,
-                    parameters=dpmodel.parameters())
+                    learning_rate=args.lr, parameters=dpmodel.parameters())
             else:
                 optimizer = optim_func(
                     learning_rate=args.lr,
@@ -154,19 +156,27 @@ def main():
     ts = t_step = time.time()
     step = 1
     stop = False
+    dev_id = int(paddle.device.get_device().split(":")[1])
     for epoch in range(args.num_epoch):
         for indexes, prefetch_embeddings, mode in train_loader:
             h, r, t, neg_ents, all_ents = indexes
             all_ents_emb, rel_emb, weights = prefetch_embeddings
 
+            r = r.cuda(dev_id)
+            if all_ents is not None:
+                all_ents = all_ents.cuda(dev_id)
+
             if rel_emb is not None:
+                rel_emb = rel_emb.cuda(dev_id)
                 rel_emb.stop_gradient = False
             if all_ents_emb is not None:
+                all_ents_emb = all_ents_emb.cuda(dev_id)
                 all_ents_emb.stop_gradient = False
             timer['sample'] += (time.time() - ts)
 
             ts = time.time()
-            loss = dpmodel(h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb, mode, weights)
+            loss = dpmodel(h, r, t, all_ents, neg_ents, all_ents_emb, rel_emb,
+                           mode, weights)
             timer['forward'] += (time.time() - ts)
 
             log['loss'] += loss.numpy()[0]
@@ -196,7 +206,8 @@ def main():
                 log = defaultdict(int)
                 t_step = time.time()
 
-            if args.valid and dist.get_rank() == 0 and (step + 1) % args.eval_interval == 0:
+            if args.valid and dist.get_rank() == 0 and (
+                    step + 1) % args.eval_interval == 0:
                 evaluate(
                     model,
                     valid_loader,
