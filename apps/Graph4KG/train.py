@@ -109,9 +109,16 @@ def main():
             h, r, t, neg_ents, all_ents = indexes
             all_ents_emb, rel_emb, weights = prefetch_embeddings
 
+            r = r.cuda()
+
+            if all_ents is not None:
+                all_ents = all_ents.cuda()
+
             if rel_emb is not None:
+                rel_emb = rel_emb.cuda()
                 rel_emb.stop_gradient = False
             if all_ents_emb is not None:
+                all_ents_emb = all_ents_emb.cuda()
                 all_ents_emb.stop_gradient = False
 
             timer['sample'] += (time.time() - ts)
