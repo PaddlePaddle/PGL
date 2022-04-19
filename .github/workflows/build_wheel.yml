@@ -60,3 +60,7 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: >
             yum -y update &&
             yum install -y zlib-devel bzip2-devel lzo-devel
+            
+      - uses: actions/upload-artifact@v2
+        with:
+          path: ./wheelhouse/*.whl
