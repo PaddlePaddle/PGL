@@ -50,12 +50,7 @@ jobs:
 
   upload_pypi:
     needs: [build_wheels]
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ 'ubuntu-latest', 'macos-latest' ]
-        arch: [ 'x86_64' ]
-        cibw_python: [ "cp*" ]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v2
         with:
