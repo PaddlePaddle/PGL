@@ -42,6 +42,7 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: >
             yum -y update &&
             yum install -y zlib-devel bzip2-devel lzo-devel
+          CIBW_BEFORE_TEST: python -m pip install paddlepaddle==2.2.2 -i https://mirror.baidu.com/pypi/simple
           CIBW_TEST_COMMAND: python {package}/tests/test_graph.py
           
       - uses: actions/upload-artifact@v2
