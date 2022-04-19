@@ -1,10 +1,9 @@
-name: Build
+name: Build and upload PyPI
 
 on:
   push:
     tags:
       - '*'
-
 
 jobs:
   build_wheels:
@@ -43,7 +42,27 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: >
             yum -y update &&
             yum install -y zlib-devel bzip2-devel lzo-devel
-            
+          CIBW_TEST_COMMAND: python {package}/tests/test_graph.py
+          
       - uses: actions/upload-artifact@v2
         with:
           path: ./dist/*.whl
+
+
+  upload_pypi:
+    needs: [build_wheels]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ 'ubuntu-latest', 'macos-latest' ]
+        arch: [ 'x86_64' ]
+        cibw_python: [ "cp*" ]
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: artifact
+          path: ./dist
+          
+      - uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
