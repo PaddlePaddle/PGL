@@ -59,4 +59,5 @@ jobs:
           
       - uses: pypa/gh-action-pypi-publish@master
         with:
+          skip_existing: true
           password: ${{ secrets.PYPI_API_TOKEN }}
