@@ -136,7 +136,7 @@ setup(
     package_data=package_data,
     setup_requires=[
         'setuptools>=18.0',
-        'numpy>=1.20.3',
+        'numpy>=1.16.4,<1.20.0',
     ],
     install_requires=requirements,
     cmdclass={'build_ext': CustomBuildExt},
