@@ -4,7 +4,7 @@ Here we provide the code of our paper ***Simple and Effective Relation-based Emb
 
 ## Overview
 
-REP is a simple and effective embedding propagation method for knowledge representation learning by utilizing graph context in KGs. The key idea is to incorporate relational graph structure information into pre-trained triplet-based embeddings. Experimental results show that by enriching pre-trained triplet-based embeddings
+REP is a simple and effective embedding propagation method for knowledge representation learning by utilizing graph context in knowledge graphs. The key idea is to incorporate relational graph structure information into pre-trained triplet-based embeddings. Experimental results show that by enriching pre-trained triplet-based embeddings
 with graph context, REP can improve or maintain prediction quality with less time cost.
 
 <h2 align="center">
@@ -21,9 +21,7 @@ For ogbn-wikikg2 dataset, we use the official code and model config released by 
 
 ## Run REP
 
-After getting the knowledge embeddings of the entities and relations, we can run REP method. The specific configuration information can be seen at rep.py. 
-
-For Wikikg90m dataset, you can see [here](https://github.com/PaddlePaddle/PGL/tree/main/examples/kddcup2021/WikiKG90M/post_smoothing)
+After getting the knowledge embeddings of the entities and relations, we can run REP method. The main code of REP can be found at `rep.py`. For Wikikg90m dataset, you can see [here](https://github.com/PaddlePaddle/PGL/tree/main/examples/kddcup2021/WikiKG90M/post_smoothing).
 
 Here we give the best REP hyperparameters for different models and datasets.
 
