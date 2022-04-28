@@ -17,7 +17,7 @@ Graph4KG is a flexible framework to learn embeddings of entities and relations i
 - Storage and Computation Separation. Entity embeddings are stored on the disk and loaded in the mmap mode, while computations are conducted with GPUs. 
 - Asynchroneous Gradient Update. This also overlaps the computation time and gradient update time. In this case, there is at most four-step delay for gradient update. As KGs are always sparse, this asynchrony will not hurt performance.
 
-Besides, it provides [the 1st place solution](https://ogb.stanford.edu/kddcup2021/results/#final_wikikg90m) in KDD Cup 2021.
+Besides, it provides [the 1st place solution](https://ogb.stanford.edu/kddcup2021/results/#final_wikikg90m) in KDD Cup 2021. You can found it [here](https://github.com/PaddlePaddle/PGL/tree/main/apps/Graph4KG/examples/REP)
 
 
 ## Requirements
