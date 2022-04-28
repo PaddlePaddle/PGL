@@ -15,7 +15,7 @@ with graph context, REP can improve or maintain prediction quality with less tim
 
 Before running REP, we need to get pre-trained triplet-based embeddings. 
 
-For FB15k-237 and WN18RR datasets, we use [KGEmbedding-OTE](https://github.com/JD-AI-Research-Silicon-Valley/KGEmbedding-OTE) to train KG embeddings, including 5 models we use in paper. For the best model config for TransE, RotatE and DistMult, we can find [here](https://github.com/DeepGraphLearning/KnowledgeGraphEmbedding/blob/master/best_config.sh). For OTE and GC-OTE, we can find [here](https://github.com/JD-AI-Research-Silicon-Valley/KGEmbedding-OTE). 
+In our paper, for FB15k-237 and WN18RR datasets, we use [KGEmbedding-OTE](https://github.com/JD-AI-Research-Silicon-Valley/KGEmbedding-OTE) to train KG embeddings, including 5 models we use in paper. For the best model config for TransE, RotatE and DistMult, we can find [here](https://github.com/DeepGraphLearning/KnowledgeGraphEmbedding/blob/master/best_config.sh). For OTE and GC-OTE, we can find [here](https://github.com/JD-AI-Research-Silicon-Valley/KGEmbedding-OTE). 
 
 For ogbn-wikikg2 dataset, we use the official code and model config released by [ogb](https://github.com/snap-stanford/ogb/tree/master/examples/linkproppred/wikikg2).
 
