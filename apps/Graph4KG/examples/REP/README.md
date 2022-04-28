@@ -19,6 +19,8 @@ In our paper, for FB15k-237 and WN18RR datasets, we use [KGEmbedding-OTE](https:
 
 For ogbn-wikikg2 dataset, we use the official code and model config released by [ogb](https://github.com/snap-stanford/ogb/tree/master/examples/linkproppred/wikikg2).
 
+We also recommend you use [Graph4KG](https://github.com/PaddlePaddle/PGL/tree/main/apps/Graph4KG) to get knowledge embeddings.
+
 ## Run REP
 
 After getting the knowledge embeddings of the entities and relations, we can run REP method. The main code of REP can be found at `rep.py`. For Wikikg90m dataset, you can see [here](https://github.com/PaddlePaddle/PGL/tree/main/examples/kddcup2021/WikiKG90M/post_smoothing).
