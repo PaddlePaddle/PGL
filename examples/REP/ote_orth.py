@@ -16,7 +16,7 @@ import numpy as np
 import paddle
 
 
-class Orth_OTE():
+class OrthOTE():
     def __init__(self, relation_feat, ote_size):
         self.use_scale = True
         self.num_elem = ote_size

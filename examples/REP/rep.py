@@ -21,7 +21,7 @@ from easydict import EasyDict as edict
 import numpy as np
 from ogb.linkproppred import LinkPropPredDataset
 
-from ote_orth import Orth_OTE
+from ote_orth import OrthOTE
 
 logging.basicConfig(format='', level=logging.INFO)
 
@@ -377,7 +377,7 @@ if __name__ == "__main__":
     relation_feat_path = os.path.join(args.model_path,
                                       "relation_embedding.npy")
     if args.model_name in ['OTE', 'GC_OTE']:
-        ote = Orth_OTE(relation_feat_path, args.ote_size)
+        ote = OrthOTE(relation_feat_path, args.ote_size)
         r_emb = ote.orth_relation_emb.numpy()
         r_emb_mat = ote.orth_relation_emb_mat.numpy()
     else:
