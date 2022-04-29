@@ -26,6 +26,13 @@ We also recommend you use [Graph4KG](https://github.com/PaddlePaddle/PGL/tree/ma
 After getting the knowledge embeddings of the entities and relations, we can run REP method. The main code of REP can be found at `rep.py`. For Wikikg90m dataset, you can see [here](https://github.com/PaddlePaddle/PGL/tree/main/examples/kddcup2021/WikiKG90M/post_smoothing).
 
 Here we give the best REP hyperparameters for different models and datasets.
+|  Dataset   |  Model  | Hyperparameters |
+|  ----  | ---- | ---- |
+| FB15k-237 | REP-TransE | alpha=0.97, khop=11 |
+| FB15k-237 | REP-RotatE | alpha=0.99, khop=8 |
+| FB15k-237 | REP-DistMult | alpha=0.99, khop=19 |
+| FB15k-237 | REP-OTE | alpha=0.94, khop=2 |
+| FB15k-237 | REP-GC-OTE | alpha=0.95, khop=2 |
 
 
 ## Citation
