@@ -16,11 +16,9 @@ import os
 import yaml
 import logging
 import argparse
-from easydict import EasyDict as edict
 
 import numpy as np
 from ogb.linkproppred import LinkPropPredDataset
-
 from ote_orth import OrthOTE
 
 logging.basicConfig(format='', level=logging.INFO)
