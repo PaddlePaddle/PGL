@@ -8,7 +8,7 @@ REP is a simple and effective embedding propagation method for knowledge represe
 with graph context, REP can improve or maintain prediction quality with less time cost.
 
 <h2 align="center">
-<img align="center"  src="./rep_method.png" alt="rep" width = "600" height = "400">
+<img align="center"  src="./rep_method.png" alt="rep" width = "600" height = "350">
 </h2>
 
 ## How to get knowledge embeddings
