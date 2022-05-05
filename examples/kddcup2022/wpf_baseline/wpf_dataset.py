@@ -20,7 +20,6 @@ import pandas as pd
 import paddle
 from paddle.io import Dataset
 
-from sklearn.preprocessing import StandardScaler
 import pgl
 from pgl.utils.logger import log
 
@@ -162,8 +161,6 @@ class PGL4WPFDataset(Dataset):
         return new_df_data
 
     def build_graph_data(self, df_data):
-        self.scaler = StandardScaler()
-
         cols_data = df_data.columns[self.start_col:]
         df_data = df_data[cols_data]
         data = df_data.values
