@@ -25,9 +25,9 @@ from pgl.utils.logger import log
 from paddle.io import DataLoader
 import random
 
-import models
 import loss as loss_factory
 from wpf_dataset import PGL4WPFDataset
+from wpf_model import WPFModel
 import optimization as optim
 from metrics import regressor_metrics
 from utils import save_model, _create_if_not_exist, load_model
@@ -90,7 +90,7 @@ def train_and_evaluate(config, train_data, valid_data, test_data):
         drop_last=False,
         num_workers=config.num_workers)
 
-    model = getattr(models, config.model.name).WPFModel(config=config)
+    model = WPFModel(config=config)
 
     if paddle.distributed.get_world_size() > 1:
         model = paddle.DataParallel(model)
@@ -114,7 +114,6 @@ def train_and_evaluate(config, train_data, valid_data, test_data):
             batch_x = batch_x.astype('float32')
             batch_y = batch_y.astype('float32')
             batch_x, batch_y = data_augment(batch_x, batch_y)
-            input_len = batch_x.shape[1]
 
             input_y = batch_y
             batch_y = batch_y[:, :, :, -1]
@@ -169,7 +168,7 @@ def train_and_evaluate(config, train_data, valid_data, test_data):
                 if patient > config.patient:
                     break
 
-    best_epochs = max(enumerate(valid_records), key=lambda x: x[1]["score"])[0]
+    best_epochs = min(enumerate(valid_records), key=lambda x: x[1]["score"])[0]
     log.info("Best valid Epoch %s" % best_epochs)
     log.info("Best valid score %s" % valid_records[best_epochs])
     log.info("Best valid test-score %s" % test_records[best_epochs])
@@ -209,7 +208,6 @@ def evaluate(valid_data_loader,
     for batch_x, batch_y in valid_data_loader:
         batch_x = batch_x.astype('float32')
         batch_y = batch_y.astype('float32')
-        input_len = batch_x.shape[1]
 
         pred_y = model(batch_x, batch_y, data_mean, data_scale, graph)
 
@@ -257,10 +255,28 @@ if __name__ == "__main__":
     print(config)
     size = [config.input_len, config.output_len]
     train_data = PGL4WPFDataset(
-        config.data_path, filename="wtb5_10.csv", size=size, flag='train')
+        config.data_path,
+        filename="wtb5_10.csv",
+        size=size,
+        flag='train',
+        train_days=config.train_days,
+        val_days=config.val_days,
+        test_days=config.test_days)
     valid_data = PGL4WPFDataset(
-        config.data_path, filename="wtb5_10.csv", size=size, flag='val')
+        config.data_path,
+        filename="wtb5_10.csv",
+        size=size,
+        flag='val',
+        train_days=config.train_days,
+        val_days=config.val_days,
+        test_days=config.test_days)
     test_data = PGL4WPFDataset(
-        config.data_path, filename="wtb5_10.csv", size=size, flag='test')
+        config.data_path,
+        filename="wtb5_10.csv",
+        size=size,
+        flag='test',
+        train_days=config.train_days,
+        val_days=config.val_days,
+        test_days=config.test_days)
 
     train_and_evaluate(config, train_data, valid_data, test_data)
