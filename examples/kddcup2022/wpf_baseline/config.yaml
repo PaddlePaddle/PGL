@@ -1,6 +1,6 @@
 # dataset
 data_path: "./data"
-input_len: 72 
+input_len: 144 
 output_len: 288
 # var_len: 13
 var_len: 10
@@ -17,7 +17,6 @@ lr: 0.0001
 
 # Model
 model:
-    name: "wpf_model"
     hidden_dims: 32 
     nhead: 8
     dropout: 0.5

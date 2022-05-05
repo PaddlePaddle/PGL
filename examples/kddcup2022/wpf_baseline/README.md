@@ -26,3 +26,9 @@ The trained model will be saved in `output_path` directory.
 We simply design a model as descripted bellows.
 
 <img src="./model_archi.png" alt="The Model Architecture of WPF" width="800">
+
+## Prediction Visualization
+
+During Training we visualize the prediction in devided validation and test set. See `val_vis.png` and `test_vis.png`
+
+<img src="./val_vis.png" alt="Visualize of validation prediction" width="800">
