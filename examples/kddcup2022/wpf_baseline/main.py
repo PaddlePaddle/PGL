@@ -81,14 +81,14 @@ def train_and_evaluate(config, train_data, valid_data, test_data):
         batch_size=config.batch_size,
         shuffle=False,
         drop_last=False,
-        num_workers=1)
+        num_workers=config.num_workers)
 
     test_data_loader = DataLoader(
         test_data,
         batch_size=config.batch_size,
         shuffle=False,
         drop_last=False,
-        num_workers=1)
+        num_workers=config.num_workers)
 
     model = getattr(models, config.model.name).WPFModel(config=config)
 
@@ -248,18 +248,11 @@ def evaluate(valid_data_loader,
     return output_metric, pred_batch, gold_batch
 
 
-def set_seed(seed):
-    paddle.seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='main')
     parser.add_argument("--conf", type=str, default="./config.yaml")
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
-    set_seed(config.seed)
 
     print(config)
     size = [config.input_len, config.output_len]
