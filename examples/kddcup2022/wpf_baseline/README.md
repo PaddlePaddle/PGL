@@ -25,4 +25,4 @@ The trained model will be saved in `output_path` directory.
 
 We simply design a model as descripted bellows.
 
-<img src="./examples/kddcup2022/wpf_baseline/model_archi.png" alt="The Model Architecture of WPF" width="800">
+<img src="./model_archi.png" alt="The Model Architecture of WPF" width="800">
