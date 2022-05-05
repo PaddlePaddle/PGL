@@ -77,11 +77,9 @@ class TransformerDecoderLayer(nn.Layer):
 
         self.decomp = SeriesDecomp(DECOMP)
 
-        self.self_attn = nn.MultiHeadAttention(
-            d_model, nhead, dropout=attn_dropout)
+        self.self_attn = nn.MultiHeadAttention(d_model, nhead)
 
-        self.cross_attn = nn.MultiHeadAttention(
-            d_model, nhead, dropout=attn_dropout)
+        self.cross_attn = nn.MultiHeadAttention(d_model, nhead)
 
         self.linear1 = nn.Linear(d_model, dims_feedforward)
         self.dropout = nn.Dropout(act_dropout, mode="upscale_in_train")
@@ -151,8 +149,7 @@ class TransformerEncoderLayer(nn.Layer):
 
         self.decomp = SeriesDecomp(DECOMP)
 
-        self.self_attn = nn.MultiHeadAttention(
-            d_model, nhead, dropout=attn_dropout)
+        self.self_attn = nn.MultiHeadAttention(d_model, nhead)
 
         self.linear1 = nn.Linear(d_model, dims_feedforward)
         self.dropout = nn.Dropout(act_dropout, mode="upscale_in_train")
@@ -352,7 +349,7 @@ class WPFModel(nn.Layer):
         weekday_id = batch_x[:, 0, :, 0].astype("int32")
 
         batch_x = batch_x[:, :, :, 2:]
-        batch_x = (batch_x - data_mean.unsqueeze(2)) / data_scale.unsqueeze(2)
+        batch_x = (batch_x - data_mean) / data_scale
 
         y_weekday_id = batch_y[:, 0, :, 0].astype("int32")
         y_time_id = batch_y[:, 0, :, 1].astype("int32")
