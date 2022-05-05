@@ -18,7 +18,6 @@ Minimum usage:
     python main.py  --conf config.yaml
 ```
 
-The trained model will be saved in path/to/working/dir/checkpoints directory. 
-
+The trained model will be saved in `output_path` directory. 
 
     
