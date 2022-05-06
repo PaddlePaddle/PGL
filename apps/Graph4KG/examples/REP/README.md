@@ -4,8 +4,7 @@ Here we provide the code of our paper ***Simple and Effective Relation-based Emb
 
 ## Overview
 
-REP is a simple and effective embedding propagation method for knowledge representation learning by utilizing graph context in knowledge graphs. The key idea is to incorporate relational graph structure information into pre-trained triplet-based embeddings. Experimental results show that by enriching pre-trained triplet-based embeddings
-with graph context, REP can improve or maintain prediction quality with less time cost.
+REP is a simple and effective embedding propagation method for knowledge representation learning by utilizing graph context in knowledge graphs. The key idea is to incorporate relational graph structure information into pre-trained triplet-based embeddings. Experimental results show that by enriching pre-trained triplet-based embeddings with graph context, REP can improve or maintain prediction quality with less time cost.
 
 <h2 align="center">
 <img align="center"  src="./rep_method.png" alt="rep" width = "600" height = "350">
@@ -48,3 +47,14 @@ Here we give the best REP hyperparameters for different models and datasets.
 | WikiKG90M | REP-OTE | alpha=0.98, khop=13 |
 
 ## Citation
+
+Please cite the following paper if you use this code in your work.
+
+@inproceedings{
+    wang2022rep,
+    title={Simple and Effective Relation-based Embedding Propagation for Knowledge Representation Learning},
+    author={HuijuanWang and SimingDai and WeiyueSu and HuiZhong and ZeyangFang and ZhengjieHuang and ShikunFeng and ZeyuChen and YuSun and DianhaiYu 
+},
+    booktitle={IJCAI-ECAI},
+    year={2022}
+}

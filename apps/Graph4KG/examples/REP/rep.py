@@ -18,6 +18,7 @@ import logging
 import argparse
 
 import numpy as np
+import pgl
 from ogb.linkproppred import LinkPropPredDataset
 from ote_orth import OrthOTE
 
