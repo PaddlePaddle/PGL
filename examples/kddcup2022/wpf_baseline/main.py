@@ -252,23 +252,25 @@ def evaluate(valid_data_loader,
     gold_batch = np.transpose(gold_batch, [1, 0, 2, 3])
     input_batch = np.transpose(input_batch, [1, 0, 2, 3])
 
-    visualize_prediction(input_batch[0, :, :, 0], pred_batch[0, :, :, 0],
-                         gold_batch[0, :, :, 0], tag)
+    visualize_prediction(
+        np.sum(input_batch[:, :, :, 0], 0) / 1000.,
+        np.sum(pred_batch[:, :, :, 0], 0) / 1000.,
+        np.sum(gold_batch[:, :, :, 0], 0) / 1000., tag)
 
     _mae, _rmse = regressor_detailed_scores(pred_batch, gold_batch,
                                             valid_raw_df, config.capacity,
                                             config.output_len)
 
-    _merge_mae, _merge_rmse = regressor_scores(
+    _farm_mae, _farm_rmse = regressor_scores(
         np.sum(pred_batch, 0) / 1000., np.sum(gold_batch, 0) / 1000.)
 
     output_metric = {
         'mae': _mae,
         'score': (_mae + _rmse) / 2,
         'rmse': _rmse,
-        'merge_mae': _merge_mae,
-        'merge_score': (_merge_mae + _merge_rmse) / 2,
-        'merge_rmse': _merge_rmse,
+        'farm_mae': _farm_mae,
+        'farm_score': (_farm_mae + _farm_rmse) / 2,
+        'farm_rmse': _farm_rmse,
         'loss': np.mean(losses),
     }
 
@@ -288,6 +290,7 @@ if __name__ == "__main__":
         filename=config.filename,
         size=size,
         flag='train',
+        total_days=config.total_days,
         train_days=config.train_days,
         val_days=config.val_days,
         test_days=config.test_days)
@@ -296,6 +299,7 @@ if __name__ == "__main__":
         filename=config.filename,
         size=size,
         flag='val',
+        total_days=config.total_days,
         train_days=config.train_days,
         val_days=config.val_days,
         test_days=config.test_days)
@@ -304,6 +308,7 @@ if __name__ == "__main__":
         filename=config.filename,
         size=size,
         flag='test',
+        total_days=config.total_days,
         train_days=config.train_days,
         val_days=config.val_days,
         test_days=config.test_days)

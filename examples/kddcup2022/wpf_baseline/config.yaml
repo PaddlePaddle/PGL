@@ -1,6 +1,7 @@
 # dataset
 data_path: "./data"
 filename: "sdwpf_baidukddcup2022_full.csv"
+#filename: "wtbdata_245days.csv"
 input_len: 144 
 output_len: 288
 # var_len: 13
@@ -8,9 +9,10 @@ var_len: 10
 capacity: 134
 patient: 2 
 
-train_days: 153
+train_days: 153 
 val_days: 16 
 test_days: 15 
+total_days: 184 
 
 
 num_workers: 2

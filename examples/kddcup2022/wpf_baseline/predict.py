@@ -113,6 +113,7 @@ if __name__ == "__main__":
         filename=config.filename,
         size=size,
         flag='train',
+        total_days=config.total_days,
         train_days=config.train_days,
         val_days=config.val_days,
         test_days=config.test_days)

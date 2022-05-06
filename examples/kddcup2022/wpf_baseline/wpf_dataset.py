@@ -106,13 +106,10 @@ class PGL4WPFDataset(Dataset):
         self.__read_data__()
 
     def __read_data__(self):
-        if os.path.exists('./temp_df.pkl'):
-            df_data = pd.read_pickle("./temp_df.pkl")
-        else:
-            df_raw = pd.read_csv(os.path.join(self.data_path, self.filename))
-            df_data = self.data_preprocess(df_raw)
-            df_data.to_pickle("./temp_df.pkl")
+        df_raw = pd.read_csv(os.path.join(self.data_path, self.filename))
+        df_data, raw_df_data = self.data_preprocess(df_raw)
         self.df_data = df_data
+        self.raw_df_data = raw_df_data
 
         data_x, graph = self.build_graph_data(df_data)
         log.info(f"data_shape: {data_x.shape}")
@@ -158,9 +155,11 @@ class PGL4WPFDataset(Dataset):
         new_df_data.insert(0, 'weekday', weekday)
 
         pd.set_option('mode.chained_assignment', None)
-        new_df_data.replace(to_replace=np.nan, value=0, inplace=True)
+        raw_df_data = new_df_data
+        new_df_data = new_df_data.replace(
+            to_replace=np.nan, value=0, inplace=False)
 
-        return new_df_data
+        return new_df_data, raw_df_data
 
     def get_raw_df(self):
         return self.raw_df
@@ -168,9 +167,14 @@ class PGL4WPFDataset(Dataset):
     def build_graph_data(self, df_data):
         cols_data = df_data.columns[self.start_col:]
         df_data = df_data[cols_data]
+        raw_df_data = self.raw_df_data[cols_data]
+
         data = df_data.values
         data = np.reshape(data,
                           [self.capacity, self.total_size, len(cols_data)])
+        raw_data = raw_df_data.values
+        raw_data = np.reshape(
+            raw_data, [self.capacity, self.total_size, len(cols_data)])
 
         border1s = [
             0, self.train_size - self.input_len,
@@ -203,7 +207,7 @@ class PGL4WPFDataset(Dataset):
         for turb_id in range(self.capacity):
             self.raw_df.append(
                 pd.DataFrame(
-                    data=data[turb_id, border1 + self.input_len:border2],
+                    data=raw_data[turb_id, border1 + self.input_len:border2],
                     columns=cols_data))
 
         data_x = data[:, border1:border2, :]
@@ -240,8 +244,9 @@ class TestPGL4WPFDataset(Dataset):
 
     def __read_data__(self):
         df_raw = pd.read_csv(self.filename)
-        df_data = self.data_preprocess(df_raw)
+        df_data, raw_df_data = self.data_preprocess(df_raw)
         self.df_data = df_data
+        self.raw_df_data = raw_df_data
 
         data_x = self.build_graph_data(df_data)
         self.data_x = data_x
@@ -264,9 +269,10 @@ class TestPGL4WPFDataset(Dataset):
         new_df_data.insert(0, 'weekday', weekday)
 
         pd.set_option('mode.chained_assignment', None)
-        new_df_data.replace(to_replace=np.nan, value=0, inplace=True)
+        raw_df_data = new_df_data
+        new_df_data = new_df_data.replace(to_replace=np.nan, value=0)
 
-        return new_df_data
+        return new_df_data, raw_df_data
 
     def get_raw_df(self):
         return self.raw_df
@@ -274,8 +280,12 @@ class TestPGL4WPFDataset(Dataset):
     def build_graph_data(self, df_data):
         cols_data = df_data.columns[self.start_col:]
         df_data = df_data[cols_data]
+        raw_df_data = self.raw_df_data[cols_data]
         data = df_data.values
+        raw_data = raw_df_data.values
+
         data = np.reshape(data, [self.capacity, -1, len(cols_data)])
+        raw_data = np.reshape(raw_data, [self.capacity, -1, len(cols_data)])
 
         data_x = data[:, :, :]
 
@@ -283,7 +293,7 @@ class TestPGL4WPFDataset(Dataset):
         for turb_id in range(self.capacity):
             self.raw_df.append(
                 pd.DataFrame(
-                    data=data[turb_id], columns=cols_data))
+                    data=raw_data[turb_id], columns=cols_data))
         return np.expand_dims(data_x, [0])
 
     def get_data(self):

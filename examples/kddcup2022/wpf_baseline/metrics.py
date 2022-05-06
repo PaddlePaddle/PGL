@@ -9,6 +9,7 @@ Description: Some useful metrics
 Authors: Lu,Xinjiang (luxinjiang@baidu.com)
 Date:    2022/03/10
 """
+import pandas as pd
 import time
 import numpy as np
 
@@ -166,12 +167,20 @@ def turbine_scores(pred, gt, raw_data, examine_len, stride=1):
     Returns:
         The averaged MAE and RMSE
     """
-    cond = (raw_data['Patv'] <= 0) & (raw_data['Wspd'] > 2.5) | \
-           (raw_data['Pab1'] > 89) | (raw_data['Pab2'] > 89) | (raw_data['Pab3'] > 89)
+    nan_cond = pd.isna(raw_data.any(axis=1))
+
+    invalid_cond = (raw_data['Patv'] < 0) | \
+                   ((raw_data['Patv'] == 0) & (raw_data['Wspd'] > 2.5)) | \
+                   ((raw_data['Pab1'] > 89) | (raw_data['Pab2'] > 89) | (raw_data['Pab3'] > 89)) | \
+                   ((raw_data['Wdir'] < -180) | (raw_data['Wdir'] > 180) | (raw_data['Ndir'] < -720) |
+                    (raw_data['Ndir'] > 720))
+
+    cond = (~invalid_cond) & (~nan_cond)
+
     maes, rmses = [], []
     cnt_sample, out_seq_len, _ = pred.shape
     for i in range(0, cnt_sample, stride):
-        indices = np.where(~cond[i:out_seq_len + i])
+        indices = np.where(cond[i:out_seq_len + i])
         prediction = pred[i]
         prediction = prediction[indices]
         targets = gt[i]
