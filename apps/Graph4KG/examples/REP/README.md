@@ -50,6 +50,7 @@ Here we give the best REP hyperparameters for different models and datasets.
 
 Please cite the following paper if you use this code in your work.
 
+```bibtex
 @inproceedings{
     wang2022rep,
     title={Simple and Effective Relation-based Embedding Propagation for Knowledge Representation Learning},
@@ -58,3 +59,4 @@ Please cite the following paper if you use this code in your work.
     booktitle={IJCAI-ECAI},
     year={2022}
 }
+```
