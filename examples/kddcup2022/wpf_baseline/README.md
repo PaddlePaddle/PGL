@@ -15,7 +15,11 @@ Download data and place it into `./data`
 
 Minimum usage:
 ```
-    python main.py  --conf config.yaml
+    CUDA_VISIBLE_DEVICES=0 python main.py  --conf config.yaml
+
+    # make prediction with toy data
+    # put the prediction data into  ./predict_data/test_x and ./predict_data/test_y
+    CUDA_VISIBLE_DEVICES=0 python predict.py  --conf config.yaml
 ```
 
 The trained model will be saved in `output_path` directory. 
