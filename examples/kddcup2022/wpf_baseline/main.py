@@ -15,6 +15,7 @@
 import os
 import argparse
 import paddle
+import paddle.nn.functional as F
 import tqdm
 import yaml
 import numpy as np
@@ -29,7 +30,7 @@ import loss as loss_factory
 from wpf_dataset import PGL4WPFDataset
 from wpf_model import WPFModel
 import optimization as optim
-from metrics import regressor_metrics
+from metrics import regressor_scores, regressor_detailed_scores
 from utils import save_model, _create_if_not_exist, load_model
 import matplotlib.pyplot as plt
 
@@ -63,8 +64,8 @@ def train_and_evaluate(config, train_data, valid_data, test_data):
     if paddle.distributed.get_world_size() > 1:
         paddle.distributed.init_parallel_env()
 
-    data_mean = paddle.to_tensor([train_data.data_mean], dtype="float32")
-    data_scale = paddle.to_tensor([train_data.data_scale], dtype="float32")
+    data_mean = paddle.to_tensor(train_data.data_mean, dtype="float32")
+    data_scale = paddle.to_tensor(train_data.data_scale, dtype="float32")
 
     graph = train_data.graph
     graph = graph.tensor()
@@ -106,6 +107,9 @@ def train_and_evaluate(config, train_data, valid_data, test_data):
     best_score = np.inf
     patient = 0
 
+    col_names = dict(
+        [(v, k) for k, v in enumerate(train_data.get_raw_df()[0].columns)])
+
     valid_records = []
     test_records = []
 
@@ -117,9 +121,10 @@ def train_and_evaluate(config, train_data, valid_data, test_data):
 
             input_y = batch_y
             batch_y = batch_y[:, :, :, -1]
-            batch_y = (batch_y - data_mean) / data_scale
+            batch_y = (
+                batch_y - data_mean[:, :, :, -1]) / data_scale[:, :, :, -1]
             pred_y = model(batch_x, input_y, data_mean, data_scale, graph)
-            loss = loss_fn(pred_y, batch_y)
+            loss = loss_fn(pred_y, batch_y, input_y, col_names)
             loss.backward()
 
             opt.step()
@@ -133,8 +138,9 @@ def train_and_evaluate(config, train_data, valid_data, test_data):
 
         if paddle.distributed.get_rank() == 0:
 
-            valid_r, valid_pred, valid_label = evaluate(
+            valid_r = evaluate(
                 valid_data_loader,
+                valid_data.get_raw_df(),
                 model,
                 loss_fn,
                 config,
@@ -148,8 +154,9 @@ def train_and_evaluate(config, train_data, valid_data, test_data):
 
             best_score = min(valid_r['score'], best_score)
 
-            test_r, test_pred, test_label = evaluate(
+            test_r = evaluate(
                 test_data_loader,
+                test_data.get_raw_df(),
                 model,
                 loss_fn,
                 config,
@@ -192,6 +199,7 @@ def visualize_prediction(input_batch, pred_batch, gold_batch, tag):
 
 @paddle.no_grad()
 def evaluate(valid_data_loader,
+             valid_raw_df,
              model,
              loss_fn,
              config,
@@ -199,6 +207,8 @@ def evaluate(valid_data_loader,
              data_scale,
              tag="train",
              graph=None):
+
+    col_names = dict([(v, k) for k, v in enumerate(valid_raw_df[0].columns)])
     model.eval()
     step = 0
     pred_batch = []
@@ -212,38 +222,57 @@ def evaluate(valid_data_loader,
         pred_y = model(batch_x, batch_y, data_mean, data_scale, graph)
 
         scaled_batch_y = batch_y[:, :, :, -1]
-        scaled_batch_y = (scaled_batch_y - data_mean) / data_scale
-        loss = loss_fn(pred_y, scaled_batch_y)
+        scaled_batch_y = (
+            scaled_batch_y - data_mean[:, :, :, -1]) / data_scale[:, :, :, -1]
+        loss = loss_fn(pred_y, scaled_batch_y, batch_y, col_names)
         losses.append(loss.numpy()[0])
 
-        pred_y = pred_y * data_scale + data_mean
-        pred_y = paddle.sum(pred_y, 1).numpy()
+        pred_y = F.relu(pred_y * data_scale[:, :, :, -1] + data_mean[:, :, :,
+                                                                     -1])
+        pred_y = pred_y.numpy()
 
-        batch_y = paddle.sum(batch_y[:, :, :, -1], axis=1).numpy()
+        batch_y = batch_y[:, :, :, -1].numpy()
 
-        input_batch.append(paddle.sum(batch_x[:, :, :, -1], axis=1).numpy())
+        input_batch.append(batch_x[:, :, :, -1].numpy())
         pred_batch.append(pred_y)
         gold_batch.append(batch_y)
 
         step += 1
     model.train()
 
-    pred_batch = np.concatenate(pred_batch, axis=0) / 1000
-    gold_batch = np.concatenate(gold_batch, axis=0) / 1000
-    input_batch = np.concatenate(input_batch, axis=0) / 1000
+    pred_batch = np.concatenate(pred_batch, axis=0)
+    gold_batch = np.concatenate(gold_batch, axis=0)
+    input_batch = np.concatenate(input_batch, axis=0)
 
-    visualize_prediction(input_batch, pred_batch, gold_batch, tag)
+    pred_batch = np.expand_dims(pred_batch, -1)
+    gold_batch = np.expand_dims(gold_batch, -1)
+    input_batch = np.expand_dims(input_batch, -1)
 
-    _mae, _mse, _rmse = regressor_metrics(pred_batch, gold_batch)
+    pred_batch = np.transpose(pred_batch, [1, 0, 2, 3])
+    gold_batch = np.transpose(gold_batch, [1, 0, 2, 3])
+    input_batch = np.transpose(input_batch, [1, 0, 2, 3])
+
+    visualize_prediction(input_batch[0, :, :, 0], pred_batch[0, :, :, 0],
+                         gold_batch[0, :, :, 0], tag)
+
+    _mae, _rmse = regressor_detailed_scores(pred_batch, gold_batch,
+                                            valid_raw_df, config.capacity,
+                                            config.output_len)
+
+    _merge_mae, _merge_rmse = regressor_scores(
+        np.sum(pred_batch, 0) / 1000., np.sum(gold_batch, 0) / 1000.)
+
     output_metric = {
         'mae': _mae,
-        'mse': _mse,
         'score': (_mae + _rmse) / 2,
         'rmse': _rmse,
+        'merge_mae': _merge_mae,
+        'merge_score': (_merge_mae + _merge_rmse) / 2,
+        'merge_rmse': _merge_rmse,
         'loss': np.mean(losses),
     }
 
-    return output_metric, pred_batch, gold_batch
+    return output_metric
 
 
 if __name__ == "__main__":
@@ -256,7 +285,7 @@ if __name__ == "__main__":
     size = [config.input_len, config.output_len]
     train_data = PGL4WPFDataset(
         config.data_path,
-        filename="wtb5_10.csv",
+        filename=config.filename,
         size=size,
         flag='train',
         train_days=config.train_days,
@@ -264,7 +293,7 @@ if __name__ == "__main__":
         test_days=config.test_days)
     valid_data = PGL4WPFDataset(
         config.data_path,
-        filename="wtb5_10.csv",
+        filename=config.filename,
         size=size,
         flag='val',
         train_days=config.train_days,
@@ -272,7 +301,7 @@ if __name__ == "__main__":
         test_days=config.test_days)
     test_data = PGL4WPFDataset(
         config.data_path,
-        filename="wtb5_10.csv",
+        filename=config.filename,
         size=size,
         flag='test',
         train_days=config.train_days,

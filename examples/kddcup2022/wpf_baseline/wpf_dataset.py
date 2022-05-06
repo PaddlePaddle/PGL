@@ -184,14 +184,17 @@ class PGL4WPFDataset(Dataset):
         self.data_mean = np.expand_dims(
             np.mean(
                 data[:, border1s[0]:border2s[0], 2:],
-                axis=(0, 1),
+                axis=(1, 2),
                 keepdims=True),
             0)
         self.data_scale = np.expand_dims(
             np.std(data[:, border1s[0]:border2s[0], 2:],
-                   axis=(0, 1),
+                   axis=(1, 2),
                    keepdims=True),
             0)
+
+        #self.data_mean = np.mean(data[:, border1s[0]:border2s[0], 2:]).reshape([1, 1, 1, 1])
+        #self.data_scale = np.std(data[:, border1s[0]:border2s[0], 2:]).reshape([1, 1, 1, 1])
 
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
