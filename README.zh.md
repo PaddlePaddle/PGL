@@ -7,6 +7,11 @@
 
 ## 最新消息
 
+**一篇关于知识表示学习的论文被接收！！**(2022.05.06)
+
+- Simple and Effective Relation-based Embedding Propagation for Knowledge Representation Learning, IJCAI2022. 相关代码可以查看[这里](https://github.com/PaddlePaddle/PGL/blob/f0af541f85e3e1badebedfe55e46f1d1bfbfc2fd/apps/Graph4KG/examples/REP)。
+
+
 PGL v2.2 2021.12.20
 
 - **Graph4Rec**: 我们发布了一个用于推荐系统的通用大规模分布式图表示学习工具包，详情请参考[这里](./apps/Graph4Rec)。

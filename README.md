@@ -9,7 +9,7 @@
 
 **One amazing paper about knowledge representation learning was accepted!** (2022.05.06)
 
-- Simple and Effective Relation-based Embedding Propagation for Knowledge Representation Learning, to appear in **IJCAI2022**. Code can be found [here](./apps/Graph4KG/examples/REP)
+- Simple and Effective Relation-based Embedding Propagation for Knowledge Representation Learning, to appear in **IJCAI2022**. Code can be found [here](./apps/Graph4KG/examples/REP).
 
 
 PGL v2.2 2021.12.20
