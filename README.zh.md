@@ -9,7 +9,7 @@
 
 **一篇关于知识表示学习的论文被接收！！**(2022.05.06)
 
-- Simple and Effective Relation-based Embedding Propagation for Knowledge Representation Learning, IJCAI2022. 相关代码可以查看[这里](./apps/Graph4KG/examples/REP)。
+- Simple and Effective Relation-based Embedding Propagation for Knowledge Representation Learning, **IJCAI2022**. 相关代码可以查看[这里](./apps/Graph4KG/examples/REP)。
 
 
 PGL v2.2 2021.12.20
