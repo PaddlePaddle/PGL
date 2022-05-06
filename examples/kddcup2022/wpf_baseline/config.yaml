@@ -1,5 +1,6 @@
 # dataset
 data_path: "./data"
+filename: "sdwpf_baidukddcup2022_full.csv"
 input_len: 144 
 output_len: 288
 # var_len: 13
@@ -7,8 +8,12 @@ var_len: 10
 capacity: 134
 patient: 2 
 
+train_days: 153
+val_days: 16 
+test_days: 15 
 
-num_workers: 4
+
+num_workers: 2
 epoch: 10 
 batch_size: 32 
 output_path: "./output/baseline"
@@ -17,7 +22,7 @@ lr: 0.0001
 
 # Model
 model:
-    hidden_dims: 32 
+    hidden_dims: 64 
     nhead: 8
     dropout: 0.5
     encoder_layers: 2

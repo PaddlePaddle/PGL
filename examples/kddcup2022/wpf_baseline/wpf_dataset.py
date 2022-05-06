@@ -112,6 +112,7 @@ class PGL4WPFDataset(Dataset):
             df_raw = pd.read_csv(os.path.join(self.data_path, self.filename))
             df_data = self.data_preprocess(df_raw)
             df_data.to_pickle("./temp_df.pkl")
+        self.df_data = df_data
 
         data_x, graph = self.build_graph_data(df_data)
         log.info(f"data_shape: {data_x.shape}")
@@ -127,6 +128,7 @@ class PGL4WPFDataset(Dataset):
         r_end = r_begin + self.output_len
         seq_x = self.data_x[:, s_begin:s_end, :]
         seq_y = self.data_x[:, r_begin:r_end, :]
+
         if self.flag == "train":
             perm = np.arange(0, seq_x.shape[0])
             np.random.shuffle(perm)
@@ -160,6 +162,9 @@ class PGL4WPFDataset(Dataset):
 
         return new_df_data
 
+    def get_raw_df(self):
+        return self.raw_df
+
     def build_graph_data(self, df_data):
         cols_data = df_data.columns[self.start_col:]
         df_data = df_data[cols_data]
@@ -176,11 +181,27 @@ class PGL4WPFDataset(Dataset):
             self.train_size + self.val_size + self.test_size
         ]
 
-        self.data_mean = np.mean(data[:, border1s[0]:border2s[0], 2:])
-        self.data_scale = np.std(data[:, border1s[0]:border2s[0], 2:])
+        self.data_mean = np.expand_dims(
+            np.mean(
+                data[:, border1s[0]:border2s[0], 2:],
+                axis=(0, 1),
+                keepdims=True),
+            0)
+        self.data_scale = np.expand_dims(
+            np.std(data[:, border1s[0]:border2s[0], 2:],
+                   axis=(0, 1),
+                   keepdims=True),
+            0)
 
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
+
+        self.raw_df = []
+        for turb_id in range(self.capacity):
+            self.raw_df.append(
+                pd.DataFrame(
+                    data=data[turb_id, border1 + self.input_len:border2],
+                    columns=cols_data))
 
         data_x = data[:, border1:border2, :]
         data_edge = data[:, border1s[0]:border2s[0], -1]
@@ -196,6 +217,74 @@ class PGL4WPFDataset(Dataset):
                                -1)
         graph = pgl.Graph(num_nodes=edge_w.shape[0], edges=edges)
         return data_x, graph
+
+
+class TestPGL4WPFDataset(Dataset):
+    """
+    Desc: Data preprocessing,
+    """
+
+    def __init__(self, filename, capacity=134, day_len=24 * 6):
+
+        super().__init__()
+        self.unit_size = day_len
+
+        self.start_col = 0
+        self.capacity = capacity
+        self.filename = filename
+
+        self.__read_data__()
+
+    def __read_data__(self):
+        df_raw = pd.read_csv(self.filename)
+        df_data = self.data_preprocess(df_raw)
+        self.df_data = df_data
+
+        data_x = self.build_graph_data(df_data)
+        self.data_x = data_x
+
+    def data_preprocess(self, df_data):
+        feature_name = [
+            n for n in df_data.columns
+            if "Patv" not in n and 'Day' not in n and 'Tmstamp' not in n and
+            'TurbID' not in n
+        ]
+        feature_name.append("Patv")
+
+        new_df_data = df_data[feature_name]
+
+        log.info('adding time')
+        t = df_data['Tmstamp'].apply(func_add_t)
+        new_df_data.insert(0, 'time', t)
+
+        weekday = df_data['Day'].apply(lambda x: x % 7)
+        new_df_data.insert(0, 'weekday', weekday)
+
+        pd.set_option('mode.chained_assignment', None)
+        new_df_data.replace(to_replace=np.nan, value=0, inplace=True)
+
+        return new_df_data
+
+    def get_raw_df(self):
+        return self.raw_df
+
+    def build_graph_data(self, df_data):
+        cols_data = df_data.columns[self.start_col:]
+        df_data = df_data[cols_data]
+        data = df_data.values
+        data = np.reshape(data, [self.capacity, -1, len(cols_data)])
+
+        data_x = data[:, :, :]
+
+        self.raw_df = []
+        for turb_id in range(self.capacity):
+            self.raw_df.append(
+                pd.DataFrame(
+                    data=data[turb_id], columns=cols_data))
+        return np.expand_dims(data_x, [0])
+
+    def get_data(self):
+        return self.data_x
 
 
 if __name__ == "__main__":
