@@ -267,7 +267,7 @@ def main(model_name,
          alpha=0.98,
          k_hop=10,
          gamma=6.0,
-         degree_w=-0.5,
+         degree_w=0.1,
          r_emb=None,
          r_emb_mat=None,
          ote_size=20,
@@ -368,7 +368,14 @@ if __name__ == "__main__":
         default=20,
         help=f"Hyperparameter used in OTE and GC-OTE, "
         "which should be same in both training phase and REP phase.")
+    parser.add_argument(
+        "--degree_w",
+        type=float,
+        default=0.1,
+        help="hyperparameter for neighbor_norm")
     parser.add_argument("--neighbor_norm", action="store_true")
+    parser.add_argument(
+        "--scale_norm", action="store_true", help="used in OTE")
 
     logging.info(args)
 
@@ -403,7 +410,7 @@ if __name__ == "__main__":
         relation_feat,
         entity_neighbors,
         alpha=args.alpha,
-        k_hop=args.k_hop,
+        k_hop=args.khop,
         gamma=args.gamma,
         degree_w=args.degree_w,
         r_emb=r_emb,
