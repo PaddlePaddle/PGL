@@ -14,7 +14,7 @@ REP is a simple and effective embedding propagation method for knowledge represe
 
 Before running REP, we need to get pre-trained triplet-based embeddings. 
 
-In our paper, for FB15k-237 and WN18RR datasets, we use [KGEmbedding-OTE](https://github.com/JD-AI-Research-Silicon-Valley/KGEmbedding-OTE) to train KG embeddings, including 5 models we use in paper. For the best model config for TransE, RotatE and DistMult, we can find it [here](https://github.com/DeepGraphLearning/KnowledgeGraphEmbedding/blob/master/best_config.sh). For OTE and GC-OTE, we can find it [here](https://github.com/JD-AI-Research-Silicon-Valley/KGEmbedding-OTE). 
+In our paper, for FB15k-237 and WN18RR datasets, we use [KGEmbedding-OTE](https://github.com/JD-AI-Research-Silicon-Valley/KGEmbedding-OTE) to train KG embeddings, including 5 models we use in paper. For the best model config for TransE, RotatE and DistMult, you can find it [here](https://github.com/DeepGraphLearning/KnowledgeGraphEmbedding/blob/master/best_config.sh). For OTE and GC-OTE, you can find it [here](https://github.com/JD-AI-Research-Silicon-Valley/KGEmbedding-OTE). 
 
 For ogbl-wikikg2 dataset, we use the official code and model config released by [ogb](https://github.com/snap-stanford/ogb/tree/master/examples/linkproppred/wikikg2).
 
@@ -22,7 +22,7 @@ We also recommend you use [Graph4KG](https://github.com/PaddlePaddle/PGL/tree/ma
 
 ## Run REP
 
-After getting the knowledge embeddings of the entities and relations, we can run REP method. The main code of REP can be found at `rep.py`. For WikiKG90M dataset, you can see [here](https://github.com/PaddlePaddle/PGL/tree/main/examples/kddcup2021/WikiKG90M/post_smoothing).
+After getting the knowledge embeddings of the entities and relations, you can run REP method. The main code of REP can be found at `rep.py`. For WikiKG90M dataset, you can see [here](https://github.com/PaddlePaddle/PGL/tree/main/examples/kddcup2021/WikiKG90M/post_smoothing).
 
 Here we give the best REP hyperparameters for different models and datasets.
 |  Dataset   |  Model  | Hyperparameters |
