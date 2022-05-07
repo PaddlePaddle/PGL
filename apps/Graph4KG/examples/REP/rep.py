@@ -317,7 +317,7 @@ def main(model_name,
                 degree_w=degree_w,
                 indegrees=indegrees,
                 neighbor_norm=neighbor_norm)
-    save_path = "REP_save_feat"
+    save_path = "REP_save_feat_%s_%s" % (model_name, dataset)
     if not os.path.exists(save_path):
         os.mkdir(save_path)
         np.save(os.path.join(save_path, "entity_embedding.npy"), entity_feat)
@@ -354,19 +354,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--alpha",
         default=0.98,
-        type="float",
+        type=float,
         help="Hyperparameter used in REP.")
     parser.add_argument(
         "--gamma",
         type=float,
         default=10,
-        help=f"hyperparameter used in RotatE, "
+        help="hyperparameter used in RotatE, "
         "which should be same in both training phase and REP phase.")
     parser.add_argument(
         "--ote_size",
         type=int,
         default=20,
-        help=f"Hyperparameter used in OTE and GC-OTE, "
+        help="Hyperparameter used in OTE and GC-OTE, "
         "which should be same in both training phase and REP phase.")
     parser.add_argument(
         "--degree_w",
@@ -377,6 +377,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--scale_norm", action="store_true", help="used in OTE")
 
+    args = parser.parse_args()
     logging.info(args)
 
     entity_feat_path = os.path.join(args.model_path, "entity_embedding.npy")
@@ -393,7 +394,7 @@ if __name__ == "__main__":
     entity_feat = np.load(entity_feat_path)
     relation_feat = np.load(relation_feat_path)
     if args.dataset in ['FB15k-237', 'wn18rr']:
-        entity_neighbors, edges = get_neighbor_list_fb_wn(data_path)
+        entity_neighbors, edges = get_neighbor_list_fb_wn(args.data_path)
     if args.dataset in ['wikikg2']:
         entity_neighbors, edges = get_neighbor_list_wikikg2()
 
