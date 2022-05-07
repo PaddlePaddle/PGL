@@ -33,6 +33,7 @@ Here we give the best REP hyperparameters for different models and datasets.
 | FB15k-237 | REP-OTE | alpha=0.94, khop=2 |
 | FB15k-237 | REP-GC-OTE | alpha=0.95, khop=2 |
 | WN18RR | REP-TransE | alpha=0.7, khop=16 |
+|        |            | neighbor_norm=True, degree_w=0.1 |
 | WN18RR | REP-RotatE | alpha=0.99, khop=1 |
 | WN18RR | REP-DistMult | alpha=0.8, khop=1 |
 | WN18RR | REP-OTE | alpha=0.98, khop=4 |
