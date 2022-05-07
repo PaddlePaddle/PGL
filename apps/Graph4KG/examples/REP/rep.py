@@ -56,7 +56,7 @@ def get_neighbor_list_wikikg2():
         nb[1].extend(list(graph.edge_feat["edge_feature"][list(pred_eid[0])]))
         nb[2].extend([1] * len(pred[0]))
         entity_neighbors.append(nb)
-    return entity_neighbors, edges
+    return entity_neighbors, None
 
 
 def get_neighbor_list_fb_wn(data_path):
@@ -391,6 +391,7 @@ if __name__ == "__main__":
         entity_neighbors, edges = get_neighbor_list_wikikg2()
 
     if args.neighbor_norm:
+        assert (args.dataset not in ['wikikg2'])
         indegrees = get_indegree(len(entity_neighbors), edges)
     else:
         indegrees = None
