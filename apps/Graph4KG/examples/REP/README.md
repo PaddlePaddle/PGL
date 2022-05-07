@@ -47,6 +47,8 @@ Here we give the best REP hyperparameters for different models and datasets.
 | WikiKG90M | REP-DistMult | alpha=0.98, khop=3 |
 | WikiKG90M | REP-OTE | alpha=0.98, khop=13 |
 
+Other model specific hyperparamters need to be the same as those used during training.
+
 ## Citation
 
 Please cite the following paper if you use this code in your work.
