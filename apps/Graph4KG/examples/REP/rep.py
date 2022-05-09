@@ -13,19 +13,19 @@
 # limitations under the License.
 
 import os
-import yaml
+import time
 import logging
 import argparse
 
 import numpy as np
 import pgl
-from ogb.linkproppred import LinkPropPredDataset
 from ote_orth import OrthOTE
 
 logging.basicConfig(format='', level=logging.INFO)
 
 
 def get_neighbor_list_wikikg2():
+    from ogb.linkproppred import LinkPropPredDataset
     dataset = LinkPropPredDataset(name="ogbl-wikikg2")
     split_edge = dataset.get_edge_split()
     train_edges = split_edge["train"]
@@ -276,6 +276,7 @@ def main(model_name,
          scale_norm=False):
 
     for i in range(k_hop):
+        start = time.time()
         if model_name == 'TransE':
             entity_feat = rep_transe(
                 entity_feat,
@@ -317,6 +318,8 @@ def main(model_name,
                 degree_w=degree_w,
                 indegrees=indegrees,
                 neighbor_norm=neighbor_norm)
+        end = time.time()
+        print("Time elapsed for running one hop: %.4f" % (end - start))
     save_path = "REP_save_feat_%s_%s" % (model_name, dataset)
     if not os.path.exists(save_path):
         os.mkdir(save_path)
