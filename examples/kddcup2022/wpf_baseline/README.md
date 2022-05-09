@@ -21,8 +21,15 @@ Minimum usage:
     # put the prediction data into  ./predict_data/test_x and ./predict_data/test_y
     CUDA_VISIBLE_DEVICES=0 python predict.py  --conf config.yaml
 ```
-
 The trained model will be saved in `output_path` directory. 
+
+## Requirements
+
+```
+pgl==2.2.3post0
+paddlepaddle-gpu>=2.2.2
+```
+
 
     
 ## Model Architecture
@@ -41,5 +48,3 @@ We simply design a model as descripted bellows.
 ## Prediction Visualization
 
 During Training we visualize the prediction in devided validation and test set. See `val_vis.png` and `test_vis.png`
-
-<img src="./val_vis.png" alt="Visualize of validation prediction" width="800">
