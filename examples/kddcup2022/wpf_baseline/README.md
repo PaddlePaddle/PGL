@@ -42,7 +42,7 @@ We simply design a model as descripted bellows.
 
 |        | Dev Score | Max-dev Test Score |
 |--------|-----------|--------------------|
-| Report |           | 47.7               |
+| Report |   -       | 47.7               |
 | Ours   | 38.93     | 46.83              |
 
 ## Prediction Visualization
