@@ -21,7 +21,7 @@ Minimum usage:
     # put the prediction data into  ./predict_data/test_x and ./predict_data/test_y
     CUDA_VISIBLE_DEVICES=0 python predict.py  --conf config.yaml
 ```
-The trained model will be saved in `output_path` directory. 
+The trained model will be saved in `output_path` directory. Our model cost about 5 minutes for each epoch tested in Tesla V100 GPU.
 
 ## Requirements
 
@@ -48,3 +48,8 @@ We simply design a model as descripted bellows.
 ## Prediction Visualization
 
 During Training we visualize the prediction in devided validation and test set. See `val_vis.png` and `test_vis.png`
+
+## Suggest Reading Materials
+
+1. Autoformer: Decomposition Transformers with Auto-Correlation for Long-Term Series Forecasting. [[link]](https://arxiv.org/abs/2106.13008)
+2. Wind Farm Power prediction with Graph Neural Network. [[link]](https://aifrenz.github.io/present_file/wind_farm_presentation.pdf)
