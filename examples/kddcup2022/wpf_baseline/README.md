@@ -31,6 +31,13 @@ We simply design a model as descripted bellows.
 
 <img src="./model_archi.png" alt="The Model Architecture of WPF" width="800">
 
+## Performance
+
+|        | Dev Score | Max-dev Test Score |
+|--------|-----------|--------------------|
+| Report |           | 47.7               |
+| Ours   | 38.93     | 46.83              |
+
 ## Prediction Visualization
 
 During Training we visualize the prediction in devided validation and test set. See `val_vis.png` and `test_vis.png`
