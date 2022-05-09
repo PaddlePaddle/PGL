@@ -167,7 +167,7 @@ def turbine_scores(pred, gt, raw_data, examine_len, stride=1):
     Returns:
         The averaged MAE and RMSE
     """
-    nan_cond = pd.isna(raw_data.any(axis=1))
+    nan_cond = pd.isna(raw_data).any(axis=1)
 
     invalid_cond = (raw_data['Patv'] < 0) | \
                    ((raw_data['Patv'] == 0) & (raw_data['Wspd'] > 2.5)) | \

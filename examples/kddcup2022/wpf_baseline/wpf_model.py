@@ -315,6 +315,13 @@ class WPFModel(nn.Layer):
         self.t_dec_emb = nn.Embedding(300, self.hidden_dims)
         self.w_dec_emb = nn.Embedding(300, self.hidden_dims)
 
+        self.pos_dec_emb = paddle.create_parameter(
+            shape=[1, self.input_len + self.output_len, self.hidden_dims],
+            dtype='float32')
+
+        self.pos_emb = paddle.create_parameter(
+            shape=[1, self.input_len, self.hidden_dims], dtype='float32')
+
         self.st_conv_encoder = SpatialTemporalConv(self.capacity, self.var_len,
                                                    self.hidden_dims)
         self.st_conv_decoder = SpatialTemporalConv(self.capacity, self.var_len,
@@ -376,12 +383,10 @@ class WPFModel(nn.Layer):
             [bz, output_len, var_len * id_len], dtype="float32")
         batch_pred_season = paddle.concat([season_init, batch_pred_season], 1)
 
-        batch_x = self.st_conv_encoder(
-            batch_x, batch_graph) + batch_x_time_emb + batch_x_weekday_emb
+        batch_x = self.st_conv_encoder(batch_x, batch_graph) + self.pos_emb
 
         batch_pred_season = self.st_conv_decoder(
-            batch_pred_season,
-            batch_graph) + batch_y_time_emb + batch_y_weekday_emb
+            batch_pred_season, batch_graph) + self.pos_dec_emb
 
         batch_x = self.enc(batch_x)
 

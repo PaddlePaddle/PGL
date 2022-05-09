@@ -32,6 +32,8 @@ from wpf_model import WPFModel
 import optimization as optim
 from metrics import regressor_scores, regressor_detailed_scores
 from utils import save_model, _create_if_not_exist, load_model
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 
@@ -195,6 +197,7 @@ def visualize_prediction(input_batch, pred_batch, gold_batch, tag):
             label="pred")
         ax.legend()
     plt.savefig(tag + "_vis.png")
+    plt.close()
 
 
 @paddle.no_grad()
