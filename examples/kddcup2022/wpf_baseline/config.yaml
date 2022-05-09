@@ -31,4 +31,4 @@ model:
     decoder_layers: 1
 
 loss:
-    name: "MSELoss"
+    name: "FilterMSELoss"
