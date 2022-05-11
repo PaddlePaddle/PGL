@@ -18,6 +18,7 @@ import logging
 import argparse
 
 import numpy as np
+from tqdm import tqdm
 import pgl
 from ote_orth import OrthOTE
 
