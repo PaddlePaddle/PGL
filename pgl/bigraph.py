@@ -29,7 +29,7 @@ from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
 from pgl.message import Message
 from pgl.utils.edge_index import EdgeIndex
-from pgl.utils.helper import check_is_tensor, scatter, maybe_num_nodes
+from pgl.utils.helper import check_is_tensor, maybe_num_nodes
 from pgl.utils.helper import generate_segment_id_from_index, unique_segment
 
 
@@ -1077,7 +1077,8 @@ class BiGraph(object):
             output_dim = feat.shape[-1]
             init_output = paddle.zeros(
                 shape=[self._dst_num_nodes, output_dim], dtype=feat.dtype)
-            final_output = scatter(init_output, dst, feat, overwrite=False)
+            final_output = paddle.scatter(
+                init_output, dst, feat, overwrite=False)
 
             return final_output
 
@@ -1220,7 +1221,7 @@ class BiGraph(object):
             init_output = paddle.zeros(
                 shape=[self._src_num_nodes, output_dim], dtype=output.dtype)
 
-        final_output = scatter(init_output, uniq_ind, output)
+        final_output = paddle.scatter(init_output, uniq_ind, output)
 
         return final_output
 

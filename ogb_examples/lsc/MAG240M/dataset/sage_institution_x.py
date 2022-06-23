@@ -28,7 +28,6 @@ from ogb.lsc import MAG240MDataset, MAG240MEvaluator
 import time
 import paddle
 from tqdm import tqdm
-from pgl.utils.helper import scatter
 
 
 def get_col_slice(x, start_row_idx, end_row_idx, start_col_idx, end_col_idx):
@@ -96,7 +95,7 @@ class MAG240M(object):
                 shape=[dataset.num_institutions, 1], dtype='float32')
             temp_one = paddle.ones(
                 shape=[edge_index.shape[0], 1], dtype='float32')
-            degree = scatter(
+            degree = paddle.scatter(
                 degree,
                 overwrite=False,
                 index=institution_graph.edges[:, 1],

@@ -20,7 +20,7 @@ import copy
 import numpy as np
 from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
-from pgl.utils.helper import check_is_tensor, scatter
+from pgl.utils.helper import check_is_tensor
 
 
 class EdgeIndex(object):
@@ -39,7 +39,7 @@ Sorted edges and represent edges in compressed style like csc_matrix or csr_matr
         self._is_tensor = check_is_tensor(u, v, num_nodes)
         if self._is_tensor:
             self._degree = paddle.zeros(shape=[num_nodes], dtype="int64")
-            self._degree = scatter(
+            self._degree = paddle.scatter(
                 x=self._degree,
                 overwrite=False,
                 index=u,

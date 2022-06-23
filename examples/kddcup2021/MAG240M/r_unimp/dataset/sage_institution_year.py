@@ -1,3 +1,17 @@
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import yaml
 import pgl
@@ -13,7 +27,6 @@ from ogb.lsc import MAG240MDataset, MAG240MEvaluator
 import time
 import paddle
 from tqdm import tqdm
-from pgl.utils.helper import scatter
 
 
 def get_col_slice(x, start_row_idx, end_row_idx):
@@ -23,6 +36,7 @@ def get_col_slice(x, start_row_idx, end_row_idx):
         j = min(i + chunk, end_row_idx)
         outs.append(x[i:j].copy())
     return np.concatenate(outs, axis=0)
+
 
 def save_col_slice(x_src, x_dst, start_row_idx, end_row_idx):
     assert x_src.shape[0] == end_row_idx - start_row_idx
@@ -34,45 +48,58 @@ def save_col_slice(x_src, x_dst, start_row_idx, end_row_idx):
 
 class MAG240M(object):
     """Iterator"""
+
     def __init__(self, data_dir, seed=123):
         self.data_dir = data_dir
         self.num_features = 768
         self.num_classes = 153
         self.seed = seed
-    
+
     def prepare_data(self):
         dataset = MAG240MDataset(self.data_dir)
-        
+
         log.info(dataset.num_authors)
         log.info(dataset.num_institutions)
-        
+
         author_path = f'{dataset.dir}/author_feat_year.npy'
         path = f'{dataset.dir}/institution_feat_year.npy'
         t = time.perf_counter()
         if not osp.exists(path):
             log.info('get institution_feat...')
-            
-            author_feat = np.memmap(author_path, dtype=np.int32, mode='r',
-                          shape=(dataset.num_authors,))
+
+            author_feat = np.memmap(
+                author_path,
+                dtype=np.int32,
+                mode='r',
+                shape=(dataset.num_authors, ))
             author_feat = author_feat[:]
             author_feat = np.expand_dims(author_feat, axis=1)
             # author
             edge_index = dataset.edge_index('author', 'institution')
             edge_index = edge_index.T
             log.info(edge_index.shape)
-            institution_graph = BiGraph(edge_index, dst_num_nodes=dataset.num_institutions)
+            institution_graph = BiGraph(
+                edge_index, dst_num_nodes=dataset.num_institutions)
             institution_graph.tensor()
             log.info('finish institution graph')
-            
-            institution_x = np.memmap(path, dtype=np.int32, mode='w+',
-                          shape=(dataset.num_institutions,))
-            
-            degree = paddle.zeros(shape=[dataset.num_institutions, 1], dtype='float32')
-            temp_one = paddle.ones(shape=[edge_index.shape[0], 1], dtype='float32')
-            degree = scatter(degree, overwrite=False, index=institution_graph.edges[:, 1],
-                            updates=temp_one)
+
+            institution_x = np.memmap(
+                path,
+                dtype=np.int32,
+                mode='w+',
+                shape=(dataset.num_institutions, ))
+
+            degree = paddle.zeros(
+                shape=[dataset.num_institutions, 1], dtype='float32')
+            temp_one = paddle.ones(
+                shape=[edge_index.shape[0], 1], dtype='float32')
+            degree = paddle.scatter(
+                degree,
+                overwrite=False,
+                index=institution_graph.edges[:, 1],
+                updates=temp_one)
             log.info('finish degree')
-            
+
             inputs = author_feat
 
             inputs = paddle.to_tensor(inputs, dtype='float32')
@@ -82,17 +109,19 @@ class MAG240M(object):
 
             del inputs
             save_col_slice(
-                x_src=outputs, x_dst=institution_x, start_row_idx=0,
+                x_src=outputs,
+                x_dst=institution_x,
+                start_row_idx=0,
                 end_row_idx=dataset.num_institutions)
             del outputs
-                
+
             institution_x.flush()
             del institution_x
             log.info(f'Done! [{time.perf_counter() - t:.2f}s]')
-            
+
+
 if __name__ == "__main__":
     root = 'dataset_path'
     print(root)
     dataset = MAG240M(root)
     dataset.prepare_data()
-            
