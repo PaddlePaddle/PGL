@@ -28,7 +28,6 @@ from pgl.utils.logger import log
 import paddle
 import paddle.nn as nn
 from paddle.optimizer import Adam
-import paddle.fluid as F
 import paddle.distributed.fleet as fleet
 
 from utils.config import prepare_config
@@ -51,7 +50,7 @@ def main(config, ip_list_file):
     pred = model(feed_dict)
     loss = model.loss(pred)
 
-    optimizer = F.optimizer.Adam(config.lr, lazy_mode=True)
+    optimizer = paddle.optimizer.Adam(config.lr, lazy_mode=True)
     dist_strategy = fleet.DistributedStrategy()
     dist_strategy.a_sync = True
     optimizer = fleet.distributed_optimizer(optimizer, dist_strategy)

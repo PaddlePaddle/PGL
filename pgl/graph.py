@@ -29,7 +29,7 @@ from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
 from pgl.message import Message
 from pgl.utils.edge_index import EdgeIndex
-from pgl.utils.helper import check_is_tensor, scatter, maybe_num_nodes
+from pgl.utils.helper import check_is_tensor, maybe_num_nodes
 from pgl.utils.helper import generate_segment_id_from_index, unique_segment
 
 try:
@@ -252,7 +252,7 @@ class Graph(object):
         output_dim = output.shape[-1]
         init_output = paddle.zeros(
             shape=[self._num_nodes, output_dim], dtype=output.dtype)
-        final_output = scatter(init_output, uniq_ind, output)
+        final_output = paddle.scatter(init_output, uniq_ind, output)
 
         return final_output
 

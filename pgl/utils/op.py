@@ -19,7 +19,6 @@ import paddle
 from paddle import _C_ops
 import numpy as np
 from pgl.utils.helper import check_is_tensor
-import paddle.fluid.core as core
 
 
 def read_rows(data, index):

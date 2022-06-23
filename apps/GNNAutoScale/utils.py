@@ -22,7 +22,6 @@ import numpy as np
 import paddle
 import pgl
 from pgl.utils.logger import log
-from paddle.fluid import core
 
 
 def check_device():
@@ -38,7 +37,7 @@ def check_device():
 
     log.info("Checking current device for running GNNAutoScale.")
     flag = True
-    if not core.is_compiled_with_cuda():
+    if not paddle.device.is_compiled_with_cuda():
         flag = False
 
     current_device = paddle.device.get_device()
