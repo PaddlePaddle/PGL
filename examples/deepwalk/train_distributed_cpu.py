@@ -69,7 +69,7 @@ def train(exe, program, reader, loss, log_per_step=1):
             if batch % log_per_step == 0:
                 log.info("Batch %s\t%s-Loss %.6f\t%.6f sec/step" %
                          (batch, "train", loss_val, step_time))
-    except paddle.fluid.core.EOFException:
+    except paddle.framework.core.EOFException:
         reader.reset()
 
     return total_loss / batch

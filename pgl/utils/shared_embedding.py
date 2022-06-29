@@ -33,7 +33,7 @@ def set_current_device_id():
     if "gpu" in curr_dev and select_gpu != curr_dev.split(":")[-1]:
         paddle.set_device("gpu:" + select_gpu)
 
-    curr_dev_id = paddle.fluid.core.get_cuda_current_device_id()
+    curr_dev_id = paddle.framework.core.get_cuda_current_device_id()
     if "gpu" in curr_dev and select_gpu != str(curr_dev_id):
         paddle.zeros([])
 

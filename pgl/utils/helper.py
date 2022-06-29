@@ -14,7 +14,7 @@
 
 import numpy as np
 import paddle
-from paddle.fluid.framework import Variable
+import paddle.static.Variable as Variable
 
 from pgl.utils import op
 

@@ -120,7 +120,7 @@ def train(config, exe, program, reader, loss):
                          (global_step, config.save_dir))
                 fleet.save_persistables(exe, config.save_dir,
                                         paddle.static.default_main_program())
-    except paddle.fluid.core.EOFException:
+    except paddle.framework.core.EOFException:
         reader.reset()
 
     if fleet.is_first_worker():
