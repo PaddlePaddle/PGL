@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pdb
 import pgl
 import paddle
 import paddle.nn as nn
@@ -29,6 +30,7 @@ from time import time
 
 
 def train(dataset, model, epoch, optim, args, neg_k=1, w=None):
+    pdb.set_trace()
     model.train()
     with timer(name="Sample"):
         S = UniformSample_original_python(dataset)
@@ -97,8 +99,10 @@ def test(dataset, model, epoch, args):
         rating = model.getUsersRating(batch_users_gpu)
         exclude_index = []
         exclude_items = []
+
         for range_i, items in enumerate(allPos):
             exclude_index.extend([range_i] * len(items))
+            items = [int(i) for i in items]
             exclude_items.extend(items)
         rating[exclude_index, exclude_items] = -(1 << 10)
         _, rating_K = paddle.topk(rating, k=max_K)

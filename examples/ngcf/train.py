@@ -100,6 +100,7 @@ def test(dataset, model, epoch, args):
         exclude_items = []
         for range_i, items in enumerate(allPos):
             exclude_index.extend([range_i] * len(items))
+            items = [int(i) for i in items]
             exclude_items.extend(items)
         rating[exclude_index, exclude_items] = -(1 << 10)
         _, rating_K = paddle.topk(rating, k=max_K)

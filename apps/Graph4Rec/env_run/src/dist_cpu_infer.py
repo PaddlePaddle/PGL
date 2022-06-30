@@ -28,6 +28,7 @@ from pgl.utils.logger import log
 import paddle
 import paddle.nn as nn
 from paddle.optimizer import Adam
+import paddle.fluid as F
 import paddle.distributed.fleet as fleet
 
 from utils.config import prepare_config
