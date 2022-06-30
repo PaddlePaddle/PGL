@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import time
 
 import numpy as np
 import paddle.distributed as dist
