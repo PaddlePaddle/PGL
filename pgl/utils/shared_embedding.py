@@ -149,6 +149,7 @@ class SharedEmbedding(object):
             index = index.numpy()
         tensors = paddle.to_tensor(self.weight[index])
         tensors.stop_gradient = self._stop_gradient
+        index = paddle.to_tensor(index)
         if not self._stop_gradient:
             self.trace.append((index, tensors))
         return tensors
@@ -250,6 +251,8 @@ class SharedEmbedding(object):
                 grad_trace = self.create_trace(index, tensors)
                 if self._async_q is not None:
                     self._async_q.put(grad_trace)
+                    self._async_e.wait()
+                    self._async_e.clear()
                 else:
                     index, grads = grad_trace
                     self._update(index, grads)
