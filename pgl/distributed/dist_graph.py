@@ -24,7 +24,7 @@ import warnings
 import numpy as np
 from functools import partial
 
-from paddle.fluid.core import GraphPyService, GraphPyServer, GraphPyClient
+from paddle.framework import core
 from pgl.utils.logger import log
 
 from pgl.distributed import helper
@@ -121,7 +121,7 @@ class DistGraphServer(object):
         self.edge_type_list = helper.get_all_edge_type(self.etype2files,
                                                        self.symmetry)
 
-        self._server = GraphPyServer()
+        self._server = core.GraphPyServer()
         self._server.set_up(self.ip_addr, self.shard_num, self.node_type_list,
                             self.edge_type_list, self.server_id)
 
@@ -196,7 +196,7 @@ class DistGraphClient(object):
         self.edge_type_list = helper.get_all_edge_type(self.etype2files,
                                                        self.symmetry)
 
-        self._client = GraphPyClient()
+        self._client = core.GraphPyClient()
         self._client.set_up(self.ip_addr, self.shard_num, self.node_type_list,
                             self.edge_type_list, self.client_id)
         self._client.start_client()
