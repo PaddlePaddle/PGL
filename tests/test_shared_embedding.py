@@ -60,7 +60,7 @@ class TestSharedEmebdding(unittest.TestCase):
 
     def test_property_current_embedding(self):
         embeds = self.create_random_shared_embedding()
-        indexs = np.array([0, 2])
+        indexs = paddle.to_tensor([0, 2])
 
         tensors = embeds(indexs)
         curr_embs = embeds.curr_emb
@@ -74,8 +74,8 @@ class TestSharedEmebdding(unittest.TestCase):
     def test_create_trace(self):
         embeds = SharedEmbedding.from_array(self.x, self.weight_path)
         u = paddle.to_tensor([[1.], [-1]])
-        indexs = np.array([0, 2])
-        grad = np.array([[1., 1.], [-1, -1]])
+        indexs = paddle.to_tensor([0, 2])
+        grad = paddle.to_tensor([[1., 1.], [-1, -1]])
 
         tensors = embeds(indexs)
         loss = (tensors * u).sum()
@@ -85,7 +85,7 @@ class TestSharedEmebdding(unittest.TestCase):
 
     def test_create_trace_none(self):
         embeds = SharedEmbedding.from_array(self.x, self.weight_path)
-        indexs = np.array([0, 2])
+        indexs = paddle.to_tensor([0, 2])
 
         trace = embeds.create_trace(indexs, None)
         self.assertIsNone(trace)
@@ -93,9 +93,10 @@ class TestSharedEmebdding(unittest.TestCase):
     def test_step_trace(self):
         embeds = SharedEmbedding.from_array(self.x, self.weight_path,
                                             'adagrad', 1.)
-        indexs = np.array([0, 2])
+        indexs = paddle.to_tensor([0, 2])
         grad = [
-            np.ones([2, 2]).astype('float32'), np.ones([2, ]).astype('float32')
+            paddle.ones([2, 2]).astype('float32'),
+            paddle.ones([2, ]).astype('float32')
         ]
         embeds.step_trace([indexs, grad])
         y = np.array([[-1., 2.], [5., 9.], [0., 6.]])
@@ -107,7 +108,7 @@ class TestSharedEmebdding(unittest.TestCase):
                                                 'adagrad', 1.)
             embeds.start_async_update()
             u = paddle.to_tensor([[1.], [-1]])
-            indexs = np.array([0, 2])
+            indexs = paddle.to_tensor([0, 2])
             tensors = embeds(indexs)
             loss = (tensors * u).sum()
             loss.backward()
