@@ -28,9 +28,9 @@ Highlighted features:
 Please install paddlepaddle and pgl before using Graph4Rec.
 
 ```
-python -m pip install paddlepaddle-gpu==2.3.0
+python -m pip install paddlepaddle-gpu==2.2.2
 
-python -m pip install pgl==2.2.3
+python -m pip install pgl==2.1.5
 ```
 
 ## Quick start
