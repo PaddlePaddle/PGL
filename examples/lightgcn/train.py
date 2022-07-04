@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pdb
 import pgl
 import paddle
 import paddle.nn as nn
@@ -30,7 +29,6 @@ from time import time
 
 
 def train(dataset, model, epoch, optim, args, neg_k=1, w=None):
-    pdb.set_trace()
     model.train()
     with timer(name="Sample"):
         S = UniformSample_original_python(dataset)
