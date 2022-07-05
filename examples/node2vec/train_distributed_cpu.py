@@ -18,7 +18,6 @@ import math
 
 import numpy as np
 import paddle
-import paddle.fluid as F
 import paddle.distributed.fleet as fleet
 import pgl
 from pgl.utils.logger import log
@@ -69,8 +68,8 @@ def train(exe, program, data_loader, loss, log_per_step=1):
 
 
 def StaticSkipGramModel(num_nodes, neg_num, embed_size, sparse):
-    src = F.data("src", shape=[-1, 1], dtype="int64")
-    dsts = F.data("dsts", shape=[-1, neg_num + 1], dtype="int64")
+    src = paddle.static.data("src", shape=[-1, 1], dtype="int64")
+    dsts = paddle.static.data("dsts", shape=[-1, neg_num + 1], dtype="int64")
     model = SkipGramModel(num_nodes, embed_size, neg_num, sparse)
     loss = model(src, dsts)
     return loss
@@ -90,7 +89,7 @@ def main(args):
     loss = StaticSkipGramModel(
         num_nodes, args.neg_num, args.embed_size, sparse=True)
 
-    optimizer = F.optimizer.Adam(args.learning_rate, lazy_mode=True)
+    optimizer = paddle.optimizer.Adam(args.learning_rate, lazy_mode=True)
     dist_strategy = fleet.DistributedStrategy()
     dist_strategy.a_sync = True
     optimizer = fleet.distributed_optimizer(optimizer, dist_strategy)

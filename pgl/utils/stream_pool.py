@@ -19,7 +19,7 @@
 
 import numpy as np
 import paddle
-from paddle.fluid import core
+from paddle.framework import core
 from paddle.device import cuda
 from pgl.utils.logger import log
 

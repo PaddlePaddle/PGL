@@ -5,10 +5,10 @@ The code is about [《R-UNIMP: SOLUTION FOR KDDCUP 2021 MAG240M-LSC》](./R_UniM
 ## Installation Requirements
 
 ```
-ogb>=1.3.0
-torch>=1.7.0
-paddle>=2.0.0
-pgl>=2.1.2
+ogb==1.3.0
+torch==1.7.0
+paddle==2.0.0
+pgl==2.1.2
 ```
 
 ## Running Preprocessing Script

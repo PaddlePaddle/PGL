@@ -18,8 +18,8 @@ python train.py
 CUDA_VISIBLE_DEVICES=0 python train.py --use_cuda
 # train deepwalk in multiple GPU mode.
 CUDA_VISIBLE_DEVICES=0,1 fleetrun train_distributed_gpu.py
-# train deepwalk in distributed CPU mode.
-CPU_NUM=2 fleetrun --mode ps --worker_num 2 --server_num 2 train_distributed_cpu.py
+# train deepwalk in distributed CPU mode, log can be found in ./log.
+python -m paddle.distributed.launch --server_num=2 --trainer_num=2 train_distributed_cpu.py
 
 # multiclass task example
 python multi_class.py

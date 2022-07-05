@@ -25,7 +25,6 @@ except:
     import json
 import numpy as np
 import time
-import paddle.fluid as fluid
 from multiprocessing import Queue
 import threading
 from collections import namedtuple
