@@ -23,7 +23,7 @@ import paddle.nn.functional as F
 import pgl
 import pgl.math as math
 
-__all__ = ["GraphPool", "GraphNorm"]
+__all__ = ["GraphPool", "GraphNorm", "Set2Set"]
 
 
 class GraphPool(nn.Layer):
@@ -83,3 +83,82 @@ class GraphNorm(nn.Layer):
         norm = paddle.sqrt(norm)
         norm = paddle.gather(norm, graph.graph_node_id)
         return feature / norm
+    
+     
+class Set2Set(nn.Layer):
+    """Implementation of Graph Global Pooling "Set2Set".
+    
+    Reference Paper: ORDER MATTERS: SEQUENCE TO SEQUENCE 
+
+    Args:
+        input_dim (int): dimentional size of input
+        n_iters: number of iteration
+        n_layers: number of LSTM layers
+        graph: pgl.Graph
+        x: input feature with shape [batch, dim].
+    Return:
+            output_feat: output feature of set2set pooling with shape [batch, 2*dim].
+    """
+    
+    def __init__(self, input_dim, n_iters, n_layers=1):
+        super(Set2Set, self).__init__()
+        self.input_dim = input_dim
+        self.output_dim = 2 * input_dim
+        self.n_iters = n_iters
+        self.n_layers = n_layers
+        self.lstm = paddle.nn.LSTM(
+            input_size=self.output_dim,
+            hidden_size=self.input_dim,
+            num_layers=n_layers,
+            time_major=True
+        )
+   
+    def forward(self, graph, x):
+        graph_id = graph.graph_node_id
+        batch_size = graph_id.max() + 1
+        h = (
+            paddle.zeros((self.n_layers, batch_size, self.input_dim)),
+            paddle.zeros((self.n_layers, batch_size, self.input_dim)),
+        )
+        q_star = paddle.zeros((batch_size, self.output_dim))
+        for _ in range(self.n_iters):
+            q, h = self.lstm(q_star.unsqueeze(0), h)
+            q = q.reshape((batch_size, self.input_dim))
+            e = (x * q.index_select(graph_id, axis=0)).sum(axis=-1, keepdim=True)
+            a = math.segment_softmax(e, graph_id)
+            r = math.segment_sum(a * x, graph_id)
+            q_start = paddle.concat([q, r], axis=-1)
+            
+        return q_start
+
+
+class GlobalAttention(nn.Layer):
+    """Implementation of Graph Global Pooling "GlobalAttention"
+        
+    Reference Paper: Gated Graph Sequence Neural Networks.
+
+    Args:
+        gate: a neural network that mapping input \in [-1, channels] to output \in [-1, 1]
+        nn: a neural network that mapping input \in [-1, in_channels] to output \in [-1, out_channels]
+        x: input feature with shape [batch, n_edges, dim].
+        graph: pgl.nn.graph
+    Return:
+        output_feat: output feature of set2set pooling with shape [batch, 2*dim].
+
+    """
+
+    def __init__(self, gate, nn=None):
+        super(GlobalAttention, self).__init__()
+        self.gate = gate
+        self.nn = nn
+        
+    def forward(self, graph, x):
+        graph_id = graph.graph_node_id
+        gate_x = self.gate(x).reshape(shape=(-1, 1))
+        x = self.nn(x) if self.nn else x
+        assert x.ndim == gate_x.ndim and x.shape[0] == gate_x.shape[0]
+        gate_x = math.segment_softmax(gate_x, graph_id)
+        output = math.segment_sum(gate_x * x, graph_id)
+        return output
+
+    
