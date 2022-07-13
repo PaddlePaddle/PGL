@@ -24,9 +24,8 @@ import paddle
 import pgl
 from pgl.utils.logger import log
 from pgl.math import segment_sum
-from pgl.nn.pool import Set2Set, GlobalAttention
-from pgl.nn.gmt import GraphMultisetTransformer
-from pgl.nn.sag_pool import SAGPooling\
+from pgl.nn.pool import Set2Set, GlobalAttention, SAGPool
+from pgl.nn.gmt_pool import GraphMultisetTransformer
 
 
 class PoolTest(unittest.TestCase):
@@ -34,6 +33,8 @@ class PoolTest(unittest.TestCase):
     """
 
     def test_globalattention(self):
+        """pgl.nn.GlobalAttention test
+        """
         data1 = paddle.to_tensor(
             np.array(
                 [[1, 2, 3], [3, 2, 1], [4, 5, 6]], dtype="float32"))
@@ -65,6 +66,8 @@ class PoolTest(unittest.TestCase):
             decimal=5, )
 
     def test_set2set(self):
+        """pgl.nn.pool.Set2Set test
+        """
         data1 = paddle.to_tensor(
             np.array(
                 [[1, 2, 3], [3, 2, 1], [4, 5, 6]], dtype="float32"))
@@ -93,14 +96,14 @@ class PoolTest(unittest.TestCase):
         np.testing.assert_almost_equal(
             output_mix.numpy().reshape(-1, ),
             output.numpy().reshape(-1, ),
-            decimal=5, )
+            decimal=5)
 
     def test_gmt(self):
+        """pgl.nn.GraphMultisetTransformer test
+        """
         num_nodes = 5
-
         edges = [(0, 1), (1, 2), (3, 4)]
         nfeat = np.random.randn(num_nodes, 12).astype("float32")
-
         g_1 = pgl.Graph(
             edges=edges, num_nodes=num_nodes, node_feat={'nfeat': nfeat})
         edges = [(0, 1), (1, 2), (3, 4), (5, 2), (0, 5)]
@@ -113,6 +116,8 @@ class PoolTest(unittest.TestCase):
         self.assertAlmostEqual(output.shape[0], g.num_graph)
 
     def test_sag_pool(self):
+        """pgl.nn.SAGPool test
+        """
         x = paddle.randn((8, 4))
         batch = paddle.to_tensor([0, 0, 1, 1, 1, 2, 2, 2], dtype=paddle.int64)
         edge_index = paddle.to_tensor(
@@ -131,12 +136,13 @@ class PoolTest(unittest.TestCase):
             node_feat={"attr": x},
             _graph_node_index=graph_node_index,
             _num_graph=batch_size).tensor()
-        sag_pool = SAGPooling(4, 0.5, pgl.nn.GCNConv)
+        sag_pool = SAGPool(4, 0.5, pgl.nn.GCNConv)
         output, _, graph = sag_pool(g, x)
         self.assertAlmostEqual(
             output.shape[0],
             math.ceil(0.5 * 2) + math.ceil(0.5 * 3) + math.ceil(0.5 * 3))
         self.assertAlmostEqual(graph.num_graph, 3)
+        self.assertAlmostEqual(output.shape[1], 4)
 
 
 if __name__ == "__main__":
