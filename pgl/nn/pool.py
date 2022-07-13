@@ -22,9 +22,10 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 import pgl
-import pgl.math as math
+from pgl.math import segment_sum, segment_softmax, segment_topk
+from pgl.utils.transform import filter_adj
 
-__all__ = ["GraphPool", "GraphNorm", "Set2Set", "GlobalAttention"]
+__all__ = ["GraphPool", "GraphNorm", "Set2Set", "GlobalAttention", "SAGPool"]
 
 
 class GraphPool(nn.Layer):
@@ -138,8 +139,8 @@ class Set2Set(nn.Layer):
             q = q.reshape((batch_size, self.input_dim))
             e = (x * q.index_select(
                 graph_id, axis=0)).sum(axis=-1, keepdim=True)
-            a = math.segment_softmax(e, graph_id)
-            r = math.segment_sum(a * x, graph_id)
+            a = segment_softmax(e, graph_id)
+            r = segment_sum(a * x, graph_id)
             q_start = paddle.concat([q, r], axis=-1)
 
         return q_start
@@ -174,6 +175,79 @@ class GlobalAttention(nn.Layer):
         gate_x = self.gate(x).reshape(shape=(-1, 1))
         x = self.nn(x) if self.nn else x
         assert x.ndim == gate_x.ndim and x.shape[0] == gate_x.shape[0]
-        gate_x = math.segment_softmax(gate_x, graph_id)
-        output = math.segment_sum(gate_x * x, graph_id)
+        gate_x = segment_softmax(gate_x, graph_id)
+        output = segment_sum(gate_x * x, graph_id)
         return output
+
+
+class SAGPool(nn.Layer):
+    """Implementation of Graph Pooling "SAGPool"
+        
+    Reference Paper: Self-Attention Graph Pooling
+
+    Args:
+        input_dim: The size of the inputs.
+        ratio: The ratio to reserve topk nodes.
+        GNN: Graph Convolution Operation to generate score for every node. Default:None
+        min_score: if min_score is not None, the operator only remove 
+                            the node with value lower than min_score. Default:None
+        nonlinearity: a nonlinear transform on score when min_score is not None. Default:None 
+
+    """
+
+    def __init__(self,
+                 input_dim,
+                 ratio=0.5,
+                 GNN=None,
+                 min_score=None,
+                 nonlinearity=None):
+        super(SAGPool, self).__init__()
+        self.input_dim = input_dim
+        self.ratio = ratio
+        GNN = GCNConv if GNN is None else GNN
+        self.gnn = GNN(input_dim, 1)
+        self.min_score = min_score
+        self.nonlinearity = paddle.tanh if nonlinearity is None else nonlinearity
+
+    def forward(self, graph, x):
+        """
+        Args:          
+            graph: `pgl.Graph` instance.
+            x: A tensor with shape (num_nodes, input_size).
+        Return:
+            x: Reserved node features with shape (num_nodes * ratio, feature_size).
+            batch: the updated graph_node_id.
+            g:  updated 'pgl.Graph' instance (pgl.Graph).
+        """
+        batch = graph.graph_node_id
+        attn_score = self.gnn(graph, x).reshape([-1])
+        if self.min_score is None:
+            attn_score = self.nonlinearity(attn_score)
+        else:
+            attn_score = segment_softmax(attn_score, batch)
+        out, rank = segment_topk(
+            x,
+            attn_score,
+            batch,
+            self.ratio,
+            self.min_score,
+            return_index=True)
+        x = out * attn_score[rank].reshape([-1, 1])
+        batch = batch[rank]
+        edge_index, edge_attr = filter_adj(
+            graph.edges, rank, num_nodes=attn_score.shape[0])
+        batch_size = graph.num_graph
+        num_nodes = segment_sum(paddle.ones([x.shape[0]]), batch)
+        graph_node_index = paddle.scatter(
+            paddle.zeros([batch_size + 1]).astype(paddle.float32),
+            paddle.arange(1, batch_size + 1),
+            num_nodes.cumsum(0).astype(paddle.float32)).astype(paddle.int64)
+        g = pgl.Graph(
+            num_nodes=x.shape[0],
+            edges=edge_index.transpose([1, 0]),
+            node_feat={"attr": x},
+            _graph_node_index=graph_node_index,
+            _num_graph=(batch.max() + 1).item())
+
+        # g = g.tensor()
+        return x, batch, g
