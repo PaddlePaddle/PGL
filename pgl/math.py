@@ -25,7 +25,7 @@ __all__ = [
 import paddle
 from paddle import _C_ops
 from paddle.common_ops_import import LayerHelper
-from paddle.common_ops_import import _non_static_mode
+from paddle.common_ops_import import _non_static_mode, in_dygraph_mode, _in_legacy_dygraph
 from paddle.common_ops_import import check_variable_and_dtype
 from pgl.utils.op import get_index_from_counts
 
@@ -35,7 +35,11 @@ def segment_pool(data, segment_ids, pool_type, name=None):
     Segment Operator.
     """
     pool_type = pool_type.upper()
-    if _non_static_mode():
+    if in_dygraph_mode():
+        out, tmp = _C_ops.final_state_segment_pool(data, segment_ids,
+                                                   'pooltype', pool_type)
+        return out
+    if _in_legacy_dygraph():
         out, tmp = _C_ops.segment_pool(data, segment_ids, 'pooltype',
                                        pool_type)
         return out
@@ -87,7 +91,7 @@ def segment_sum(data, segment_ids, name=None):
 
     """
 
-    if paddle.__version__ >= '2.2.0':
+    if paddle.__version__ >= '2.2.0' or paddle.__version__ == '0.0.0':
         return paddle.incubate.segment_sum(data, segment_ids, name)
 
     if _non_static_mode():
@@ -142,7 +146,7 @@ def segment_mean(data, segment_ids, name=None):
             #Outputs: [[2., 2., 2.], [4., 5., 6.]]
 
     """
-    if paddle.__version__ >= '2.2.0':
+    if paddle.__version__ >= '2.2.0' or paddle.__version__ == '0.0.0':
         return paddle.incubate.segment_mean(data, segment_ids, name)
 
     if _non_static_mode():
@@ -195,7 +199,7 @@ def segment_min(data, segment_ids, name=None):
             #Outputs:  [[1., 2., 1.], [4., 5., 6.]]
 
     """
-    if paddle.__version__ >= '2.2.0':
+    if paddle.__version__ >= '2.2.0' or paddle.__version__ == '0.0.0':
         return paddle.incubate.segment_min(data, segment_ids, name)
 
     if _non_static_mode():
@@ -249,7 +253,7 @@ def segment_max(data, segment_ids, name=None):
             #Outputs: [[3., 2., 3.], [4., 5., 6.]]
 
     """
-    if paddle.__version__ >= '2.2.0':
+    if paddle.__version__ >= '2.2.0' or paddle.__version__ == '0.0.0':
         return paddle.incubate.segment_max(data, segment_ids, name)
 
     if _non_static_mode():
