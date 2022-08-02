@@ -42,7 +42,7 @@ jobs:
             yum install -y zlib-devel bzip2-devel lzo-devel
           
       - name: Publish package to Test PyPI
-      - uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@master
         with:
           skip_existing: true
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
