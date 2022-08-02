@@ -197,13 +197,13 @@ class SAGPool(nn.Layer):
     def __init__(self,
                  input_dim,
                  ratio=0.5,
-                 GNN=None,
+                 gnn=None,
                  min_score=None,
                  nonlinearity=None):
         super(SAGPool, self).__init__()
         self.input_dim = input_dim
         self.ratio = ratio
-        GNN = GCNConv if GNN is None else GNN
+        GNN = GCNConv if gnn is None else gnn
         self.gnn = GNN(input_dim, 1)
         self.min_score = min_score
         self.nonlinearity = paddle.tanh if nonlinearity is None else nonlinearity
