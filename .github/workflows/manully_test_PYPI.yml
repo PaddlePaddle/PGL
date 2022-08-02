@@ -1,9 +1,7 @@
-name: Build and upload PyPI
+name: test PyPI
 
-on:
-  push:
-    tags:
-      - '*'
+on: 
+  workflow_dispatch
 
 jobs:
   build_wheels:
@@ -43,21 +41,9 @@ jobs:
             yum -y update &&
             yum install -y zlib-devel bzip2-devel lzo-devel
           
-      - uses: actions/upload-artifact@v2
-        with:
-          path: ./dist/*.whl
-
-
-  upload_pypi:
-    needs: [build_wheels]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v2
-        with:
-          name: artifact
-          path: ./dist
-          
-      - uses: pypa/gh-action-pypi-publish@master
+      - name: Publish package to Test PyPI
+        uses: pypa/gh-action-pypi-publish@master
         with:
           skip_existing: true
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/

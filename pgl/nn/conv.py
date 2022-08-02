@@ -163,7 +163,7 @@ class PinSageConv(nn.Layer):
             _send_func, src_feat={"h": nfeat}, edge_feat={"w": efeat})
         neigh_feature = graph.recv(reduce_func=_recv_func, msg=msg)
 
-        self_feature = self.self_linear(feature)
+        self_feature = self.self_linear(nfeat)
         neigh_feature = self.neigh_linear(neigh_feature)
         output = self_feature + neigh_feature
         if act is not None:
