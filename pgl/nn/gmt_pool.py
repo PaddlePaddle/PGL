@@ -14,7 +14,6 @@
 """This package implements common layers to help building
 graph neural networks.
 """
-
 import paddle
 import paddle.nn as nn
 import math
