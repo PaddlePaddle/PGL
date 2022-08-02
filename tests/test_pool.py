@@ -24,9 +24,8 @@ import paddle
 import pgl
 from pgl.utils.logger import log
 from pgl.math import segment_sum
-from pgl.nn.pool import Set2Set, GlobalAttention
-from pgl.nn.gmt import GraphMultisetTransformer
-from pgl.nn.sag_pool import SAGPooling\
+from pgl.nn import Set2Set, GlobalAttention, SAGPool
+from pgl.nn import GraphMultisetTransformer
 
 
 class PoolTest(unittest.TestCase):
@@ -138,7 +137,7 @@ class PoolTest(unittest.TestCase):
             node_feat={"attr": x},
             _graph_node_index=graph_node_index,
             _num_graph=batch_size).tensor()
-        sag_pool = SAGPooling(4, 0.5, pgl.nn.GCNConv)
+        sag_pool = SAGPool(4, 0.5, pgl.nn.GCNConv)
         output, _, graph = sag_pool(g, x)
         self.assertAlmostEqual(
             output.shape[0],
