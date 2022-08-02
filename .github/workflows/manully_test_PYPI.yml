@@ -1,4 +1,4 @@
-name: test PyPI
+name: Manually Test PyPI
 
 on: 
   workflow_dispatch
@@ -41,8 +41,21 @@ jobs:
             yum -y update &&
             yum install -y zlib-devel bzip2-devel lzo-devel
           
-      - name: Publish package to Test PyPI
-        uses: pypa/gh-action-pypi-publish@master
+      - uses: actions/upload-artifact@v2
+        with:
+          path: ./dist/*.whl
+
+
+  upload_pypi:
+    needs: [build_wheels]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: artifact
+          path: ./dist
+          
+      - uses: pypa/gh-action-pypi-publish@master
         with:
           skip_existing: true
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
