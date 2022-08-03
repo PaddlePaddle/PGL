@@ -23,10 +23,6 @@ __all__ = [
 ]
 
 import paddle
-from paddle import _C_ops
-from paddle.common_ops_import import LayerHelper
-from paddle.common_ops_import import _non_static_mode
-from paddle.common_ops_import import check_variable_and_dtype
 from pgl.utils.op import get_index_from_counts
 
 
