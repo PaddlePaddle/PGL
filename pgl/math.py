@@ -20,6 +20,7 @@ __all__ = [
     'segment_min',
     'segment_softmax',
     'segment_padding',
+    'segment_topk',
 ]
 
 import paddle
@@ -269,3 +270,94 @@ def segment_padding(data, segment_ids):
     output = paddle.scatter_nd(index, data, shape)
 
     return output, segment_len, index
+
+@paddle.no_grad()
+def __segment_topk_rank(scores, segment_ids, num_nodes, max_num_nodes):
+    """
+    Used by segment_topk.
+    This function offer the rank results according to scores.
+    """ 
+    batch_size = int(num_nodes.shape[0])
+    nodes_cumsum = num_nodes.cumsum(0)
+    cum_num_nodes = paddle.zeros([1])
+    if nodes_cumsum.shape[0]>1:
+        cum_num_nodes = paddle.concat([cum_num_nodes, nodes_cumsum[:-1]], 0)
+    index = paddle.arange(segment_ids.shape[0], dtype=paddle.int32)
+    index = (index - cum_num_nodes[segment_ids]) + (segment_ids *
+                                                    max_num_nodes)
+    dense_x = paddle.full([batch_size * max_num_nodes],
+                            -1e20).astype(paddle.float32)
+    dense_x = paddle.scatter(dense_x, index, scores.reshape([-1]))
+    dense_x = dense_x.reshape([batch_size, max_num_nodes])
+    perm = dense_x.argsort(-1, descending=True)
+    perm = perm + cum_num_nodes.reshape([-1, 1])
+    perm = perm.reshape([-1])
+    return perm
+
+
+def segment_topk(x,
+                 scores,
+                 segment_ids,
+                 ratio,
+                 min_score=None,
+                 return_index=False):
+    """
+    Segment topk operator.
+
+    This operator select the topk value of input elements which with the same index in 'segment_ids' ,
+    and return the index of reserved nodes into with shape [max_num_nodes*ratio, dim].
+    
+    if min_score is not None, the operator only remove the node with value lower that min_score
+    
+    Args:
+        x (tensor): a tensor, available data type float32, float64.
+        segment_ids (tensor): a 1-d tensor, which have the same size
+                            with the first dimension of input data.
+                            available data type is int32, int64.
+        ratio (float): a ratio that reserving present nodes
+        min_score (float): if min_score is not None, the operator only remove 
+                            the node with value lower than min_score
+
+    Returns:
+        perm (Tensor): the index of reserved nodes
+    Examples:
+
+        .. code-block:: python
+
+            import paddle
+            import pgl
+            data = paddle.to_tensor([[1, 2, 3], [3, 2, 1], [4, 5, 6],
+                                    [9, 9, 8], [20, 1, 5]], dtype='float32')
+            segment_ids = paddle.to_tensor([0, 0, 1, 1, 1], dtype='int64')
+            scores = paddle.to_tensor([1, 3, 2, 7, 4])
+            output, index = pgl.math.segment_topk(data, scores, segment_ids, 0.5, return_index=True)
+    """
+    if min_score is not None:
+        scores_max = segment_max(scores, segment_ids).index_select(segment_ids,
+                                                                   0) - 1e-7
+        scores_min = scores_max.clip(max=min_score)
+        perm = (scores > scores_min).nonzero(
+            as_tuple=False).reshape([-1])
+    else:
+        num_nodes = segment_sum(paddle.ones([scores.shape[0]]), segment_ids)
+        batch_size, max_num_nodes = int(num_nodes.shape[0]), int(num_nodes.max(
+        ).item())
+        perm = __segment_topk_rank(scores, segment_ids, num_nodes, max_num_nodes)
+        batch_size = int(num_nodes.shape[0])
+        if isinstance(ratio, int):
+            k = paddle.full([num_nodes.shape[0]], ratio)
+            k = paddle.min(k, num_nodes)
+        else:
+            k = (ratio *
+                 num_nodes.astype(paddle.float32)).ceil().astype(paddle.int64)
+        mask = [
+            paddle.arange(
+                k[i], dtype=paddle.int64) + i * max_num_nodes
+            for i in range(batch_size)
+        ]
+        perm = paddle.concat([perm[i] for i in mask], axis=0)
+    out = x[perm]
+    if return_index:
+        return out, perm
+    else:
+        return out

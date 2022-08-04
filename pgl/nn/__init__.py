@@ -16,10 +16,12 @@
 
 from pgl.nn import conv
 from pgl.nn import pool
-
+from pgl.nn import gmt_pool
 from pgl.nn.pool import *
 from pgl.nn.conv import *
+from pgl.nn.gmt_pool import *
 
 __all__ = []
 __all__ += conv.__all__
 __all__ += pool.__all__
+__all__ += gmt_pool.__all__
