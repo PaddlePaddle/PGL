@@ -56,7 +56,7 @@ class WalkGenerator(object):
         self.node_generator = generator
 
         walk_generator = getattr(self, self.gen_mode)
-        walk_generator = AsynchronousGenerator(walk_generator, maxsize=10000)
+        walk_generator = AsynchronousGenerator(walk_generator, maxsize=1000)
 
         walk_cc = 0
         batch_count = 0

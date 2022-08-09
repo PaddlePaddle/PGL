@@ -201,7 +201,7 @@ class EgoGraphGenerator(object):
         self.generator = generator
 
         ego_generator = self.base_ego_generator
-        ego_generator = AsynchronousGenerator(ego_generator, maxsize=10000)
+        ego_generator = AsynchronousGenerator(ego_generator, maxsize=1000)
 
         for data in ego_generator():
             yield data
