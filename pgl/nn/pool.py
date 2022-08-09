@@ -21,7 +21,7 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 import pgl
-from pgl.math import segment_sum, segment_softmax, segment_topk
+from pgl.math import segment_sum, segment_softmax, segment_topk, segment_pool
 from pgl.utils.transform import filter_adj
 
 __all__ = ["GraphPool", "GraphNorm", "Set2Set", "GlobalAttention", "SAGPool"]
@@ -58,7 +58,7 @@ class GraphPool(nn.Layer):
                     "please initialize it when creating a GraphPool instance.")
         else:
             pool_type = self.pool_type
-        graph_feat = math.segment_pool(feature, graph.graph_node_id, pool_type)
+        graph_feat = segment_pool(feature, graph.graph_node_id, pool_type)
         return graph_feat
 
 
