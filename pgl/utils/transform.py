@@ -21,6 +21,7 @@ import paddle
 from pgl.math import segment_sum
 from pgl.utils.helper import maybe_num_nodes
 
+
 def to_undirected(graph, copy_node_feat=True, copy_edge_feat=False):
     """Convert a graph to an undirected graph.
     
@@ -96,6 +97,7 @@ def add_self_loops(graph, copy_node_feat=True, copy_edge_feat=False):
 
     return g
 
+
 def to_dense_batch(x, graph, fill_value=0, max_num_nodes=None):
     """Transfrom a batch of graphs to a dense node feature tensor and 
        provide the mask  holing the positions of dummy nodes
@@ -125,12 +127,13 @@ def to_dense_batch(x, graph, fill_value=0, max_num_nodes=None):
     idx = (idx - cum_nodes[graph_node_id]) + (graph_node_id * max_num_nodes)
     size = [batch_size * max_num_nodes] + list(x.shape)[1:]
     out = paddle.full(size, fill_value)
-    out[idx] = x
+    out = paddle.scatter(out, idx, x)
     out = out.reshape([batch_size, max_num_nodes] + list(x.shape)[1:])
-    mask = paddle.ones([batch_size * max_num_nodes], dtype=paddle.bool)
-    mask[idx] = False
-    mask = mask.reshape([batch_size, max_num_nodes])
-    return out,  mask
+    mask = paddle.ones([batch_size * max_num_nodes])
+    mask = paddle.scatter(mask, idx, paddle.zeros([idx.shape[0]])).reshape(
+        [batch_size, max_num_nodes]).astype(paddle.bool)
+    return out, mask
+
 
 def filter_adj(edge_index, perm, edge_attr=None, num_nodes=None):
     """Accoding to the reserved nodes,  updating edges in graph and reindex nodes
@@ -155,14 +158,11 @@ def filter_adj(edge_index, perm, edge_attr=None, num_nodes=None):
     i = paddle.arange(perm.shape[0], dtype=paddle.float32)
     mask = paddle.scatter(mask, perm, i)
     mask = mask.astype(paddle.int64)
-    row, col = edge_index.transpose([1,0])
-
+    row, col = edge_index.transpose([1, 0])
     row, col = mask[row], mask[col]
-    mask = (row>=0).logical_and((col>=0))
-    
-    row, col = row[mask.nonzero()].reshape([-1]), col[mask.nonzero()].reshape([-1])
-    
+    mask = (row >= 0).logical_and((col >= 0))
+    row, col = row[mask.nonzero()].reshape([-1]), col[mask.nonzero()].reshape(
+        [-1])
     if edge_attr is not None:
         edge_attr = edge_attr[mask]
-        
-    return paddle.stack([row, col], 0).transpose([1,0]), edge_attr
+    return paddle.stack([row, col], 0).transpose([1, 0]), edge_attr
