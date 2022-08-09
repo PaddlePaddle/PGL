@@ -20,11 +20,10 @@ import unittest
 import numpy as np
 import math
 import paddle
-
 import pgl
 from pgl.utils.logger import log
 from pgl.math import segment_sum
-from pgl.nn import Set2Set, GlobalAttention, SAGPool
+from pgl.nn import Set2Set, GlobalAttention, SAGPool, GraphPool
 from pgl.nn import GraphMultisetTransformer
 
 
@@ -59,6 +58,39 @@ class PoolTest(unittest.TestCase):
         data3 = paddle.to_tensor(np.array([[1, 2, 3]], dtype="float32"))
         data = paddle.concat([data1, data2, data3], axis=0)
         output_mix = gpool(graph, data)
+        # permutation invariance test
+        np.testing.assert_almost_equal(
+            output_mix.numpy().reshape(-1, ),
+            output.numpy().reshape(-1, ),
+            decimal=5, )
+
+    def test_mean_pool(self):
+        """pgl.nn.GlobalPool test
+        """
+        data1 = paddle.to_tensor(
+            np.array(
+                [[1, 2, 3], [3, 2, 1], [4, 5, 6]], dtype="float32"))
+        data2 = paddle.to_tensor(
+            np.array(
+                [[1, 2, 3], [3, 2, 1]], dtype="float32"))
+        data3 = paddle.to_tensor(np.array([[1, 2, 3]], dtype="float32"))
+        data = paddle.concat([data1, data2, data3], axis=0)
+        common_edges = [(0, 0)]
+        graph = pgl.Graph.disjoint(
+            [pgl.Graph(
+                num_nodes=i, edges=common_edges) for i in [3, 2, 1]],
+            merged_graph_index=False).tensor()
+        mean_pool = GraphPool("mean")
+        output = mean_pool(graph, data)
+        data1 = paddle.to_tensor(
+            np.array(
+                [[4, 5, 6], [3, 2, 1], [1, 2, 3]], dtype="float32"))
+        data2 = paddle.to_tensor(
+            np.array(
+                [[3, 2, 1], [1, 2, 3]], dtype="float32"))
+        data3 = paddle.to_tensor(np.array([[1, 2, 3]], dtype="float32"))
+        data = paddle.concat([data1, data2, data3], axis=0)
+        output_mix = mean_pool(graph, data)
         # permutation invariance test
         np.testing.assert_almost_equal(
             output_mix.numpy().reshape(-1, ),
