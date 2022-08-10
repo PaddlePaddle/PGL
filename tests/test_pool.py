@@ -143,6 +143,7 @@ class PoolTest(unittest.TestCase):
             output.shape[0],
             math.ceil(0.5 * 2) + math.ceil(0.5 * 3) + math.ceil(0.5 * 3))
         self.assertAlmostEqual(graph.num_graph, 3)
+        self.assertAlmostEqual(graph.edges.shape[1], 2)
 
     def test_mean_pool(self):
         """pgl.nn.GlobalPool test

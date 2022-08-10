@@ -15,15 +15,15 @@ After downloading the data，uncompress them, then a directory named `./gin_data
 
 ### Dependencies
 
-- paddlepaddle >= 2.0.0
-- pgl >= 2.3
+- paddlepaddle >= 2.2.0
+- pgl >= 2.2.4
 
 ### How to run
 
-For examples, use GPU to train GIN model on MUTAG dataset.
+For examples, use GPU to train GIN model with GMT on MUTAG dataset.
 ```
 export CUDA_VISIBLE_DEVICES=0
-python main.py --use_cuda --dataset_name ${dataset_name} --lr 0.005 --batch_size 128 --epochs 300 --hidden_size 128 --pool_type ${pool_type}
+python main.py --use_cuda --dataset_name MUTAG --lr 0.005 --batch_size 128 --epochs 300 --hidden_size 128 --pool_type GMT
 ```
 
 ### Hyperparameters

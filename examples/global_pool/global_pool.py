@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""This file implement the GIN model.
+"""This file implement the GIN model + Graph Global Pooling.
 """
 
 import os
@@ -29,6 +29,9 @@ from pgl.nn import GlobalAttention, Set2Set, GraphMultisetTransformer
 
 
 class GINModel(nn.Layer):
+    """Implementation of GIN model + Global Pool(mean, GMT, GlobalAttention, Set2Set).
+    """
+
     def __init__(self, args, num_class):
         super(GINModel, self).__init__()
         self.args = args
@@ -46,9 +49,7 @@ class GINModel(nn.Layer):
         self.gin_convs = nn.LayerList()
         self.norms = nn.LayerList()
         self.linears = nn.LayerList()
-        self.final_dim = self.output_size * 2 if self.pool_type in [
-            "meanmax", "Set2Set"
-        ] else self.output_size
+        self.final_dim = self.output_size * 2 if self.pool_type == "Set2Set" else self.output_size
         self.out_layer = nn.Linear(self.final_dim, self.num_class)
         for i in range(self.num_layers):
             if i == 0:

@@ -243,7 +243,7 @@ class SAGPool(nn.Layer):
             num_nodes.cumsum(0).astype(paddle.float32)).astype(paddle.int64)
         g = pgl.Graph(
             num_nodes=x.shape[0],
-            edges=edge_index.transpose([1, 0]),
+            edges=edge_index,
             node_feat={"attr": x},
             _graph_node_index=graph_node_index,
             _num_graph=(batch.max() + 1).item())
