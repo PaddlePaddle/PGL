@@ -24,7 +24,7 @@ import pgl
 from pgl.utils.logger import log
 from pgl.utils.data import Dataloader
 from dataset import GINDataset, fold10_split, random_split, collate_fn
-from global_pool import GINModel
+from model import GINModel
 
 
 def main(args):
@@ -105,8 +105,7 @@ def main(args):
                 best_acc = result['acc']
         res.append(best_acc)
 
-    with open("outputs/" + args.dataset_name + "-" + args.pool_type + ".log",
-              "a") as f:
+    with open("outputs/" + args.dataset_name + "-" + ".log", "a") as f:
         f.write(str(args) + "\n")
         f.write(str(res) + "\n")
         f.write(str(sum(res) / 10) + '\n')
@@ -149,26 +148,17 @@ if __name__ == "__main__":
     parser.add_argument('--fold_idx', type=int, default=0)
     parser.add_argument('--output_path', type=str, default='./outputs/')
     parser.add_argument('--use_cuda', action='store_true')
-    parser.add_argument('--num_layers', type=int, default=5)
     parser.add_argument('--num_mlp_layers', type=int, default=2)
     parser.add_argument('--feat_size', type=int, default=64)
     parser.add_argument('--hidden_size', type=int, default=64)
-    parser.add_argument(
-        '--jk', type=str, default="last", choices=['sum', 'last'])
-    parser.add_argument(
-        '--pool_type',
-        type=str,
-        default="sum",
-        choices=["sum", "mean", "max", "GlobalAttention", "Set2Set", "GMT"])
     parser.add_argument('--train_eps', action='store_true')
     parser.add_argument('--init_eps', type=float, default=0.0)
     parser.add_argument('--epochs', type=int, default=150)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--weight_decay', type=float, default=0.0001)
-    parser.add_argument('--dropout_prob', type=float, default=0.5)
     parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--use_residual', action="store_true")
-    parser.add_argument('--num_nodes', type=int, default=32)
+    parser.add_argument('--min_score', type=float)
+    parser.add_argument('--pool_ratio', type=float, default=0.15)
     args = parser.parse_args()
 
     log.info(args)
