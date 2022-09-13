@@ -30,44 +30,67 @@ def normalize(feat):
     return feat / np.maximum(np.sum(feat, -1, keepdims=True), 1)
 
 
-def load(name, normalized_feature=True):
+def load(name):
     if name == 'cora':
         dataset = pgl.dataset.CoraDataset()
     elif name == "pubmed":
         dataset = pgl.dataset.CitationDataset("pubmed", symmetry_edges=True)
     elif name == "citeseer":
         dataset = pgl.dataset.CitationDataset("citeseer", symmetry_edges=True)
+    elif name == "ogbn_arxiv":
+        dataset = pgl.dataset.OgbnArxivDataset()
+    elif name == "reddit":
+        dataset = pgl.dataset.RedditDataset()
     else:
         raise ValueError(name + " dataset doesn't exists")
 
-    indegree = dataset.graph.indegree()
-    dataset.graph.node_feat["words"] = normalize(dataset.graph.node_feat[
-        "words"])
-
+    if name == "ogbn_arxiv":
+        dataset.y = np.reshape(dataset.y, [-1])
+    if name == "cora" or name == "pubmed" or name == "citeseer":
+        indegree = dataset.graph.indegree()
+        dataset.feature = normalize(dataset.graph.node_feat["words"])
+        dataset.graph = pgl.Graph(
+            num_nodes=dataset.graph.num_nodes, edges=dataset.graph.edges)
     if paddle.distributed.get_world_size() > 1:
         dataset.graph = pgl.DistGPUGraph(dataset.graph)
     dataset.graph.tensor()
-    train_index = dataset.train_index
-    dataset.train_label = paddle.to_tensor(
-        np.expand_dims(dataset.y[train_index], -1))
-    dataset.train_index = paddle.to_tensor(np.expand_dims(train_index, -1))
+    
+    if name != "reddit":
+        dataset.feature = paddle.to_tensor(dataset.feature, dtype="float32")
+        train_index = dataset.train_index
+        dataset.train_label = paddle.to_tensor(
+            np.expand_dims(dataset.y[train_index], -1))
+        dataset.train_index = paddle.to_tensor(np.expand_dims(train_index, -1))
 
-    val_index = dataset.val_index
-    dataset.val_label = paddle.to_tensor(
-        np.expand_dims(dataset.y[val_index], -1))
-    dataset.val_index = paddle.to_tensor(np.expand_dims(val_index, -1))
+        val_index = dataset.val_index
+        dataset.val_label = paddle.to_tensor(
+            np.expand_dims(dataset.y[val_index], -1))
+        dataset.val_index = paddle.to_tensor(np.expand_dims(val_index, -1))
 
-    test_index = dataset.test_index
-    dataset.test_label = paddle.to_tensor(
-        np.expand_dims(dataset.y[test_index], -1))
-    dataset.test_index = paddle.to_tensor(np.expand_dims(test_index, -1))
-
+        test_index = dataset.test_index
+        dataset.test_label = paddle.to_tensor(
+            np.expand_dims(dataset.y[test_index], -1))
+        dataset.test_index = paddle.to_tensor(np.expand_dims(test_index, -1))
+    else:
+        dataset.feature = paddle.to_tensor(dataset.feature, dtype="float32")
+        dataset.train_label = paddle.to_tensor(
+            np.expand_dims(dataset.train_label, -1))
+        dataset.train_index = paddle.to_tensor(
+            np.expand_dims(dataset.train_index, -1))
+        dataset.val_label = paddle.to_tensor(
+            np.expand_dims(dataset.val_label, -1))
+        dataset.val_index = paddle.to_tensor(
+            np.expand_dims(dataset.val_index, -1))
+        dataset.test_label = paddle.to_tensor(
+            np.expand_dims(dataset.test_label, -1))
+        dataset.test_index = paddle.to_tensor(
+            np.expand_dims(dataset.test_index, -1))
     return dataset
 
 
-def train(node_index, node_label, gnn_model, graph, criterion, optim):
+def train(node_index, node_label, gnn_model, graph, feature, criterion, optim):
     gnn_model.train()
-    pred = gnn_model(graph, graph.node_feat["words"])
+    pred = gnn_model(graph, feature)
     pred = paddle.gather(pred, node_index)
     loss = criterion(pred, node_label)
     loss.backward()
@@ -78,9 +101,9 @@ def train(node_index, node_label, gnn_model, graph, criterion, optim):
 
 
 @paddle.no_grad()
-def eval(node_index, node_label, gnn_model, graph, criterion):
+def eval(node_index, node_label, gnn_model, graph, feature, criterion):
     gnn_model.eval()
-    pred = gnn_model(graph, graph.node_feat["words"])
+    pred = gnn_model(graph, feature)
     pred = paddle.gather(pred, node_index)
     loss = criterion(pred, node_label)
     acc = paddle.metric.accuracy(input=pred, label=node_label, k=1)
@@ -96,9 +119,9 @@ def main(args, config, run):
     if paddle.distributed.get_world_size() > 1:
         paddle.distributed.init_parallel_env()
 
-    dataset = load(args.dataset, args.feature_pre_normalize)
+    dataset = load(args.dataset)
     graph = dataset.graph
-
+    feature = dataset.feature
     train_index = dataset.train_index
     train_label = dataset.train_label
 
@@ -121,7 +144,7 @@ def main(args, config, run):
     cal_test_loss = []
 
     gnn_model = GraphModel(
-        input_size=graph.node_feat["words"].shape[1],
+        input_size=feature.shape[1],
         num_class=dataset.num_classes,
         **config)
 
@@ -135,14 +158,14 @@ def main(args, config, run):
 
     for epoch in tqdm.tqdm(range(args.epoch)):
         train_loss, train_acc = train(train_index, train_label, gnn_model,
-                                      graph, criterion, optim)
+                                      graph, feature, criterion, optim)
         val_loss, val_acc = eval(val_index, val_label, gnn_model, graph,
-                                 criterion)
+                                 feature, criterion)
         cal_val_acc.append(val_acc.numpy())
         cal_val_loss.append(val_loss.numpy())
 
         test_loss, test_acc = eval(test_index, test_label, gnn_model, graph,
-                                   criterion)
+                                   feature, criterion)
         cal_test_acc.append(test_acc.numpy())
         cal_test_loss.append(test_loss.numpy())
 
@@ -158,11 +181,6 @@ if __name__ == '__main__':
     parser.add_argument("--conf", type=str, help="config file for models")
     parser.add_argument("--epoch", type=int, default=200, help="Epoch")
     parser.add_argument("--runs", type=int, default=10, help="runs")
-    parser.add_argument(
-        "--feature_pre_normalize",
-        type=bool,
-        default=True,
-        help="pre_normalize feature")
     args = parser.parse_args()
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
     log.info(args)
