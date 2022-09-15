@@ -36,7 +36,8 @@ from utils.logger import log_to_file
 import models as M
 from datasets.dist_dataloader import DistCPUDataloader
 import datasets.dataset as DS
-from utils.ps_util import DistributedInfer
+#  from utils.ps_util import DistributedInfer
+from paddle.distributed.fleet.utils.ps_util import DistributedInfer
 
 paddle.set_device("cpu")
 paddle.enable_static()
