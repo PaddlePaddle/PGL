@@ -2,6 +2,13 @@
 
 The code is about [《R-UNIMP: SOLUTION FOR KDDCUP 2021 MAG240M-LSC》](./R_UniMP__Solution_for_KDDCUP_2021_MAG240M_LSC.pdf). 
 
+```
+@article{shirunimp,
+  title={RUnimp: SOLUTION FOR KDDCUP 2021 MAG240M-LSC},
+  author={Shi, Yunsheng and Team, PGL and Huang, Zhengjie and Li, Weibin and Su, Weiyue and Feng, Shikun}
+}
+```
+
 ## Installation Requirements
 
 ```
@@ -21,6 +28,7 @@ python dataset/sage_institution_x.py
 python dataset/sage_author_year.py
 python dataset/sage_institution_year.py
 python dataset/sage_all_data.py
+python dataset/merge_m2v_embed.py
 ```
 
 This will give you the following files:
@@ -31,6 +39,7 @@ This will give you the following files:
 * `institution_year.npy` The institution years, preprocessed by averaging the neighboring author years.
 * `full_feat.npy`: The concatenated author, institution, and paper features.
 * `all_feat_year.npy`: The concatenated author, institution, and paper years.
+* `m2v_embed.npy`: The m2v embed. you can get it from [here (password: 0mr0)](https://pan.baidu.com/s/1_0PhbFglsWmYdo9fO1CRGQ), using ```dataset/merge_m2v_embed.py``` to merget them together.
 * `paper_to_paper_symmetric_pgl_split`: The *paper_to_paper* PGL graph.
 * `paper_to_author_symmetric_pgl_split_src`: The *author_to_paper* PGL graph.
 * `paper_to_author_symmetric_pgl_split_dst`: The *paper_to_author* PGL graph.
