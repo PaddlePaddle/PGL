@@ -24,6 +24,8 @@ def subgraph(graph,
              nodes,
              eid=None,
              edges=None,
+             append_nodes_feat=None,
+             append_edges_feat=None,
              with_node_feat=True,
              with_edge_feat=True):
     """Generate subgraph with nodes and edge ids.
@@ -36,7 +38,8 @@ def subgraph(graph,
         nodes: Node ids which will be included in the subgraph.
         eid (optional): Edge ids which will be included in the subgraph.
         edges (optional): Edge(src, dst) list which will be included in the subgraph.
-
+        append_nodes_feat: Additional nodes feature to append.
+        append_edges_feat: Additional edges feature to append.
         with_node_feat: Whether to inherit node features from parent graph.
         with_edge_feat: Whether to inherit edge features from parent graph.
 
@@ -53,11 +56,16 @@ def subgraph(graph,
     for ind, node in enumerate(nodes):
         reindex[node] = ind
 
-    sub_edge_feat = {}
     if edges is None:
         edges = graph._edges[eid]
     else:
         edges = np.array(edges, dtype="int64")
+
+    sub_edge_feat = {}
+    if append_edges_feat is not None:
+        for k, v in append_edges_feat.items():
+            assert v.shape[0] == edges.shape[0]
+            sub_edge_feat[k] = v
 
     if with_edge_feat:
         for key, value in graph._edge_feat.items():
@@ -70,6 +78,10 @@ def subgraph(graph,
             len(edges), dtype="int64"), edges, reindex)
 
     sub_node_feat = {}
+    if append_nodes_feat is not None:
+        for k, v in append_nodes_feat.items():
+            assert v.shape[0] == len(nodes)
+            sub_node_feat[k] = v
     if with_node_feat:
         for key, value in graph._node_feat.items():
             sub_node_feat[key] = value[nodes]

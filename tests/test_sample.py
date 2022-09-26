@@ -18,7 +18,7 @@ import unittest
 import numpy as np
 import paddle
 import pgl
-from pgl.sampling import graphsage_sample
+from pgl.sampling import graphsage_sample, pinsage_sample
 from pgl.sampling import random_walk
 from pgl.sampling import node2vec_walk
 from pgl.sampling import node2vec_walk_plus
@@ -36,7 +36,13 @@ class SampleTest(unittest.TestCase):
         graph = create_random_graph()
         nodes = [1, 2, 3]
         np.random.seed(1)
-        subgraphs = graphsage_sample(graph, nodes, [10, 10], [])
+        subgraphs = graphsage_sample(graph, nodes, [10, 10])
+
+    def test_pinsage_sample(self):
+        graph = create_random_graph()
+        nodes = [1, 2, 3]
+        np.random.seed(1)
+        subgraphs = pinsage_sample(graph, nodes, [10, 10], top_k=5)
 
     def build_test_graph(self):
         num_nodes = 5

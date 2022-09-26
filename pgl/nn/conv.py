@@ -51,9 +51,9 @@ class GraphSageConv(nn.Layer):
     Advances in neural information processing systems. 2017.
 
     Args:
-    
-        input_size: The size of the inputs. 
-        
+
+        input_size: The size of the inputs.
+
         hidden_size: The size of outputs
 
         aggr_func: (default "sum") Aggregation function for GraphSage ["sum", "mean", "max", "min"].
@@ -70,16 +70,16 @@ class GraphSageConv(nn.Layer):
 
     def forward(self, graph, feature, act=None):
         """
-         
+
         Args:
- 
+
             graph: `pgl.Graph` instance.
 
             feature: A tensor with shape (num_nodes, input_size)
- 
+
             act: (default None) Activation for outputs and before normalize.
 
-     
+
         Return:
 
             A tensor with shape (num_nodes, output_size)
@@ -113,13 +113,13 @@ class PinSageConv(nn.Layer):
     Paper reference:
     Ying, Rex, et al.
     "Graph convolutional neural networks for web-scale recommender systems."
-    Proceedings of the 24th ACM SIGKDD International Conference on Knowledge 
+    Proceedings of the 24th ACM SIGKDD International Conference on Knowledge
     Discovery & Data Mining. 2018.
 
     Args:
-    
-        input_size: The size of the inputs. 
-        
+
+        input_size: The size of the inputs.
+
         hidden_size: The size of outputs
 
         aggr_func: (default "sum") Aggregation function for GraphSage ["sum", "mean", "max", "min"].
@@ -138,16 +138,15 @@ class PinSageConv(nn.Layer):
     def forward(self, graph, nfeat, efeat, act=None):
         """
         Args:
- 
+
             graph: `pgl.Graph` instance.
 
             nfeat: A tensor with shape (num_nodes, input_size)
 
             efeat: A tensor with shape (num_edges, 1) denotes edge weight.
- 
+
             act: (default None) Activation for outputs and before normalize.
 
-     
         Return:
 
             A tensor with shape (num_nodes, output_size)
@@ -181,7 +180,7 @@ class GCNConv(nn.Layer):
 
     Args:
 
-        input_size: The size of the inputs. 
+        input_size: The size of the inputs.
 
         output_size: The size of outputs
 
@@ -204,15 +203,15 @@ class GCNConv(nn.Layer):
 
     def forward(self, graph, feature, norm=None):
         """
-         
+
         Args:
- 
+
             graph: `pgl.Graph` instance.
 
             feature: A tensor with shape (num_nodes, input_size)
 
             norm: (default None). If :code:`norm` is not None, then the feature will be normalized by given norm. If :code:`norm` is None and :code:`self.norm` is `true`, then we use `lapacian degree norm`.
-     
+
         Return:
 
             A tensor with shape (num_nodes, output_size)
@@ -249,7 +248,7 @@ class GATConv(nn.Layer):
 
     Args:
 
-        input_size: The size of the inputs. 
+        input_size: The size of the inputs.
 
         hidden_size: The hidden size for gat.
 
@@ -316,18 +315,18 @@ class GATConv(nn.Layer):
 
     def forward(self, graph, feature):
         """
-         
+
         Args:
- 
+
             graph: `pgl.Graph` instance.
 
             feature: A tensor with shape (num_nodes, input_size)
 
-     
+
         Return:
 
             If `concat=True` then return a tensor with shape (num_nodes, hidden_size),
-            else return a tensor with shape (num_nodes, hidden_size * num_heads) 
+            else return a tensor with shape (num_nodes, hidden_size * num_heads)
 
         """
 
@@ -354,7 +353,7 @@ class GATConv(nn.Layer):
 
 class APPNP(nn.Layer):
     """Implementation of APPNP of "Predict then Propagate: Graph Neural Networks
-    meet Personalized PageRank"  (ICLR 2019). 
+    meet Personalized PageRank"  (ICLR 2019).
 
     Args:
 
@@ -376,15 +375,15 @@ class APPNP(nn.Layer):
 
     def forward(self, graph, feature, norm=None):
         """
-         
+
         Args:
- 
+
             graph: `pgl.Graph` instance.
 
             feature: A tensor with shape (num_nodes, input_size)
 
             norm: (default None). If :code:`norm` is not None, then the feature will be normalized by given norm. If :code:`norm` is None, then we use `lapacian degree norm`.
-     
+
         Return:
 
             A tensor with shape (num_nodes, output_size)
@@ -417,7 +416,7 @@ class APPNP(nn.Layer):
 
 
 class GCNII(nn.Layer):
-    """Implementation of GCNII of "Simple and Deep Graph Convolutional Networks"  
+    """Implementation of GCNII of "Simple and Deep Graph Convolutional Networks"
 
     paper: https://arxiv.org/pdf/2007.02133.pdf
 
@@ -427,9 +426,9 @@ class GCNII(nn.Layer):
         activation: The activation for the output.
 
         k_hop: Number of layers for gcnii.
-   
+
         lambda_l: The hyperparameter of lambda in the paper.
-       
+
         alpha: The hyperparameter of alpha in the paper.
 
         dropout: Feature dropout rate.
@@ -460,13 +459,13 @@ class GCNII(nn.Layer):
     def forward(self, graph, feature, norm=None):
         """
         Args:
- 
+
             graph: `pgl.Graph` instance.
 
             feature: A tensor with shape (num_nodes, input_size)
 
             norm: (default None). If :code:`norm` is not None, then the feature will be normalized by given norm. If :code:`norm` is None, then we use `lapacian degree norm`.
-     
+
         Return:
 
             A tensor with shape (num_nodes, output_size)
@@ -706,13 +705,13 @@ class GINConv(nn.Layer):
 
     def forward(self, graph, feature):
         """
-         
+
         Args:
- 
+
             graph: `pgl.Graph` instance.
 
             feature: A tensor with shape (num_nodes, input_size)
- 
+
         Return:
 
             A tensor with shape (num_nodes, output_size)
