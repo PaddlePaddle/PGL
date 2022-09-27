@@ -1,0 +1,43 @@
+task_name: train.hiv
+dataset_name: ogbg-molhiv
+metrics: rocauc
+
+hidden_size: 128
+out_size: 128
+dropout: 0.3
+num_layers: 4
+batch_norm: True
+residual: True
+aggregators: ["mean","max","min", "std"]
+scalers: ["identity", "amplification", "attenuation"]
+in_feat_dropout: 0
+post_layers: 1
+pre_layers: 1
+towers: 1
+edge_feat: True
+optim: momentum
+
+seed: 41
+# data config
+num_class: 1
+
+# runconfig
+epochs: 200
+batch_size: 128
+lr: 0.01
+lr_reduce_factor: 0.5
+lr_schedule_patience: 20
+min_lr: 0.0001
+weight_decay: 0.000003
+num_workers: 4
+shuffle: True
+max_time: 48
+log_step: 100
+
+# logger
+stdout: True
+log_dir: ./logs
+log_filename: log.txt
+save_dir: ./checkpoints
+output_dir: ./outputs
+files2saved: ["*.yaml", "*.py", "./utils"]
