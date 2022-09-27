@@ -109,7 +109,7 @@ class ConvTest(unittest.TestCase):
                 "identity", "amplification", "attenuation", "linear",
                 "inverse_linear"
             ],
-            deg=np.asarray([0, 1, 1, 1, 2]),
+            deg=paddle.to_tensor([0, 1, 1, 1, 2]),
             towers=2,
             pre_layers=1,
             post_layers=2,

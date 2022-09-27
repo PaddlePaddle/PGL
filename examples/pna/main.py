@@ -87,7 +87,7 @@ def main(config):
         num_workers=config.num_workers,
         collate_fn=fn)
 
-    deg_hog = get_degree_histogram(train_loader)
+    deg_hog = paddle.to_tensor(get_degree_histogram(train_loader))
 
     model = PNAModel(
         config.hidden_size,

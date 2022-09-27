@@ -40,6 +40,3 @@ log_filename: log.txt
 save_dir: ./checkpoints
 output_dir: ./outputs
 files2saved: ["*.yaml", "*.py", "./utils"]
-
-# python main_PCBA.py --type_net="complex" --batch_size=512 --lap_norm="none" --weight_decay=3e-6 --L=4 --hidden_dim=510 --out_dim=510 --residual=True 
-# --edge_feat=True  --readout=sum --graph_norm=True --batch_norm=True --aggregators="mean sum max" --scalers="identity" --config "configs/molecules_graph_classification_DGN_PCBA.json"  --lr_schedule_patience=4 --towers=5 --dropout=0.2 --init_lr=0.0005 --min_lr=0.00002 --edge_dim=16 --lr_reduce_factor=0.8

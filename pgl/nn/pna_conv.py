@@ -37,7 +37,7 @@ class PNAConv(nn.Layer):
         scalers: (list): List of scaler function keyword, 
             choices in ["identity", "amplification",
                         "attenuation", "linear", "inverse_linear"]
-        deg (numpy array): Histogram of in-degrees of nodes in the training set for computed avg_deg for scalers
+        deg (Tensor): Histogram of in-degrees of nodes in the training set for computed avg_deg for scalers
         towers (int, optional): Number of towers. Default: 1
         pre_layers (int, optional): Number of transformation layers before
             aggregation. Default: 1
@@ -77,12 +77,13 @@ class PNAConv(nn.Layer):
 
         deg = deg.astype("float32")
         total_no_vertices = deg.sum()
-        bin_degrees = np.arange(len(deg)).astype("float32")
+        bin_degrees = paddle.arange(len(deg), dtype="float32")
         self.avg_deg = {
-            'lin': ((bin_degrees * deg).sum() / total_no_vertices),
-            'log': ((np.log(
-                (bin_degrees + 1)) * deg).sum() / total_no_vertices),
-            'exp': ((np.exp(bin_degrees) * deg).sum() / total_no_vertices),
+            'lin': ((bin_degrees * deg).sum() / total_no_vertices).item(),
+            'log':
+            (((bin_degrees + 1).log() * deg).sum() / total_no_vertices).item(),
+            'exp': (
+                (bin_degrees.exp() * deg).sum() / total_no_vertices).item(),
         }
         if use_edge:
             self.edge_mlp = paddle.nn.Linear(input_size, self.F_in)
