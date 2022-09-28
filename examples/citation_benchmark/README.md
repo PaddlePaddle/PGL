@@ -20,7 +20,7 @@ All datasets are runned with public split of  **semi-supervised** settings. And 
 | [GCNII (64 Layers, 1500 Epochs, Chen 2020)](https://arxiv.org/pdf/2007.02133.pdf) | 0.846(0.003) | 0.798(0.003) | 0.724(0.006) |            -                         |
 | [SSGC (Zhu 2021)](https://openreview.net/forum?id=CYO5T-YjWZV) | 0.834(0.000) | 0.796(0.000) | 0.734(0.000) | Weight decay is important, 1e-4 for Citeseer/ 5e-6 for Cora / 5e-6  for Pubmed |
 | [GATv2 (Shaked Brody 2021)](https://arxiv.org/abs/2105.14491) | 0.829(0.007) | 0.779(0.002) | 0.709(0.006) |- |
-| [GPRGNN (Eli Chien 2021)](https://arxiv.org/abs/2006.07988) | 0.851(0.008) | 0.801(0.004) | 0.726(0.008) | hidden_size=64, 10 layers |
+| [GPRGNN (Eli Chien 2021)](https://arxiv.org/abs/2006.07988) | 0.850(0.007) | 0.792(0.006) | 0.717(0.004) | hidden_size=64, 10 layers, weight_decay=0.0005 |
 
 ### How to run the experiments?
 
