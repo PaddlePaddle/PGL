@@ -14,13 +14,15 @@ The code is about [《Boosting the Speed and Performance in Training Large-scale
 ```
 ogb==1.3.5
 torch==1.7.0
-paddle==2.4
+paddlepaddle-gpu==2.4.0rc0
 pgl==2.2.4
 ```
 
-## Running Preprocessing Script
+## Data Preprocessing
 
-### Get the features:
+### Preprocess Graph Data
+
+The preprocessing of graph data is the same as that of KDDCup2021. Thus, you can go to the `PGL/examples/kddcup2021/MAG240M/r_unimp` and run the following commands:
 
 ```
 python dataset/sage_author_x.py
@@ -39,7 +41,7 @@ This will give you the following files:
 * `institution_year.npy` The institution years, preprocessed by averaging the neighboring author years.
 * `full_feat.npy`: The concatenated author, institution, and paper features.
 * `all_feat_year.npy`: The concatenated author, institution, and paper years.
-* `m2v_embed.npy`: The m2v embed. you can get it from [here (password: 0mr0)](https://pan.baidu.com/s/1_0PhbFglsWmYdo9fO1CRGQ), using ```dataset/merge_m2v_embed.py``` to merget them together.
+(https://pan.baidu.com/s/1_0PhbFglsWmYdo9fO1CRGQ), using ```dataset/merge_m2v_embed.py``` to merget them together.
 * `paper_to_paper_symmetric_pgl_split`: The *paper_to_paper* PGL graph.
 * `paper_to_author_symmetric_pgl_split_src`: The *author_to_paper* PGL graph.
 * `paper_to_author_symmetric_pgl_split_dst`: The *paper_to_author* PGL graph.
@@ -50,24 +52,29 @@ This will give you the following files:
 
 We get metapath2vec embeddings following https://github.com/PaddlePaddle/PGL/tree/static_stable/examples/metapath2vec 
 
+This will give you the following file:
+
+* `m2v_embed.npy`: The m2v embed. you can get it from [here (password: 0mr0)]
+
+
 ### Get the new validation split:
 
 ```
 python split_valid.py
 ```
 
-Then, you will save the new cross validation data in follow dir:
+Then, you will save the new cross validation data in the following directory:
 * `./valid_64`
 
 ## Running Multi-GPU Training Script
 
 ```
-run_r_unimp_train.sh
+sh run_train.sh
 ```
 
 ## Running Multi-GPU Inferring Script
 ```
-run_r_unimp_infer.sh
+sh run_infer.sh
 ```
 This will give you R_UNIMP value in the performance table below 
 
