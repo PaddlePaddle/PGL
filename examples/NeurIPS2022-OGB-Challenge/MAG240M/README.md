@@ -1,4 +1,4 @@
-# R-UNIMP for MAG240M using PGL
+# Solution to MAG240M of NeurIPS2022-OGB-Challenge
 
 The code is about [《Boosting the Speed and Performance in Training Large-scale Heterogeneous Graph at NeurIPS OGB 22》](./xxx.pdf). 
 
@@ -59,12 +59,33 @@ This will give you the following file:
 
 ### Get the new validation split:
 
+The validation split is the same as that of KDDCup2021. 
+Thus, you can go to the `PGL/examples/kddcup2021/MAG240M/r_unimp` and 
+run the following command to get the new validation split.
+
 ```
 python split_valid.py
 ```
 
 Then, you will save the new cross validation data in the following directory:
 * `./valid_64`
+
+the related configuration for validation dataset in `configs/template.yaml` are as follows:
+
+```
+valid_path: "./valid_64"
+```
+
+### Make 5-fold cross-validation configuration files
+
+We use 5-fold cross-validation in our experiments. 
+Thus we need to generate 5 configuration files for each fold as follows:
+
+```
+python make_config_files.py ./configs/template.yaml
+```
+
+Then you can find 5 configuration files in `./configs/` directory.
 
 ## Running Multi-GPU Training Script
 
@@ -81,6 +102,7 @@ This will give you R_UNIMP value in the performance table below
 ## Running Post Process Script
 
 1. Construct the coauthor graph
+
 ```
 # Constructed Co-author Graph
 
@@ -151,6 +173,6 @@ This will give you R_UNIMP_POST value in the performance table below
 
 | Model       |  Valid ACC | 
 | ----------- | ---------------| 
-| R_UNIMP        | 0.7715      | 
-| R_UNIMP_POST   | 0.7729      | 
-| Final Ensemble (30)| 0.7773      |
+| R_UNIMP        | xxx     | 
+| R_UNIMP_POST   | xxx      | 
+| Final Ensemble (30)| xxx      |

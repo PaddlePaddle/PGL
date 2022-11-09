@@ -31,5 +31,5 @@ def make_config_file(template_config_file):
 
 
 if __name__=="__main__":
-    template_config_file = "configs/template.yaml"
+    template_config_file = sys.argv[1]
     make_config_file(template_config_file)
