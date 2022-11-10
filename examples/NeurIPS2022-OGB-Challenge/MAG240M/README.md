@@ -1,14 +1,5 @@
 # Solution to MAG240M of NeurIPS2022-OGB-Challenge
 
-The code is about [《Boosting the Speed and Performance in Training Large-scale Heterogeneous Graph at NeurIPS OGB 22》](./xxx.pdf). 
-
-```
-@article{xxx,
-  title={Boosting the Speed and Performance in Training Large-scale Heterogeneous Graph at NeurIPS OGB 22},
-  author={xxx}
-}
-```
-
 ## Requirements
 
 ```
@@ -168,11 +159,3 @@ python ensemble.py
 
 This will give you R_UNIMP_POST value in the performance table below 
 
-
-## Performance
-
-| Model       |  Valid ACC | 
-| ----------- | ---------------| 
-| R_UNIMP        | xxx     | 
-| R_UNIMP_POST   | xxx      | 
-| Final Ensemble (30)| xxx      |
