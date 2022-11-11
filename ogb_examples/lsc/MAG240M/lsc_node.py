@@ -122,13 +122,13 @@ def train(config, do_eval=False):
 
                 loss = train_step(model, loss_func, batch, dataset)
 
-                log.info(loss.numpy()[0])
+                log.info(float(loss))
                 loss.backward()
                 opt.step()
                 if lr_scheduler is not None:
                     lr_scheduler.step()
                 opt.clear_gradients()
-                loss_temp.append(loss.numpy()[0])
+                loss_temp.append(float(loss))
 
             loss = np.mean(loss_temp)
             log.info("Epoch %s Train Loss: %s" % (e_id, loss))
@@ -170,7 +170,7 @@ def evaluate(eval_ds, model, loss_fn, config, evaluator, dataset):
 
         pred_temp.append(out.numpy())
         y_temp.append(y.numpy())
-        output_metric["loss"].append(loss.numpy()[0])
+        output_metric["loss"].append(float(loss))
 
         step += 1
         if step > config.eval_max_steps:

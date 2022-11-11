@@ -112,11 +112,11 @@ def train(config, do_eval=False):
 
                 loss = train_step(model, loss_func, batch, dataset)
 
-                log.info(loss.numpy()[0])
+                log.info(float(loss))
                 loss.backward()
                 opt.step()
                 opt.clear_gradients()
-                loss_temp.append(loss.numpy()[0])
+                loss_temp.append(float(loss))
             if lr_scheduler is not None:
                 lr_scheduler.step()
 
@@ -159,7 +159,7 @@ def evaluate(eval_ds, model, loss_fn, config, evaluator, dataset):
 
         pred_temp.append(out.numpy())
         y_temp.append(y.numpy())
-        output_metric["loss"].append(loss.numpy()[0])
+        output_metric["loss"].append(float(loss))
 
         step += 1
         if step > config.eval_max_steps:
@@ -178,6 +178,7 @@ def evaluate(eval_ds, model, loss_fn, config, evaluator, dataset):
         'y_pred': y_pred
     })['acc']
     return output_metric
+
 
 @paddle.no_grad()
 def predict(config):
@@ -214,7 +215,6 @@ def predict(config):
     y_pred = pred_temp.argmax(axis=-1)
     res = {'y_pred': y_pred}
     evaluator.save_test_submission(res, 'results')
-   
 
 
 if __name__ == "__main__":

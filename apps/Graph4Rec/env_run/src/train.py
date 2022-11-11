@@ -68,7 +68,7 @@ def train(config, model, loader, optim):
             optim.step()
             optim.clear_grad()
 
-            total_loss += loss.numpy()[0]
+            total_loss += float(loss)
             if global_step % config.log_steps == 0:
                 avg_loss = total_loss / config.log_steps
                 total_loss = 0.0

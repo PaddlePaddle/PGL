@@ -1,3 +1,17 @@
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import pdb
 import argparse
@@ -54,7 +68,8 @@ class MAG240M(object):
                 path = os.path.join(self.valid_path, v_n)
                 valid_temp.append(np.load(path))
             valid_temp = np.concatenate(valid_temp)
-            self.train_idx = np.concatenate([dataset.get_idx_split('train'), valid_temp])
+            self.train_idx = np.concatenate(
+                [dataset.get_idx_split('train'), valid_temp])
 
             valid_name = os.path.join(self.valid_path, self.valid_name)
             self.val_idx = np.load(valid_name)
@@ -66,17 +81,32 @@ class MAG240M(object):
 
         self.test_idx = dataset.get_idx_split('test-challenge')
         self.test_dev_idx = dataset.get_idx_split('test-dev')
-        N = (dataset.num_papers + dataset.num_authors + dataset.num_institutions)
+        N = (
+            dataset.num_papers + dataset.num_authors + dataset.num_institutions
+        )
         self.train_idx_mask = np.zeros([N], dtype="bool")
         if self.ensemble_setting:
-            self.train_idx_mask[np.concatenate([self.train_idx, self.val_idx])] = 1
-        else:     
+            self.train_idx_mask[np.concatenate([self.train_idx, self.val_idx
+                                                ])] = 1
+        else:
             self.train_idx_mask[self.train_idx] = 1
-        self.train_idx_mask = paddle.to_tensor(self.train_idx_mask)  # 如显存不够，可改成 uva 形式
-        self.x = np.memmap(f'{dataset.dir}/full_feat.npy', dtype=np.float16,
-                           mode='r', shape=(N, self.num_features))
-        self.id_x = np.memmap(f'{self.m2v_file}', dtype=np.float16, mode='r', shape=(N, self.m2v_dim))
-        self.p2p_x = np.memmap(f'{self.p2p_file}', dtype=np.float16, mode='r', shape=(N, self.m2v_dim))
+        self.train_idx_mask = paddle.to_tensor(
+            self.train_idx_mask)  # 如显存不够，可改成 uva 形式
+        self.x = np.memmap(
+            f'{dataset.dir}/full_feat.npy',
+            dtype=np.float16,
+            mode='r',
+            shape=(N, self.num_features))
+        self.id_x = np.memmap(
+            f'{self.m2v_file}',
+            dtype=np.float16,
+            mode='r',
+            shape=(N, self.m2v_dim))
+        self.p2p_x = np.memmap(
+            f'{self.p2p_file}',
+            dtype=np.float16,
+            mode='r',
+            shape=(N, self.m2v_dim))
         from dist_feat import DistFeat
         self.x = DistFeat(self.x, mode=self.feat_mode)
         self.id_x = DistFeat(self.id_x, mode=self.feat_mode)
@@ -84,9 +114,12 @@ class MAG240M(object):
         self.y = dataset.all_paper_label
         self.y = paddle.to_tensor(self.y, dtype="int64")  # 若后续显存不够，可改成 uva 形式
         year_file = f'{dataset.dir}/all_feat_year.npy'
-        self.year = np.memmap(year_file, dtype=np.int32, mode='r', shape=(N,))
+        self.year = np.memmap(year_file, dtype=np.int32, mode='r', shape=(N, ))
         self.year = paddle.to_tensor(self.year, dtype="int32")
-        self.graphs = [Graph.load(edge_path, mmap_mode='r+') for edge_path in graph_file_list]
+        self.graphs = [
+            Graph.load(
+                edge_path, mmap_mode='r+') for edge_path in graph_file_list
+        ]
         self.prepare_csc_graph()
 
         def get_sinusoid_encoding_table(n_position, d_hid, padding_idx=None):
@@ -95,11 +128,15 @@ class MAG240M(object):
 
             def get_posi_angle_vec(position):
                 return [cal_angle(position, hid_j) for hid_j in range(d_hid)]
-            sinusoid_table = np.array([get_posi_angle_vec(pos_i) for pos_i in range(n_position)])
+
+            sinusoid_table = np.array(
+                [get_posi_angle_vec(pos_i) for pos_i in range(n_position)])
             sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
-            sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
+            sinusoid_table[:, 1::2] = np.cos(
+                sinusoid_table[:, 1::2])  # dim 2i+1
             return sinusoid_table
-        self.pos = get_sinusoid_encoding_table(200, 768) 
+
+        self.pos = get_sinusoid_encoding_table(200, 768)
         self.pos = paddle.to_tensor(self.pos)
 
     def prepare_csc_graph(self):
@@ -137,12 +174,11 @@ class NeighborSampler(object):
             neighbor_counts_all = []
             for j, csc in enumerate(self.csc_graphs):
                 neighbors, neighbor_counts = paddle.geometric.sample_neighbors(
-                    csc[0], csc[1], nodes, sample_size=self.samples_list[i][j]
-                )
+                    csc[0], csc[1], nodes, sample_size=self.samples_list[i][j])
                 if neighbors.shape[0] == 0:
                     edge_split.append(0)
                 else:
-                    edge_split.append(paddle.sum(neighbor_counts).numpy()[0])
+                    edge_split.append(float(paddle.sum(neighbor_counts)))
                     neighbors_all.append(neighbors)
                     neighbor_counts_all.append(neighbor_counts)
 
@@ -158,16 +194,18 @@ class NeighborSampler(object):
             # edge_split: 用于划分不同采样图的边
             # len(nodes): 中心节点的长度，主要用来截断所需要的特征
             # len(out_nodes): 全部节点的长度，主要用来构造图，获得num_nodes
-            graph_list.append((edge_src, edge_dst, edge_split, len(nodes), len(out_nodes)))
+            graph_list.append(
+                (edge_src, edge_dst, edge_split, len(nodes), len(out_nodes)))
             nodes = out_nodes
 
         graph_list = graph_list[::-1]
-        return graph_list, nodes # nodes: 全部节点，用来gather特征。
+        return graph_list, nodes  # nodes: 全部节点，用来gather特征。
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='main')
-    parser.add_argument("--conf", type=str, default="./configs/r_unimp_new.yaml")
+    parser.add_argument(
+        "--conf", type=str, default="./configs/r_unimp_new.yaml")
     args = parser.parse_args()
 
     config = edict(yaml.load(open(args.conf), Loader=yaml.FullLoader))
