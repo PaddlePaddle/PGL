@@ -107,13 +107,13 @@ def main(args):
 
         msg = "epoch: %s" % epoch
         msg += " | train_loss: %.4f | train_acc: %.4f" \
-                % (train_loss.numpy()[0], train_acc.numpy()[0])
+                % (float(train_loss), float(train_acc))
 
         msg += " | test_loss: %.4f | test_acc: %.4f" \
-                % (test_loss.numpy()[0], test_acc.numpy()[0])
+                % (float(test_loss), float(test_acc))
 
         log.info(msg)
-        test_acc_list.append(test_acc.numpy()[0])
+        test_acc_list.append(float(test_acc))
 
     log.info("best test acc result: %.4f" % (np.max(test_acc_list)))
 

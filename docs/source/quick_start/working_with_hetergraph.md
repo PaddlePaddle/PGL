@@ -162,7 +162,7 @@ for epoch in range(10):
     optim.step()
     optim.clear_grad()
     
-    print("epoch: %s | loss: %.4f" % (epoch, loss.numpy()[0]))
+    print("epoch: %s | loss: %.4f" % (epoch, float(loss)))
 ```
 
     epoch: 0 | loss: 1.3536

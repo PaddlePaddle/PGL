@@ -68,12 +68,11 @@ def train(model, data_loader, optim, log_per_step=10):
         optim.step()
         optim.clear_grad()
 
-        total_loss += loss.numpy()[0] * num_samples
+        total_loss += float(loss) * num_samples
         total_sample += num_samples
 
         if batch % log_per_step == 0:
-            log.info("Batch %s %s-Loss %.6f" %
-                     (batch, "train", loss.numpy()[0]))
+            log.info("Batch %s %s-Loss %.6f" % (batch, "train", float(loss)))
 
     return total_loss / total_sample
 
