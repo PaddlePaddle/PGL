@@ -14,7 +14,7 @@
 
 import numpy as np
 import paddle
-from paddle.fluid.framework import Variable
+from paddle.common_ops_import import Variable
 
 from pgl.utils import op
 
@@ -26,6 +26,76 @@ def check_is_tensor(*data):
         if isinstance(d, paddle.Tensor) or isinstance(d, Variable):
             return True
     return False
+
+
+def scatter(x, index, updates, overwrite=True, name=None):
+    """
+    **Scatter Layer**
+    Output is obtained by updating the input on selected indices based on updates.
+    
+    .. code-block:: python
+    
+        import numpy as np
+        #input:
+        x = np.array([[1, 1], [2, 2], [3, 3]])
+        index = np.array([2, 1, 0, 1])
+        # shape of updates should be the same as x
+        # shape of updates with dim > 1 should be the same as input
+        updates = np.array([[1, 1], [2, 2], [3, 3], [4, 4]])
+        overwrite = False
+        # calculation:
+        if not overwrite:
+            for i in range(len(index)):
+                x[index[i]] = np.zeros((2))
+        for i in range(len(index)):
+            if (overwrite):
+                x[index[i]] = updates[i]
+            else:
+                x[index[i]] += updates[i]
+        # output:
+        out = np.array([[3, 3], [6, 6], [1, 1]])
+        out.shape # [3, 2]
+    **NOTICE**: The order in which updates are applied is nondeterministic, 
+    so the output will be nondeterministic if index contains duplicates.
+    Args:
+        x (Tensor): The input N-D Tensor with ndim>=1. Data type can be float32, float64.
+        index (Tensor): The index 1-D Tensor. Data type can be int32, int64. The length of index cannot exceed updates's length, and the value in index cannot exceed input's length.
+        updates (Tensor): update input with updates parameter based on index. shape should be the same as input, and dim value with dim > 1 should be the same as input.
+        overwrite (bool): The mode that updating the output when there are same indices. 
+          If True, use the overwrite mode to update the output of the same index,
+          if False, use the accumulate mode to update the output of the same index.Default value is True.
+        name(str, optional): The default value is None. Normally there is no need for user to set this property.  For more information, please refer to :ref:`api_guide_Name` .
+ 
+    Returns:
+        Tensor: The output is a Tensor with the same shape as x.
+    Examples:
+        .. code-block:: python
+            
+            import paddle
+            x = paddle.to_tensor([[1, 1], [2, 2], [3, 3]], dtype='float32')
+            index = paddle.to_tensor([2, 1, 0, 1], dtype='int64')
+            updates = paddle.to_tensor([[1, 1], [2, 2], [3, 3], [4, 4]], dtype='float32')
+  
+            output1 = paddle.scatter(x, index, updates, overwrite=False)
+            # [[3., 3.],
+            #  [6., 6.],
+            #  [1., 1.]]
+            output2 = paddle.scatter(x, index, updates, overwrite=True)
+            # CPU device:
+            # [[3., 3.],
+            #  [4., 4.],
+            #  [1., 1.]]
+            # GPU device maybe have two results because of the repeated numbers in index
+            # result 1:
+            # [[3., 3.],
+            #  [4., 4.],
+            #  [1., 1.]]
+            # result 2:
+            # [[3., 3.],
+            #  [2., 2.],
+            #  [1., 1.]]
+    """
+    return paddle.scatter(x, index, updates, overwrite, name)
 
 
 def generate_segment_id_from_index(index):

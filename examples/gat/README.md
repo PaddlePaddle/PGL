@@ -6,7 +6,6 @@
 To build a gat layer,  one can use our pre-defined ```pgl.nn.GATConv``` or just write a gat layer with message passing interface.
 
 ```python
-import paddle.fluid as fluid
 
 class CustomGATConv(nn.Layer):
     def __init__(self,

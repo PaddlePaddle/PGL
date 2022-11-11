@@ -52,7 +52,7 @@ class PairGenerator(object):
         self.generator = generator
 
         pair_generator = self.base_pair_generator
-        pair_generator = AsynchronousGenerator(pair_generator, maxsize=10000)
+        pair_generator = AsynchronousGenerator(pair_generator, maxsize=1000)
 
         for pair in pair_generator():
             yield pair

@@ -28,7 +28,6 @@ from model import GraphSage
 from dataset import ShardedDataset, batch_fn
 import paddle.distributed.fleet as fleet
 import paddle.distributed.fleet.base.role_maker as role_maker
-import paddle.fluid as F
 
 
 def setup_compiled_prog(loss):
@@ -110,14 +109,16 @@ def run(dataset,
 
 
 def build_net(input_size, num_class, hidden_size, num_layers):
-    num_nodes = F.data("num_nodes", shape=[1], dtype="int32")
-    edges = F.data("edges", shape=[None, 2], dtype="int32")
-    sample_index = F.data("sample_index", shape=[None], dtype="int32")
-    index = F.data("index", shape=[None], dtype="int32")
-    label = F.data("label", shape=[None], dtype="int64")
+    num_nodes = paddle.static.data("num_nodes", shape=[1], dtype="int32")
+    edges = paddle.static.data("edges", shape=[None, 2], dtype="int32")
+    sample_index = paddle.static.data(
+        "sample_index", shape=[None], dtype="int32")
+    index = paddle.static.data("index", shape=[None], dtype="int32")
+    label = paddle.static.data("label", shape=[None], dtype="int64")
     label = paddle.reshape(label, [-1, 1])
     graph = pgl.Graph(num_nodes=num_nodes, edges=edges)
-    feat = F.data("feature", shape=[None, input_size], dtype="float32")
+    feat = paddle.static.data(
+        "feature", shape=[None, input_size], dtype="float32")
 
     model = GraphSage(
         input_size=input_size,
@@ -163,7 +164,7 @@ def main(args):
 
     strategy = fleet.DistributedStrategy()
     strategy.a_sync = True
-    optimizer = paddle.fluid.optimizer.Adam(learning_rate=args.lr)
+    optimizer = paddle.optimizer.Adam(learning_rate=args.lr)
     optimizer = fleet.distributed_optimizer(optimizer, strategy)
     optimizer.minimize(loss)
 

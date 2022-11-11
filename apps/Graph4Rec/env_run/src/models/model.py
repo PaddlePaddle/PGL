@@ -19,7 +19,6 @@ from collections import OrderedDict
 
 import paddle
 import paddle.nn as nn
-import paddle.fluid as F
 import paddle.distributed.fleet as fleet
 
 import pgl
@@ -77,14 +76,17 @@ class WalkBasedModel(nn.Layer):
         feed_dict = OrderedDict()
 
         for slot in self.config.slots:
-            feed_dict[slot] = F.data(slot, shape=[-1, 1], dtype="int64")
-            feed_dict["%s_info" % slot] = F.data(
+            feed_dict[slot] = paddle.static.data(
+                slot, shape=[-1, 1], dtype="int64")
+            feed_dict["%s_info" % slot] = paddle.static.data(
                 "%s_info" % slot, shape=[-1, ], dtype="int64")
 
-        feed_dict["node_id"] = F.data("node_id", shape=[-1, 1], dtype="int64")
-        feed_dict["neg_idx"] = F.data("neg_idx", shape=[-1, ], dtype="int64")
+        feed_dict["node_id"] = paddle.static.data(
+            "node_id", shape=[-1, 1], dtype="int64")
+        feed_dict["neg_idx"] = paddle.static.data(
+            "neg_idx", shape=[-1, ], dtype="int64")
 
-        py_reader = F.io.DataLoader.from_generator(
+        py_reader = paddle.io.DataLoader.from_generator(
             capacity=64,
             feed_list=list(feed_dict.values()),
             iterable=False,
@@ -222,29 +224,31 @@ class SageModel(nn.Layer):
         feed_dict = OrderedDict()
 
         for slot in self.config.slots:
-            feed_dict[slot] = F.data(slot, shape=[-1, 1], dtype="int64")
-            feed_dict["%s_info" % slot] = F.data(
+            feed_dict[slot] = paddle.static.data(
+                slot, shape=[-1, 1], dtype="int64")
+            feed_dict["%s_info" % slot] = paddle.static.data(
                 "%s_info" % slot, shape=[-1, ], dtype="int64")
 
         # Graph 
         if self.config.sage_mode:
-            feed_dict["num_nodes"] = F.data(
+            feed_dict["num_nodes"] = paddle.static.data(
                 "num_nodes", shape=[1], dtype="int64")
 
             for etype in self.all_etypes:
-                feed_dict["num_edges_%s" % etype] = F.data(
+                feed_dict["num_edges_%s" % etype] = paddle.static.data(
                     "num_edges_%s" % etype, shape=[1], dtype="int64")
-                feed_dict["edges_%s" % etype] = F.data(
+                feed_dict["edges_%s" % etype] = paddle.static.data(
                     "edges_%s" % etype, shape=[-1, 2], dtype="int64")
 
-        feed_dict["origin_node_id"] = F.data(
+        feed_dict["origin_node_id"] = paddle.static.data(
             "origin_node_id", shape=[-1, 1], dtype="int64")
-        feed_dict["center_node_id"] = F.data(
+        feed_dict["center_node_id"] = paddle.static.data(
             "center_node_id", shape=[-1, ], dtype="int64")
 
-        feed_dict["neg_idx"] = F.data("neg_idx", shape=[-1], dtype="int64")
+        feed_dict["neg_idx"] = paddle.static.data(
+            "neg_idx", shape=[-1], dtype="int64")
 
-        py_reader = F.io.DataLoader.from_generator(
+        py_reader = paddle.io.DataLoader.from_generator(
             capacity=64,
             feed_list=[v for k, v in feed_dict.items()],
             iterable=False,

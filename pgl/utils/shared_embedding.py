@@ -28,12 +28,12 @@ def set_current_device_id():
     curr_dev = paddle.device.get_device()
     select_gpu = os.getenv("FLAGS_selected_gpus", "0")
     paddle.set_flags({
-        'FLAGS_selected_gpus': os.getenv("FLAGS_selected_gpus", 0)
+        'FLAGS_selected_gpus': os.getenv("FLAGS_selected_gpus", "0")
     })
     if "gpu" in curr_dev and select_gpu != curr_dev.split(":")[-1]:
         paddle.set_device("gpu:" + select_gpu)
 
-    curr_dev_id = paddle.fluid.core.get_cuda_current_device_id()
+    curr_dev_id = paddle.framework.core.get_cuda_current_device_id()
     if "gpu" in curr_dev and select_gpu != str(curr_dev_id):
         paddle.zeros([])
 
@@ -149,6 +149,7 @@ class SharedEmbedding(object):
             index = index.numpy()
         tensors = paddle.to_tensor(self.weight[index])
         tensors.stop_gradient = self._stop_gradient
+        index = paddle.to_tensor(index)
         if not self._stop_gradient:
             self.trace.append((index, tensors))
         return tensors
@@ -250,6 +251,8 @@ class SharedEmbedding(object):
                 grad_trace = self.create_trace(index, tensors)
                 if self._async_q is not None:
                     self._async_q.put(grad_trace)
+                    self._async_e.wait()
+                    self._async_e.clear()
                 else:
                     index, grads = grad_trace
                     self._update(index, grads)

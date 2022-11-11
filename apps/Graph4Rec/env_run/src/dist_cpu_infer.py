@@ -36,7 +36,8 @@ from utils.logger import log_to_file
 import models as M
 from datasets.dist_dataloader import DistCPUDataloader
 import datasets.dataset as DS
-from utils.ps_util import DistributedInfer
+#  from utils.ps_util import DistributedInfer
+from paddle.distributed.fleet.utils.ps_util import DistributedInfer
 
 paddle.set_device("cpu")
 paddle.enable_static()
@@ -107,7 +108,7 @@ def inference(save_dir, exe, program, reader, model):
                     if cc % 10000 == 0:
                         log.info("%s nodes have been processed" % cc)
 
-        except paddle.fluid.core.EOFException:
+        except paddle.framework.core.EOFException:
             reader.reset()
     log.info("total %s nodes have been processed" % cc)
     log.info("node representations are saved in %s" % save_file)

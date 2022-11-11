@@ -28,7 +28,6 @@ from pgl.utils.logger import log
 import paddle
 import paddle.nn as nn
 from paddle.optimizer import Adam
-import paddle.fluid as F
 import paddle.distributed.fleet as fleet
 
 from utils.config import prepare_config
@@ -51,7 +50,7 @@ def main(config, ip_list_file):
     pred = model(feed_dict)
     loss = model.loss(pred)
 
-    optimizer = F.optimizer.Adam(config.lr, lazy_mode=True)
+    optimizer = paddle.optimizer.SGD(config.lr)
     dist_strategy = fleet.DistributedStrategy()
     dist_strategy.a_sync = True
     optimizer = fleet.distributed_optimizer(optimizer, dist_strategy)
@@ -121,7 +120,7 @@ def train(config, exe, program, reader, loss):
                          (global_step, config.save_dir))
                 fleet.save_persistables(exe, config.save_dir,
                                         paddle.static.default_main_program())
-    except paddle.fluid.core.EOFException:
+    except paddle.framework.core.EOFException:
         reader.reset()
 
     if fleet.is_first_worker():

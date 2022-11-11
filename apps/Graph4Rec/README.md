@@ -30,12 +30,15 @@ Please install paddlepaddle and pgl before using Graph4Rec.
 ```
 python -m pip install paddlepaddle-gpu==2.3.0
 
-python -m pip install pgl==2.2.3
+python -m pip install pgl==2.2.4
 ```
 
 ## Quick start
 
 ### Input format
+
+**NOTE**: If you use GPU to train GNN model, then the node ID should be start from 1 to N (where N is the total number nodes), because 0 is a padding id. 
+Therefore, the `num_nodes` hypterparameter should be set to N+1. But if you use distributed CPU training, node ID should be an uint64 number, and do not need to start from 1 to N.
 
 
 Suppose there are three different types of nodes, namely "u", "t" and "f".
