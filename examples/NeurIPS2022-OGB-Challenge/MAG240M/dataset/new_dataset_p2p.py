@@ -90,8 +90,7 @@ class MAG240M(object):
                                                 ])] = 1
         else:
             self.train_idx_mask[self.train_idx] = 1
-        self.train_idx_mask = paddle.to_tensor(
-            self.train_idx_mask)  # 如显存不够，可改成 uva 形式
+        self.train_idx_mask = paddle.to_tensor(self.train_idx_mask)
         self.x = np.memmap(
             f'{dataset.dir}/full_feat.npy',
             dtype=np.float16,
@@ -112,7 +111,7 @@ class MAG240M(object):
         self.id_x = DistFeat(self.id_x, mode=self.feat_mode)
         self.p2p_x = DistFeat(self.p2p_x, mode=self.feat_mode)
         self.y = dataset.all_paper_label
-        self.y = paddle.to_tensor(self.y, dtype="int64")  # 若后续显存不够，可改成 uva 形式
+        self.y = paddle.to_tensor(self.y, dtype="int64")
         year_file = f'{dataset.dir}/all_feat_year.npy'
         self.year = np.memmap(year_file, dtype=np.int32, mode='r', shape=(N, ))
         self.year = paddle.to_tensor(self.year, dtype="int32")
@@ -182,24 +181,16 @@ class NeighborSampler(object):
                     neighbors_all.append(neighbors)
                     neighbor_counts_all.append(neighbor_counts)
 
-            # neighbors = paddle.concat(neighbors_all)
-            # neighbor_counts = paddle.concat(neighbor_counts_all)
-
             edge_src, edge_dst, out_nodes = \
                 paddle.geometric.reindex_heter_graph(nodes, neighbors_all, neighbor_counts_all)
             edge_split = np.cumsum(edge_split).astype("int64")
 
-            # edge_src: 源节点
-            # edge_dst: 目标节点
-            # edge_split: 用于划分不同采样图的边
-            # len(nodes): 中心节点的长度，主要用来截断所需要的特征
-            # len(out_nodes): 全部节点的长度，主要用来构造图，获得num_nodes
             graph_list.append(
                 (edge_src, edge_dst, edge_split, len(nodes), len(out_nodes)))
             nodes = out_nodes
 
         graph_list = graph_list[::-1]
-        return graph_list, nodes  # nodes: 全部节点，用来gather特征。
+        return graph_list, nodes
 
 
 if __name__ == "__main__":
