@@ -135,7 +135,7 @@ def train(model, data_loader, optim, log_per_step=1000, threshold=0.3):
         test_labels_vals.append(labels.numpy())
         test_topk_vals.append(topk.numpy())
 
-        total_loss += loss.numpy()[0] * num_samples
+        total_loss += float(loss) * num_samples
         total_sample += num_samples
 
     test_probs_array = np.concatenate(test_probs_vals)
@@ -172,7 +172,7 @@ def test(model, data_loader, log_per_step=1000, threshold=0.3):
         test_labels_vals.append(labels.numpy())
         test_topk_vals.append(topk.numpy())
 
-        total_loss += loss.numpy()[0] * num_samples
+        total_loss += float(loss) * num_samples
         total_sample += num_samples
 
     test_probs_array = np.concatenate(test_probs_vals)

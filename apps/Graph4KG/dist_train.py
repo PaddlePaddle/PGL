@@ -179,7 +179,7 @@ def main():
                            mode, weights)
             timer['forward'] += (time.time() - ts)
 
-            log['loss'] += loss.numpy()[0]
+            log['loss'] += float(loss)
 
             ts = time.time()
             loss.backward()

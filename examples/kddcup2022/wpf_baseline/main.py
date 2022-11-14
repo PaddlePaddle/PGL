@@ -135,8 +135,7 @@ def train_and_evaluate(config, train_data, valid_data, test_data):
             if paddle.distributed.get_rank(
             ) == 0 and global_step % config.log_per_steps == 0:
                 log.info("Step %s Train MSE-Loss: %s RMSE-Loss: %s" %
-                         (global_step, loss.numpy()[0],
-                          (paddle.sqrt(loss)).numpy()[0]))
+                         (global_step, float(loss), float(paddle.sqrt(loss))))
 
         if paddle.distributed.get_rank() == 0:
 
@@ -228,7 +227,7 @@ def evaluate(valid_data_loader,
         scaled_batch_y = (
             scaled_batch_y - data_mean[:, :, :, -1]) / data_scale[:, :, :, -1]
         loss = loss_fn(pred_y, scaled_batch_y, batch_y, col_names)
-        losses.append(loss.numpy()[0])
+        losses.append(float(loss))
 
         pred_y = F.relu(pred_y * data_scale[:, :, :, -1] + data_mean[:, :, :,
                                                                      -1])
