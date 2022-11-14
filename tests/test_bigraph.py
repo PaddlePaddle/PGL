@@ -251,9 +251,9 @@ class BiGraphTest(unittest.TestCase):
 
         multi_graph = pgl.BiGraph.disjoint([glist[0]])
         self.assertEqual(multi_graph.src_node_feat['nfeat'].shape,
-                         [float(glist[0].src_num_nodes), dim])
+                         [int(glist[0].src_num_nodes), dim])
         self.assertEqual(multi_graph.dst_node_feat['nfeat'].shape,
-                         [float(glist[0].dst_num_nodes), dim])
+                         [int(glist[0].dst_num_nodes), dim])
 
     def test_dump_numpy_load_numpy(self):
 

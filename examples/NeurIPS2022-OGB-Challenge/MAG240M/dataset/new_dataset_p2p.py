@@ -178,7 +178,7 @@ class NeighborSampler(object):
                 if neighbors.shape[0] == 0:
                     edge_split.append(0)
                 else:
-                    edge_split.append(float(paddle.sum(neighbor_counts)))
+                    edge_split.append(int(paddle.sum(neighbor_counts)))
                     neighbors_all.append(neighbors)
                     neighbor_counts_all.append(neighbor_counts)
 
