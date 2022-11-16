@@ -32,11 +32,6 @@ from pgl.utils.edge_index import EdgeIndex
 from pgl.utils.helper import check_is_tensor, maybe_num_nodes
 from pgl.utils.helper import generate_segment_id_from_index, unique_segment
 
-try:
-    from paddle.incubate import graph_send_recv
-except:
-    from pgl.utils.helper import graph_send_recv
-
 
 class Graph(object):
     """Implementation of graph interface in pgl.
@@ -931,7 +926,7 @@ class Graph(object):
         return generate_segment_id_from_index(self._graph_edge_index)
 
     def send_recv(self, feature, reduce_func="sum"):
-        """This method combines the send and recv function using graph_send_recv API.
+        """This method combines the send and recv function using paddle.geometric.send_u_recv API.
 
         Now, this method only supports default copy send function, and built-in receive 
         function ('sum', 'mean', 'max', 'min').
@@ -951,7 +946,8 @@ class Graph(object):
             "Only support 'sum', 'mean', 'max', 'min' built-in reduce functions."
 
         src, dst = self.edges[:, 0], self.edges[:, 1]
-        return graph_send_recv(feature, src, dst, pool_type=reduce_func)
+        return paddle.geometric.send_u_recv(
+            feature, src, dst, reduce_type=reduce_func)
 
     def send(
             self,

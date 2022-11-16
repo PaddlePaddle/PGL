@@ -301,29 +301,12 @@ class GATConv(nn.Layer):
             activation = getattr(F, activation)
         self.activation = activation
 
-    def _send_attention(self, src_feat, dst_feat, edge_feat):
-        alpha = src_feat["src"] + dst_feat["dst"]
-        alpha = self.leaky_relu(alpha)
-        return {"alpha": alpha, "h": src_feat["h"]}
-
-    def _reduce_attention(self, msg):
-        alpha = msg.reduce_softmax(msg["alpha"])
-        alpha = paddle.reshape(alpha, [-1, self.num_heads, 1])
-        if self.attn_drop > 1e-15:
-            alpha = self.attn_dropout(alpha)
-
-        feature = msg["h"]
-        feature = paddle.reshape(feature,
-                                 [-1, self.num_heads, self.hidden_size])
-        feature = feature * alpha
-        if self.concat:
-            feature = paddle.reshape(feature,
-                                     [-1, self.num_heads * self.hidden_size])
-        else:
-            feature = paddle.mean(feature, axis=1)
-
-        feature = msg.reduce(feature, pool_type="sum")
-        return feature
+    def _get_sorted_edges(self, graph):
+        src, dst, eid = graph.sorted_edges(sort_by='dst')
+        if not hasattr(graph, "_dst_uniq_ind"):
+            graph._dst_uniq_ind, graph._dst_segment_ids = \
+                paddle.unique(dst, return_inverse=True)
+        return graph._dst_segment_ids, src, dst
 
     def forward(self, graph, feature):
         """
@@ -349,14 +332,26 @@ class GATConv(nn.Layer):
         feature = paddle.reshape(feature,
                                  [-1, self.num_heads, self.hidden_size])
 
+        segment_ids, src_index, dst_index = self._get_sorted_edges(graph)
+
         attn_src = paddle.sum(feature * self.weight_src, axis=-1)
         attn_dst = paddle.sum(feature * self.weight_dst, axis=-1)
-        msg = graph.send(
-            self._send_attention,
-            src_feat={"src": attn_src,
-                      "h": feature},
-            dst_feat={"dst": attn_dst}, )
-        output = graph.recv(reduce_func=self._reduce_attention, msg=msg)
+        alpha = paddle.geometric.send_uv(attn_src, attn_dst, src_index,
+                                         dst_index, "add")
+        alpha = self.leaky_relu(alpha)
+        alpha = math.segment_softmax(alpha, segment_ids)
+        alpha = paddle.reshape(alpha, [-1, self.num_heads, 1])
+        if self.attn_drop > 1e-15:
+            alpha = self.attn_dropout(alpha)
+
+        output = paddle.geometric.send_ue_recv(feature, alpha, src_index,
+                                               dst_index, "mul", "sum")
+
+        if self.concat:
+            output = paddle.reshape(output,
+                                    [-1, self.num_heads * self.hidden_size])
+        else:
+            output = paddle.mean(output, axis=1)
 
         if self.activation is not None:
             output = self.activation(output)
@@ -436,6 +431,13 @@ class GATv2Conv(nn.Layer):
 
         feature = msg.reduce(feature, pool_type="sum")
         return feature
+
+    def _get_sorted_edges(self, graph):
+        src, dst, eid = graph.sorted_edges(sort_by='dst')
+        if not hasattr(graph, "_dst_uniq_ind"):
+            graph._dst_uniq_ind, graph._dst_segment_ids = \
+                paddle.unique(dst, return_inverse=True)
+        return graph._dst_segment_ids, src, dst
 
     def forward(self, graph, feature):
         """

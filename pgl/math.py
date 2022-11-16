@@ -33,13 +33,13 @@ def segment_pool(data, segment_ids, pool_type, name=None):
     """
     pool_type = pool_type.upper()
     if pool_type == "SUM":
-        return paddle.incubate.segment_sum(data, segment_ids, name)
+        return paddle.geometric.segment_sum(data, segment_ids, name)
     elif pool_type == "MEAN":
-        return paddle.incubate.segment_mean(data, segment_ids, name)
+        return paddle.geometric.segment_mean(data, segment_ids, name)
     elif pool_type == "MAX":
-        return paddle.incubate.segment_max(data, segment_ids, name)
+        return paddle.geometric.segment_max(data, segment_ids, name)
     elif pool_type == "MIN":
-        return paddle.incubate.segment_min(data, segment_ids, name)
+        return paddle.geometric.segment_min(data, segment_ids, name)
     else:
         raise ValueError(
             "We only support sum, mean, max, min pool types in segment_pool function."
@@ -76,7 +76,7 @@ def segment_sum(data, segment_ids, name=None):
 
     """
 
-    return paddle.incubate.segment_sum(data, segment_ids, name)
+    return paddle.geomeric.segment_sum(data, segment_ids, name)
 
 
 def segment_mean(data, segment_ids, name=None):
@@ -110,7 +110,7 @@ def segment_mean(data, segment_ids, name=None):
             #Outputs: [[2., 2., 2.], [4., 5., 6.]]
 
     """
-    return paddle.incubate.segment_mean(data, segment_ids, name)
+    return paddle.geomeric.segment_mean(data, segment_ids, name)
 
 
 def segment_min(data, segment_ids, name=None):
@@ -142,7 +142,7 @@ def segment_min(data, segment_ids, name=None):
             #Outputs:  [[1., 2., 1.], [4., 5., 6.]]
 
     """
-    return paddle.incubate.segment_min(data, segment_ids, name)
+    return paddle.geomeric.segment_min(data, segment_ids, name)
 
 
 def segment_max(data, segment_ids, name=None):
@@ -175,7 +175,7 @@ def segment_max(data, segment_ids, name=None):
             #Outputs: [[3., 2., 3.], [4., 5., 6.]]
 
     """
-    return paddle.incubate.segment_max(data, segment_ids, name)
+    return paddle.geomeric.segment_max(data, segment_ids, name)
 
 
 def segment_softmax(data, segment_ids):
@@ -271,22 +271,23 @@ def segment_padding(data, segment_ids):
 
     return output, segment_len, index
 
+
 @paddle.no_grad()
 def __segment_topk_rank(scores, segment_ids, num_nodes, max_num_nodes):
     """
     Used by segment_topk.
     This function offer the rank results according to scores.
-    """ 
+    """
     batch_size = int(num_nodes.shape[0])
     nodes_cumsum = num_nodes.cumsum(0)
     cum_num_nodes = paddle.zeros([1])
-    if nodes_cumsum.shape[0]>1:
+    if nodes_cumsum.shape[0] > 1:
         cum_num_nodes = paddle.concat([cum_num_nodes, nodes_cumsum[:-1]], 0)
     index = paddle.arange(segment_ids.shape[0], dtype=paddle.int32)
-    index = (index - cum_num_nodes[segment_ids]) + (segment_ids *
-                                                    max_num_nodes)
+    index = (index - cum_num_nodes[segment_ids]) + (segment_ids * max_num_nodes
+                                                    )
     dense_x = paddle.full([batch_size * max_num_nodes],
-                            -1e20).astype(paddle.float32)
+                          -1e20).astype(paddle.float32)
     dense_x = paddle.scatter(dense_x, index, scores.reshape([-1]))
     dense_x = dense_x.reshape([batch_size, max_num_nodes])
     perm = dense_x.argsort(-1, descending=True)
@@ -336,13 +337,13 @@ def segment_topk(x,
         scores_max = segment_max(scores, segment_ids).index_select(segment_ids,
                                                                    0) - 1e-7
         scores_min = scores_max.clip(max=min_score)
-        perm = (scores > scores_min).nonzero(
-            as_tuple=False).reshape([-1])
+        perm = (scores > scores_min).nonzero(as_tuple=False).reshape([-1])
     else:
         num_nodes = segment_sum(paddle.ones([scores.shape[0]]), segment_ids)
         batch_size, max_num_nodes = int(num_nodes.shape[0]), int(num_nodes.max(
         ).item())
-        perm = __segment_topk_rank(scores, segment_ids, num_nodes, max_num_nodes)
+        perm = __segment_topk_rank(scores, segment_ids, num_nodes,
+                                   max_num_nodes)
         batch_size = int(num_nodes.shape[0])
         if isinstance(ratio, int):
             k = paddle.full([num_nodes.shape[0]], ratio)
