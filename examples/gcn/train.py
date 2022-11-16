@@ -164,7 +164,7 @@ def main(args):
             parameters=gnn_model.parameters(),
             weight_decay=0.0005)
 
-        for epoch in tqdm.tqdm(range(200)):
+        for epoch in tqdm.tqdm(range(args.epoch)):
             if epoch >= 3:
                 start = time.time()
             train_loss, train_acc = train(train_index, train_label, gnn_model,
