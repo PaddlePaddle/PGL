@@ -24,6 +24,7 @@ from collections import defaultdict
 import numpy as np
 import paddle
 import paddle.distributed as dist
+from paddle.fluid import core
 
 from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
@@ -350,7 +351,7 @@ class Graph(object):
         """
         return self._is_tensor
 
-    def _apply_to_tensor(self, key, value, inplace=True):
+    def _apply_to_tensor(self, key, value, inplace=True, uva=False):
         if value is None:
             return value
 
@@ -358,36 +359,56 @@ class Graph(object):
             # set is_tensor to True
             return True
 
+        if not paddle.device.is_compiled_with_cuda() and uva:
+            raise ValueError("uva mode should be run under gpu environment!")
+
         if isinstance(value, EdgeIndex):
-            value = value.tensor(inplace=inplace)
+            value = value.tensor(inplace=inplace, uva=uva)
 
         elif isinstance(value, dict):
             if inplace:
-                for k, v in value.items():
-                    value[k] = paddle.to_tensor(v)
+                if not uva:
+                    for k, v in value.items():
+                        value[k] = paddle.to_tensor(v)
+                else:
+                    for k, v in value.items():
+                        value[k] = core.to_uva_tensor(v)
             else:
                 new_value = {}
-                for k, v in value.items():
-                    new_value[k] = paddle.to_tensor(v)
+                if not uva:
+                    for k, v in value.items():
+                        new_value[k] = paddle.to_tensor(v)
+                else:
+                    for k, v in value.items():
+                        new_value[k] = core.to_uva_tensor(v)
                 value = new_value
         else:
-            value = paddle.to_tensor(value)
+            if not uva:
+                value = paddle.to_tensor(value)
+            else:
+                value = core.to_uva_tensor(value)
         return value
 
-    def tensor(self, inplace=True):
+    def tensor(self, inplace=True, uva=False):
         """Convert the Graph into paddle.Tensor format.
 
         In paddle.Tensor format, the graph edges and node features are in paddle.Tensor format.
-        You can use send and recv in paddle.Tensor graph.
+        You can use send and recv in paddle.Tensor graph. Besides, we support converting graph
+        to UVA(Unified Virtual Addressing) tensor format, which can store the graph structure
+        on CPU memory while compute using GPU.
         
         Args:
 
             inplace: (Default True) Whether to convert the graph into tensor inplace. 
+            uva: (Default False) Whether to convert the graph into UVA tensor mode.
         
         """
 
         if self._is_tensor:
             return self
+
+        if not paddle.device.is_compiled_with_cuda() and uva:
+            raise ValueError("uva mode should be run under gpu environment!")
 
         if inplace:
             for key in self.__dict__:
