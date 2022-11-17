@@ -1,5 +1,7 @@
 # Solution to MAG240M of NeurIPS2022-OGB-Challenge
 
+The code is about [Boosting the Speed and Performance in Training Large-scale Heterogeneous Graph for OGB-LSC at NeurIPS 2022](./Boosting_the_Speed_and_Performance_in_Training_Large-scale_Heterogeneous_Graph_for_OGB-LSC_at_NeurIPS_2022.pdf).
+
 ## Requirements
 
 ```
