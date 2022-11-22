@@ -22,7 +22,7 @@ import paddle
 from paddle.fluid import core
 from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
-from pgl.utils.helper import check_is_tensor
+from pgl.utils.helper import check_is_tensor, to_paddle_tensor
 
 
 class EdgeIndex(object):
@@ -159,33 +159,15 @@ Sorted edges and represent edges in compressed style like csc_matrix or csr_matr
             raise ValueError("uva mode should be run under gpu environment!")
 
         if inplace:
-            if not uva:
-                self._sorted_u = paddle.to_tensor(self._sorted_u)
-                self._sorted_v = paddle.to_tensor(self._sorted_v)
-                self._sorted_eid = paddle.to_tensor(self._sorted_eid)
-                self._degree = paddle.to_tensor(self._degree)
-                self._indptr = paddle.to_tensor(self._indptr)
-            else:
-                self._sorted_u = core.to_uva_tensor(self._sorted_u)
-                self._sorted_v = core.to_uva_tensor(self._sorted_v)
-                self._sorted_eid = core.to_uva_tensor(self._sorted_eid)
-                self._degree = core.to_uva_tensor(self._degree)
-                self._indptr = core.to_uva_tensor(self._indptr)
+            self._sorted_u, self._sorted_v, self._sorted_eid, self._degree, self._indptr = \
+                to_paddle_tensor(self._sorted_u, self._sorted_v, self._sorted_eid, self._degree,
+                                 self._indptr, uva)
             self._is_tensor = True
             return self
         else:
-            if not uva:
-                sorted_v = paddle.to_tensor(self._sorted_v)
-                sorted_u = paddle.to_tensor(self._sorted_u)
-                sorted_eid = paddle.to_tensor(self._sorted_eid)
-                indptr = paddle.to_tensor(self._indptr)
-                degree = paddle.to_tensor(self._degree)
-            else:
-                sorted_v = core.to_uva_tensor(self._sorted_v)
-                sorted_u = core.to_uva_tensor(self._sorted_u)
-                sorted_eid = core.to_uva_tensor(self._sorted_eid)
-                indptr = core.to_uva_tensor(self._indptr)
-                degree = core.to_uva_tensor(self._degree)
+            sorted_u, sorted_v, sorted_eid, degree, indptr = \
+                to_paddle_tensor(self._sorted_u, self._sorted_v, self._sorted_eid, self._degree,
+                                 self._indptr, uva)
             return EdgeIndex.from_index(
                 sorted_v=sorted_v,
                 sorted_u=sorted_u,
