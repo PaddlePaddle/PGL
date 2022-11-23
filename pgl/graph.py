@@ -30,7 +30,7 @@ from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
 from pgl.message import Message
 from pgl.utils.edge_index import EdgeIndex
-from pgl.utils.helper import check_is_tensor, maybe_num_nodes
+from pgl.utils.helper import check_is_tensor, maybe_num_nodes, to_paddle_tensor
 from pgl.utils.helper import generate_segment_id_from_index, unique_segment
 
 
@@ -318,26 +318,15 @@ class Graph(object):
 
         elif isinstance(value, dict):
             if inplace:
-                if not uva:
-                    for k, v in value.items():
-                        value[k] = paddle.to_tensor(v)
-                else:
-                    for k, v in value.items():
-                        value[k] = core.to_uva_tensor(v)
+                for k, v in value.items():
+                    value[k] = to_paddle_tensor(v, uva)
             else:
                 new_value = {}
-                if not uva:
-                    for k, v in value.items():
-                        new_value[k] = paddle.to_tensor(v)
-                else:
-                    for k, v in value.items():
-                        new_value[k] = core.to_uva_tensor(v)
+                for k, v in value.items():
+                    new_value[k] = to_paddle_tensor(v, uva)
                 value = new_value
         else:
-            if not uva:
-                value = paddle.to_tensor(value)
-            else:
-                value = core.to_uva_tensor(value)
+            value = to_paddle_tensor(value, uva)
         return value
 
     def _apply_to_numpy(self, key, value, inplace=True):

@@ -29,31 +29,14 @@ def check_is_tensor(*data):
     return False
 
 
-def to_paddle_tensor(sorted_u, sorted_v, sorted_eid, degree, indptr,
-                     uva=False):
-    """Convert EdgeIndex to paddle.Tensor.
+def to_paddle_tensor(data, uva=False):
+    """Convert a numpy ndarray to paddle.Tensor.
     """
     if not uva:
-        sorted_u = paddle.to_tensor(sorted_u)
-        sorted_v = paddle.to_tensor(sorted_v)
-        sorted_eid = paddle.to_tensor(sorted_eid)
-        degree = paddle.to_tensor(degree)
-        indptr = paddle.to_tensor(indptr)
+        data = paddle.to_tensor(data)
     else:
-        # Note(DesmonDay):
-        # There is a better way to convert a numpy array to uva tensor. We can convert
-        # a numpy array to a zero-copy cpu tensor, then directly turn this cpu tensor to
-        # a uva tensor instead. Since this method can't not support mmap-mode numpy currently,
-        # we do not set it by default.
-        # >>> x = np.load("x.npy")
-        # >>> x = core.eager.Tensor(value=x, place=paddle.CPUPlace(), zero_copy=True)
-        # >>> x._uva(rank) # rank should be corresponding gpu device id.
-        sorted_u = core.to_uva_tensor(sorted_u)
-        sorted_v = core.to_uva_tensor(sorted_v)
-        sorted_eid = core.to_uva_tensor(sorted_eid)
-        degree = core.to_uva_tensor(degree)
-        indptr = core.to_uva_tensor(indptr)
-    return sorted_u, sorted_v, sorted_eid, degree, indptr
+        data = core.to_uva_tensor(data)
+    return data
 
 
 def scatter(x, index, updates, overwrite=True, name=None):

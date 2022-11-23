@@ -159,15 +159,19 @@ Sorted edges and represent edges in compressed style like csc_matrix or csr_matr
             raise ValueError("uva mode should be run under gpu environment!")
 
         if inplace:
-            self._sorted_u, self._sorted_v, self._sorted_eid, self._degree, self._indptr = \
-                to_paddle_tensor(self._sorted_u, self._sorted_v, self._sorted_eid, self._degree,
-                                 self._indptr, uva)
+            self._sorted_u = to_paddle_tensor(self._sorted_u, uva)
+            self._sorted_v = to_paddle_tensor(self._sorted_v, uva)
+            self._sorted_eid = to_paddle_tensor(self._sorted_eid, uva)
+            self._degree = to_paddle_tensor(self._degree, uva)
+            self._indptr = to_paddle_tensor(self._indptr, uva)
             self._is_tensor = True
             return self
         else:
-            sorted_u, sorted_v, sorted_eid, degree, indptr = \
-                to_paddle_tensor(self._sorted_u, self._sorted_v, self._sorted_eid, self._degree,
-                                 self._indptr, uva)
+            sorted_u = to_paddle_tensor(self._sorted_u, uva)
+            sorted_v = to_paddle_tensor(self._sorted_v, uva)
+            sorted_eid = to_paddle_tensor(self._sorted_eid, uva)
+            degree = to_paddle_tensor(self._degree, uva)
+            indptr = to_paddle_tensor(self._indptr, uva)
             return EdgeIndex.from_index(
                 sorted_v=sorted_v,
                 sorted_u=sorted_u,
