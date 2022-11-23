@@ -411,6 +411,29 @@ class Graph(object):
             dst, src, eid = self.adj_dst_index.triples()
         return src, dst, eid
 
+    def edge_softmax(self, logits, norm_by="dst"):
+        """Compute softmax over edge weight of incoming edges of every node.
+
+        Args:
+
+            logits (Tensor): The input edge feature. 
+
+            norm_by (str): Normalized by source nodes or destination nodes. 
+                           ("src" or "dst", default is "dst")
+
+        Return:
+
+            A paddle.Tensor of return softmax value.
+
+        """
+        if not self._is_tensor:
+            raise ValueError("You must call Graph.tensor()")
+
+        src, dst, eid = self.sorted_edges(sort_by=norm_by)
+        uniq_ind, segment_ids = self._get_segment_ids(segment_by=norm_by)
+        score = pgl.math.segment_softmax(logits, segment_ids)
+        return score
+
     @property
     def node_feat(self):
         """Return a dictionary of node features.
@@ -818,19 +841,8 @@ class Graph(object):
             raise TypeError("reduce_func should be callable")
 
         src, dst, eid = self.sorted_edges(sort_by=recv_mode)
-
         msg = op.RowReader(msg, eid)
-
-        if (recv_mode == "dst") and (not hasattr(self, "_dst_uniq_ind")):
-            self._dst_uniq_ind, self._dst_segment_ids = unique_segment(dst)
-        if (recv_mode == "src") and (not hasattr(self, "_src_uniq_ind")):
-            self._src_uniq_ind, self._src_segment_ids = unique_segment(src)
-
-        if recv_mode == "dst":
-            uniq_ind, segment_ids = self._dst_uniq_ind, self._dst_segment_ids
-        elif recv_mode == "src":
-            uniq_ind, segment_ids = self._src_uniq_ind, self._src_segment_ids
-
+        uniq_ind, segment_ids = self._get_segment_ids(segment_by=recv_mode)
         bucketed_msg = Message(msg, segment_ids)
         output = reduce_func(bucketed_msg)
         output_dim = output.shape[-1]
@@ -850,7 +862,7 @@ class Graph(object):
 
            feature (Tensor): The node feature of a graph.
 
-           reduce_func (str): Difference reduce function, including 'sum', 'mean', 'max', 'min'.
+           reduce_func (str): Difference reduce function or reduce operations, including 'sum', 'mean', 'max', 'min'.
 
            out_size (int64 | Tensor | None): You can set `out_size` to get necessary output shape.
                If not set or out_size is smaller or equal to 0, then this input will not be used.
@@ -859,20 +871,22 @@ class Graph(object):
 
         """
 
+        if not self._is_tensor:
+            raise ValueError("You must call Graph.tensor()")
+
         assert reduce_func in ['sum', 'mean', 'max', 'min'], \
             "Only support 'sum', 'mean', 'max', 'min' built-in reduce functions."
 
-        src, dst = self.edges[:, 0], self.edges[:, 1]
         return self.send_u_recv(feature, reduce_func, out_size)
 
-    def send_u_recv(self, feature, reduce_func="sum", out_size=None):
+    def send_u_recv(self, feature, reduce_op="sum", out_size=None):
         """Call paddle.geometric.send_u_recv
 
         Args:
 
             feature (Tensor): The node feature of a graph.
 
-            reduce_func (str): Difference reduce function, including 'sum', 'mean', 'max', 'min'.
+            reduce_op (str): Difference reduce operations, including 'sum', 'mean', 'max', 'min'.
 
             out_size (int64 | Tensor | None): You can set `out_size` to get necessary output shape.
                 If not set or out_size is smaller or equal to 0, then this input will not be used.
@@ -881,23 +895,26 @@ class Graph(object):
         
         """
 
-        assert reduce_func in ['sum', 'mean', 'max', 'min'], \
+        if not self._is_tensor:
+            raise ValueError("You must call Graph.tensor()")
+
+        assert reduce_op in ['sum', 'mean', 'max', 'min'], \
             "Only support 'sum', 'mean', 'max', 'min' built-in reduce functions."
 
         src, dst = self.edges[:, 0], self.edges[:, 1]
         return paddle.geometric.send_u_recv(
-            feature, src, dst, reduce_op=reduce_func, out_size=out_size)
+            feature, src, dst, reduce_op=reduce_op, out_size=out_size)
 
     def send_ue_recv(self,
                      feature,
                      edge_feature,
-                     message_func="add",
-                     refuce_func="sum",
+                     message_op="add",
+                     reduce_op="sum",
                      out_size=None):
         """Call paddle.geometric.send_ue_recv. It fuses two steps into one kernel.
 
-        1. Computes message with node feature and edge_feature by using `message_func` op.
-        2. Aggregate the messages by using `reduce_func` op.
+        1. Computes message with node feature and edge_feature by using `message_op`.
+        2. Aggregate the messages by using `reduce_op`.
 
         Notes:
             Broadcasting follows NumPy semantics. 
@@ -908,9 +925,9 @@ class Graph(object):
 
             edge_feature (Tensor): The edge feature of a graph.
 
-            message_func (str): Different message ops for feature and edge_feature, including add, sub, mul, div.
+            message_op (str): Different message calculations for feature and edge_feature, including add, sub, mul, div.
 
-            reduce_func (str): Different reduce ops for aggregating, including sum, mean, max, min.
+            reduce_op (str): Different reduce operations for aggregating, including sum, mean, max, min.
 
             out_size (int64 | Tensor | None): You can set `out_size` to get necessary output shape.
                 If not set or out_size is smaller or equal to 0, then this input will not be used.
@@ -919,21 +936,25 @@ class Graph(object):
 
         """
 
-        assert message_func in ['add', 'sub', 'mul', 'div'], \
+        if not self._is_tensor:
+            raise ValueError("You must call Graph.tensor()")
+
+        assert message_op in ['add', 'sub', 'mul', 'div'], \
             "Only support 'add', 'sub', 'max', 'min' build-in message functions."
 
-        assert reduce_func in ['sum', 'mean', 'max', 'min'], \
+        assert reduce_op in ['sum', 'mean', 'max', 'min'], \
             "Only support 'sum', 'mean', 'max', 'min' built-in reduce functions."
 
+        src, dst = self.edges[:, 0], self.edges[:, 1]
         return paddle.geometric.send_ue_recv(
             feature,
             edge_feature,
             src,
             dst,
-            message_op=message_func,
-            reduce_op=reduce_func)
+            message_op=message_op,
+            reduce_op=reduce_op)
 
-    def send_uv(self, src_feature, dst_feature, message_func="add"):
+    def send_uv(self, src_feature, dst_feature, message_op="add"):
         """Call paddle.geometric.send_uv. It computes edge features with source node features
            and destination node features by using `message_func` op.
 
@@ -947,16 +968,21 @@ class Graph(object):
             dst_feature (Tensor): The destination node feature of a graph. Usually `dst_feature`
                                   is the same as `src_feature`.
 
-            message_func (str): Different message ops for `src_feature` and `dst_feature`, including
+            message_op (str): Different message calculations for `src_feature` and `dst_feature`, including
                                 add, sub, mul, div.
 
         """
 
-        assert message_func in ['add', 'sub', 'mul', 'div'], \
+        if not self._is_tensor:
+            raise ValueError("You must call Graph.tensor()")
+
+        assert message_op in ['add', 'sub', 'mul', 'div'], \
             "Only support 'add', 'sub', 'max', 'min' build-in message functions."
 
+        src, dst = self.edges[:, 0], self.edges[:, 1]
+
         return paddle.geometric.send_uv(
-            src_feature, dst_feature, message_op=message_func)
+            src_feature, dst_feature, src, dst, message_op=message_func)
 
     def send_ue(self, feature, edge_feature, message_func="add"):
         raise NotImplementedError
@@ -1385,6 +1411,18 @@ class Graph(object):
         while start < self.num_nodes:
             yield perm[start:start + batch_size]
             start += batch_size
+
+    def _get_segment_ids(self, segment_by="dst"):
+        if (segment_by == "dst") and (not hasattr(self, "_dst_uniq_ind")):
+            self._dst_uniq_ind, self._dst_segment_ids = unique_segment(dst)
+        if (segment_by == "src") and (not hasattr(self, "_src_uniq_ind")):
+            self._src_uniq_ind, self._src_segment_ids = unique_segment(src)
+
+        if segment_by == "dst":
+            uniq_ind, segment_ids = self._dst_uniq_ind, self._dst_segment_ids
+        elif segment_by == "src":
+            uniq_ind, segment_ids = self._src_uniq_ind, self._src_segment_ids
+        return uniq_ind, segment_ids
 
 
 class DistGPUGraph(Graph):
