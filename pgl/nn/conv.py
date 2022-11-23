@@ -59,18 +59,25 @@ class GraphSageConv(nn.Layer):
         hidden_size: The size of outputs
 
         aggr_func: (default "sum") Aggregation function for GraphSage ["sum", "mean", "max", "min"].
+
+        normalize: Whether to normalize the output tensor.
     """
 
-    def __init__(self, input_size, hidden_size, aggr_func="sum"):
+    def __init__(self,
+                 input_size,
+                 hidden_size,
+                 aggr_func="sum",
+                 normalize=True):
         super(GraphSageConv, self).__init__()
+
         assert aggr_func in [
             "sum",
             "mean",
             "max",
             "min",
-        ], "Only support 'sum', 'mean', 'max', 'min' built-in receive function."
-        self.aggr_func = "reduce_%s" % aggr_func
-
+        ], "Only support 'sum', 'mean', 'max', 'min'."
+        self.aggr_func = aggr_func
+        self.normalize = normalize
         self.self_linear = nn.Linear(input_size, hidden_size)
         self.neigh_linear = nn.Linear(input_size, hidden_size)
 
@@ -81,33 +88,31 @@ class GraphSageConv(nn.Layer):
 
             graph: `pgl.Graph` instance.
 
-            feature: A tensor with shape (num_nodes, input_size)
+            feature: A tensor with shape (num_nodes, input_size) or a tuple
+                     of tensor(only two tensors needed).
 
             act: (default None) Activation for outputs and before normalize.
 
-
         Return:
 
-            A tensor with shape (num_nodes, output_size)
+            A tensor with shape (num_nodes, hidden_size)
 
         """
 
-        def _send_func(src_feat, dst_feat, edge_feat):
-            return {"msg": src_feat["h"]}
+        if isintance(feature, paddle.Tensor) or isinstance(
+                feature, paddle.static.Variable):
+            feature = (feature, feature)
 
-        def _recv_func(message):
-            return getattr(message, self.aggr_func)(message["msg"])
-
-        msg = graph.send(_send_func, src_feat={"h": feature})
-        neigh_feature = graph.recv(reduce_func=_recv_func, msg=msg)
-
-        self_feature = self.self_linear(feature)
+        neigh_feature = graph.send_recv(
+            feature[0], self.aggr_func, out_size=feature[1].shape[0])
         neigh_feature = self.neigh_linear(neigh_feature)
+        self_feature = self.self_linear(feature[1])
         output = self_feature + neigh_feature
         if act is not None:
             output = getattr(F, act)(output)
 
-        output = F.normalize(output, axis=1)
+        if self.normalize:
+            output = F.normalize(output, axis=1)
         return output
 
 
@@ -1013,18 +1018,11 @@ class RGCNConv(nn.Layer):
         else:
             weight = self.weight
 
-        def send_func(src_feat, dst_feat, edge_feat):
-            return src_feat
-
-        def recv_func(msg):
-            return msg.reduce_mean(msg["h"])
-
         feat_list = []
         for idx, etype in enumerate(self.etypes):
             w = weight[idx, :, :].squeeze()
             h = paddle.matmul(feat, w)
-            msg = graph[etype].send(send_func, src_feat={"h": h})
-            h = graph[etype].recv(recv_func, msg)
+            h = graph[etype].send_recv(h, reduce_func="mean")
             feat_list.append(h)
 
         h = paddle.stack(feat_list, axis=0)

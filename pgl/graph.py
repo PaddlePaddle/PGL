@@ -952,7 +952,8 @@ class Graph(object):
             src,
             dst,
             message_op=message_op,
-            reduce_op=reduce_op)
+            reduce_op=reduce_op,
+            out_size=out_size)
 
     def send_uv(self, src_feature, dst_feature, message_op="add"):
         """Call paddle.geometric.send_uv. It computes edge features with source node features
