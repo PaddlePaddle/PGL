@@ -18,11 +18,17 @@ import time
 import copy
 
 import numpy as np
+import paddle
+import pgl
 from pgl import graph_kernel
-
 from pgl.sampling.custom import subgraph
+from pgl.utils.logger import log
+from pgl.utils.helper import to_paddle_tensor
 
-__all__ = ['graphsage_sample', ]
+__all__ = [
+    'graphsage_sample',
+    'NeighborSampler',
+]
 
 
 def traverse(item):
@@ -119,3 +125,38 @@ def graphsage_sample(graph, nodes, samples, ignore_edges=[]):
         graph_list.append((sg, sample_index, node_index))
 
     return graph_list
+
+
+class NeighborSampler(object):
+    """ GPU Sampler for homogeneous graph """
+
+    def __init__(self, graph, samples, uva=False):
+        self.graph = graph
+        self.samples = samples
+        self.row = to_paddle_tensor(self.graph.adj_dst_index._sorted_v, uva)
+        self.colptr = to_paddle_tensor(self.graph.adj_dst_index._indptr, uva)
+
+    def sample_neighbors(self, nodes):
+        graph_list = []
+        for size in self.samples:
+            # If you want to sample with faster speed, you can refer to
+            # the corresponding geometric API documents for modification.
+            neighbors, neighbors_count = paddle.geometric.sample_neighbors(
+                self.row, self.colptr, nodes, sample_size=size)
+            edge_src, edge_dst, sample_index = paddle.geometric.reindex_graph(
+                nodes, neighbors, neighbors_count)
+            subgraph = pgl.Graph(
+                num_nodes=sample_index.shape[0],
+                edges=paddle.concat(
+                    [edge_src.reshape([-1, 1]), edge_dst.reshape([-1, 1])],
+                    axis=-1))
+            graph_list.append((subgraph, nodes.shape[0]))
+            nodes = sample_index
+        return graph_list[::-1], nodes
+
+
+class HeteroNeighborSampler(object):
+    """ GPU Sampler for heterogeneous graph """
+
+    def __init__(self, graph_list, sample_list, uva=False):
+        pass

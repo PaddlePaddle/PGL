@@ -35,6 +35,10 @@ def to_paddle_tensor(data, uva=False):
     if not uva:
         data = paddle.to_tensor(data)
     else:
+        if not paddle.device.is_compiled_with_cuda() or \
+           not paddle.device.get_device().startswith("gpu"):
+            raise ValueError(
+                "UVA tensor should be used under GPU environment.")
         data = core.to_uva_tensor(data)
     return data
 

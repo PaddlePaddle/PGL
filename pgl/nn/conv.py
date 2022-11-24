@@ -99,7 +99,7 @@ class GraphSageConv(nn.Layer):
 
         """
 
-        if isintance(feature, paddle.Tensor) or isinstance(
+        if isinstance(feature, paddle.Tensor) or isinstance(
                 feature, paddle.static.Variable):
             feature = (feature, feature)
 
