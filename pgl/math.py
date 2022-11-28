@@ -76,7 +76,7 @@ def segment_sum(data, segment_ids, name=None):
 
     """
 
-    return paddle.geomeric.segment_sum(data, segment_ids, name)
+    return paddle.geometric.segment_sum(data, segment_ids, name)
 
 
 def segment_mean(data, segment_ids, name=None):
@@ -110,7 +110,7 @@ def segment_mean(data, segment_ids, name=None):
             #Outputs: [[2., 2., 2.], [4., 5., 6.]]
 
     """
-    return paddle.geomeric.segment_mean(data, segment_ids, name)
+    return paddle.geometric.segment_mean(data, segment_ids, name)
 
 
 def segment_min(data, segment_ids, name=None):
@@ -142,7 +142,7 @@ def segment_min(data, segment_ids, name=None):
             #Outputs:  [[1., 2., 1.], [4., 5., 6.]]
 
     """
-    return paddle.geomeric.segment_min(data, segment_ids, name)
+    return paddle.geometric.segment_min(data, segment_ids, name)
 
 
 def segment_max(data, segment_ids, name=None):
@@ -175,7 +175,7 @@ def segment_max(data, segment_ids, name=None):
             #Outputs: [[3., 2., 3.], [4., 5., 6.]]
 
     """
-    return paddle.geomeric.segment_max(data, segment_ids, name)
+    return paddle.geometric.segment_max(data, segment_ids, name)
 
 
 def segment_softmax(data, segment_ids):

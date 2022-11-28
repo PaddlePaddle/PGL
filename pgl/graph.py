@@ -26,6 +26,7 @@ import paddle
 import paddle.distributed as dist
 from paddle.fluid import core
 
+import pgl
 from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
 from pgl.message import Message
@@ -430,7 +431,8 @@ class Graph(object):
             raise ValueError("You must call Graph.tensor()")
 
         src, dst, eid = self.sorted_edges(sort_by=norm_by)
-        uniq_ind, segment_ids = self._get_segment_ids(segment_by=norm_by)
+        uniq_ind, segment_ids = self._get_segment_ids(
+            src, dst, segment_by=norm_by)
         score = pgl.math.segment_softmax(logits, segment_ids)
         return score
 
@@ -842,7 +844,8 @@ class Graph(object):
 
         src, dst, eid = self.sorted_edges(sort_by=recv_mode)
         msg = op.RowReader(msg, eid)
-        uniq_ind, segment_ids = self._get_segment_ids(segment_by=recv_mode)
+        uniq_ind, segment_ids = self._get_segment_ids(
+            src, dst, segment_by=recv_mode)
         bucketed_msg = Message(msg, segment_ids)
         output = reduce_func(bucketed_msg)
         output_dim = output.shape[-1]
@@ -945,7 +948,7 @@ class Graph(object):
         assert reduce_op in ['sum', 'mean', 'max', 'min'], \
             "Only support 'sum', 'mean', 'max', 'min' built-in reduce functions."
 
-        src, dst = self.edges[:, 0], self.edges[:, 1]
+        src, dst, _ = self.sorted_edges(sort_by="dst")
         return paddle.geometric.send_ue_recv(
             feature,
             edge_feature,
@@ -983,9 +986,9 @@ class Graph(object):
         src, dst = self.edges[:, 0], self.edges[:, 1]
 
         return paddle.geometric.send_uv(
-            src_feature, dst_feature, src, dst, message_op=message_func)
+            src_feature, dst_feature, src, dst, message_op=message_op)
 
-    def send_ue(self, feature, edge_feature, message_func="add"):
+    def send_ue(self, feature, edge_feature, message_op="add"):
         raise NotImplementedError
 
     ##################################################
@@ -1413,7 +1416,7 @@ class Graph(object):
             yield perm[start:start + batch_size]
             start += batch_size
 
-    def _get_segment_ids(self, segment_by="dst"):
+    def _get_segment_ids(self, src, dst, segment_by="dst"):
         if (segment_by == "dst") and (not hasattr(self, "_dst_uniq_ind")):
             self._dst_uniq_ind, self._dst_segment_ids = unique_segment(dst)
         if (segment_by == "src") and (not hasattr(self, "_src_uniq_ind")):
