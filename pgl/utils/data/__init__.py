@@ -14,4 +14,3 @@
 
 from .dataset import Dataset, StreamDataset, HadoopDataset
 from .dataloader import Dataloader
-from .gpu_dataloader import Dataloader_Cls
