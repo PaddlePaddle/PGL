@@ -159,4 +159,4 @@ class HeteroNeighborSampler(object):
     """ GPU Sampler for heterogeneous graph """
 
     def __init__(self, graph_list, sample_list, uva=False):
-        pass
+        raise NotImplementedError

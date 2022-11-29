@@ -433,7 +433,10 @@ class Graph(object):
         src, dst, eid = self.sorted_edges(sort_by=norm_by)
         uniq_ind, segment_ids = self._get_segment_ids(
             src, dst, segment_by=norm_by)
+        logits = paddle.gather(logits, eid, axis=0)
         score = pgl.math.segment_softmax(logits, segment_ids)
+        init_output = paddle.zeros(shape=score.shape, dtype=score.dtype)
+        score = paddle.scatter(init_output, eid, score)
         return score
 
     @property
@@ -948,7 +951,7 @@ class Graph(object):
         assert reduce_op in ['sum', 'mean', 'max', 'min'], \
             "Only support 'sum', 'mean', 'max', 'min' built-in reduce functions."
 
-        src, dst, _ = self.sorted_edges(sort_by="dst")
+        src, dst = self.edges[:, 0], self.edges[:, 1]
         return paddle.geometric.send_ue_recv(
             feature,
             edge_feature,
@@ -984,7 +987,6 @@ class Graph(object):
             "Only support 'add', 'sub', 'max', 'min' build-in message functions."
 
         src, dst = self.edges[:, 0], self.edges[:, 1]
-
         return paddle.geometric.send_uv(
             src_feature, dst_feature, src, dst, message_op=message_op)
 
