@@ -47,8 +47,6 @@ def build_heter_graph(data_path, num_nodes):
 
 
 def main(args):
-    paddle.seed(args.seed)
-    np.random.seed(args.seed)
     if paddle.distributed.get_world_size() > 1:
         paddle.distributed.init_parallel_env()
 
@@ -127,7 +125,6 @@ if __name__ == "__main__":
     parser.add_argument("--num_class", type=int, default=2)
     parser.add_argument("--num_layers", type=int, default=2)
     parser.add_argument("--num_bases", type=int, default=8)
-    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--lr", type=float, default=0.01)
     args = parser.parse_args()
     log.info(args)

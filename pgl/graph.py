@@ -412,33 +412,6 @@ class Graph(object):
             dst, src, eid = self.adj_dst_index.triples()
         return src, dst, eid
 
-    def edge_softmax(self, logits, norm_by="dst"):
-        """Compute softmax over edge weight of incoming edges of every node.
-
-        Args:
-
-            logits (Tensor): The input edge feature. 
-
-            norm_by (str): Normalized by source nodes or destination nodes. 
-                           ("src" or "dst", default is "dst")
-
-        Return:
-
-            A paddle.Tensor of return softmax value.
-
-        """
-        if not self._is_tensor:
-            raise ValueError("You must call Graph.tensor()")
-
-        src, dst, eid = self.sorted_edges(sort_by=norm_by)
-        uniq_ind, segment_ids = self._get_segment_ids(
-            src, dst, segment_by=norm_by)
-        logits = paddle.gather(logits, eid, axis=0)
-        score = pgl.math.segment_softmax(logits, segment_ids)
-        init_output = paddle.zeros(shape=score.shape, dtype=score.dtype)
-        score = paddle.scatter(init_output, eid, score)
-        return score
-
     @property
     def node_feat(self):
         """Return a dictionary of node features.
@@ -847,7 +820,7 @@ class Graph(object):
 
         src, dst, eid = self.sorted_edges(sort_by=recv_mode)
         msg = op.RowReader(msg, eid)
-        uniq_ind, segment_ids = self._get_segment_ids(
+        uniq_ind, segment_ids = self.get_segment_ids(
             src, dst, segment_by=recv_mode)
         bucketed_msg = Message(msg, segment_ids)
         output = reduce_func(bucketed_msg)
@@ -1418,7 +1391,7 @@ class Graph(object):
             yield perm[start:start + batch_size]
             start += batch_size
 
-    def _get_segment_ids(self, src, dst, segment_by="dst"):
+    def get_segment_ids(self, src, dst, segment_by="dst"):
         if (segment_by == "dst") and (not hasattr(self, "_dst_uniq_ind")):
             self._dst_uniq_ind, self._dst_segment_ids = unique_segment(dst)
         if (segment_by == "src") and (not hasattr(self, "_src_uniq_ind")):

@@ -334,7 +334,7 @@ class GATConv(nn.Layer):
         attn_dst = paddle.sum(feature * self.weight_dst, axis=-1)
         alpha = graph.send_uv(attn_src, attn_dst, "add")
         alpha = self.leaky_relu(alpha)
-        alpha = graph.edge_softmax(alpha)
+        alpha = GF.edge_softmax(graph, alpha)
         alpha = paddle.reshape(alpha, [-1, self.num_heads, 1])
         if self.attn_drop > 1e-15:
             alpha = self.attn_dropout(alpha)
@@ -423,7 +423,7 @@ class GATv2Conv(nn.Layer):
         alpha = graph.send_uv(feature, feature, "add")
         alpha = self.leaky_relu(alpha)
         alpha = paddle.sum(alpha * self.attn, axis=-1)
-        alpha = graph.edge_softmax(alpha)
+        alpha = GF.edge_softmax(graph, alpha)
         alpha = paddle.reshape(alpha, [-1, self.num_heads, 1])
         if self.attn_drop > 1e-15:
             alpha = self.attn_dropout(alpha)
