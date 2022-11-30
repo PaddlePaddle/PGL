@@ -1,6 +1,6 @@
 pgl==1.1.0
 pyyaml
-paddlepaddle==1.6.1
+paddlepaddle==2.4.0
 
 scipy
 redis==2.10.6
