@@ -53,6 +53,20 @@ class GraphOpTest(unittest.TestCase):
 
         self.assertEqual(feat.tolist(), norm_feat.numpy().tolist())
 
+    def test_edge_softmax(self):
+        num_nodes = 3
+        edges = [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)]
+        g = pgl.Graph(edges=edges, num_nodes=num_nodes)
+        g.tensor()
+        logits = paddle.to_tensor([1, 1, 1, 1, 1, 1], dtype="float32")
+        softmax_res = F.edge_softmax(g, logits, norm_by="dst")
+        res = np.array([1., 0.5, 1 / 3, 0.5, 1 / 3, 1 / 3], dtype="float32")
+        self.assertTrue((softmax_res.numpy() == res).all())
+
+        softmax_res2 = F.edge_softmax(g, logits, norm_by="src")
+        res2 = np.array([1 / 3, 1 / 3, 1 / 3, 0.5, 0.5, 1.], dtype="float32")
+        self.assertTrue((softmax_res2.numpy() == res2).all())
+
 
 if __name__ == "__main__":
     unittest.main()
