@@ -856,7 +856,9 @@ class Graph(object):
         assert reduce_func in ['sum', 'mean', 'max', 'min'], \
             "Only support 'sum', 'mean', 'max', 'min' built-in reduce functions."
 
-        return self.send_u_recv(feature, reduce_func, out_size)
+        src, dst = self.edges[:, 0], self.edges[:, 1]
+        return paddle.geometric.send_u_recv(
+            feature, src, dst, reduce_op=reduce_func, out_size=out_size)
 
     def send_u_recv(self, feature, reduce_op="sum", out_size=None):
         """Call paddle.geometric.send_u_recv
@@ -1522,8 +1524,29 @@ class DistGPUGraph(Graph):
         degree = op.all_reduce_sum_with_grad(degree)
         return degree
 
-    def send_recv(self, feature, reduce_func="sum"):
+    def send_recv(self, feature, reduce_func="sum", out_size=None):
         output = super(DistGPUGraph, self).send_recv(
-            feature=feature, reduce_func="sum")
+            feature=feature, reduce_func=reduce_func, out_size=out_size)
+        output = op.all_reduce_sum_with_grad(output)
+        return output
+
+    def send_u_recv(self, feature, reduce_op="sum", out_size=None):
+        output = super(DistGPUGraph, self).send_u_recv(
+            feature=feature, reduce_op=reduce_op, out_size=out_size)
+        output = op.all_reduce_sum_with_grad(output)
+        return output
+
+    def send_ue_recv(self,
+                     feature,
+                     edge_feature,
+                     message_op="add",
+                     reduce_op="sum",
+                     out_size=None):
+        output = super(DistGPUGraph, self).send_ue_recv(
+            feature=feature,
+            edge_feature=edge_feature,
+            message_op=message_op,
+            reduce_op=reduce_op,
+            out_size=out_size)
         output = op.all_reduce_sum_with_grad(output)
         return output
