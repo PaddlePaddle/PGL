@@ -16,7 +16,7 @@ cd ../
 
 IMAGE_NAME = 
 
-docker run -it --rm \
+nvidia-docker run -it --rm \
     --name ${name} \
     --network host \
     --ipc=host \
