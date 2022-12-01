@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
 
 import paddle
-paddle.enable_static()
 import paddle.fluid as fluid
 import paddle.fluid.core as core
 import paddle.distributed.fleet as fleet
@@ -43,9 +42,12 @@ import util_hadoop
 
 def get_global_value(value_sum, value_cnt):
     """ get global value """
-    value_sum = np.array(fluid.global_scope().find_var(value_sum.name).get_tensor())
-    value_cnt = np.array(fluid.global_scope().find_var(value_cnt.name).get_tensor())
+    value_sum = np.array(fluid.global_scope().find_var(value_sum.name)
+                         .get_tensor())
+    value_cnt = np.array(fluid.global_scope().find_var(value_cnt.name)
+                         .get_tensor())
     return value_sum / np.maximum(value_cnt, 1)
+
 
 def parse_path(path):
     """
@@ -71,6 +73,7 @@ def parse_path(path):
         output_path = path
     return mode, output_path
 
+
 def remove_prefix_of_hadoop_path(hadoop_path):
     """
     Args:
@@ -83,31 +86,38 @@ def remove_prefix_of_hadoop_path(hadoop_path):
     output_path = re.split("^\d+", output_path)[-1]
     return output_path
 
+
 def load_pretrained_model(exe, model_dict, args, model_path):
     """ load pretrained model """
     if fleet.is_first_worker():
-        if os.path.exists(model_path): # local directory
+        if os.path.exists(model_path):  # local directory
             sparse_params_path = os.path.join(model_path, "000")
             if os.path.exists(sparse_params_path):
-                log.info("[WARM] load sparse model from %s" % sparse_params_path)
+                log.info("[WARM] load sparse model from %s" %
+                         sparse_params_path)
                 fleet.load_model(model_path, mode=0)
-                log.info("[WARM] load sparse model from %s finished." %  sparse_params_path)
+                log.info("[WARM] load sparse model from %s finished." %
+                         sparse_params_path)
             else:
-                log.info("[WARM] sparse model [%s] is not existed, skiped" % sparse_params_path)
+                log.info("[WARM] sparse model [%s] is not existed, skiped" %
+                         sparse_params_path)
 
             dense_params_path = os.path.join(model_path, "dense_vars")
 
-        else:   # load from hadoop path
+        else:  # load from hadoop path
             mode, model_path = parse_path(model_path)
             model_path = util_hadoop.check_hdfs_path(model_path)
             sparse_params_path = os.path.join(model_path, "000")
 
             if util_hadoop.hdfs_exists(sparse_params_path):
-                log.info("[WARM] load sparse model from %s" % sparse_params_path)
+                log.info("[WARM] load sparse model from %s" %
+                         sparse_params_path)
                 fleet.load_model(model_path, mode=0)
-                log.info("[WARM] load sparse model from %s finished." %  sparse_params_path)
+                log.info("[WARM] load sparse model from %s finished." %
+                         sparse_params_path)
             else:
-                log.info("[WARM] sparse model [%s] is not existed, skipped" % sparse_params_path)
+                log.info("[WARM] sparse model [%s] is not existed, skipped" %
+                         sparse_params_path)
 
             hadoop_dense_params_path = os.path.join(model_path, "dense_vars")
             if util_hadoop.hdfs_exists(hadoop_dense_params_path):
@@ -116,7 +126,8 @@ def load_pretrained_model(exe, model_dict, args, model_path):
 
         # load dense vars
         if os.path.exists(dense_params_path):
-            log.info("[WARM] load dense parameters from: %s" % dense_params_path)
+            log.info("[WARM] load dense parameters from: %s" %
+                     dense_params_path)
             all_vars = model_dict.train_program.global_block().vars
             for filename in os.listdir(dense_params_path):
                 if filename in all_vars:
@@ -124,18 +135,22 @@ def load_pretrained_model(exe, model_dict, args, model_path):
                 else:
                     log.info("[WARM_MISS] var %s not existed" % filename)
 
-            fluid.io.load_vars(exe,
-                   dense_params_path,
-                   model_dict.train_program,
-                   predicate=name_not_have_sparse)
-        elif args.pretrained_model: 
+            fluid.io.load_vars(
+                exe,
+                dense_params_path,
+                model_dict.train_program,
+                predicate=name_not_have_sparse)
+        elif args.pretrained_model:
             # if hadoop model path did not include dense params, then load dense pretrained_model from dependency
-            dependency_path = os.getenv("DEPENDENCY_HOME") # see env_run/scripts/train.sh for details
+            dependency_path = os.getenv(
+                "DEPENDENCY_HOME")  # see env_run/scripts/train.sh for details
             dense_path = os.path.join(dependency_path, args.pretrained_model)
             log.info("[WARM] load dense parameters from: %s" % dense_path)
-            paddle.static.set_program_state(model_dict.train_program, model_dict.state_dict)
+            paddle.static.set_program_state(model_dict.train_program,
+                                            model_dict.state_dict)
         else:
             log.info("[WARM] dense model is not existed, skipped")
+
 
 def save_pretrained_model(exe, save_path, mode="hdfs"):
     """save pretrained model"""
@@ -145,6 +160,7 @@ def save_pretrained_model(exe, save_path, mode="hdfs"):
             util_hadoop.hdfs_rm(save_path)
 
         fleet.save_persistables(exe, save_path)
+
 
 def name_not_have_sparse(var):
     """
@@ -157,6 +173,7 @@ def name_not_have_sparse(var):
             "_generated_var" not in var.name
     return res
 
+
 def save_model(exe, model_dict, args, local_model_path, model_save_path):
     """final save model"""
     mode, model_save_path = parse_path(model_save_path)
@@ -165,15 +182,16 @@ def save_model(exe, model_dict, args, local_model_path, model_save_path):
     # save sparse table
     log.info("save sparse table")
     if mode == "hdfs":
-        save_pretrained_model(exe, model_save_path, mode = "hdfs")
+        save_pretrained_model(exe, model_save_path, mode="hdfs")
     elif mode == "afs":
-        save_pretrained_model(exe, local_model_path, mode = "local")
+        save_pretrained_model(exe, local_model_path, mode="local")
         user, passwd = args.fs_ugi.split(',')
         log.info("being to upload model to: %s " % model_save_path)
-        gzshell_upload(args.fs_name, user, passwd, local_model_path, "afs:%s" % working_root)
+        gzshell_upload(args.fs_name, user, passwd, local_model_path,
+                       "afs:%s" % working_root)
         log.info("model has been saved, model_path: %s" % model_save_path)
     else:
-        save_pretrained_model(exe, local_model_path, mode = "local")
+        save_pretrained_model(exe, local_model_path, mode="local")
         run_cmd("rm -rf %s && mkdir -p %s && mv %s %s" % \
                     (working_root, working_root, local_model_path, working_root))
         log.info("model has been saved in local path: %s" % working_root)
@@ -184,17 +202,19 @@ def save_model(exe, model_dict, args, local_model_path, model_save_path):
     if os.path.exists(local_var_save_path):
         shutil.rmtree(local_var_save_path)
 
-    fluid.io.save_vars(exe,
-            local_var_save_path,
-            model_dict.train_program,
-            predicate=name_not_have_sparse)
+    fluid.io.save_vars(
+        exe,
+        local_var_save_path,
+        model_dict.train_program,
+        predicate=name_not_have_sparse)
 
-     # local_var_save_path is not existed if no variable in model
+    # local_var_save_path is not existed if no variable in model
     if os.path.exists(local_var_save_path):
         if mode == "hdfs" or mode == "afs":
             util_hadoop.hdfs_upload(local_var_save_path, model_save_path)
         else:
             run_cmd("mv %s %s" % (local_var_save_path, model_save_path))
+
 
 def upload_embedding(args, local_embed_path):
     mode, infer_result_path = parse_path(args.infer_result_path)
@@ -207,25 +227,31 @@ def upload_embedding(args, local_embed_path):
         for file in glob.glob(os.path.join(local_embed_path, "*")):
             basename = os.path.basename(file)
             util_hadoop.hdfs_upload(file, infer_result_path)
-        log.info("[hadoop put] embedding has been upload to: %s " % infer_result_path)
+        log.info("[hadoop put] embedding has been upload to: %s " %
+                 infer_result_path)
 
     elif mode == "afs":
         log.info("being to upload embedding to: %s " % infer_result_path)
         #  util_hadoop.hdfs_rm(infer_result_path)
         user, passwd = args.fs_ugi.split(',')
-        gzshell_upload(args.fs_name, user, passwd, local_embed_path, "afs:%s" % working_root)
-        log.info("[gzshell] embedding has been upload to: %s " % infer_result_path)
+        gzshell_upload(args.fs_name, user, passwd, local_embed_path,
+                       "afs:%s" % working_root)
+        log.info("[gzshell] embedding has been upload to: %s " %
+                 infer_result_path)
     else:
         make_dir(working_root)
         run_cmd("mv %s %s" % (local_embed_path, working_root))
         log.info("embedding has been saved in local path: %s" % working_root)
+
 
 def hadoop_touch_done(path):
     """ touch hadoop done """
     if fleet.worker_index() == 0:
         with open("to.hadoop.done", 'w') as f:
             f.write("infer done\n")
-        util_hadoop.hdfs_upload("to.hadoop.done", os.path.join(path, "to.hadoop.done"))
+        util_hadoop.hdfs_upload("to.hadoop.done",
+                                os.path.join(path, "to.hadoop.done"))
+
 
 def print_useful_info():
     """ print useful info """
@@ -244,12 +270,14 @@ def global_except_hook(exctype, value, traceback):
     import sys
     try:
         import mpi4py.MPI
-        sys.stderr.write("\n*****************************************************\n")
-        sys.stderr.write("Uncaught exception was detected on rank {}. \n".format(
-            mpi4py.MPI.COMM_WORLD.Get_rank()))
+        sys.stderr.write(
+            "\n*****************************************************\n")
+        sys.stderr.write("Uncaught exception was detected on rank {}. \n".
+                         format(mpi4py.MPI.COMM_WORLD.Get_rank()))
         from traceback import print_exception
         print_exception(exctype, value, traceback)
-        sys.stderr.write("*****************************************************\n\n\n")
+        sys.stderr.write(
+            "*****************************************************\n\n\n")
         sys.stderr.write("\n")
         sys.stderr.write("Calling MPI_Abort() to shut down MPI processes...\n")
         sys.stderr.flush()
@@ -258,9 +286,12 @@ def global_except_hook(exctype, value, traceback):
             import mpi4py.MPI
             mpi4py.MPI.COMM_WORLD.Abort(1)
         except Exception as e:
-            sys.stderr.write("*****************************************************\n")
-            sys.stderr.write("Sorry, we failed to stop MPI, this process will hang.\n")
-            sys.stderr.write("*****************************************************\n")
+            sys.stderr.write(
+                "*****************************************************\n")
+            sys.stderr.write(
+                "Sorry, we failed to stop MPI, this process will hang.\n")
+            sys.stderr.write(
+                "*****************************************************\n")
             sys.stderr.flush()
             raise e
 
@@ -269,6 +300,7 @@ def make_dir(path):
     """Build directory"""
     if not os.path.exists(path):
         os.makedirs(path)
+
 
 def get_all_edge_type(etype2files, symmetry):
     """ get_all_edge_type """
@@ -284,6 +316,7 @@ def get_all_edge_type(etype2files, symmetry):
 
     return etype_list
 
+
 def get_edge_type(etype, symmetry):
     """ get edge type with etype  """
     if symmetry:
@@ -298,6 +331,7 @@ def get_edge_type(etype, symmetry):
         etype_list = etype.split(',')
     return etype_list
 
+
 def get_inverse_etype(etype):
     """ get_inverse_etype """
     fields = etype.split("2")
@@ -308,6 +342,7 @@ def get_inverse_etype(etype):
         r_etype = "2".join([fields[1], fields[0]])
     return r_etype
 
+
 def get_first_node_type(meta_path):
     """ get first node type from meta path """
     first_node = []
@@ -316,6 +351,7 @@ def get_first_node_type(meta_path):
         tmp_node = meta_paths[i].split('2')[0]
         first_node.append(tmp_node)
     return ";".join(first_node)
+
 
 def parse_files(type_files):
     """ parse_files """
@@ -373,13 +409,15 @@ def convert_nfeat_info(nfeat_info):
         res[item[0]].update({item[1]: [item[2], item[3]]})
     return res
 
+
 def gzshell_upload(fs_name, fs_user, fs_password, local_path, remote_path):
     """ upload data with gzshell in afs """
     gzshell = os.getenv("GZSHELL")
     client_conf = os.getenv("CLIENT_CONF")
-    cmd = "%s --uri=%s --username=%s --password=%s --conf=%s \
-            --thread=100 -put %s/ %s" % (gzshell, fs_name, fs_user, \
-            fs_password, client_conf, local_path, remote_path)
+    cmd = "%s --uri=%s --username=%s --password=%s" % (gzshell, fs_name,
+                                                       fs_user, fs_password)
+    cmd += " --conf=%s --thread=100 -put %s/ %s" % (client_conf, local_path,
+                                                    remote_path)
     upload_res = run_cmd_get_return_code(cmd)
     retry_num = 0
     while upload_res != 0:
@@ -392,11 +430,13 @@ def gzshell_upload(fs_name, fs_user, fs_password, local_path, remote_path):
         log.info("save afs model failed!")
         exit(-1)
 
+
 def run_cmd_get_return_code(cmd):
     """
     run cmd and get its return code, 0 means correct
     """
     return int(core.run_cmd(cmd + "; echo $?").strip().split('\n')[-1])
+
 
 def run_cmd(cmd):
     """

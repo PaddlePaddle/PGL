@@ -1,5 +1,4 @@
-#-*- coding: utf-8 -*-
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,15 +32,17 @@ import paddle.fluid as F
 import pgl
 from pgl.utils.logger import log
 
-from models import layers 
+from models import layers
 import models.model_util as model_util
 import models.loss as Loss
 
 import util
 import helper
 
+
 class GNNModel(object):
     """ GNNModel """
+
     def __init__(self, config, dump_file_obj=None, is_predict=False):
         """ init """
         self.config = config
@@ -79,14 +80,17 @@ class GNNModel(object):
 
         # for visualization
         model_util.paddle_print(v_loss)
-        self.visualize_loss, self.batch_count = model_util.loss_visualize(v_loss)
+        self.visualize_loss, self.batch_count = model_util.loss_visualize(
+            v_loss)
 
         if self.is_predict:
             if self.config.sage_mode:
-                node_index = paddle.gather(self.nodeid_slot_holder, self.final_index)
+                node_index = paddle.gather(self.nodeid_slot_holder,
+                                           self.final_index)
             else:
                 node_index = self.nodeid_slot_holder
-            model_util.dump_embedding(config, predictions["src_nfeat"], node_index)
+            model_util.dump_embedding(config, predictions["src_nfeat"],
+                                      node_index)
 
         # calculate AUC
         #  logits = predictions["logits"]
@@ -111,13 +115,9 @@ class GNNModel(object):
         hcl_logits_list = None
 
         id_embedding, slot_embedding_list = model_util.get_sparse_embedding(
-                                                    self.config,
-                                                    self.nodeid_slot_holder,
-                                                    self.discrete_slot_holders,
-                                                    self.discrete_slot_lod_holders,
-                                                    self.show_clk,
-                                                    self._use_cvm,
-                                                    self.emb_size)
+            self.config, self.nodeid_slot_holder, self.discrete_slot_holders,
+            self.discrete_slot_lod_holders, self.show_clk, self._use_cvm,
+            self.emb_size)
 
         # merge id_embedding and slot_embedding_list here
         feature = L.sum([id_embedding] + slot_embedding_list)
@@ -127,23 +127,23 @@ class GNNModel(object):
 
         if self.config.sage_mode:
             if self.config.hcl:
-                hcl_logits_list = model_util.hcl(self.config, 
-                                                feature,
-                                                self.graph_holders)
+                hcl_logits_list = model_util.hcl(self.config, feature,
+                                                 self.graph_holders)
 
             if self.config.sage_layer_type == "gatne":
                 layer_type = "lightgcn"
             else:
                 layer_type = self.config.sage_layer_type
-            feature = model_util.gnn_layers(self.graph_holders,
-                                 feature,
-                                 self.emb_size,
-                                 layer_type=layer_type,
-                                 act=self.config.sage_act,
-                                 num_layers=len(self.config.samples),
-                                 etype_len=self.etype_len,
-                                 alpha_residual=self.config.sage_alpha,
-                                 interact_mode=self.config.sage_layer_type)
+            feature = model_util.gnn_layers(
+                self.graph_holders,
+                feature,
+                self.emb_size,
+                layer_type=layer_type,
+                act=self.config.sage_act,
+                num_layers=len(self.config.samples),
+                etype_len=self.etype_len,
+                alpha_residual=self.config.sage_alpha,
+                interact_mode=self.config.sage_layer_type)
             feature = L.gather(feature, self.final_index, overwrite=False)
 
         feature = L.reshape(feature, shape=[-1, 2, self.emb_size])
@@ -151,16 +151,19 @@ class GNNModel(object):
         src_feat = feature[:, 0:1, :]
         dsts_feat_all = [feature[:, 1:, :]]
         for neg in range(self.neg_num):
-            dsts_feat_all.append(F.contrib.layers.shuffle_batch(dsts_feat_all[0]))
+            dsts_feat_all.append(
+                F.contrib.layers.shuffle_batch(dsts_feat_all[0]))
         dsts_feat = L.concat(dsts_feat_all, axis=1)
 
-        logits = L.matmul(src_feat, dsts_feat, transpose_y=True)  # [batch_size, 1, neg_num+1]
+        logits = L.matmul(
+            src_feat, dsts_feat,
+            transpose_y=True)  # [batch_size, 1, neg_num+1]
         logits = L.squeeze(logits, axes=[1])
 
         predictions = {}
-        predictions["logits"] = logits # [B, neg_num + 1]
-        predictions["nfeat"] = feature # [B, 2, d]
-        predictions["src_nfeat"] = src_feat # [B, 1, d]
+        predictions["logits"] = logits  # [B, neg_num + 1]
+        predictions["nfeat"] = feature  # [B, 2, d]
+        predictions["src_nfeat"] = src_feat  # [B, 1, d]
         if hcl_logits_list is not None:
             predictions["hcl_logits"] = hcl_logits_list
 
@@ -175,9 +178,10 @@ class GNNModel(object):
 
         loss_count = 1
         loss = getattr(Loss, loss_type)(self.config, predictions)
-        
+
         if self.config.gcl_loss:
-            gcl_loss = getattr(Loss, self.config.gcl_loss)(self.config, predictions)
+            gcl_loss = getattr(Loss, self.config.gcl_loss)(self.config,
+                                                           predictions)
             loss += gcl_loss
             loss_count += 1
 
@@ -191,4 +195,3 @@ class GNNModel(object):
         v_loss = loss / self.config.batch_node_size / loss_count
 
         return loss, v_loss
-

@@ -1,5 +1,4 @@
-#-*- coding: utf-8 -*-
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,14 +33,16 @@ import paddle.fluid.layers as L
 import pgl
 from pgl.utils.logger import log
 
-from models import layers 
+from models import layers
 import util
 import helper
+
 
 def inner_add(value, var):
     """ inner add """
     tmp = var + value
     L.assign(tmp, var)
+
 
 def calc_auc(pos_logits, neg_logits):
     """calc_auc"""
@@ -57,9 +58,12 @@ def calc_auc(pos_logits, neg_logits):
     neg_labels = L.cast(neg_labels, dtype="int64")
 
     labels = L.concat([pos_labels, neg_labels], 0)
-    labels.stop_gradient=True
-    _, batch_auc_out, state_tuple = L.auc(input=proba, label=labels, num_thresholds=4096)
+    labels.stop_gradient = True
+    _, batch_auc_out, state_tuple = L.auc(input=proba,
+                                          label=labels,
+                                          num_thresholds=4096)
     return batch_auc_out, state_tuple
+
 
 def dump_func(file_obj, node_index, node_embed):
     """paddle dump embedding
@@ -74,7 +78,8 @@ def dump_func(file_obj, node_index, node_embed):
 
     """
     out = F.default_main_program().current_block().create_var(
-                name="dump_out", dtype="float32", shape=[1])
+        name="dump_out", dtype="float32", shape=[1])
+
     def _dump_func(vec_id, node_vec):
         """
             Dump Vectors for inference
@@ -83,7 +88,8 @@ def dump_func(file_obj, node_index, node_embed):
             buffer
             file_obj.acquire()
             vec_lines = []
-            for _node_id, _vec_feat in zip(np.array(vec_id), np.array(node_vec)):
+            for _node_id, _vec_feat in zip(
+                    np.array(vec_id), np.array(node_vec)):
                 _node_id = str(_node_id.astype("int64").astype('uint64')[0])
                 _vec_feat = " ".join(["%.5lf" % w for w in _vec_feat])
 
@@ -98,6 +104,7 @@ def dump_func(file_obj, node_index, node_embed):
     o = L.py_func(_dump_func, [node_index, node_embed], out=out)
     return o
 
+
 def paddle_print(*args):
     """print auc"""
     global print_count
@@ -105,7 +112,6 @@ def paddle_print(*args):
 
     global start_time
     start_time = time.time()
-
 
     def _print(*inputs):
         """print auc by batch"""
@@ -123,33 +129,35 @@ def paddle_print(*args):
 
     L.py_func(_print, args, out=None)
 
+
 def loss_visualize(loss):
     """loss_visualize"""
     visualize_loss = L.create_global_var(
-            persistable=True, dtype="float32", shape=[1], value=0)
+        persistable=True, dtype="float32", shape=[1], value=0)
     batch_count = L.create_global_var(
-            persistable=True, dtype="float32", shape=[1], value=0)
+        persistable=True, dtype="float32", shape=[1], value=0)
     inner_add(loss, visualize_loss)
     inner_add(1., batch_count)
 
     return visualize_loss, batch_count
 
+
 def build_node_holder(nodeid_slot_name):
     """ build node holder """
     holder_list = []
-    nodeid_slot_holder = L.data(str(nodeid_slot_name), 
-                                shape=[-1, 1], 
-                                dtype="int64", 
-                                lod_level=1)
+    nodeid_slot_holder = L.data(
+        str(nodeid_slot_name), shape=[-1, 1], dtype="int64", lod_level=1)
 
     show = L.data("show", shape=[-1], dtype="int64")
     click = L.data("click", shape=[-1], dtype="int64")
-    show_clk = L.concat([L.reshape(show, [-1, 1]), L.reshape(click, [-1, 1])], axis=-1)
+    show_clk = L.concat(
+        [L.reshape(show, [-1, 1]), L.reshape(click, [-1, 1])], axis=-1)
     show_clk = L.cast(show_clk, dtype="float32")
     show_clk.stop_gradient = True
     holder_list = [nodeid_slot_holder, show, click]
 
     return nodeid_slot_holder, show_clk, holder_list
+
 
 def build_slot_holder(discrete_slot_names):
     """build discrete slot holders """
@@ -157,40 +165,46 @@ def build_slot_holder(discrete_slot_names):
     discrete_slot_holders = []
     discrete_slot_lod_holders = []
     for slot in discrete_slot_names:
-        holder = L.data(slot,
-                        shape=[None, 1],
-                        dtype="int64",
-                        lod_level=1,
-                        append_batch_size=False)
+        holder = L.data(
+            slot,
+            shape=[None, 1],
+            dtype="int64",
+            lod_level=1,
+            append_batch_size=False)
         discrete_slot_holders.append(holder)
         holder_list.append(holder)
 
-        lod_holder = L.data("slot_%s_lod" % slot,
-                            shape=[None],
-                            dtype="int64",
-                            lod_level=0,
-                            append_batch_size=False)
+        lod_holder = L.data(
+            "slot_%s_lod" % slot,
+            shape=[None],
+            dtype="int64",
+            lod_level=0,
+            append_batch_size=False)
         discrete_slot_lod_holders.append(lod_holder)
         holder_list.append(lod_holder)
 
     return discrete_slot_holders, discrete_slot_lod_holders, holder_list
 
+
 def build_token_holder(token_slot_name):
     """build token slot holder """
     token_slot_name = str(token_slot_name)
-    token_slot_holder = L.data(token_slot_name,
-                                shape=[None, 1],
-                                dtype="int64",
-                                lod_level=1,
-                                append_batch_size=False)
+    token_slot_holder = L.data(
+        token_slot_name,
+        shape=[None, 1],
+        dtype="int64",
+        lod_level=1,
+        append_batch_size=False)
 
-    token_slot_lod_holder = L.data("slot_%s_lod" % token_slot_name,
-                                shape=[None],
-                                dtype="int64",
-                                lod_level=0,
-                                append_batch_size=False)
+    token_slot_lod_holder = L.data(
+        "slot_%s_lod" % token_slot_name,
+        shape=[None],
+        dtype="int64",
+        lod_level=0,
+        append_batch_size=False)
 
     return token_slot_holder, token_slot_lod_holder
+
 
 def build_graph_holder(samples):
     """ build graph holder """
@@ -199,38 +213,27 @@ def build_graph_holder(samples):
     for i, s in enumerate(samples):
         # For different sample size, we hold a graph block.
         graph_holders[i] = []
-        num_nodes = L.data(
-            name="%s_num_nodes" % i,
-            shape=[-1],
-            dtype="int")
+        num_nodes = L.data(name="%s_num_nodes" % i, shape=[-1], dtype="int")
         graph_holders[i].append(num_nodes)
         holder_list.append(num_nodes)
 
         next_num_nodes = L.data(
-            name="%s_next_num_nodes" % i,
-            shape=[-1],
-            dtype="int")
+            name="%s_next_num_nodes" % i, shape=[-1], dtype="int")
         graph_holders[i].append(next_num_nodes)
         holder_list.append(next_num_nodes)
 
         edges_src = L.data(
-            name="%s_edges_src" % i,
-            shape=[-1, 1],
-            dtype="int64")
+            name="%s_edges_src" % i, shape=[-1, 1], dtype="int64")
         graph_holders[i].append(edges_src)
         holder_list.append(edges_src)
 
         edges_dst = L.data(
-            name="%s_edges_dst" % i,
-            shape=[-1, 1],
-            dtype="int64")
+            name="%s_edges_dst" % i, shape=[-1, 1], dtype="int64")
         graph_holders[i].append(edges_dst)
         holder_list.append(edges_dst)
 
         edges_split = L.data(
-            name="%s_edges_split" % i,
-            shape=[-1],
-            dtype="int")
+            name="%s_edges_split" % i, shape=[-1], dtype="int")
         graph_holders[i].append(edges_split)
         holder_list.append(edges_split)
 
@@ -239,28 +242,31 @@ def build_graph_holder(samples):
 
     return graph_holders, ego_index_holder, holder_list
 
+
 def get_sparse_embedding(config,
-        nodeid_slot_holder,
-        discrete_slot_holders,
-        discrete_slot_lod_holders,
-        show_clk,
-        use_cvm,
-        emb_size,
-        name="embedding"):
+                         nodeid_slot_holder,
+                         discrete_slot_holders,
+                         discrete_slot_lod_holders,
+                         show_clk,
+                         use_cvm,
+                         emb_size,
+                         name="embedding"):
     """get sparse embedding"""
 
-    id_embedding = F.contrib.sparse_embedding(input=nodeid_slot_holder,
-                                size=[1024, emb_size + 3],
-                                param_attr=F.ParamAttr(name=name))
+    id_embedding = F.contrib.sparse_embedding(
+        input=nodeid_slot_holder,
+        size=[1024, emb_size + 3],
+        param_attr=F.ParamAttr(name=name))
 
     id_embedding = L.continuous_value_model(id_embedding, show_clk, use_cvm)
-    id_embedding = id_embedding[:, 1:] # the first column is for lr, remove it
+    id_embedding = id_embedding[:, 1:]  # the first column is for lr, remove it
 
     tmp_slot_emb_list = []
     for slot_idx, lod in zip(discrete_slot_holders, discrete_slot_lod_holders):
-        slot_emb = F.contrib.sparse_embedding(input=slot_idx,
-                                    size=[1024, emb_size + 3],
-                                    param_attr=F.ParamAttr(name=name))
+        slot_emb = F.contrib.sparse_embedding(
+            input=slot_idx,
+            size=[1024, emb_size + 3],
+            param_attr=F.ParamAttr(name=name))
 
         lod = L.cast(lod, dtype="int32")
         lod = L.reshape(lod, [1, -1])
@@ -270,12 +276,12 @@ def get_sparse_embedding(config,
         tmp_slot_emb_list.append(slot_emb)
 
     slot_embedding_list = []
-    if(len(discrete_slot_holders)) > 0:
+    if (len(discrete_slot_holders)) > 0:
         slot_bows = F.contrib.layers.fused_seqpool_cvm(
-                tmp_slot_emb_list, 
-                config.slot_pool_type,
-                show_clk,
-                use_cvm=use_cvm)
+            tmp_slot_emb_list,
+            config.slot_pool_type,
+            show_clk,
+            use_cvm=use_cvm)
         for bow in slot_bows:
             slot_embedding = bow[:, 1:]
             slot_embedding = L.softsign(slot_embedding)
@@ -283,9 +289,18 @@ def get_sparse_embedding(config,
 
     return id_embedding, slot_embedding_list
 
-def get_layer(layer_type, graph, feature, next_num_nodes, hidden_size, act, name, is_test=False):
+
+def get_layer(layer_type,
+              graph,
+              feature,
+              next_num_nodes,
+              hidden_size,
+              act,
+              name,
+              is_test=False):
     """get_layer"""
-    return getattr(layers, layer_type)(graph, feature, next_num_nodes, hidden_size, act, name)
+    return getattr(layers, layer_type)(graph, feature, next_num_nodes,
+                                       hidden_size, act, name)
 
 def gnn_layers(graph_holders, init_feature, hidden_size, layer_type, \
     act, num_layers, etype_len, alpha_residual, interact_mode="sum"):
@@ -296,7 +311,7 @@ def gnn_layers(graph_holders, init_feature, hidden_size, layer_type, \
     zeros_tensor2 = paddle.zeros([1, 1], dtype="int64")
     init_feature = paddle.concat([zeros_tensor1, init_feature])
     feature = init_feature
-    
+
     for i in range(num_layers):
         if i == num_layers - 1:
             act = None
@@ -308,13 +323,16 @@ def gnn_layers(graph_holders, init_feature, hidden_size, layer_type, \
         split_edges = paddle.cumsum(graph_holder[4])
         nxt_fs = []
         for j in range(etype_len):
-            start = paddle.zeros([1], dtype="int64") if j == 0 else split_edges[j - 1]
+            start = paddle.zeros(
+                [1], dtype="int64") if j == 0 else split_edges[j - 1]
             new_edges_src = paddle.concat(
-                [zeros_tensor2, edges_src[start: split_edges[j]]])
+                [zeros_tensor2, edges_src[start:split_edges[j]]])
             new_edges_dst = paddle.concat(
-                [zeros_tensor2, edges_dst[start: split_edges[j]]])
-            graph = pgl.Graph(num_nodes=num_nodes,
-                              edges=paddle.concat([new_edges_src, new_edges_dst], axis=1))
+                [zeros_tensor2, edges_dst[start:split_edges[j]]])
+            graph = pgl.Graph(
+                num_nodes=num_nodes,
+                edges=paddle.concat(
+                    [new_edges_src, new_edges_dst], axis=1))
             nxt_f = get_layer(
                 layer_type,
                 graph,
@@ -327,8 +345,10 @@ def gnn_layers(graph_holders, init_feature, hidden_size, layer_type, \
 
         feature = feature_interact_by_etype(
             nxt_fs, interact_mode, hidden_size, name="%s_interat" % layer_type)
-        feature = init_feature[:next_num_nodes] * alpha_residual + feature * (1 - alpha_residual)
+        feature = init_feature[:next_num_nodes] * alpha_residual + feature * (
+            1 - alpha_residual)
     return feature[1:]
+
 
 def feature_interact_by_etype(feature_list, interact_mode, hidden_size, name):
     """ feature interact with etype """
@@ -338,11 +358,12 @@ def feature_interact_by_etype(feature_list, interact_mode, hidden_size, name):
         # stack [num_nodes, num_etype, hidden_size]
         U = L.stack(feature_list, axis=1)
         #  [num_nodes * num_etype, hidden_size]
-        tmp = L.fc(L.reshape(U, shape=[-1, hidden_size]),
-                hidden_size,
-                act="tanh",
-                param_attr=F.ParamAttr(name=name + '_w1'),
-                bias_attr=None)
+        tmp = L.fc(L.reshape(
+            U, shape=[-1, hidden_size]),
+                   hidden_size,
+                   act="tanh",
+                   param_attr=F.ParamAttr(name=name + '_w1'),
+                   bias_attr=None)
 
         #  [num_nodes * num_etype, 1]
         tmp = L.fc(tmp, 1, act=None, param_attr=F.ParamAttr(name=name + '_w2'))
@@ -355,14 +376,16 @@ def feature_interact_by_etype(feature_list, interact_mode, hidden_size, name):
     else:
         return L.sum(feature_list)
 
+
 def dump_embedding(config, nfeat, node_index):
     """dump_embedding"""
     node_embed = L.squeeze(nfeat, axes=[1], name=config.dump_node_emb_name)
     node_index = L.reshape(node_index, shape=[-1, 2])
     src_node_index = node_index[:, 0:1]
-    src_node_index = L.reshape(src_node_index, 
-            shape = src_node_index.shape, 
-            name=config.dump_node_name) # for rename
+    src_node_index = L.reshape(
+        src_node_index, shape=src_node_index.shape,
+        name=config.dump_node_name)  # for rename
+
 
 def hcl(config, feature, graph_holders):
     """Hierarchical Contrastive Learning"""
@@ -379,15 +402,17 @@ def hcl(config, feature, graph_holders):
 
         for neg in range(config.neg_num):
             neighbor_dsts_feat_all.append(
-                    F.contrib.layers.shuffle_batch(neighbor_dsts_feat_all[0]))
+                F.contrib.layers.shuffle_batch(neighbor_dsts_feat_all[0]))
         neighbor_dsts_feat = L.concat(neighbor_dsts_feat_all, axis=1)
 
         # [batch_size, 1, neg_num+1]
-        logits = L.matmul(neighbor_src_feat, neighbor_dsts_feat, transpose_y=True)  
+        logits = L.matmul(
+            neighbor_src_feat, neighbor_dsts_feat, transpose_y=True)
         logits = L.squeeze(logits, axes=[1])
         hcl_logits.append(logits)
 
     return hcl_logits
+
 
 def reset_program_state_dict(args, model, state_dict, pretrained_state_dict):
     """
@@ -415,5 +440,3 @@ def reset_program_state_dict(args, model, state_dict, pretrained_state_dict):
     log.info("the following parameter had reset, please check. {}".format(
         reset_parameter_names))
     return reset_state_dict
-
-

@@ -1,5 +1,4 @@
-#-*- coding: utf-8 -*-
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-    doc
+    loss functions
 """
 from __future__ import division
 from __future__ import absolute_import
@@ -47,6 +46,7 @@ def hinge_loss(config, predictions):
 
     return loss
 
+
 def nce_loss(config, predictions):
     """doc
     """
@@ -60,6 +60,7 @@ def nce_loss(config, predictions):
     loss = L.reduce_sum(loss)
 
     return loss
+
 
 def hcl_loss(config, hcl_logits_list):
     """ hierarchical contrastive learning loss"""
@@ -76,18 +77,20 @@ def hcl_loss(config, hcl_logits_list):
 
     return hcl_loss / len(hcl_logits_list)
 
+
 def sigmoid_loss(config, predictions):
     """doc
     """
     log.info("use sigmoid loss")
     logits = L.unsqueeze(predictions["logits"], axes=1)
-    pos_label = L.fill_constant_batch_size_like(logits, [-1, 1, 1], "float32", 1)
+    pos_label = L.fill_constant_batch_size_like(logits, [-1, 1, 1], "float32",
+                                                1)
     neg_label = L.fill_constant_batch_size_like(
         logits, [-1, 1, config.neg_num], "float32", 0)
     label = L.concat([pos_label, neg_label], -1)
 
-    pos_weight = L.fill_constant_batch_size_like(logits, [-1, 1, 1],
-                                                 "float32", config.neg_num)
+    pos_weight = L.fill_constant_batch_size_like(logits, [-1, 1, 1], "float32",
+                                                 config.neg_num)
     neg_weight = L.fill_constant_batch_size_like(
         logits, [-1, 1, config.neg_num], "float32", 1)
     weight = L.concat([pos_weight, neg_weight], -1)
@@ -100,6 +103,7 @@ def sigmoid_loss(config, predictions):
     loss = L.reduce_sum(loss)
 
     return loss
+
 
 def simgcl_loss(config, predictions):
     """doc
@@ -126,6 +130,7 @@ def simgcl_loss(config, predictions):
 
     return loss
 
+
 def in_batch_negative_softmax_loss(config, predictions):
     """doc
     """
@@ -134,7 +139,9 @@ def in_batch_negative_softmax_loss(config, predictions):
         probs = paddle.nn.functional.softmax(logits)
         L.Print(logits, message="logits", summarize=64)
         L.Print(probs, message="probs", summarize=64)
-    labels = paddle.unsqueeze(paddle.arange(0, paddle.shape(logits)[0], dtype="int64"), axis=1)
+    labels = paddle.unsqueeze(
+        paddle.arange(
+            0, paddle.shape(logits)[0], dtype="int64"), axis=1)
     loss = paddle.nn.functional.softmax_with_cross_entropy(logits, labels)
     loss = paddle.mean(loss)
     return loss
