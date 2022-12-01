@@ -1,4 +1,4 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""cluster train
+"""Training Script for PGLBox
 """
 
 import paddle
@@ -54,16 +54,14 @@ def train(args, exe, model_dict, dataset):
         for chunk_dataset in dataset.chunk_generator():
             train_begin = time.time()
             exe.train_from_dataset(
-                model_dict.train_program,
-                chunk_dataset,
-                debug=False)
+                model_dict.train_program, chunk_dataset, debug=False)
 
             train_end = time.time()
             log.info("STAGE [SAMPLE AND TRAIN] for epoch [%d] finished, time cost: %f sec" \
                  % (epoch, train_end - train_begin))
 
             t_loss = util.get_global_value(model_dict.visualize_loss,
-                                            model_dict.batch_count)
+                                           model_dict.batch_count)
             epoch_loss += t_loss
 
         epoch_loss = epoch_loss / args.chunk_num
@@ -82,10 +80,12 @@ def train(args, exe, model_dict, dataset):
         fleet.barrier_worker()
 
         savemodel_begin = time.time()
-        is_save = (epoch % args.save_model_interval == 0 or epoch == args.epochs)
+        is_save = (epoch % args.save_model_interval == 0 or
+                   epoch == args.epochs)
         if args.model_save_path and is_save:
             log.info("save model for epoch {}".format(epoch))
-            util.save_model(exe, model_dict, args, args.local_model_path, args.model_save_path)
+            util.save_model(exe, model_dict, args, args.local_model_path,
+                            args.model_save_path)
         fleet.barrier_worker()
         savemodel_end = time.time()
         log.info("STAGE [SAVE MODEL] for epoch [%d] finished, time cost: %f sec" \
@@ -95,15 +95,13 @@ def train(args, exe, model_dict, dataset):
 def infer(args, exe, infer_model_dict, dataset):
     infer_begin = time.time()
 
-
     for chunk_dataset in dataset.chunk_generator():
         exe.train_from_dataset(
-                infer_model_dict.train_program,
-                chunk_dataset,
-                debug=False)
+            infer_model_dict.train_program, chunk_dataset, debug=False)
     util.upload_embedding(args, args.local_result_path)
     infer_end = time.time()
-    log.info("STAGE [INFER MODEL] finished, time cost: % sec" % (infer_end - infer_begin))
+    log.info("STAGE [INFER MODEL] finished, time cost: % sec" %
+             (infer_end - infer_begin))
 
 
 def run_worker(args, exe, model_dict, infer_model_dict):
@@ -118,20 +116,20 @@ def run_worker(args, exe, model_dict, infer_model_dict):
 
     log.info("gpu ps slot names: %s" % repr(model_dict.total_gpups_slots))
 
-    embedding = DistEmbedding(slots=model_dict.total_gpups_slots,
-                            embedding_size=args.emb_size)
+    embedding = DistEmbedding(
+        slots=model_dict.total_gpups_slots, embedding_size=args.emb_size)
 
-    graph = DistGraph(root_dir=args.graph_data_local_path,
-                    node_types=args.ntype2files,
-                    edge_types=args.etype2files,
-                    symmetry=args.symmetry,
-                    slots=args.slots,
-                    num_parts=args.num_part)
+    graph = DistGraph(
+        root_dir=args.graph_data_local_path,
+        node_types=args.ntype2files,
+        edge_types=args.etype2files,
+        symmetry=args.symmetry,
+        slots=args.slots,
+        num_parts=args.num_part)
 
     graph.load_graph_into_cpu()
 
     graph.load_graph_into_gpu()
-
 
     if args.warm_start_from:
         log.info("warmup start from %s" % args.warm_start_from)
@@ -143,30 +141,32 @@ def run_worker(args, exe, model_dict, infer_model_dict):
 
     fleet.barrier_worker()
 
-    train_dataset = UnsupReprLearningDataset(args.chunk_num,
-                                dataset_config=args,
-                                holder_list=model_dict.holder_list,
-                                embedding=embedding,
-                                graph=graph)
+    train_dataset = UnsupReprLearningDataset(
+        args.chunk_num,
+        dataset_config=args,
+        holder_list=model_dict.holder_list,
+        embedding=embedding,
+        graph=graph)
 
-    infer_dataset = InferDataset(args.chunk_num,
-                                dataset_config=args,
-                                holder_list=model_dict.holder_list,
-                                embedding=embedding,
-                                graph=graph)
-
-
+    infer_dataset = InferDataset(
+        args.chunk_num,
+        dataset_config=args,
+        holder_list=model_dict.holder_list,
+        embedding=embedding,
+        graph=graph)
 
     if args.need_train:
         train(args, exe, model_dict, train_dataset)
     else:
-        log.info("STAGE: need_train is %s, skip training process" % args.need_train)
+        log.info("STAGE: need_train is %s, skip training process" %
+                 args.need_train)
 
     fleet.barrier_worker()
     if args.need_inference:
         infer(args, exe, infer_model_dict, infer_dataset)
     else:
-        log.info("STAGE: need_inference is %s, skip inference process" % args.need_inference)
+        log.info("STAGE: need_inference is %s, skip inference process" %
+                 args.need_inference)
 
 
 def main(args):
@@ -188,7 +188,8 @@ def main(args):
     model_dict.train_program = train_program
 
     adam = fluid.optimizer.Adam(learning_rate=args.dense_lr)
-    optimizer = fleet.distributed_optimizer(adam, strategy=get_strategy(args, model_dict))
+    optimizer = fleet.distributed_optimizer(
+        adam, strategy=get_strategy(args, model_dict))
     optimizer.minimize(model_dict.loss, model_dict.startup_program)
     make_distributed_train_program(args, model_dict)
 
@@ -198,15 +199,18 @@ def main(args):
 
         with fluid.program_guard(infer_train_program, infer_startup_program):
             with fluid.unique_name.guard():
-                infer_model_dict = getattr(M, args.model_type)(config=args, is_predict=True)
+                infer_model_dict = getattr(M, args.model_type)(config=args,
+                                                               is_predict=True)
 
         infer_model_dict.startup_program = infer_startup_program
         infer_model_dict.train_program = infer_train_program
 
         fake_lr_infer = 0.00
         adam_infer = fluid.optimizer.Adam(learning_rate=fake_lr_infer)
-        optimizer1 = fleet.distributed_optimizer(adam_infer, strategy=get_strategy(args, infer_model_dict))
-        optimizer1.minimize(infer_model_dict.loss, infer_model_dict.startup_program)
+        optimizer1 = fleet.distributed_optimizer(
+            adam_infer, strategy=get_strategy(args, infer_model_dict))
+        optimizer1.minimize(infer_model_dict.loss,
+                            infer_model_dict.startup_program)
         make_distributed_infer_program(args, infer_model_dict)
 
     # init and run server or worker
@@ -220,6 +224,7 @@ def main(args):
 
     fleet.stop_worker()
 
+
 if __name__ == "__main__":
     util.print_useful_info()
     config = prepare_config("config.yaml")
@@ -229,4 +234,3 @@ if __name__ == "__main__":
     config.infer_result_path = os.path.join(config.working_root, 'embedding')
     print(config)
     main(config)
-

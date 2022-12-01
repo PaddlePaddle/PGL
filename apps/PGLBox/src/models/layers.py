@@ -1,4 +1,4 @@
-# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Doc String
+gnn layers
 """
 import paddle
 import paddle.fluid as fluid
@@ -34,7 +34,9 @@ def gin(graph, feature, next_num_nodes, hidden_size, act, name):
     output = output + feature[:next_num_nodes]
     return output
 
-def graphsage_mean_efeat(graph, feature, edge_feat, next_num_nodes, hidden_size, act, name):
+
+def graphsage_mean_efeat(graph, feature, edge_feat, next_num_nodes,
+                         hidden_size, act, name):
     """ graphsage mean efeat (do not support efeat currently, don't run!!!) """
     src, dst = graph.edges[:, 0], graph.edges[:, 1]
     neigh_feature = paddle.geometric.send_ue_recv(
@@ -42,13 +44,14 @@ def graphsage_mean_efeat(graph, feature, edge_feat, next_num_nodes, hidden_size,
     self_feature = feature[:next_num_nodes]
     output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
     output = fluid.layers.fc(output,
-                            hidden_size,
-                            act=act,
-                            param_attr=fluid.ParamAttr(name=name + '_w'),
-                            bias_attr=fluid.ParamAttr(name=name + '_b'))
-    
+                             hidden_size,
+                             act=act,
+                             param_attr=fluid.ParamAttr(name=name + '_w'),
+                             bias_attr=fluid.ParamAttr(name=name + '_b'))
+
     output = fluid.layers.l2_normalize(output, axis=1)
     return output
+
 
 def graphsage_mean(graph, feature, next_num_nodes, hidden_size, act, name):
     """doc"""
@@ -65,16 +68,18 @@ def graphsage_mean(graph, feature, next_num_nodes, hidden_size, act, name):
     output = fluid.layers.l2_normalize(output, axis=1)
     return output
 
+
 def graphsage_bow(graph, feature, next_num_nodes, hidden_size, act, name):
     """doc"""
     src, dst = graph.edges[:, 0], graph.edges[:, 1]
     neigh_feature = paddle.geometric.send_u_recv(
         feature, src, dst, pool_type="mean", out_size=next_num_nodes)
     self_feature = feature[:next_num_nodes]
-     
+
     output = self_feature + neigh_feature
     output = fluid.layers.l2_normalize(output, axis=1)
     return output
+
 
 def graphsage_meanpool(graph,
                        feature,
@@ -101,6 +106,7 @@ def graphsage_meanpool(graph,
     output = fluid.layers.l2_normalize(output, axis=1)
     return output
 
+
 def graphsage_maxpool(graph,
                       feature,
                       next_num_nodes,
@@ -112,7 +118,7 @@ def graphsage_maxpool(graph,
     src, dst = graph.edges[:, 0], graph.edges[:, 1]
     neigh_feature = fluid.layers.fc(feature, inner_hidden_size, act="relu")
     neigh_feature = paddle.geometric.send_u_recv(
-        neigh_feature, src, dst, pool_type="max", out_size=next_num_nodes) 
+        neigh_feature, src, dst, pool_type="max", out_size=next_num_nodes)
     neigh_feature = fluid.layers.fc(neigh_feature,
                                     hidden_size,
                                     act=act,
@@ -126,6 +132,7 @@ def graphsage_maxpool(graph,
     output = fluid.layers.l2_normalize(output, axis=1)
     return output
 
+
 def gat(graph, feature, next_num_nodes, hidden_size, act, name):
     """ gat """
     neigh_feature = pgl.nn.GATConv(
@@ -138,11 +145,12 @@ def gat(graph, feature, next_num_nodes, hidden_size, act, name):
     self_feature = feature[:next_num_nodes]
     output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
     output = fluid.layers.fc(output,
-                            hidden_size,
-                            act=act,
-                            param_attr=fluid.ParamAttr(name=name + '_self_w'),
-                            bias_attr=fluid.ParamAttr(name=name + '_self_b'))
+                             hidden_size,
+                             act=act,
+                             param_attr=fluid.ParamAttr(name=name + '_self_w'),
+                             bias_attr=fluid.ParamAttr(name=name + '_self_b'))
     return output
+
 
 def lightgcn(graph, feature, next_num_nodes, hidden_size, act, name):
     """doc
