@@ -220,7 +220,7 @@ class GraphTest(unittest.TestCase):
         # testing for jointing One Graph
         multi_graph = pgl.Graph.disjoint([glist[0]])
         self.assertEqual(multi_graph.node_feat['nfeat'].shape,
-                         [glist[0].num_nodes.numpy()[0], dim])
+                         [int(glist[0].num_nodes), dim])
 
     def test_dump_numpy_load_tensor(self):
 

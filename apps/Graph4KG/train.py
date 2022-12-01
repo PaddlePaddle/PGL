@@ -139,12 +139,12 @@ def main():
             neg_score = neg_score.reshape([args.batch_size, -1])
 
             loss = loss_func(pos_score, neg_score, weights)
-            log['loss'] += loss.numpy()[0]
+            log['loss'] += float(loss)
 
             if args.use_embedding_regularization:
                 reg_loss = model.get_regularization(h_emb, r_emb, t_emb,
                                                     neg_emb)
-                log['reg'] += reg_loss.numpy()[0]
+                log['reg'] += float(reg_loss)
 
                 loss = loss + reg_loss
             timer['forward'] += (time.time() - ts)

@@ -15,6 +15,7 @@
 import numpy as np
 import paddle
 from paddle.common_ops_import import Variable
+from paddle.fluid import core
 
 from pgl.utils import op
 
@@ -26,6 +27,20 @@ def check_is_tensor(*data):
         if isinstance(d, paddle.Tensor) or isinstance(d, Variable):
             return True
     return False
+
+
+def to_paddle_tensor(data, uva=False):
+    """Convert a numpy ndarray to paddle.Tensor.
+    """
+    if not uva:
+        data = paddle.to_tensor(data)
+    else:
+        if not paddle.device.is_compiled_with_cuda() or \
+           not paddle.device.get_device().startswith("gpu"):
+            raise ValueError(
+                "UVA tensor should be used under GPU environment.")
+        data = core.to_uva_tensor(data)
+    return data
 
 
 def scatter(x, index, updates, overwrite=True, name=None):

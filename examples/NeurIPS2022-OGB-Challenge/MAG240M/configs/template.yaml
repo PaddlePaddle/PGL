@@ -1,0 +1,50 @@
+# configs
+data_dir: "ogb2022"
+samples: "25-15"
+seed: 43
+batch_size: 512
+label_rate: 0.15
+# valid_data
+valid_path: "ogb2022/valid_data"
+valid_name: "valid_0.npy"
+test_name: "test_0"
+
+# m2v_feat
+m2v_file: "ogb2022/m2v_64.npy"
+# TODO Change
+p2p_file: "ogb2022/p2p_64.npy"
+m2v_dim: 64
+feat_mode: "cpu"
+
+# Model
+model:
+    name: "r_unimp_peg_gpr_all"
+    input_size: 768
+    num_class: 153
+    num_layers: 2
+    feat_drop: 0.1
+    attn_drop: 0.1
+    # num_heads: 2
+    num_heads: 1
+    # hidden_size: 768
+    hidden_size: 1024
+    activation: False
+    drop: 0.4 # 0.4有收益
+    edge_type: 5
+    alpha: 0.1
+
+# trainer
+model_output_path: "./outputs/model/cv_0"
+model_result_path: "./outputs/result/cv_0"
+epochs: 100
+eval_step: 10
+eval_per_steps: 10 
+max_steps: 100
+
+# opt & lr_scheduler hparam
+warmup_proportion: -1
+weight_decay: 0.0
+lr: 0.0003
+# lr: 0.003
+clip: -1
+use_lr_decay: True
