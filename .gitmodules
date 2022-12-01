@@ -1,3 +1,0 @@
-[submodule "pgl/third_party/GraphPartitioners"]
-	path = pgl/third_party/GraphPartitioners
-	url = https://github.com/zongshenmu/GraphPartitioners
