@@ -11,11 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import paddle
 import paddle.nn as nn
+
+import pgl
 import pgl.math as math
 
-__all__ = ["degree_norm", "graph_pool", "graph_norm"]
+__all__ = [
+    "degree_norm",
+    "graph_pool",
+    "graph_norm",
+    "edge_softmax",
+]
 
 
 def degree_norm(graph, mode="indegree"):
@@ -88,3 +96,28 @@ def graph_norm(graph, feature):
     norm = paddle.sqrt(norm)
     norm = paddle.gather(norm, graph.graph_node_id)
     return feature / norm
+
+
+def edge_softmax(graph, logits, norm_by="dst"):
+    """Compute softmax over edge weight of incoming edges of every node.
+
+    Args:
+
+        logits (Tensor): The input edge feature.
+
+        norm_by (str): Normalized by source nodes or destination nodes.
+                       ("src" or "dst", default is "dst")
+
+    Return:
+
+        A paddle.Tensor of return softmax value.
+
+    """
+
+    src, dst, eid = graph.sorted_edges(sort_by=norm_by)
+    uniq_ind, segment_ids = graph.get_segment_ids(src, dst, segment_by=norm_by)
+    logits = paddle.gather(logits, eid, axis=0)
+    score = pgl.math.segment_softmax(logits, segment_ids)
+    init_output = paddle.zeros(shape=score.shape, dtype=score.dtype)
+    score = paddle.scatter(init_output, eid, score)
+    return score

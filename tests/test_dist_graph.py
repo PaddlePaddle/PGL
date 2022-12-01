@@ -24,7 +24,7 @@ from testsuite import create_random_graph
 
 
 class TestDistGPUGraph(unittest.TestCase):
-    def test_distributed_gpu_graph(self):
+    def test_distributed_degree(self):
         paddle.distributed.init_parallel_env()
         num_nodes = 5
         edges = [(0, 1), (1, 2), (3, 4)]
@@ -47,11 +47,10 @@ class TestDistGPUGraph(unittest.TestCase):
         res = g1.outdegree(nodes=paddle.to_tensor([1, 2, 3])).numpy()
         self.assertTrue(np.all(res == outdegree[[1, 2, 3]]))
 
+    def test_distributed_send_recv(self):
+        paddle.distributed.init_parallel_env()
         # Test Send-Recv
-
-        np.random.seed(0)
         num_nodes = 5
-        dim = 4
         edges = [(0, 1), (1, 2), (3, 4), (4, 1), (1, 0)]
 
         nfeat = np.array([[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6],
@@ -69,10 +68,10 @@ class TestDistGPUGraph(unittest.TestCase):
 
         self.assertTrue((ground == output).all())
 
+    def test_distributed_send_then_recv(self):
+        paddle.distributed.init_parallel_env()
         # Test Send Then Recv
-        np.random.seed(0)
         num_nodes = 5
-        dim = 4
         edges = [(0, 1), (1, 2), (3, 4), (4, 1), (1, 0)]
 
         nfeat = np.array(
@@ -112,6 +111,30 @@ class TestDistGPUGraph(unittest.TestCase):
         output = g.recv(reduce_func, msg2)
         output = output.numpy()
         self.assertTrue((recv_ground == output).all())
+
+    def test_distributed_send_ue_recv(self):
+        # test send_ue_recv
+        paddle.distributed.init_parallel_env()
+        num_nodes = 5
+        edges = [(0, 1), (1, 2), (3, 4), (4, 1), (1, 0)]
+        nfeat = np.array(
+            [[1, 2, 3, 4], [2, 3, 4, 5], [3, 4, 5, 6], [4, 5, 6, 7],
+             [5, 6, 7, 8]],
+            dtype="float32")
+        efeat = np.array([1, 1, 1, 1, 1], dtype="float32")
+        ue_recv_ground = np.array(
+            [[3., 4., 5., 6.], [8., 10., 12., 14.], [3., 4., 5., 6.],
+             [0., 0., 0., 0.], [5., 6., 7., 8.]],
+            dtype="float32")
+        g = pgl.Graph(
+            edges=edges,
+            num_nodes=num_nodes,
+            node_feat={'nfeat': nfeat},
+            edge_feat={'efeat': efeat})
+        g = pgl.DistGPUGraph(g)
+        output = g.send_ue_recv(g.node_feat['nfeat'], g.edge_feat['efeat'])
+        output = output.numpy()
+        self.assertTrue((ue_recv_ground == output).all())
 
 
 if __name__ == "__main__":

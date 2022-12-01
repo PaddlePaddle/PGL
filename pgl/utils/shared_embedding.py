@@ -213,7 +213,6 @@ class SharedEmbedding(object):
         """initialize the async update
         """
 
-        #import paddle.incubate.multiprocessing as mp
         def device_id_hook(*args, **kwargs):
             set_current_device_id()
             return paddle.incubate.multiprocessing.reductions.reduce_tensor(
