@@ -14,7 +14,7 @@ cd ../
 
 # 按照教程放置 数据和配置到本目录
 
-IMAGE_NAME = 
+IMAGE_NAME=pglbox:cuda11.0-cudnn8-v1.0
 
 nvidia-docker run -it --rm \
     --name ${name} \
