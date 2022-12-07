@@ -1,6 +1,4 @@
-#!/usr/bin/python
 #-*-encoding:utf-8-*-
-
 import sys
 import os
 import logging
@@ -14,9 +12,8 @@ from multiprocessing import Process
 
 logger = logging.getLogger('graph_sharding')
 logger.setLevel(logging.DEBUG)
-fmt = logging.Formatter(
-    '%(levelname)s: %(asctime)s %(process)d'
-    ' [%(filename)s:%(lineno)s][%(funcName)s] %(message)s')
+fmt = logging.Formatter('%(levelname)s: %(asctime)s %(process)d'
+                        ' [%(filename)s:%(lineno)s][%(funcName)s] %(message)s')
 debug_handler = logging.FileHandler('shard.log', 'a')
 debug_handler.setFormatter(fmt)
 debug_handler.setLevel(logging.DEBUG)
@@ -24,6 +21,7 @@ logger.addHandler(debug_handler)
 
 TEMP_FILE = ".tmp_sharding_file"
 CPU_NUM = multiprocessing.cpu_count()
+
 
 def mapper(args, input_file, lock_list, proc_index):
     """
@@ -39,10 +37,10 @@ def mapper(args, input_file, lock_list, proc_index):
         for line in reader:
             line = line.rstrip("\r\n")
             fields = line.split("\t")
-            if args.node_type_shard: # node type shard
+            if args.node_type_shard:  # node type shard
                 nid = int(fields[1])
                 cache[nid % args.part_num].append(line)
-            else: # edge shard
+            else:  # edge shard
                 src_nid = int(fields[0])
                 cache[src_nid % args.part_num].append(line)
 
@@ -56,7 +54,8 @@ def mapper(args, input_file, lock_list, proc_index):
     for i in range(proc_index, args.part_num + proc_index):
         index = i % args.part_num
         lock_list[index].acquire()
-        with open(os.path.join(args.output_dir, "part-%05d" % index), 'a+') as writer:
+        with open(os.path.join(args.output_dir, "part-%05d" % index),
+                  'a+') as writer:
             for item in cache[index]:
                 writer.write("%s\n" % item)
         lock_list[index].release()
@@ -65,10 +64,12 @@ def mapper(args, input_file, lock_list, proc_index):
     logger.debug('processed %s, read_time[%f] write_time[%f]' % (
         input_file, (read_time - start_time), (output_time - read_time)))
 
+
 class FileMapper(object):
     """
     FileMapper
     """
+
     def init(self, input_dir):
         """ Init """
         file_list = os.listdir(input_dir)
@@ -76,7 +77,7 @@ class FileMapper(object):
         for file in file_list:
             new_file_list.append(input_dir + '/' + file)
         file_list = new_file_list
-        
+
         with open(TEMP_FILE, 'w') as f:
             json.dump(file_list, f)
 
@@ -87,24 +88,25 @@ class FileMapper(object):
         os.system('rm -rf %s' % TEMP_FILE)
         sys.stdout.flush()
 
-    def excute_func(self, args, func, progress_file_lock, lock_list, proc_index):
+    def excute_func(self, args, func, progress_file_lock, lock_list,
+                    proc_index):
         """ Repeat download one file """
         while (1):
             progress_file_lock.acquire()
             file_list = []
-            
+
             with open(TEMP_FILE) as f:
                 file_list = json.load(f)
             if (len(file_list) == 0):
                 progress_file_lock.release()
                 break
-            
+
             input_file = file_list[0]
             del file_list[0]
             with open(TEMP_FILE, 'w') as f:
                 json.dump(file_list, f)
             progress_file_lock.release()
-            
+
             func(args, input_file, lock_list, proc_index)
 
     def run(self, args, func):
@@ -118,7 +120,9 @@ class FileMapper(object):
             lock_list.append(Lock())
         process_num = min(args.num_workers, file_num, CPU_NUM)
         for i in range(0, process_num):
-            p = Process(target=self.excute_func, args=(args, func, progress_file_lock, lock_list, i))
+            p = Process(
+                target=self.excute_func,
+                args=(args, func, progress_file_lock, lock_list, i))
             p.start()
             process_list.append(p)
 
@@ -126,6 +130,7 @@ class FileMapper(object):
             p.join()
         self.fini()
         logger.debug('end Run')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='graph_sharding')
