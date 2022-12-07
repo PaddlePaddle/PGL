@@ -56,6 +56,19 @@ TBD
 <img src="./../Graph4Rec/img/architecture.png" alt=“graph4rec” width="800">
 </h2>
 
+总体来讲，完成自定义的配置，需要完成**图数据准备**，**路径配置**，**采样配置**，**样本配置**，**GNN配置**。不同配置下，由于样本量和模型的计算复杂度不一样，耗时和效果差异也比较大，我们提供了一份在标准数据上，各个不同配置的耗时展示（TBD），以供参考。
+
+<details><summary>&emsp;图数据的准备</summary>
+</details>
+
+<details><summary>&emsp;路径配置</summary>
+</details>
+
+<details><summary>&emsp;采样配置</summary>
+</details>
+
+<details><summary>&emsp;GNN配置</summary>
+</details>
 
 ### 提供丰富场景化解决方案 
 
