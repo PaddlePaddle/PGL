@@ -11,152 +11,112 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-gnn layers
-"""
+
 import paddle
-import paddle.fluid as fluid
+import paddle.nn as nn
+import paddle.nn.functional as F
 import pgl
 
 
-def gin(graph, feature, next_num_nodes, hidden_size, act, name):
-    """doc"""
-    src, dst = graph.edges[:, 0], graph.edges[:, 1]
-    neigh_feature = paddle.geometric.send_u_recv(
-        feature, src, dst, pool_type="sum", out_size=next_num_nodes)
-    self_feature = feature[:next_num_nodes]
-    output = self_feature + neigh_feature
-    output = fluid.layers.fc(output,
-                             hidden_size,
-                             act=act,
-                             param_attr=fluid.ParamAttr(name=name + '_w'),
-                             bias_attr=fluid.ParamAttr(name=name + '_b'))
-    output = output + feature[:next_num_nodes]
-    return output
+class Gin(nn.Layer):
+    def __init__(self, hidden_size, act):
+        super(Gin, self).__init__()
+        self.lin = nn.Linear(hidden_size, hidden_size)
+        self.act = act
+
+    def forward(self, graph, x, next_num_nodes):
+        src, dst = graph.edges[:, 0], graph.edges[:, 1]
+        neigh_feature = paddle.geometric.send_u_recv(
+            x, src, dst, pool_type="sum", out_size=next_num_nodes)
+        self_feature = x[:next_num_nodes]
+        output = self_feature + neigh_feature
+        output = self.lin(output)
+        if self.act is not None:
+            output = getattr(F, self.act)(output)
+        output = output + self_feature
+        return output
 
 
-def graphsage_mean_efeat(graph, feature, edge_feat, next_num_nodes,
-                         hidden_size, act, name):
-    """ graphsage mean efeat (do not support efeat currently, don't run!!!) """
-    src, dst = graph.edges[:, 0], graph.edges[:, 1]
-    neigh_feature = paddle.geometric.send_ue_recv(
-        feature, edge_feat, src, dst, "mul", "sum", out_size=next_num_nodes)
-    self_feature = feature[:next_num_nodes]
-    output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
-    output = fluid.layers.fc(output,
-                             hidden_size,
-                             act=act,
-                             param_attr=fluid.ParamAttr(name=name + '_w'),
-                             bias_attr=fluid.ParamAttr(name=name + '_b'))
+class GraphSageMean(nn.Layer):
+    def __init__(self, hidden_size, act):
+        super(GraphSageMean, self).__init__()
+        self.lin = nn.Linear(2 * hidden_size, hidden_size)
+        self.act = act
 
-    output = fluid.layers.l2_normalize(output, axis=1)
-    return output
-
-
-def graphsage_mean(graph, feature, next_num_nodes, hidden_size, act, name):
-    """doc"""
-    src, dst = graph.edges[:, 0], graph.edges[:, 1]
-    neigh_feature = paddle.geometric.send_u_recv(
-        feature, src, dst, pool_type="mean", out_size=next_num_nodes)
-    self_feature = feature[:next_num_nodes]
-    output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
-    output = fluid.layers.fc(output,
-                             hidden_size,
-                             act=act,
-                             param_attr=fluid.ParamAttr(name=name + '_w'),
-                             bias_attr=fluid.ParamAttr(name=name + '_b'))
-    output = fluid.layers.l2_normalize(output, axis=1)
-    return output
+    def forward(self, graph, x, next_num_nodes):
+        src, dst = graph.edges[:, 0], graph.edges[:, 1]
+        neigh_feature = paddle.geometric.send_u_recv(
+            x, src, dst, pool_type="mean", out_size=next_num_nodes)
+        self_feature = x[:next_num_nodes]
+        output = paddle.concat([self_feature, neigh_feature], axis=1)
+        output = self.lin(output)
+        if self.act is not None:
+            output = getattr(F, self.act)(output)
+        output = F.normalize(output, axis=-1)
+        return output
 
 
-def graphsage_bow(graph, feature, next_num_nodes, hidden_size, act, name):
-    """doc"""
-    src, dst = graph.edges[:, 0], graph.edges[:, 1]
-    neigh_feature = paddle.geometric.send_u_recv(
-        feature, src, dst, pool_type="mean", out_size=next_num_nodes)
-    self_feature = feature[:next_num_nodes]
+class GraphSageBow(nn.Layer):
+    def __init__(self, hidden_size, act):
+        super(GraphSageBow, self).__init__()
 
-    output = self_feature + neigh_feature
-    output = fluid.layers.l2_normalize(output, axis=1)
-    return output
-
-
-def graphsage_meanpool(graph,
-                       feature,
-                       next_num_nodes,
-                       hidden_size,
-                       act,
-                       name,
-                       inner_hidden_size=512):
-    """doc"""
-    src, dst = graph.edges[:, 0], graph.edges[:, 1]
-    neigh_feature = fluid.layers.fc(feature, inner_hidden_size, act="relu")
-    neigh_feature = paddle.geometric.send_u_recv(
-        neigh_feature, src, dst, pool_type="mean", out_size=next_num_nodes)
-    neigh_feature = fluid.layers.fc(neigh_feature,
-                                    hidden_size,
-                                    act=act,
-                                    name=name + '_r')
-    self_feature = feature[:next_num_nodes]
-    self_feature = fluid.layers.fc(self_feature,
-                                   hidden_size,
-                                   act=act,
-                                   name=name + '_l')
-    output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
-    output = fluid.layers.l2_normalize(output, axis=1)
-    return output
+    def forward(self, graph, x, next_num_nodes):
+        src, dst = graph.edges[:, 0], graph.edges[:, 1]
+        neigh_feature = paddle.geometric.send_u_recv(
+            x, src, dst, pool_type="mean", out_size=next_num_nodes)
+        self_feature = x[:next_num_nodes]
+        output = self_feature + neigh_feature
+        output = F.normalize(output, axis=-1)
+        return output
 
 
-def graphsage_maxpool(graph,
-                      feature,
-                      next_num_nodes,
-                      hidden_size,
-                      act,
-                      name,
-                      inner_hidden_size=512):
-    """doc"""
-    src, dst = graph.edges[:, 0], graph.edges[:, 1]
-    neigh_feature = fluid.layers.fc(feature, inner_hidden_size, act="relu")
-    neigh_feature = paddle.geometric.send_u_recv(
-        neigh_feature, src, dst, pool_type="max", out_size=next_num_nodes)
-    neigh_feature = fluid.layers.fc(neigh_feature,
-                                    hidden_size,
-                                    act=act,
-                                    name=name + '_r')
-    self_feature = feature[:next_num_nodes]
-    self_feature = fluid.layers.fc(self_feature,
-                                   hidden_size,
-                                   act=act,
-                                   name=name + '_l')
-    output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
-    output = fluid.layers.l2_normalize(output, axis=1)
-    return output
+class GraphSageMax(nn.Layer):
+    def __init__(self, hidden_size, act):
+        super(GraphSageMax, self).__init__()
+        self.lin = nn.Linear(2 * hidden_size, hidden_size)
+        self.act = act
+
+    def forward(self, graph, x, next_num_nodes):
+        src, dst = graph.edges[:, 0], graph.edges[:, 1]
+        neigh_feature = paddle.geometric.send_u_recv(
+            x, src, dst, pool_type="max", out_size=next_num_nodes)
+        self_feature = x[:next_num_nodes]
+        output = paddle.concat([self_feature, neigh_feature], axis=1)
+        output = self.lin(output)
+        if self.act is not None:
+            output = getattr(F, self.act)(output)
+        output = F.normalize(output, axis=-1)
+        return output
 
 
-def gat(graph, feature, next_num_nodes, hidden_size, act, name):
-    """ gat """
-    neigh_feature = pgl.nn.GATConv(
-        input_size=feature.shape[1],
-        hidden_size=hidden_size,
-        num_heads=1,
-        feat_drop=0,
-        attn_drop=0,
-        activation="relu")(graph, feature)[:next_num_nodes]
-    self_feature = feature[:next_num_nodes]
-    output = fluid.layers.concat([self_feature, neigh_feature], axis=1)
-    output = fluid.layers.fc(output,
-                             hidden_size,
-                             act=act,
-                             param_attr=fluid.ParamAttr(name=name + '_self_w'),
-                             bias_attr=fluid.ParamAttr(name=name + '_self_b'))
-    return output
+class Gat(nn.Layer):
+    def __init__(self, hidden_size, act):
+        super(Gat, self).__init__()
+        self.gnn = pgl.nn.GATConv(
+            input_size=hidden_size,
+            hidden_size=hidden_size,
+            num_heads=1,
+            feat_drop=0,
+            attn_drop=0,
+            activation=act)
+        self.lin = nn.Linear(hidden_size * 2, hidden_size)
+        self.act = act
+
+    def forward(self, graph, x, next_num_nodes):
+        neigh_feature = self.gnn(graph, x)[:next_num_nodes]
+        self_feature = x[:next_num_nodes]
+        output = self.lin(paddle.concat([self_feature, neigh_feature], axis=1))
+        if self.act is not None:
+            output = getattr(F, self.act)(output)
+        return output
 
 
-def lightgcn(graph, feature, next_num_nodes, hidden_size, act, name):
-    """doc
-    Notes: currently do not support edge weight.
-    """
-    src, dst = graph.edges[:, 0], graph.edges[:, 1]
-    neigh_feature = paddle.geometric.send_u_recv(
-        feature, src, dst, pool_type="sum", out_size=next_num_nodes)
-    return neigh_feature
+class LightGcn(nn.Layer):
+    def __init__(self, hidden_size, act):
+        super(LightGcn, self).__init__()
+
+    def forward(self, graph, x, next_num_nodes):
+        src, dst = graph.edges[:, 0], graph.edges[:, 1]
+        neigh_feature = paddle.geometric.send_u_recv(
+            x, src, dst, pool_type="sum", out_size=next_num_nodes)
+        return neigh_feature

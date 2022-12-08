@@ -80,7 +80,6 @@ def remove_backword(program):
     for ids, op in list(enumerate(block.ops)):
         if op._is_backward_op():
             last_idx = ids
-            print(op.type + "  idx:" + str(ids))
             break
     last_idx -= 1  # remove fill_constant
     for ids, op in list(enumerate(block.ops)):
