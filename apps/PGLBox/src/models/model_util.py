@@ -21,7 +21,6 @@ from __future__ import unicode_literals
 
 import os
 import sys
-sys.path.append("../")
 import math
 import time
 import numpy as np
@@ -32,10 +31,6 @@ import paddle.fluid as F
 import paddle.fluid.layers as L
 import pgl
 from pgl.utils.logger import log
-
-from models import layers
-import util
-import helper
 
 
 def inner_add(value, var):
@@ -288,93 +283,6 @@ def get_sparse_embedding(config,
             slot_embedding_list.append(slot_embedding)
 
     return id_embedding, slot_embedding_list
-
-
-def get_layer(layer_type,
-              graph,
-              feature,
-              next_num_nodes,
-              hidden_size,
-              act,
-              name,
-              is_test=False):
-    """get_layer"""
-    return getattr(layers, layer_type)(graph, feature, next_num_nodes,
-                                       hidden_size, act, name)
-
-def gnn_layers(graph_holders, init_feature, hidden_size, layer_type, \
-    act, num_layers, etype_len, alpha_residual, interact_mode="sum"):
-    """ generate graphsage layers"""
-
-    # Pad 0 feature to deal with empty edges, otherwise will raise errors.
-    zeros_tensor1 = paddle.zeros([1, init_feature.shape[-1]])
-    zeros_tensor2 = paddle.zeros([1, 1], dtype="int64")
-    init_feature = paddle.concat([zeros_tensor1, init_feature])
-    feature = init_feature
-
-    for i in range(num_layers):
-        if i == num_layers - 1:
-            act = None
-        graph_holder = graph_holders[num_layers - i - 1]
-        num_nodes = graph_holder[0] + 1
-        next_num_nodes = graph_holder[1] + 1
-        edges_src = graph_holder[2] + 1
-        edges_dst = graph_holder[3] + 1
-        split_edges = paddle.cumsum(graph_holder[4])
-        nxt_fs = []
-        for j in range(etype_len):
-            start = paddle.zeros(
-                [1], dtype="int64") if j == 0 else split_edges[j - 1]
-            new_edges_src = paddle.concat(
-                [zeros_tensor2, edges_src[start:split_edges[j]]])
-            new_edges_dst = paddle.concat(
-                [zeros_tensor2, edges_dst[start:split_edges[j]]])
-            graph = pgl.Graph(
-                num_nodes=num_nodes,
-                edges=paddle.concat(
-                    [new_edges_src, new_edges_dst], axis=1))
-            nxt_f = get_layer(
-                layer_type,
-                graph,
-                feature,
-                next_num_nodes,
-                hidden_size,
-                act,
-                name="%s_%s_%s" % (layer_type, i, j))
-            nxt_fs.append(nxt_f)
-
-        feature = feature_interact_by_etype(
-            nxt_fs, interact_mode, hidden_size, name="%s_interat" % layer_type)
-        feature = init_feature[:next_num_nodes] * alpha_residual + feature * (
-            1 - alpha_residual)
-    return feature[1:]
-
-
-def feature_interact_by_etype(feature_list, interact_mode, hidden_size, name):
-    """ feature interact with etype """
-    if len(feature_list) == 1:
-        return feature_list[0]
-    elif interact_mode == "gatne":
-        # stack [num_nodes, num_etype, hidden_size]
-        U = L.stack(feature_list, axis=1)
-        #  [num_nodes * num_etype, hidden_size]
-        tmp = L.fc(L.reshape(
-            U, shape=[-1, hidden_size]),
-                   hidden_size,
-                   act="tanh",
-                   param_attr=F.ParamAttr(name=name + '_w1'),
-                   bias_attr=None)
-
-        #  [num_nodes * num_etype, 1]
-        tmp = L.fc(tmp, 1, act=None, param_attr=F.ParamAttr(name=name + '_w2'))
-        #  [num_nodes, num_etype]
-        tmp = L.reshape(tmp, shape=[-1, len(feature_list)])
-        #  [num_nodes, 1, num_etype]
-        a = L.unsqueeze(L.softmax(tmp, axis=-1), axes=1)
-        out = L.squeeze(L.matmul(a, U), axes=[1])
-        return out
-    else:
-        return L.sum(feature_list)
 
 
 def dump_embedding(config, nfeat, node_index):

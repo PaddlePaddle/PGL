@@ -38,6 +38,7 @@ import models.loss as Loss
 
 import util
 import helper
+from models.auto_heter_gnn import AutoHeterGNN
 
 
 class GNNModel(object):
@@ -50,6 +51,7 @@ class GNNModel(object):
         self.is_predict = is_predict
         self.neg_num = self.config.neg_num
         self.emb_size = self.config.emb_size
+        self.hidden_size = self.emb_size
         self._use_cvm = False
 
         self.holder_list = []
@@ -65,8 +67,17 @@ class GNNModel(object):
         if self.config.sage_mode:
             self.graph_holders, self.final_index, holder_list = \
                     model_util.build_graph_holder(self.config.samples)
+
             self.etype_len = self.get_etype_len()
             self.holder_list.extend(holder_list)
+            self.gnn_model = AutoHeterGNN(
+                hidden_size=self.hidden_size,
+                num_layers=len(self.config.samples),
+                layer_type=self.config.sage_layer_type,
+                etype_len=self.etype_len,
+                act=self.config.sage_act,
+                alpha_residual=self.config.sage_alpha,
+                interact_mode=self.config.sage_layer_type)
 
         self.total_gpups_slots = [int(self.config.nodeid_slot)] + \
                 [int(i) for i in self.config.slots]
@@ -92,17 +103,6 @@ class GNNModel(object):
             model_util.dump_embedding(config, predictions["src_nfeat"],
                                       node_index)
 
-        # calculate AUC
-        #  logits = predictions["logits"]
-        #  pos = L.sigmoid(logits[:, 0:1])
-        #  neg = L.sigmoid(logits[:, 1:2])
-        #  batch_auc_out, state_tuple = model_util.calc_auc(pos, neg)
-        #  batch_stat_pos, batch_stat_neg, stat_pos, stat_neg = state_tuple
-        #  self.stat_pos = stat_pos
-        #  self.stat_neg = stat_neg
-        #  self.batch_stat_pos = batch_stat_pos
-        #  self.batch_stat_neg = batch_stat_neg
-
     def get_etype_len(self):
         """ get length of etype list """
         etype2files = helper.parse_files(self.config.etype2files)
@@ -123,7 +123,7 @@ class GNNModel(object):
         feature = L.sum([id_embedding] + slot_embedding_list)
         if self.config.softsign:
             log.info("using softsign in feature_mode (sum)")
-            feature = L.softsign(feature)
+            feature = paddle.nn.functional.softsign(feature)
 
         if self.config.sage_mode:
             if self.config.hcl:
@@ -134,31 +134,22 @@ class GNNModel(object):
                 layer_type = "lightgcn"
             else:
                 layer_type = self.config.sage_layer_type
-            feature = model_util.gnn_layers(
-                self.graph_holders,
-                feature,
-                self.emb_size,
-                layer_type=layer_type,
-                act=self.config.sage_act,
-                num_layers=len(self.config.samples),
-                etype_len=self.etype_len,
-                alpha_residual=self.config.sage_alpha,
-                interact_mode=self.config.sage_layer_type)
-            feature = L.gather(feature, self.final_index, overwrite=False)
+            feature = self.gnn_model(self.graph_holders, feature)
+            feature = paddle.gather(feature, self.final_index)
 
-        feature = L.reshape(feature, shape=[-1, 2, self.emb_size])
+        feature = paddle.reshape(feature, shape=[-1, 2, self.emb_size])
 
         src_feat = feature[:, 0:1, :]
         dsts_feat_all = [feature[:, 1:, :]]
         for neg in range(self.neg_num):
             dsts_feat_all.append(
                 F.contrib.layers.shuffle_batch(dsts_feat_all[0]))
-        dsts_feat = L.concat(dsts_feat_all, axis=1)
+        dsts_feat = paddle.concat(dsts_feat_all, axis=1)
 
-        logits = L.matmul(
+        logits = paddle.matmul(
             src_feat, dsts_feat,
             transpose_y=True)  # [batch_size, 1, neg_num+1]
-        logits = L.squeeze(logits, axes=[1])
+        logits = paddle.squeeze(logits, axis=[1])
 
         predictions = {}
         predictions["logits"] = logits  # [B, neg_num + 1]
