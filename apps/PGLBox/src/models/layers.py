@@ -20,11 +20,11 @@ import paddle.nn.functional as F
 import pgl
 
 
-class Gin(nn.Layer):
-    """Gin"""
+class GIN(nn.Layer):
+    """GIN"""
 
     def __init__(self, hidden_size, act):
-        super(Gin, self).__init__()
+        super(GIN, self).__init__()
         self.lin = nn.Linear(hidden_size, hidden_size)
         self.act = act
 
@@ -41,11 +41,11 @@ class Gin(nn.Layer):
         return output
 
 
-class GraphSageMean(nn.Layer):
-    """GraphSageMean"""
+class GraphSAGEMean(nn.Layer):
+    """GraphSAGEMean"""
 
     def __init__(self, hidden_size, act):
-        super(GraphSageMean, self).__init__()
+        super(GraphSAGEMean, self).__init__()
         self.lin = nn.Linear(2 * hidden_size, hidden_size)
         self.act = act
 
@@ -62,11 +62,11 @@ class GraphSageMean(nn.Layer):
         return output
 
 
-class GraphSageBow(nn.Layer):
-    """GraphSageBow"""
+class GraphSAGEBow(nn.Layer):
+    """GraphSAGEBow"""
 
     def __init__(self, hidden_size, act):
-        super(GraphSageBow, self).__init__()
+        super(GraphSAGEBow, self).__init__()
 
     def forward(self, graph, x, next_num_nodes):
         src, dst = graph.edges[:, 0], graph.edges[:, 1]
@@ -78,11 +78,11 @@ class GraphSageBow(nn.Layer):
         return output
 
 
-class GraphSageMax(nn.Layer):
-    """GraphSageMax"""
+class GraphSAGEMax(nn.Layer):
+    """GraphSAGEMax"""
 
     def __init__(self, hidden_size, act):
-        super(GraphSageMax, self).__init__()
+        super(GraphSAGEMax, self).__init__()
         self.lin = nn.Linear(2 * hidden_size, hidden_size)
         self.act = act
 
@@ -99,11 +99,11 @@ class GraphSageMax(nn.Layer):
         return output
 
 
-class Gat(nn.Layer):
-    """Gat"""
+class GAT(nn.Layer):
+    """GAT"""
 
     def __init__(self, hidden_size, act):
-        super(Gat, self).__init__()
+        super(GAT, self).__init__()
         self.gnn = pgl.nn.GATConv(
             input_size=hidden_size,
             hidden_size=hidden_size,
@@ -123,11 +123,11 @@ class Gat(nn.Layer):
         return output
 
 
-class LightGcn(nn.Layer):
-    """LightGcn"""
+class LightGCN(nn.Layer):
+    """LightGCN"""
 
     def __init__(self, hidden_size, act):
-        super(LightGcn, self).__init__()
+        super(LightGCN, self).__init__()
 
     def forward(self, graph, x, next_num_nodes):
         src, dst = graph.edges[:, 0], graph.edges[:, 1]
