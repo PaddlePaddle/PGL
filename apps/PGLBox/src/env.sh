@@ -1,5 +1,6 @@
 #!/bin/bash
 # environment variables for fleet distribute training
+export GLOG_v=-1
 export FLAGS_LAUNCH_BARRIER=0
 export PADDLE_TRAINERS=1
 export PADDLE_TRAINERS_NUM=${PADDLE_TRAINERS}
@@ -9,7 +10,7 @@ export PADDLE_PSERVER_PORT_ARRAY=(29011)
 export PADDLE_TRAINER_ID=0
 
 
-export LD_PRELOAD=/root/pglbox/dependency/libjemalloc.so
+export LD_PRELOAD=/pglbox_dependency/libjemalloc.so
 
 # paddle
 export FLAGS_call_stack_level=2
