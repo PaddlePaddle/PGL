@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Implemented all gnn layers
+"""
 
 import paddle
 import paddle.nn as nn
@@ -19,6 +21,8 @@ import pgl
 
 
 class Gin(nn.Layer):
+    """Gin"""
+
     def __init__(self, hidden_size, act):
         super(Gin, self).__init__()
         self.lin = nn.Linear(hidden_size, hidden_size)
@@ -38,6 +42,8 @@ class Gin(nn.Layer):
 
 
 class GraphSageMean(nn.Layer):
+    """GraphSageMean"""
+
     def __init__(self, hidden_size, act):
         super(GraphSageMean, self).__init__()
         self.lin = nn.Linear(2 * hidden_size, hidden_size)
@@ -57,6 +63,8 @@ class GraphSageMean(nn.Layer):
 
 
 class GraphSageBow(nn.Layer):
+    """GraphSageBow"""
+
     def __init__(self, hidden_size, act):
         super(GraphSageBow, self).__init__()
 
@@ -71,6 +79,8 @@ class GraphSageBow(nn.Layer):
 
 
 class GraphSageMax(nn.Layer):
+    """GraphSageMax"""
+
     def __init__(self, hidden_size, act):
         super(GraphSageMax, self).__init__()
         self.lin = nn.Linear(2 * hidden_size, hidden_size)
@@ -90,6 +100,8 @@ class GraphSageMax(nn.Layer):
 
 
 class Gat(nn.Layer):
+    """Gat"""
+
     def __init__(self, hidden_size, act):
         super(Gat, self).__init__()
         self.gnn = pgl.nn.GATConv(
@@ -112,6 +124,8 @@ class Gat(nn.Layer):
 
 
 class LightGcn(nn.Layer):
+    """LightGcn"""
+
     def __init__(self, hidden_size, act):
         super(LightGcn, self).__init__()
 

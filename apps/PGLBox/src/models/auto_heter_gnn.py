@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Implement a module that helps automactically generate heterogenous GNN
+"""
 
 import paddle
 import paddle.nn as nn
@@ -22,6 +24,9 @@ import pgl
 
 
 class FeatureInteraction(nn.Layer):
+    """ FeatureInteraction helps you to intergate features between relation
+    """
+
     def __init__(self, interact_mode, hidden_size, etype_len):
         super(FeatureInteraction, self).__init__()
         self.interact_mode = interact_mode
@@ -46,6 +51,8 @@ class FeatureInteraction(nn.Layer):
 
 
 class AutoHeterGNN(nn.Layer):
+    """AutoHeterGNN"""
+
     def __init__(self,
                  hidden_size,
                  layer_type,
