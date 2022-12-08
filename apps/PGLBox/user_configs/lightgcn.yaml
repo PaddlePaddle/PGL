@@ -77,7 +77,7 @@ gcl_loss: simgcl_loss
 # sage 模型设置开关
 sage_mode: True
 # sage_layer_type: sage 模型类型选择
-sage_layer_type: "lightgcn"
+sage_layer_type: "LightGCN"
 sage_alpha: 0.9
 samples: [5]
 infer_samples: [100]
