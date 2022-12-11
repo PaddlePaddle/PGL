@@ -1,7 +1,7 @@
 #!/bin/bash
 SOURCE_HOME=$(readlink -f $(dirname ${BASH_SOURCE[0]}) )/
 
-LOG_DIR=${SOURCE_HOME}/train_logs
+LOG_DIR=${SOURCE_HOME}/logs
 [ ! -d ${LOG_DIR} ] && mkdir -p ${LOG_DIR}
 
 config_file=$1
