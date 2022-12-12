@@ -9,5 +9,5 @@ cp ${config_file} ${SOURCE_HOME}/src/config.yaml
 
 pushd ${SOURCE_HOME}/src
 source ./env.sh
-python cluster_train_and_infer.py 2>&1 | tee ${LOG_DIR}/run.log
+python -u cluster_train_and_infer.py 2>&1 | tee ${LOG_DIR}/run.log
 popd 
