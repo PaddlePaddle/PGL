@@ -37,7 +37,7 @@ import paddle.distributed.fleet as fleet
 #from paddle.fluid.incubate.fleet.base.role_maker import GeneralRoleMaker
 from pgl.utils.logger import log
 
-import util_hadoop
+import hadoop as HFS
 
 
 def get_global_value(value_sum, value_cnt):
@@ -106,10 +106,10 @@ def load_pretrained_model(exe, model_dict, args, model_path):
 
         else:  # load from hadoop path
             mode, model_path = parse_path(model_path)
-            model_path = util_hadoop.check_hdfs_path(model_path)
+            model_path = HFS.check_hadoop_path(model_path)
             sparse_params_path = os.path.join(model_path, "000")
 
-            if util_hadoop.hdfs_exists(sparse_params_path):
+            if HFS.exists(sparse_params_path):
                 log.info("[WARM] load sparse model from %s" %
                          sparse_params_path)
                 fleet.load_model(model_path, mode=0)
@@ -120,8 +120,8 @@ def load_pretrained_model(exe, model_dict, args, model_path):
                          sparse_params_path)
 
             hadoop_dense_params_path = os.path.join(model_path, "dense_vars")
-            if util_hadoop.hdfs_exists(hadoop_dense_params_path):
-                util_hadoop.hdfs_download(hadoop_dense_params_path, "./")
+            if HFS.exists(hadoop_dense_params_path):
+                HFS.get(hadoop_dense_params_path, "./")
             dense_params_path = "./dense_vars"
 
         # load dense vars
@@ -156,8 +156,8 @@ def save_pretrained_model(exe, save_path, mode="hdfs"):
     """save pretrained model"""
     if fleet.is_first_worker():
         if mode == "hdfs":
-            save_path = util_hadoop.check_hdfs_path(save_path)
-            util_hadoop.hdfs_rm(save_path)
+            save_path = HFS.check_hadoop_path(save_path)
+            HFS.rm(save_path)
 
         fleet.save_persistables(exe, save_path)
 
@@ -211,7 +211,7 @@ def save_model(exe, model_dict, args, local_model_path, model_save_path):
     # local_var_save_path is not existed if no variable in model
     if os.path.exists(local_var_save_path):
         if mode == "hdfs" or mode == "afs":
-            util_hadoop.hdfs_upload(local_var_save_path, model_save_path)
+            HFS.put(local_var_save_path, model_save_path)
         else:
             run_cmd("mv %s %s" % (local_var_save_path, model_save_path))
 
@@ -220,19 +220,19 @@ def upload_embedding(args, local_embed_path):
     mode, infer_result_path = parse_path(args.infer_result_path)
     _, working_root = parse_path(args.working_root)
     if mode == "hdfs":
-        util_hadoop.hdfs_rm(infer_result_path)
-        util_hadoop.hdfs_mkdir(infer_result_path)
+        HFS.rm(infer_result_path)
+        HFS.mkdir(infer_result_path)
 
         log.info("being to upload embedding to: %s " % infer_result_path)
         for file in glob.glob(os.path.join(local_embed_path, "*")):
             basename = os.path.basename(file)
-            util_hadoop.hdfs_upload(file, infer_result_path)
+            HFS.put(file, infer_result_path)
         log.info("[hadoop put] embedding has been upload to: %s " %
                  infer_result_path)
 
     elif mode == "afs":
         log.info("being to upload embedding to: %s " % infer_result_path)
-        #  util_hadoop.hdfs_rm(infer_result_path)
+        #  HFS.rm(infer_result_path)
         user, passwd = args.fs_ugi.split(',')
         gzshell_upload(args.fs_name, user, passwd, local_embed_path,
                        "afs:%s" % working_root)
@@ -249,8 +249,7 @@ def hadoop_touch_done(path):
     if fleet.worker_index() == 0:
         with open("to.hadoop.done", 'w') as f:
             f.write("infer done\n")
-        util_hadoop.hdfs_upload("to.hadoop.done",
-                                os.path.join(path, "to.hadoop.done"))
+        HFS.put("to.hadoop.done", os.path.join(path, "to.hadoop.done"))
 
 
 def print_useful_info():

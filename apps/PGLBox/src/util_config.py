@@ -77,6 +77,15 @@ class AttrDict(dict):
         return super(AttrDict, self).pop(k, d)
 
 
+def pretty(d, indent=0):
+    for key, value in d.items():
+        if isinstance(value, dict):
+            print('    ' * indent + "%s:" % str(key))
+            pretty(value, indent + 1)
+        else:
+            print('    ' * indent + "%s: %s" % (str(key), repr(value)))
+
+
 def get_last_dir(path):
     """Get the last directory of a path.
     """

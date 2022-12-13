@@ -21,6 +21,7 @@ import os
 import sys
 import time
 import glob
+import yaml
 import shutil
 import argparse
 import traceback
@@ -42,7 +43,7 @@ from embedding import DistEmbedding
 from graph import DistGraph
 from dataset import UnsupReprLearningDataset, InferDataset
 from distributed_program import make_distributed_train_program, make_distributed_infer_program
-from util_config import prepare_config
+from util_config import prepare_config, pretty
 
 
 def train(args, exe, model_dict, dataset):
@@ -226,11 +227,17 @@ def main(args):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='PGLBox')
+    parser.add_argument("--config", type=str, default="./config.yaml")
+    args = parser.parse_args()
+
     util.print_useful_info()
-    config = prepare_config("config.yaml")
+    config = prepare_config(args.config)
     config.local_model_path = "./model"
     config.local_result_path = "./embedding"
     config.model_save_path = os.path.join(config.working_root, "model")
     config.infer_result_path = os.path.join(config.working_root, 'embedding')
-    print(config)
+    print("#===================PRETTY CONFIG============================#")
+    pretty(config, indent=0)
+    print("#===================PRETTY CONFIG============================#")
     main(config)
