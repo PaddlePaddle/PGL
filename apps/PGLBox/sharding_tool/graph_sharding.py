@@ -25,14 +25,16 @@ import multiprocessing
 from multiprocessing import Lock
 from multiprocessing import Process
 
+LOG_FILE = "shard.log"
 logger = logging.getLogger('graph_sharding')
 logger.setLevel(logging.DEBUG)
 fmt = logging.Formatter('%(levelname)s: %(asctime)s %(process)d'
                         ' [%(filename)s:%(lineno)s][%(funcName)s] %(message)s')
-debug_handler = logging.FileHandler('shard.log', 'a')
+debug_handler = logging.FileHandler(LOG_FILE, 'a')
 debug_handler.setFormatter(fmt)
 debug_handler.setLevel(logging.DEBUG)
 logger.addHandler(debug_handler)
+print("the sharding log will be saved in %s" % LOG_FILE)
 
 TEMP_FILE = ".tmp_sharding_file"
 CPU_NUM = multiprocessing.cpu_count()

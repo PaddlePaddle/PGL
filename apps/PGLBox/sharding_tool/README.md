@@ -23,6 +23,10 @@ PGLBox在加载图数据的时候，如果没有提前对数据进行分片切�
 
 * base_output_dir: 分片后的数据保存目录
 
+* node_type_list: 节点文件最后一级目录，一般node_type_list 只有一个目录，不同类型节点可以混合在一起。
+
+* edge_type_list: 边类型文件最后一级目录，根据自己的边类型的数据进行增减。
+
 
 ### 举例说明
 
@@ -48,30 +52,17 @@ PGLBox在加载图数据的时候，如果没有提前对数据进行分片切�
     |--author2inst/
 ```
 
-那么, 我们在`run_sharding.sh`脚本中，则需要设置如下命令：
+则我们在`./run_sharding.sh`文件中修改上述几个配置为：
 
 ```
-
 part_num=1000
 base_input_dir="/your/path/to/graph_data"
 base_output_dir="/your/path/to/preprocessed_graph_data"
 
-# sharding node_types
-python graph_sharding.py --input_dir ${base_input_dir}/node_types \
-                         --output_dir ${base_output_dir}/node_types \
-                         --part_num ${part_num} \
-                         --node_type_shard
-
-for etype in author2paper paper2paper author2inst; do
-    python graph_sharding.py --input_dir ${base_input_dir}/${etype} \
-                             --output_dir ${base_output_dir}/${etype} \
-                             --part_num ${part_num} \
-                             --symmetry
-done
-
+node_type_list=(node_types)
+edge_type_list=(author2paper paper2paper author2inst)
 ```
 
-如果有更多的边类型，则以此类推在for循环中增加即可。
 
 ### 运行
 
