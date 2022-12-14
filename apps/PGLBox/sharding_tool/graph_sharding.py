@@ -1,4 +1,19 @@
-#-*-encoding:utf-8-*-
+# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Graph Sharding for PGLBox
+"""
+
 import sys
 import os
 import logging
@@ -10,14 +25,16 @@ import multiprocessing
 from multiprocessing import Lock
 from multiprocessing import Process
 
+LOG_FILE = "shard.log"
 logger = logging.getLogger('graph_sharding')
 logger.setLevel(logging.DEBUG)
 fmt = logging.Formatter('%(levelname)s: %(asctime)s %(process)d'
                         ' [%(filename)s:%(lineno)s][%(funcName)s] %(message)s')
-debug_handler = logging.FileHandler('shard.log', 'a')
+debug_handler = logging.FileHandler(LOG_FILE, 'a')
 debug_handler.setFormatter(fmt)
 debug_handler.setLevel(logging.DEBUG)
 logger.addHandler(debug_handler)
+print("the sharding log will be saved in %s" % LOG_FILE)
 
 TEMP_FILE = ".tmp_sharding_file"
 CPU_NUM = multiprocessing.cpu_count()
