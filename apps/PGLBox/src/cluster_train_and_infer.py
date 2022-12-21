@@ -62,10 +62,11 @@ def train(args, exe, model_dict, dataset):
             break
 
         epoch_loss = 0
-        for chunk_dataset in dataset.chunk_generator():
+        train_pass_num = 0
+        for pass_dataset in dataset.pass_generator():
             train_begin = time.time()
             exe.train_from_dataset(
-                model_dict.train_program, chunk_dataset, debug=False)
+                model_dict.train_program, pass_dataset, debug=False)
 
             train_end = time.time()
             log.info("STAGE [SAMPLE AND TRAIN] for epoch [%d] finished, time cost: %f sec" \
@@ -74,8 +75,10 @@ def train(args, exe, model_dict, dataset):
             t_loss = util.get_global_value(model_dict.visualize_loss,
                                            model_dict.batch_count)
             epoch_loss += t_loss
+            train_pass_num += 1
 
-        epoch_loss = epoch_loss / args.chunk_num
+        if train_pass_num > 0:
+            epoch_loss = epoch_loss / train_pass_num
         fleet.barrier_worker()
         time_msg = "%s\n" % datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         train_msg += time_msg
@@ -110,9 +113,9 @@ def train(args, exe, model_dict, dataset):
 def infer(args, exe, infer_model_dict, dataset):
     infer_begin = time.time()
 
-    for chunk_dataset in dataset.chunk_generator():
+    for pass_dataset in dataset.pass_generator():
         exe.train_from_dataset(
-            infer_model_dict.train_program, chunk_dataset, debug=False)
+            infer_model_dict.train_program, pass_dataset, debug=False)
     util.upload_embedding(args, args.local_result_path)
     infer_end = time.time()
     log.info("STAGE [INFER MODEL] finished, time cost: % sec" %

@@ -31,6 +31,8 @@ class DistEmbedding(object):
 
     def __init__(self, slots, embedding_size, slot_num_for_pull_feature):
         self.parameter_server = core.PSGPU()
+        self.parameter_server.set_slot_num_for_pull_feature(
+            slot_num_for_pull_feature)
         self.parameter_server.set_slot_vector(slots)
         self.parameter_server.init_gpu_ps(get_cuda_places())
         self.parameter_server.set_slot_dim_vector([embedding_size] *

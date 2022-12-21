@@ -24,7 +24,7 @@ class BaseDataset(object):
             if hasattr(self.embedding, "set_mode"):
                 self.embedding.set_mode(True)
 
-    def generate_dataset(self, config, chunk_index):
+    def generate_dataset(self, config, chunk_index, pass_num):
         sage_mode = config.sage_mode if config.sage_mode else False
         fs_name = config.fs_name if config.fs_name is not None else ""
         fs_ugi = config.fs_ugi if config.fs_ugi is not None else ""
@@ -76,6 +76,11 @@ class BaseDataset(object):
             "gpu_graph_training": not self.is_predict,
             "sage_mode": sage_mode,
             "samples": str_samples,
+            "train_table_cap": train_pass_cap,
+            "infer_table_cap": infer_pass_cap,
+            "excluded_train_pair": excluded_train_pair,
+            "infer_node_type": infer_node_type,
+            "get_degree": get_degree
         }
 
         first_node_type = util.get_first_node_type(config.meta_path)
@@ -98,11 +103,12 @@ class BaseDataset(object):
         dataset._set_use_ps_gpu(self.embedding.parameter_server)
         file_list = self.get_file_list(chunk_index) 
         dataset.set_filelist(file_list)
+        dataset.set_pass_id(pass_num)
         with open("datafeed.pbtxt", "w") as fout:
             fout.write(dataset.desc())
         return dataset
 
-    def chunk_generator(self):
+    def pass_generator(self):
         raise NotImplementedError
 
     def get_file_list(self, chunk_index):
@@ -133,29 +139,45 @@ class BaseDataset(object):
     def preload_thread_func(self, dataset_list):
         """ Generate pass dataset asynchronously
         """
-        for chunk_index in range(self.chunk_num):
+        global pass_id
+        pass_id = 0
+        while 1:
             dataset = None
             self.could_load_sem.acquire()
             if dataset is not None:
-                begin = time.time()
                 dataset.wait_preload_done()
-                end = time.time()
-                log.info("wait data preload done cost %s min" % ((end - begin) / 60.0))
 
             if dataset is None:
-                index = fleet.worker_index() * self.chunk_num + chunk_index
-                global_chunk_num = fleet.worker_num() * self.chunk_num
-                dataset = self.generate_dataset(self.config, index)
-                log.info("going to load into memory")
-
+                index = fleet.worker_index() * self.config.chunk_num
+                global_chunk_num = fleet.worker_num() * self.config.chunk_num
+                dataset = self.generate_dataset(self.config, index, pass_id)
                 begin = time.time()
                 dataset.load_into_memory(is_shuffle=False)
                 end = time.time()
-                log.info("load into memory + shuffle done, cost %s min" % ((end - begin) / 60.0))
-                log.info("get_memory_data_size: %d" % (dataset.get_memory_data_size()))
+                log.info("pass[%d] STAGE [SAMPLE] finished, time cost: %f sec", pass_id, end - begin)
+
                 dataset_list.append(dataset)
+                pass_id = pass_id + 1
                 self.ins_ready_sem.release()
-        log.info("thread finished, exit")
+
+                # Only training has epoch finish == True.
+                if not self.is_predict:
+                    epoch_finish = dataset.get_epoch_finish()
+                    if epoch_finish:
+                        log.info("epoch_finish == true, break")
+                        self.ins_ready_sem.release()
+                        break
+                    if self.config.max_steps > 0 and model_util.print_count >= self.config.max_steps:
+                        log.info("reach max_steps, dataset generator break")
+                        self.ins_ready_sem.release()
+                        break
+                else:
+                    data_size = dataset.get_memory_data_size()
+                    if data_size == 0:
+                        log.info("infer memory data_size == 0, break")
+                        self.ins_ready_sem.release()
+                        break
+        log.info("thread finished, pass id: %d, exit" % pass_id)
 
 
 class UnsupReprLearningDataset(BaseDataset):
@@ -170,38 +192,57 @@ class UnsupReprLearningDataset(BaseDataset):
                       graph=graph,
                       is_predict=False)
     
-    def chunk_generator(self):
+    def pass_generator(self):
         # open a thread for processing the data
         dataset_list = []
         t = threading.Thread(target=self.preload_thread, args=(dataset_list, ))
         t.setDaemon(True)
         t.start()
 
-        for chunk_index in range(self.chunk_num):
-            index = fleet.worker_index() * self.chunk_num + chunk_index
-            global_chunk_num = fleet.worker_num() * self.chunk_num
+        pass_id = 0
+        while 1:
             self.ins_ready_sem.acquire()
-            dataset = dataset_list[chunk_index]
 
+            if len(dataset_list) == 0:
+                log.info("pass[%d] dataset_list is empty" % pass_id)
+                self.could_load_sem.release()
+                break
+
+            dataset = dataset_list.pop(0)
             if dataset is None:
+                log.info("pass[%d] dataset is null" % pass_id)
+                self.could_load_sem.release()
+                continue
+
+            data_size = dataset.get_memory_data_size()
+            if data_size == 0:
+                log.info("pass[%d], dataset size is 0" % pass_id)
+                self.could_load_sem.release()
+                continue
+
+            if self.config.max_steps > 0 and model_util.print_count >= self.config.max_steps:
+                dataset.release_memory()
                 self.could_load_sem.release()
                 continue
 
             beginpass_begin = time.time()
             self.embedding.begin_pass()
             beginpass_end = time.time()
-            log.info("STAGE [BEGIN PASS] finished, time cost: %f sec" \
-                    % (beginpass_end - beginpass_begin))
+            log.info("pass[%d] STAGE [BEGIN PASS] finished, time cost: %f sec" \
+                    % (pass_id, beginpass_end - beginpass_begin))
 
             yield dataset
+
+            dataset.release_memory()
             endpass_begin = time.time()
             self.embedding.end_pass()
             endpass_end = time.time()
-            log.info("STAGE [END PASS] finished, time cost: %f sec" \
-                    % (endpass_end - endpass_begin))
+            log.info("pass[%d] STAGE [END PASS] finished, time cost: %f sec" \
+                    % (pass_id, endpass_end - endpass_begin))
 
-            dataset.release_memory()
             self.could_load_sem.release()
+            pass_id = pass_id + 1
+
         t.join()
 
 
@@ -216,7 +257,7 @@ class InferDataset(BaseDataset):
                       graph=graph,
                       is_predict=True)
 
-    def chunk_generator(self):
+    def pass_generator(self):
         # open a thread for processing the data
         dataset_list = []
         t = threading.Thread(target=self.preload_thread, args=(dataset_list, ))
