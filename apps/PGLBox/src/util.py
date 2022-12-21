@@ -211,7 +211,7 @@ def save_model(exe, model_dict, args, local_model_path, model_save_path):
                        "afs:%s" % working_root)
         log.info("model has been saved, model_path: %s" % model_save_path)
     else:
-        save_pretrained_model(exe, local_model_path, mode="local")
+        save_pretrained_model(exe, local_model_path, args, mode="local")
         run_cmd("rm -rf %s && mkdir -p %s && mv %s %s" % \
                     (working_root, working_root, local_model_path, working_root))
         log.info("model has been saved in local path: %s" % working_root)

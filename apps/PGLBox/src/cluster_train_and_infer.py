@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Training Script for PGLBox
+"""Training and Infer Script for PGLBox
 """
 
 import paddle
@@ -30,13 +30,16 @@ import numpy as np
 import helper
 from datetime import datetime
 
+import paddle
 import paddle.fluid as fluid
+import paddle.static as static
 from place import get_cuda_places
 from pgl.utils.logger import log
 from datetime import datetime
 from config_fleet import get_strategy
 import util
 import models as M
+import models.model_util as model_util
 
 from paddle.distributed import fleet
 from embedding import DistEmbedding
@@ -50,7 +53,14 @@ def train(args, exe, model_dict, dataset):
     """ training """
     train_msg = ""
 
+    train_begin_time = time.time()
     for epoch in range(1, args.epochs + 1):
+        # Used for erniesage.
+        if args.max_steps > 0 and model_util.print_count >= args.max_steps:
+            log.info("training reach max_steps: %d, training end" %
+                     args.max_steps)
+            break
+
         epoch_loss = 0
         for chunk_dataset in dataset.chunk_generator():
             train_begin = time.time()
@@ -92,6 +102,10 @@ def train(args, exe, model_dict, dataset):
         log.info("STAGE [SAVE MODEL] for epoch [%d] finished, time cost: %f sec" \
             % (epoch, savemodel_end - savemodel_begin))
 
+    train_end_time = time.time()
+    log.info("STAGE [TRAIN MODEL] finished, time cost: % sec" %
+             (train_end_time - train_begin_time))
+
 
 def infer(args, exe, infer_model_dict, dataset):
     infer_begin = time.time()
@@ -117,20 +131,32 @@ def run_worker(args, exe, model_dict, infer_model_dict):
 
     log.info("gpu ps slot names: %s" % repr(model_dict.total_gpups_slots))
 
+    slot_num_for_pull_feature = 1 if args.token_slot else 0
+    slot_num_for_pull_feature += len(args.slots)
     embedding = DistEmbedding(
-        slots=model_dict.total_gpups_slots, embedding_size=args.emb_size)
+        slots=model_dict.total_gpups_slots,
+        embedding_size=args.emb_size,
+        slot_num_for_pull_feature=slot_num_for_pull_feature)
 
-    graph = DistGraph(
+    dist_graph = DistGraph(
         root_dir=args.graph_data_local_path,
         node_types=args.ntype2files,
         edge_types=args.etype2files,
         symmetry=args.symmetry,
         slots=args.slots,
-        num_parts=args.num_part)
+        token_slot=args.token_slot,
+        slot_num_for_pull_feature=slot_num_for_pull_feature,
+        num_parts=args.num_part,
+        metapath_split_opt=args.metapath_split_opt)
 
-    graph.load_graph_into_cpu()
+    dist_graph.load_edge()
 
-    graph.load_graph_into_gpu()
+    ret = dist_graph.load_node()
+    if ret is not 0:
+        embedding.finalize()
+        dist_graph.graph.release_graph_node()
+        dist_graph.graph.finalize()
+        return -1
 
     if args.warm_start_from:
         log.info("warmup start from %s" % args.warm_start_from)
@@ -139,6 +165,12 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         load_model_end = time.time()
         log.info("STAGE [LOAD MODEL] finished, time cost: %f sec" \
             % (load_model_end - load_model_begin))
+    elif args.pretrained_model:
+        # if sparse table is null, then only load dense pretrained_model from dependency
+        dependency_path = os.getenv("DEPENDENCY_HOME") # see env_run/scripts/train.sh for details
+        dense_path = os.path.join(dependency_path, args.pretrained_model)
+        log.info("only load dense parameters from: %s" % dense_path)
+        paddle.static.set_program_state(model_dict.train_program, model_dict.state_dict)
 
     fleet.barrier_worker()
 
@@ -147,14 +179,14 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         dataset_config=args,
         holder_list=model_dict.holder_list,
         embedding=embedding,
-        graph=graph)
+        graph=dist_graph)
 
     infer_dataset = InferDataset(
         args.chunk_num,
         dataset_config=args,
         holder_list=model_dict.holder_list,
         embedding=embedding,
-        graph=graph)
+        graph=dist_graph)
 
     if args.need_train:
         train(args, exe, model_dict, train_dataset)
@@ -169,37 +201,42 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         log.info("STAGE: need_inference is %s, skip inference process" %
                  args.need_inference)
 
+    return 0
+
 
 def main(args):
     """main"""
     device_ids = get_cuda_places()
-    place = fluid.CUDAPlace(device_ids[0])
-    exe = fluid.Executor(place)
-    fleet.init()
+    place = paddle.CUDAPlace(device_ids[0])
+    exe = static.Executor(place)
+    if paddle.distributed.get_world_size() > 1:
+        fleet.init(is_collective=True)
+    else:
+        fleet.init()
     need_inference = args.need_inference
     infer_model_dict = None
-    startup_program = fluid.Program()
-    train_program = fluid.Program()
+    startup_program = static.Program()
+    train_program = static.Program()
 
-    with fluid.program_guard(train_program, startup_program):
-        with fluid.unique_name.guard():
+    with static.program_guard(train_program, startup_program):
+        with paddle.utils.unique_name.guard():
             model_dict = getattr(M, args.model_type)(config=args)
 
     model_dict.startup_program = startup_program
     model_dict.train_program = train_program
 
-    adam = fluid.optimizer.Adam(learning_rate=args.dense_lr)
+    adam = paddle.optimizer.Adam(learning_rate=args.dense_lr)
     optimizer = fleet.distributed_optimizer(
         adam, strategy=get_strategy(args, model_dict))
     optimizer.minimize(model_dict.loss, model_dict.startup_program)
     make_distributed_train_program(args, model_dict)
 
     if need_inference:
-        infer_startup_program = fluid.Program()
-        infer_train_program = fluid.Program()
+        infer_startup_program = static.Program()
+        infer_train_program = static.Program()
 
-        with fluid.program_guard(infer_train_program, infer_startup_program):
-            with fluid.unique_name.guard():
+        with static.program_guard(infer_train_program, infer_startup_program):
+            with paddle.utils.unique_name.guard():
                 infer_model_dict = getattr(M, args.model_type)(config=args,
                                                                is_predict=True)
 
@@ -207,7 +244,7 @@ def main(args):
         infer_model_dict.train_program = infer_train_program
 
         fake_lr_infer = 0.00
-        adam_infer = fluid.optimizer.Adam(learning_rate=fake_lr_infer)
+        adam_infer = paddle.optimizer.Adam(learning_rate=fake_lr_infer)
         optimizer1 = fleet.distributed_optimizer(
             adam_infer, strategy=get_strategy(args, infer_model_dict))
         optimizer1.minimize(infer_model_dict.loss,
@@ -237,7 +274,9 @@ if __name__ == "__main__":
     config.local_result_path = "./embedding"
     config.model_save_path = os.path.join(config.working_root, "model")
     config.infer_result_path = os.path.join(config.working_root, 'embedding')
+    config.max_steps = config.max_steps if config.max_steps else 0
     print("#===================PRETTY CONFIG============================#")
     pretty(config, indent=0)
     print("#===================PRETTY CONFIG============================#")
-    main(config)
+    ret = main(config)
+    exit(ret)
