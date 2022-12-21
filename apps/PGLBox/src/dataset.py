@@ -247,9 +247,11 @@ class UnsupReprLearningDataset(BaseDataset):
 
 
 class InferDataset(BaseDataset):
-    def __init__(self, chunk_num, dataset_config, holder_list, embedding=None, graph=None):
+    def __init__(self, chunk_num, dataset_config, holder_list, infer_model_dict, 
+                 embedding=None, graph=None):
 
         self.dataset_config = dataset_config
+        self.infer_model_dict = infer_model_dict
         super(InferDataset, self).__init__(chunk_num=chunk_num,
                       config=dataset_config,
                       holder_list=holder_list,
@@ -264,29 +266,46 @@ class InferDataset(BaseDataset):
         t.setDaemon(True)
         t.start()
 
-        for chunk_index in range(self.chunk_num):
-            index = fleet.worker_index() * self.chunk_num + chunk_index
-            global_chunk_num = fleet.worker_num() * self.chunk_num
+        pass_id = 0
+        while 1:
             self.ins_ready_sem.acquire()
-            dataset = dataset_list[chunk_index]
+            if len(dataset_list) == 0:
+                log.info("pass[%d] dataset_list is empty" % (pass_id))
+                self.could_load_sem.release()
+                break
 
+            dataset = dataset_list.pop(0)
             if dataset is None:
+                log.info("pass[%d] dataset is null" % (pass_id))
                 self.could_load_sem.release()
                 continue
 
+            data_size = dataset.get_memory_data_size()
+            if data_size == 0:
+                log.info("pass[%d] dataset size is 0" % (pass_id))
+                self.could_load_sem.release()
+                continue
+
+            infer_file_num = "%03d" % pass_id
+            opt_info = self.infer_model_dict.train_program._fleet_opt
+            opt_info["user_define_dump_filename"] = infer_file_num
+            pass_begin = time.time()
             beginpass_begin = time.time()
-            self.embedding.begin_pass()
+            PSGPU.begin_pass()
             beginpass_end = time.time()
-            log.info("STAGE [BEGIN PASS] finished, time cost: %f sec" \
-                    % (beginpass_end - beginpass_begin))
+            log.info("pass[%d] STAGE [BEGIN PASS] finished, time cost: %f sec",
+                pass_id, beginpass_end - beginpass_begin)
 
             yield dataset
+
+            dataset.release_memory()
             endpass_begin = time.time()
             self.embedding.end_pass()
             endpass_end = time.time()
-            log.info("STAGE [END PASS] finished, time cost: %f sec" \
-                    % (endpass_end - endpass_begin))
+            log.info("pass[%d] STAGE [END PASS] finished, time cost: %f sec" \
+                    % (pass_id, endpass_end - endpass_begin))
 
-            dataset.release_memory()
             self.could_load_sem.release()
+            pass_id = pass_id + 1
+
         t.join()

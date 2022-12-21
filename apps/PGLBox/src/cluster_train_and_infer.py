@@ -188,6 +188,7 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         args.chunk_num,
         dataset_config=args,
         holder_list=model_dict.holder_list,
+        infer_model_dict=infer_model_dict,
         embedding=embedding,
         graph=dist_graph)
 
