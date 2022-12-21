@@ -29,12 +29,10 @@ from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
 
 import paddle
+import paddle.static as static
 import paddle.fluid as fluid
 import paddle.fluid.core as core
 import paddle.distributed.fleet as fleet
-
-#from paddle.fluid.incubate.fleet.parameter_server.pslib import fleet
-#from paddle.fluid.incubate.fleet.base.role_maker import GeneralRoleMaker
 from pgl.utils.logger import log
 
 import hadoop as HFS
@@ -42,9 +40,9 @@ import hadoop as HFS
 
 def get_global_value(value_sum, value_cnt):
     """ get global value """
-    value_sum = np.array(fluid.global_scope().find_var(value_sum.name)
+    value_sum = np.array(static.global_scope().find_var(value_sum.name)
                          .get_tensor())
-    value_cnt = np.array(fluid.global_scope().find_var(value_cnt.name)
+    value_cnt = np.array(static.global_scope().find_var(value_cnt.name)
                          .get_tensor())
     return value_sum / np.maximum(value_cnt, 1)
 

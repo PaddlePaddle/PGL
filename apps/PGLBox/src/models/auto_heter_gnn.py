@@ -18,8 +18,7 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 from collections import OrderedDict
-import paddle.fluid.layers as L
-import models.layers as layers
+import paddle.static as static
 import pgl
 
 
@@ -47,7 +46,7 @@ class FeatureInteraction(nn.Layer):
             out = paddle.matmul(alpha, U).squeeze([1])
             return out
         else:
-            return L.sum(feature_list)
+            return paddle.add_n(feature_list)
 
 
 class AutoHeterGNN(nn.Layer):

@@ -78,12 +78,6 @@ class AttrDict(dict):
         return super(AttrDict, self).pop(k, d)
 
 
-def make_dir(path):
-    """Build directory"""
-    if not os.path.exists(path):
-        os.makedirs(path)
-
-
 def load_config(config_file):
     """Load config file"""
     with open(config_file) as f:

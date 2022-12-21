@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 import os
 import sys
-sys.path.append("../")
+sys.path.append("..")
 import math
 import time
 import numpy as np
@@ -120,7 +120,7 @@ class GNNModel(object):
             self.emb_size)
 
         # merge id_embedding and slot_embedding_list here
-        feature = L.sum([id_embedding] + slot_embedding_list)
+        feature = paddle.add_n([id_embedding] + slot_embedding_list)
         if self.config.softsign:
             log.info("using softsign in feature_mode (sum)")
             feature = paddle.nn.functional.softsign(feature)
@@ -130,10 +130,6 @@ class GNNModel(object):
                 hcl_logits_list = model_util.hcl(self.config, feature,
                                                  self.graph_holders)
 
-            if self.config.sage_layer_type == "gatne":
-                layer_type = "lightgcn"
-            else:
-                layer_type = self.config.sage_layer_type
             feature = self.gnn_model(self.graph_holders, feature)
             feature = paddle.gather(feature, self.final_index)
 
