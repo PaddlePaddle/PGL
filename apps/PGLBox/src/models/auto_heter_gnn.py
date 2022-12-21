@@ -59,6 +59,7 @@ class AutoHeterGNN(nn.Layer):
                  etype_len,
                  act=None,
                  alpha_residual=0.9,
+                 use_degree_norm=False,
                  interact_mode="sum"):
         super(AutoHeterGNN, self).__init__()
         self.etype_len = etype_len
@@ -68,6 +69,7 @@ class AutoHeterGNN(nn.Layer):
         if self.layer_type == "Gatne":
             interact_mode = "gatne"
         self.alpha_residual = alpha_residual
+        self.use_degree_norm = use_degree_norm
         sub_layer_dict = OrderedDict()
 
         for i in range(self.num_layers):
@@ -77,18 +79,26 @@ class AutoHeterGNN(nn.Layer):
                 cur_act = act
             for j in range(self.etype_len):
                 sub_layer_dict[(i, j)] = getattr(layers, layer_type)(
-                    hidden_size, act)
+                    hidden_size, act, use_degree_norm=use_degree_norm)
             sub_layer_dict[(i, self.etype_len)] = FeatureInteraction(
                 interact_mode, hidden_size, self.etype_len)
 
         self.rgnn_dict = nn.LayerDict(sub_layer_dict)
 
-    def forward(self, graph_holders, init_feature):
+    def forward(self, graph_holders, init_feature, degree_norm=None):
         # pad a zeros to prevent empty graph happen
         zeros_tensor1 = paddle.zeros([1, init_feature.shape[-1]])
         zeros_tensor2 = paddle.zeros([1, 1], dtype="int64")
         init_feature = paddle.concat([zeros_tensor1, init_feature])
         feature = init_feature
+
+        if degree_norm is not None:
+            degree_norm = degree_norm.reshape([self.etype_len, -1]).T
+            degree_norm = paddle.sum(degree_norm, -1)
+            degree_norm = model_util.get_degree_norm(degree_norm)
+            degree_norm = paddle.concat(
+                [paddle.ones(
+                    [1, 1], dtype="float32"), degree_norm], axis=0)
 
         for i in range(self.num_layers):
             graph_holder = graph_holders[self.num_layers - i - 1]
@@ -112,7 +122,8 @@ class AutoHeterGNN(nn.Layer):
                         [new_edges_src, new_edges_dst], axis=1))
 
                 # generate feature of single relation
-                nxt_f = self.rgnn_dict[(i, j)](graph, feature, next_num_nodes)
+                nxt_f = self.rgnn_dict[(i, j)](graph, feature, next_num_nodes,
+                                               degree_norm)
                 nxt_fs.append(nxt_f)
             # feature intergation
             feature = self.rgnn_dict[(i, self.etype_len)](nxt_fs)
@@ -121,5 +132,7 @@ class AutoHeterGNN(nn.Layer):
             feature = init_feature[:
                                    next_num_nodes] * self.alpha_residual + feature * (
                                        1 - self.alpha_residual)
+            if degree_norm is not None:
+                degree_norm = degree_norm[:next_num_nodes]
         # remove first zeros to prevent empty graph happen
         return feature[1:]

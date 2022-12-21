@@ -188,7 +188,7 @@ def build_token_holder(token_slot_name):
     return token_slot_holder, token_slot_lod_holder
 
 
-def build_graph_holder(samples):
+def build_graph_holder(samples, use_degree_norm=False):
     """ build graph holder """
     holder_list = []
     graph_holders = {}
@@ -223,7 +223,21 @@ def build_graph_holder(samples):
     ego_index_holder = static.data(name="final_index", shape=[-1], dtype="int")
     holder_list.append(ego_index_holder)
 
-    return graph_holders, ego_index_holder, holder_list
+    if use_degree_norm:
+        node_degree_holder = static.data(
+            name="node_degree", shape=[-1], dtype="int32")
+        holder_list.append(node_degree_holder)
+    else:
+        node_degree_holder = None
+
+    holder_dict = {
+        "graph_holders": graph_holders,
+        "final_index": ego_index_holder,
+        "holder_list": holder_list,
+        "node_degree": node_degree_holder
+    }
+
+    return holder_dict
 
 
 def get_sparse_embedding(config,
@@ -271,6 +285,29 @@ def get_sparse_embedding(config,
             slot_embedding_list.append(slot_embedding)
 
     return id_embedding, slot_embedding_list
+
+
+def get_degree_norm(degree):
+    """ calculate degree normalization """
+    degree = paddle.cast(degree, dtype="float32")
+    norm = paddle.clip(degree, min=1.0)
+    norm = paddle.pow(norm, -0.5)
+    norm = paddle.reshape(norm, [-1, 1])
+    return norm
+
+
+def get_graph_degree_norm(graph):
+    """ calculate graph degree normalization """
+    degree = paddle.zeros(shape=[graph.num_nodes], dtype="int64")
+    v, u = graph.edges[:, 0], graph.edges[:, 1]
+    degree = paddle.scatter(
+        x=degree,
+        overwrite=False,
+        index=u,
+        updates=paddle.ones_like(
+            u, dtype="int64"))
+    norm = get_degree_norm(degree)
+    return norm
 
 
 def dump_embedding(config, nfeat, node_index):
