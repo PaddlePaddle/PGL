@@ -147,7 +147,8 @@ def build_node_holder(nodeid_slot_name):
     show = static.data("show", shape=[-1], dtype="int64")
     click = static.data("click", shape=[-1], dtype="int64")
     show_clk = paddle.concat(
-        [paddle.reshape(show, [-1, 1]), paddle.reshape(click, [-1, 1])], axis=-1)
+        [paddle.reshape(show, [-1, 1]), paddle.reshape(click, [-1, 1])],
+        axis=-1)
     show_clk = paddle.cast(show_clk, dtype="float32")
     show_clk.stop_gradient = True
     holder_list = [nodeid_slot_holder, show, click]
@@ -255,7 +256,8 @@ def get_sparse_embedding(config,
         size=[1024, emb_size + 3],
         param_attr=paddle.ParamAttr(name=name))
 
-    id_embedding = static.nn.continuous_value_model(id_embedding, show_clk, use_cvm)
+    id_embedding = static.nn.continuous_value_model(id_embedding, show_clk,
+                                                    use_cvm)
     id_embedding = id_embedding[:, 1:]  # the first column is for lr, remove it
 
     tmp_slot_emb_list = []
@@ -312,7 +314,8 @@ def get_graph_degree_norm(graph):
 
 def dump_embedding(config, nfeat, node_index):
     """dump_embedding"""
-    node_embed = paddle.squeeze(nfeat, axis=[1], name=config.dump_node_emb_name)
+    node_embed = paddle.squeeze(
+        nfeat, axis=[1], name=config.dump_node_emb_name)
     node_index = paddle.reshape(node_index, shape=[-1, 2])
     src_node_index = node_index[:, 0:1]
     src_node_index = paddle.reshape(

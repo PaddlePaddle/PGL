@@ -117,7 +117,8 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
         epoch_loss = 0
         train_pass_num = 0
         for i in range(len(sorted_metapaths)):
-            dataset.dist_graph.load_metapath_edges(metapath_dict, sorted_metapaths[i])
+            dataset.dist_graph.load_metapath_edges(metapath_dict,
+                                                   sorted_metapaths[i])
             metapath_train_begin = time.time()
             for pass_dataset in dataset.pass_generator():
                 exe.train_from_dataset(
@@ -127,7 +128,9 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
                 epoch_loss += t_loss
                 train_pass_num += 1
             metapath_train_end = time.time()
-            log.info("metapath: %s, all train time: %s" % (sorted_metapaths[i], metapath_train_end - metapath_train_begin))
+            log.info("metapath: %s, all train time: %s" %
+                     (sorted_metapaths[i],
+                      metapath_train_end - metapath_train_begin))
             dataset.dist_graph.clear_metapath_state()
 
         if train_pass_num > 0:
@@ -149,18 +152,22 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
         fleet.barrier_worker()
 
         savemodel_begin = time.time()
-        is_save = (epoch % args.save_model_interval == 0 or epoch == args.epochs)
+        is_save = (epoch % args.save_model_interval == 0 or
+                   epoch == args.epochs)
         if args.model_save_path and is_save:
             log.info("save model for epoch {}".format(epoch))
             dataset.embedding.dump_to_mem()
-            util.save_model(exe, model_dict, args, args.local_model_path, args.model_save_path)
+            util.save_model(exe, model_dict, args, args.local_model_path,
+                            args.model_save_path)
         fleet.barrier_worker()
         savemodel_end = time.time()
         log.info("STAGE [SAVE MODEL] for epoch [%d] finished, time cost: %f sec" \
             % (epoch + 1, savemodel_end - savemodel_begin))
 
     train_end_time = time.time()
-    log.info("STAGE [TRAIN MODEL] finished, time cost: % sec" % (train_end_time - train_begin_time))
+    log.info("STAGE [TRAIN MODEL] finished, time cost: % sec" %
+             (train_end_time - train_begin_time))
+
 
 def infer(args, exe, infer_model_dict, dataset):
     infer_begin = time.time()

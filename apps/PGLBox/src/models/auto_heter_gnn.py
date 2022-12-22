@@ -103,8 +103,9 @@ class AutoHeterGNN(nn.Layer):
             degree_norm = degree_norm.reshape([self.etype_len, -1]).T
             degree_norm = paddle.sum(degree_norm, -1)
             degree_norm = model_util.get_degree_norm(degree_norm)
-            degree_norm = paddle.concat([paddle.ones([1, 1], dtype="float32"), degree_norm], axis=0)
-
+            degree_norm = paddle.concat(
+                [paddle.ones(
+                    [1, 1], dtype="float32"), degree_norm], axis=0)
 
         for i in range(self.num_layers):
             graph_holder = graph_holders[self.num_layers - i - 1]
@@ -128,7 +129,8 @@ class AutoHeterGNN(nn.Layer):
                         [new_edges_src, new_edges_dst], axis=1))
 
                 # generate feature of single relation
-                nxt_f = self.rgnn_dict[(i, j)](graph, feature, next_num_nodes, degree_norm)
+                nxt_f = self.rgnn_dict[(i, j)](graph, feature, next_num_nodes,
+                                               degree_norm)
                 nxt_fs.append(nxt_f)
             # feature intergation
             feature = self.rgnn_dict[(i, self.etype_len)](nxt_fs)

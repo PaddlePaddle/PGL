@@ -125,7 +125,8 @@ def simgcl_loss(config, predictions):
     # equal to L.elementwise_div(logits, 1/tao) and it will boardcast automatically
     noised_logits = noised_logits * tao
     labels = paddle.zeros([paddle.shape(noised_logits)[0], 1], dtype="int64")
-    loss = paddle.nn.functional.softmax_with_cross_entropy(noised_logits, labels)
+    loss = paddle.nn.functional.softmax_with_cross_entropy(noised_logits,
+                                                           labels)
     loss = paddle.sum(loss)
 
     return loss
