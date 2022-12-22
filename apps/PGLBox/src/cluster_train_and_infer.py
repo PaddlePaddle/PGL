@@ -97,6 +97,7 @@ def train(args, exe, model_dict, dataset):
                    epoch == args.epochs)
         if args.model_save_path and is_save:
             log.info("save model for epoch {}".format(epoch))
+            dataset.embedding.dump_to_mem()
             util.save_model(exe, model_dict, args, args.local_model_path,
                             args.model_save_path)
         fleet.barrier_worker()
@@ -109,11 +110,105 @@ def train(args, exe, model_dict, dataset):
              (train_end_time - train_begin_time))
 
 
+def train_with_multi_metapath(args, exe, model_dict, dataset):
+    """ training with multiple metapaths """
+    train_msg = ""
+
+    first_node_type = util.get_first_node_type(args.meta_path)
+    g = dataset.dist_graph.graph
+    node_type_size = g.get_node_type_size(first_node_type)
+    edge_type_size = g.get_edge_type_size()
+    meta_paths = util.change_metapath_index(args.meta_path, node_type_size, edge_type_size)
+    log.info("after change metapath: %s" % meta_paths)
+
+    metapath_dict = {}
+    for i in range(len(meta_paths)):
+        first_node = meta_paths[i].split('2')[0]
+        if first_node in metapath_dict:
+            metapath_dict[first_node].append(meta_paths[i])
+        else:
+            metapath_dict[first_node] = []
+            metapath_dict[first_node].append(meta_paths[i])
+
+    reverse = 1 if args.symmetry else 0
+    train_begin_time = time.time()
+    for epoch in range(1, args.epochs + 1):
+        epoch_loss = 0
+        train_pass_num = 0
+        for i in range(len(meta_paths)):
+            first_node = meta_paths[i].split('2')[0]
+            all_metapath_class_len = len(metapath_dict[first_node])
+            cur_metapath_index = metapath_dict[first_node].index(meta_paths[i])
+            log.info('metapath: %s, first node:%s, all_len:%s, index:%s' %
+                     (meta_paths[i], first_node, all_metapath_class_len, cur_metapath_index))
+            edge_types = meta_paths[i].split('-')
+            edge_len = len(edge_types)
+            sub_etype2files = util.get_sub_path(args.etype2files, edge_types, True)
+
+            metapath_cpuload_begin = time.time()
+            g.load_edge_file(sub_etype2files, args.graph_data_local_path, args.num_part, reverse)
+            log.info("sub_etype2files: %s" % sub_etype2files)
+            metapath_cpuload_end = time.time()
+            log.info("metapath: %s, cpuload time: %s" % (meta_paths[i], metapath_cpuload_end - metapath_cpuload_begin))
+
+            metapath_gpuload_begin = time.time()
+            for j in range(0, len(edge_types)):
+                log.info("begin upload edge type: %s" % edge_types[j])
+                g.upload_batch(0, j, len(get_cuda_places()), edge_types[j])
+                log.info("end upload edge type: %s" % edge_types[j])
+            metapath_gpuload_end = time.time()
+            log.info("metapath: %s, gpuload time:%s" % (meta_paths[i], metapath_gpuload_end - metapath_gpuload_begin))
+
+            g.init_metapath(meta_paths[i], cur_metapath_index, all_metapath_class_len)
+            metapath_train_begin = time.time()
+            for pass_dataset in dataset.pass_generator():
+                exe.train_from_dataset(
+                    model_dict.train_program, pass_dataset, debug=False)
+                t_loss = util.get_global_value(model_dict.visualize_loss,
+                                               model_dict.batch_count)
+                epoch_loss += t_loss
+                train_pass_num += 1
+            metapath_train_end = time.time()
+            log.info("metapath: %s, all train time: %s" % (meta_paths[i], metapath_train_end - metapath_train_begin))
+            g.clear_metapath_state()
+
+        if train_pass_num > 0:
+            epoch_loss = epoch_loss / train_pass_num
+
+        fleet.barrier_worker()
+        time_msg = "%s\n" % datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        train_msg += time_msg
+        msg = "Train: Epoch %d | meta path: %s| batch_loss %.6f\n" % \
+                (epoch, meta_paths[i], epoch_loss)
+        train_msg += msg
+        log.info(msg)
+
+        if fleet.worker_index() == 0:
+            with open(os.path.join('./train_result.log'), 'a') as f:
+                f.write(time_msg)
+                f.write(msg)
+
+        fleet.barrier_worker()
+
+        savemodel_begin = time.time()
+        is_save = (epoch % args.save_model_interval == 0 or epoch == args.epochs)
+        if args.model_save_path and is_save:
+            log.info("save model for epoch {}".format(epoch))
+            dataset.embedding.dump_to_mem()
+            util.save_model(exe, model_dict, args, args.local_model_path, args.model_save_path)
+        fleet.barrier_worker()
+        savemodel_end = time.time()
+        log.info("STAGE [SAVE MODEL] for epoch [%d] finished, time cost: %f sec" \
+            % (epoch + 1, savemodel_end - savemodel_begin))
+
+    train_end_time = time.time()
+    log.info("STAGE [TRAIN MODEL] finished, time cost: % sec" % (train_end_time - train_begin_time))
+
 def infer(args, exe, infer_model_dict, dataset):
     infer_begin = time.time()
 
     if hasattr(dataset.embedding.parameter_server, "set_mode"):
-        dataset.embedding.parameter_server.set_mode(True)
+        dataset.embedding.set_infer_mode(True)
 
     for pass_dataset in dataset.pass_generator():
         exe.train_from_dataset(
@@ -179,7 +274,7 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         dataset_config=args,
         holder_list=model_dict.holder_list,
         embedding=embedding,
-        graph=dist_graph)
+        dist_graph=dist_graph)
 
     infer_dataset = InferDataset(
         args.chunk_num,
@@ -187,10 +282,13 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         holder_list=model_dict.holder_list,
         infer_model_dict=infer_model_dict,
         embedding=embedding,
-        graph=dist_graph)
+        dist_graph=dist_graph)
 
     if args.need_train:
-        train(args, exe, model_dict, train_dataset)
+        if args.metapath_split_opt:
+            train_with_multi_metapath(args, exe, model_dict, train_dataset)
+        else:
+            train(args, exe, model_dict, train_dataset)
     else:
         log.info("STAGE: need_train is %s, skip training process" %
                  args.need_train)

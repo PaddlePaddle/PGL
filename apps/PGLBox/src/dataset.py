@@ -10,11 +10,11 @@ from pgl.utils.logger import log
 
 
 class BaseDataset(object):
-    def __init__(self, chunk_num, config, holder_list, embedding=None, graph=None,
+    def __init__(self, chunk_num, config, holder_list, embedding=None, dist_graph=None,
                  is_predict=False):
         self.ins_ready_sem = threading.Semaphore(0)
         self.could_load_sem = threading.Semaphore(2)
-        self.graph = graph
+        self.dist_graph = dist_graph
         self.config = config
         self.embedding = embedding
         self.chunk_num = chunk_num
@@ -180,7 +180,7 @@ class BaseDataset(object):
 
 
 class UnsupReprLearningDataset(BaseDataset):
-    def __init__(self, chunk_num, dataset_config, holder_list, embedding=None, graph=None):
+    def __init__(self, chunk_num, dataset_config, holder_list, embedding=None, dist_graph=None):
 
         self.dataset_config = dataset_config
 
@@ -188,7 +188,7 @@ class UnsupReprLearningDataset(BaseDataset):
                       config=dataset_config,
                       holder_list=holder_list,
                       embedding=embedding,
-                      graph=graph,
+                      dist_graph=dist_graph,
                       is_predict=False)
     
     def pass_generator(self):
@@ -258,7 +258,7 @@ class UnsupReprLearningDataset(BaseDataset):
 
 class InferDataset(BaseDataset):
     def __init__(self, chunk_num, dataset_config, holder_list, infer_model_dict,
-                 embedding=None, graph=None):
+                 embedding=None, dist_graph=None):
 
         self.dataset_config = dataset_config
         self.infer_model_dict = infer_model_dict
@@ -267,7 +267,7 @@ class InferDataset(BaseDataset):
                       config=dataset_config,
                       holder_list=holder_list,
                       embedding=embedding,
-                      graph=graph,
+                      dist_graph=dist_graph,
                       is_predict=True)
 
     def pass_generator(self):
@@ -282,19 +282,19 @@ class InferDataset(BaseDataset):
             self.ins_ready_sem.acquire()
 
             if len(dataset_list) == 0:
-                log.info("pass[%d] dataset_list is empty" % (pass_id))
+                log.info("infer pass[%d] dataset_list is empty" % (pass_id))
                 self.could_load_sem.release()
                 break
 
             dataset = dataset_list.pop(0)
             if dataset is None:
-                log.info("pass[%d] dataset is null" % (pass_id))
+                log.info("infer pass[%d] dataset is null" % (pass_id))
                 self.could_load_sem.release()
                 continue
 
             data_size = dataset.get_memory_data_size()
             if data_size == 0:
-                log.info("pass[%d] dataset size is 0" % (pass_id))
+                log.info("infer pass[%d] dataset size is 0" % (pass_id))
                 self.could_load_sem.release()
                 continue
 
@@ -305,7 +305,7 @@ class InferDataset(BaseDataset):
             beginpass_begin = time.time()
             self.embedding.begin_pass()
             beginpass_end = time.time()
-            log.info("pass[%d] STAGE [BEGIN PASS] finished, time cost: %f sec",
+            log.info("infer pass[%d] STAGE [BEGIN PASS] finished, time cost: %f sec",
                      pass_id, beginpass_end - beginpass_begin)
 
             yield dataset
@@ -314,8 +314,8 @@ class InferDataset(BaseDataset):
             endpass_begin = time.time()
             self.embedding.end_pass()
             endpass_end = time.time()
-            log.info("pass[%d] STAGE [END PASS] finished, time cost: %f sec",
+            log.info("infer pass[%d] STAGE [END PASS] finished, time cost: %f sec",
                      pass_id, endpass_end - endpass_begin)
             pass_id = pass_id + 1
-            util.could_load_sem.release()
+            self.could_load_sem.release()
         t.join()

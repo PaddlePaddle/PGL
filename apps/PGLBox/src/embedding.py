@@ -47,5 +47,11 @@ class DistEmbedding(object):
     def end_pass(self):
         self.parameter_server.end_pass()
 
+    def dump_to_mem(self):
+        self.parameter_server.dump_to_mem()
+
+    def set_infer_mode(self, set_flag=False):
+        self.parameter_server.set_mode(set_flag)
+
     def __del__(self):
         self.finalize()
