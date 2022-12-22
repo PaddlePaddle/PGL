@@ -13,19 +13,22 @@
 # limitations under the License.
 """Distributed Program
 """
-import paddle
-from place import get_cuda_places
 import copy
+
+import paddle
+import paddle.static as static
+
+from place import get_cuda_places
 
 
 def make_distributed_train_program(args, model_dict):
     device_ids = get_cuda_places()
-    train_opt = copy.deepcopy(paddle.fluid.default_main_program()._fleet_opt)
+    train_opt = copy.deepcopy(static.default_main_program()._fleet_opt)
 
     #print("train opt = ", train_opt)
 
-    model_dict.startup_program = paddle.fluid.default_startup_program()
-    model_dict.train_program = paddle.fluid.default_main_program().clone()
+    model_dict.startup_program = static.default_startup_program()
+    model_dict.train_program = static.default_main_program().clone()
     model_dict.train_program._fleet_opt = train_opt
     model_dict.train_program._fleet_opt['worker_places'] = device_ids
 
@@ -37,8 +40,8 @@ def make_distributed_train_program(args, model_dict):
 
 def make_distributed_infer_program(args, model_dict):
     device_ids = get_cuda_places()
-    infer_opt = copy.deepcopy(paddle.fluid.default_main_program()._fleet_opt)
-    model_dict.train_program = paddle.fluid.default_main_program().clone()
+    infer_opt = copy.deepcopy(static.default_main_program()._fleet_opt)
+    model_dict.train_program = static.default_main_program().clone()
     model_dict.train_program._fleet_opt = infer_opt
     opt_info = model_dict.train_program._fleet_opt
 

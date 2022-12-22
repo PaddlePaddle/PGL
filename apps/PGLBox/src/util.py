@@ -29,12 +29,10 @@ from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
 
 import paddle
+import paddle.static as static
 import paddle.fluid as fluid
 import paddle.fluid.core as core
 import paddle.distributed.fleet as fleet
-
-#from paddle.fluid.incubate.fleet.parameter_server.pslib import fleet
-#from paddle.fluid.incubate.fleet.base.role_maker import GeneralRoleMaker
 from pgl.utils.logger import log
 
 import hadoop as HFS
@@ -42,9 +40,9 @@ import hadoop as HFS
 
 def get_global_value(value_sum, value_cnt):
     """ get global value """
-    value_sum = np.array(fluid.global_scope().find_var(value_sum.name)
+    value_sum = np.array(static.global_scope().find_var(value_sum.name)
                          .get_tensor())
-    value_cnt = np.array(fluid.global_scope().find_var(value_cnt.name)
+    value_cnt = np.array(static.global_scope().find_var(value_cnt.name)
                          .get_tensor())
     return value_sum / np.maximum(value_cnt, 1)
 
@@ -95,7 +93,15 @@ def load_pretrained_model(exe, model_dict, args, model_path):
             if os.path.exists(sparse_params_path):
                 log.info("[WARM] load sparse model from %s" %
                          sparse_params_path)
-                fleet.load_model(model_path, mode=0)
+                if "train_storage_mode" in args and args.train_storage_mode == "SSD_EMBEDDING":
+                    if "load_binary_mode" in args and args.load_binary_mode is True:
+                        # in train_storage_mode=SSD_EMBEDDING, mode=0 means load binary batch_model,
+                        # mode=4 means save origin batch_model
+                        fleet.load_model(model_path, mode=0)
+                    else:
+                        fleet.load_model(model_path, mode=4)
+                else:
+                    fleet.load_model(model_path, mode=0)
                 log.info("[WARM] load sparse model from %s finished." %
                          sparse_params_path)
             else:
@@ -112,7 +118,13 @@ def load_pretrained_model(exe, model_dict, args, model_path):
             if HFS.exists(sparse_params_path):
                 log.info("[WARM] load sparse model from %s" %
                          sparse_params_path)
-                fleet.load_model(model_path, mode=0)
+                if "train_storage_mode" in args and args.train_storage_mode == "SSD_EMBEDDING":
+                    if "load_binary_mode" in args and args.load_binary_mode is True:
+                        fleet.load_model(model_path, mode=0)
+                    else:
+                        fleet.load_model(model_path, mode=4)
+                else:
+                    fleet.load_model(model_path, mode=0)
                 log.info("[WARM] load sparse model from %s finished." %
                          sparse_params_path)
             else:
@@ -152,14 +164,22 @@ def load_pretrained_model(exe, model_dict, args, model_path):
             log.info("[WARM] dense model is not existed, skipped")
 
 
-def save_pretrained_model(exe, save_path, mode="hdfs"):
+def save_pretrained_model(exe, save_path, args, mode="hdfs"):
     """save pretrained model"""
     if fleet.is_first_worker():
         if mode == "hdfs":
             save_path = HFS.check_hadoop_path(save_path)
             HFS.rm(save_path)
 
-        fleet.save_persistables(exe, save_path)
+        if "train_storage_mode" in args and args.train_storage_mode == "SSD_EMBEDDING":
+            if "save_binary_mode" in args and args.save_binary_mode is True:
+                # in train_storage_mode="SSD_EMBEDDING", mode=0 means save binary batch_model,
+                # mode=4 means save origin batch_model
+                fleet.save_persistables(exe, save_path, mode=0)
+            else:
+                fleet.save_persistables(exe, save_path, mode=4)
+        else:
+            fleet.save_persistables(exe, save_path)
 
 
 def name_not_have_sparse(var):
@@ -182,16 +202,16 @@ def save_model(exe, model_dict, args, local_model_path, model_save_path):
     # save sparse table
     log.info("save sparse table")
     if mode == "hdfs":
-        save_pretrained_model(exe, model_save_path, mode="hdfs")
+        save_pretrained_model(exe, model_save_path, args, mode="hdfs")
     elif mode == "afs":
-        save_pretrained_model(exe, local_model_path, mode="local")
+        save_pretrained_model(exe, local_model_path, args, mode="local")
         user, passwd = args.fs_ugi.split(',')
         log.info("being to upload model to: %s " % model_save_path)
         gzshell_upload(args.fs_name, user, passwd, local_model_path,
                        "afs:%s" % working_root)
         log.info("model has been saved, model_path: %s" % model_save_path)
     else:
-        save_pretrained_model(exe, local_model_path, mode="local")
+        save_pretrained_model(exe, local_model_path, args, mode="local")
         run_cmd("rm -rf %s && mkdir -p %s && mv %s %s" % \
                     (working_root, working_root, local_model_path, working_root))
         log.info("model has been saved in local path: %s" % working_root)
@@ -340,6 +360,71 @@ def get_inverse_etype(etype):
     else:
         r_etype = "2".join([fields[1], fields[0]])
     return r_etype
+
+
+def get_sub_path(type2files, parse_list, is_edge):
+    """ get sub path in metapath split """
+    type_dict = {}
+    type2files = type2files.split(',')
+    for i in range(0, len(type2files)):
+        type2file = type2files[i].split(':')
+        if len(type2file) < 2:
+            print("check type config")
+            exit(-1)
+        sub_type = type2file[0]
+        sub_path = type2file[1]
+        if sub_type not in type_dict:
+            type_dict[sub_type] = sub_path
+
+    final_path = []
+    for j in range(0, len(parse_list)):
+        combine = []
+        sub_type = parse_list[j]
+        #combine.append(sub_type)
+        if sub_type in type_dict:
+            combine.append(sub_type)
+            sub_path = type_dict[sub_type]
+            combine.append(sub_path)
+        elif get_inverse_etype(sub_type) in type_dict:
+            sub_inverse_type = get_inverse_etype(sub_type)
+            combine.append(sub_inverse_type)
+            sub_path = type_dict[sub_inverse_type]
+            combine.append(sub_path)
+        combine_path = ":".join(combine)
+        if combine_path not in final_path:
+            final_path.append(combine_path)
+    return ','.join(final_path)
+
+
+def change_metapath_index(meta_path, node_type_size, edge_type_size):
+    node_sizes = node_type_size.split(';')
+    node_size_dict = {}
+    for i in range(0, len(node_sizes)):
+        node_type = node_sizes[i].split(":")[0]
+        node_size = int(node_sizes[i].split(":")[1])
+        node_size_dict[node_type] = node_size
+    edge_sizes = edge_type_size.split(';')
+    edge_size_dict = {}
+    for i in range(0, len(edge_sizes)):
+        edge_type = edge_sizes[i].split(":")[0]
+        edge_size = int(edge_sizes[i].split(":")[1])
+        edge_size_dict[edge_type] = edge_size
+
+    meta_paths = meta_path.split(';')
+    meta_path_dict = []
+    for i in range(0, len(meta_paths)):
+        first_node = meta_paths[i].split('2')[0]
+        first_edge = meta_paths[i].split('-')[0]
+        meta_path_dict.append({})
+        meta_path_dict[i]['path'] = meta_paths[i]
+        meta_path_dict[i]['node_size'] = node_size_dict[first_node]
+        meta_path_dict[i]['edge_size'] = edge_size_dict[first_edge]
+    sort_meta_path = sorted(
+        meta_path_dict, key=lambda x: (x['node_size'], x['edge_size']))
+    final_path_list = []
+    for i in range(0, len(sort_meta_path)):
+        final_path_list.append(sort_meta_path[i]['path'])
+    return final_path_list
 
 
 def get_first_node_type(meta_path):

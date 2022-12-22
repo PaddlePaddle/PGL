@@ -13,6 +13,7 @@
 # limitations under the License.
 """Generate Proto for pslib
 """
+import os
 import copy
 import numpy as np
 import paddle

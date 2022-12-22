@@ -14,13 +14,9 @@
 """
     gnn model.
 """
-from __future__ import division
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import unicode_literals
 import os
 import sys
-sys.path.append("../")
+sys.path.append("..")
 import math
 import time
 import numpy as np
@@ -65,8 +61,14 @@ class GNNModel(object):
         self.holder_list.extend(holder_list)
 
         if self.config.sage_mode:
-            self.graph_holders, self.final_index, holder_list = \
-                    model_util.build_graph_holder(self.config.samples)
+            use_degree_norm = False if not self.config.use_degree_norm else True
+            holder_dict = \
+                    model_util.build_graph_holder(self.config.samples, use_degree_norm)
+            self.graph_holders = holder_dict["graph_holders"]
+            self.final_index = holder_dict["final_index"]
+            holder_list = holder_dict["holder_list"]
+            self.node_degree = holder_dict[
+                "node_degree"] if "node_degree" in holder_dict else None
 
             self.etype_len = self.get_etype_len()
             self.holder_list.extend(holder_list)
@@ -77,7 +79,8 @@ class GNNModel(object):
                 etype_len=self.etype_len,
                 act=self.config.sage_act,
                 alpha_residual=self.config.sage_alpha,
-                interact_mode=self.config.sage_layer_type)
+                interact_mode=self.config.sage_layer_type,
+                use_degree_norm=use_degree_norm)
 
         self.total_gpups_slots = [int(self.config.nodeid_slot)] + \
                 [int(i) for i in self.config.slots]
@@ -120,7 +123,7 @@ class GNNModel(object):
             self.emb_size)
 
         # merge id_embedding and slot_embedding_list here
-        feature = L.sum([id_embedding] + slot_embedding_list)
+        feature = paddle.add_n([id_embedding] + slot_embedding_list)
         if self.config.softsign:
             log.info("using softsign in feature_mode (sum)")
             feature = paddle.nn.functional.softsign(feature)
@@ -130,11 +133,8 @@ class GNNModel(object):
                 hcl_logits_list = model_util.hcl(self.config, feature,
                                                  self.graph_holders)
 
-            if self.config.sage_layer_type == "gatne":
-                layer_type = "lightgcn"
-            else:
-                layer_type = self.config.sage_layer_type
-            feature = self.gnn_model(self.graph_holders, feature)
+            feature = self.gnn_model(self.graph_holders, feature,
+                                     self.node_degree)
             feature = paddle.gather(feature, self.final_index)
 
         feature = paddle.reshape(feature, shape=[-1, 2, self.emb_size])
