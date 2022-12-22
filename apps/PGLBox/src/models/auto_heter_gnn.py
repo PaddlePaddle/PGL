@@ -21,6 +21,9 @@ from collections import OrderedDict
 import paddle.static as static
 import pgl
 
+from . import model_util
+from . import layers
+
 
 class FeatureInteraction(nn.Layer):
     """ FeatureInteraction helps you to intergate features between relation
@@ -36,6 +39,8 @@ class FeatureInteraction(nn.Layer):
             self.lin2 = nn.Linear(hidden_size, 1)
 
     def forward(self, feature_list):
+        """ forward for feature interaction
+        """
         if len(feature_list) == 1:
             return feature_list[0]
         elif self.interact_mode.upper() == "GATNE":
@@ -86,6 +91,8 @@ class AutoHeterGNN(nn.Layer):
         self.rgnn_dict = nn.LayerDict(sub_layer_dict)
 
     def forward(self, graph_holders, init_feature, degree_norm=None):
+        """ Forward for auto heter gnn
+        """
         # pad a zeros to prevent empty graph happen
         zeros_tensor1 = paddle.zeros([1, init_feature.shape[-1]])
         zeros_tensor2 = paddle.zeros([1, 1], dtype="int64")
@@ -96,9 +103,8 @@ class AutoHeterGNN(nn.Layer):
             degree_norm = degree_norm.reshape([self.etype_len, -1]).T
             degree_norm = paddle.sum(degree_norm, -1)
             degree_norm = model_util.get_degree_norm(degree_norm)
-            degree_norm = paddle.concat(
-                [paddle.ones(
-                    [1, 1], dtype="float32"), degree_norm], axis=0)
+            degree_norm = paddle.concat([paddle.ones([1, 1], dtype="float32"), degree_norm], axis=0)
+
 
         for i in range(self.num_layers):
             graph_holder = graph_holders[self.num_layers - i - 1]
@@ -122,8 +128,7 @@ class AutoHeterGNN(nn.Layer):
                         [new_edges_src, new_edges_dst], axis=1))
 
                 # generate feature of single relation
-                nxt_f = self.rgnn_dict[(i, j)](graph, feature, next_num_nodes,
-                                               degree_norm)
+                nxt_f = self.rgnn_dict[(i, j)](graph, feature, next_num_nodes, degree_norm)
                 nxt_fs.append(nxt_f)
             # feature intergation
             feature = self.rgnn_dict[(i, self.etype_len)](nxt_fs)

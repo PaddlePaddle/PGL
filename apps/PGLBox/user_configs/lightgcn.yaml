@@ -23,11 +23,11 @@ symmetry: True
 meta_path: "u2t-t2u;t2u-u2t"
 
 # 游走路径的正样本窗口大小
-win_size: 3
+win_size: 2
 # neg_num: 每对正样本对应的负样本数量
-neg_num: 5
+neg_num: 10
 # walk_len: metapath 游走路径深度
-walk_len: 24
+walk_len: 4
 # walk_times: 每个起始节点重复n次游走，这样可以尽可能把一个节点的所有邻居游走一遍，使得训练更加均匀。
 walk_times: 10
 
@@ -50,6 +50,8 @@ working_root: /pglbox/output
 
 # warm_start_from: 训练阶段需要热启的模型所在的hadoop路径
 warm_start_from: null
+# 热启时加载二进制模型，仅在SSD模式下生效
+load_binary_mode : False
 
 # ---------------------------模型参数配置---------------------------------------------#
 # 模型类型选择
@@ -73,7 +75,6 @@ softsign: False
 # 对比学习损失函数选择： 目前支持 simgcl_loss
 gcl_loss: simgcl_loss
 
-
 # sage 模型设置开关
 sage_mode: True
 # sage_layer_type: sage 模型类型选择
@@ -96,11 +97,20 @@ epochs: 1
 # 为了加快训练速度，可以设置每隔多少个epochs才保存一次模型。默认最后一个epoch训练完一定会保存模型。
 save_model_interval: 10
 # 训练样本的batch_size
-batch_node_size: 80000
+batch_node_size: 20000
 batch_size: 800
-infer_batch_size: 80000
+infer_batch_size: 20000
 chunk_num: 1
 # how many sample times are performed in a buf
 sample_times_one_chunk: 5
+# 触发ssd cache的频率
+save_cache_frequency: 4
+# 内存中缓存多少个pass
+mem_cache_passid_num: 4
+# 是否保存为二进制模式，仅在SSD模式下生效
+save_binary_mode : False
+# 训练模式，可填WHOLE_HBM/MEM_EMBEDDING/SSD_EMBEDDING，默认为MEM_EMBEDDING
+train_storage_mode: MEM_EMBEDDING
+
 # 1 for debug
 debug_mode: 0

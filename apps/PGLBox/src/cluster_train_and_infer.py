@@ -63,13 +63,8 @@ def train(args, exe, model_dict, dataset):
         epoch_loss = 0
         train_pass_num = 0
         for pass_dataset in dataset.pass_generator():
-            train_begin = time.time()
             exe.train_from_dataset(
                 model_dict.train_program, pass_dataset, debug=False)
-
-            train_end = time.time()
-            log.info("STAGE [SAMPLE AND TRAIN] for epoch [%d] finished, time cost: %f sec" \
-                 % (epoch, train_end - train_begin))
 
             t_loss = util.get_global_value(model_dict.visualize_loss,
                                            model_dict.batch_count)

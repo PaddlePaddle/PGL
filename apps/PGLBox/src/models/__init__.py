@@ -15,4 +15,4 @@
 __init__
 """
 
-from models.gnn_model import *
+from .gnn_model import *

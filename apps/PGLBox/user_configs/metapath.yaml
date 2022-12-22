@@ -50,6 +50,8 @@ working_root: /pglbox/output
 
 # warm_start_from: 训练阶段需要热启的模型所在的hadoop路径
 warm_start_from: null
+# 热启时加载二进制模型，仅在SSD模式下生效
+load_binary_mode : False
 
 # ---------------------------模型参数配置---------------------------------------------#
 # 模型类型选择
@@ -73,6 +75,15 @@ softsign: False
 # 对比学习损失函数选择： 目前支持 simgcl_loss
 gcl_loss: simgcl_loss
 
+# sage模型设置开关
+sage_mode: False
+# sage_layer_type: sage 模型类型选择
+sage_layer_type: "LightGCN"
+sage_alpha: 0.9
+samples: [5]
+infer_samples: [100]
+sage_act: "relu"
+
 # 是否要进行训练，如果只想单独热启模型做预估(inference)，则可以关闭need_train
 need_train: True
 # 是否需要进行inference. 如果只想单独训练模型，则可以关闭need_inference
@@ -92,5 +103,16 @@ infer_batch_size: 80000
 chunk_num: 1
 # how many sample times are performed in a buf
 sample_times_one_chunk: 5
+# 触发ssd cache的频率
+save_cache_frequency: 4
+# 内存中缓存多少个pass
+mem_cache_passid_num: 4
+# 是否保存为二进制模式，仅在SSD模式下生效
+save_binary_mode : False
+# 是否开启metapath优化
+metapath_split_opt: False
+# 训练模式，可填WHOLE_HBM/MEM_EMBEDDING/SSD_EMBEDDING，默认为MEM_EMBEDDING
+train_storage_mode: MEM_EMBEDDING
+
 # 1 for debug
 debug_mode: 0

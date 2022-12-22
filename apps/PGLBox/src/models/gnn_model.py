@@ -16,7 +16,6 @@
 """
 import os
 import sys
-sys.path.append("..")
 import math
 import time
 import numpy as np
@@ -28,13 +27,13 @@ import paddle.fluid as F
 import pgl
 from pgl.utils.logger import log
 
-from models import layers
-import models.model_util as model_util
-import models.loss as Loss
+from . import layers
+from . import model_util
+from . import loss as Loss
 
 import util
 import helper
-from models.auto_heter_gnn import AutoHeterGNN
+from .auto_heter_gnn import AutoHeterGNN
 
 
 class GNNModel(object):

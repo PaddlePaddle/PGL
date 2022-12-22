@@ -19,7 +19,7 @@ import paddle.nn as nn
 import paddle.nn.functional as F
 import pgl
 
-import models.model_util as model_util
+from . import model_util
 
 
 class GIN(nn.Layer):
@@ -156,7 +156,7 @@ class GAT(nn.Layer):
 class LightGCN(nn.Layer):
     """LightGCN"""
 
-    def __init__(self, hidden_size, act, degree_norm=None):
+    def __init__(self, hidden_size, act, use_degree_norm=False):
         super(LightGCN, self).__init__()
         self.use_degree_norm = use_degree_norm
 
