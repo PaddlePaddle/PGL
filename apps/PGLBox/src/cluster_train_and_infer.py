@@ -109,52 +109,15 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
     """ training with multiple metapaths """
     train_msg = ""
 
-    first_node_type = util.get_first_node_type(args.meta_path)
-    g = dataset.dist_graph.graph
-    node_type_size = g.get_node_type_size(first_node_type)
-    edge_type_size = g.get_edge_type_size()
-    meta_paths = util.change_metapath_index(args.meta_path, node_type_size, edge_type_size)
-    log.info("after change metapath: %s" % meta_paths)
+    sorted_metapaths, metapath_dict = \
+        dataset.dist_graph.get_sorted_metapath_and_dict(args.meta_path)
 
-    metapath_dict = {}
-    for i in range(len(meta_paths)):
-        first_node = meta_paths[i].split('2')[0]
-        if first_node in metapath_dict:
-            metapath_dict[first_node].append(meta_paths[i])
-        else:
-            metapath_dict[first_node] = []
-            metapath_dict[first_node].append(meta_paths[i])
-
-    reverse = 1 if args.symmetry else 0
     train_begin_time = time.time()
     for epoch in range(1, args.epochs + 1):
         epoch_loss = 0
         train_pass_num = 0
-        for i in range(len(meta_paths)):
-            first_node = meta_paths[i].split('2')[0]
-            all_metapath_class_len = len(metapath_dict[first_node])
-            cur_metapath_index = metapath_dict[first_node].index(meta_paths[i])
-            log.info('metapath: %s, first node:%s, all_len:%s, index:%s' %
-                     (meta_paths[i], first_node, all_metapath_class_len, cur_metapath_index))
-            edge_types = meta_paths[i].split('-')
-            edge_len = len(edge_types)
-            sub_etype2files = util.get_sub_path(args.etype2files, edge_types, True)
-
-            metapath_cpuload_begin = time.time()
-            g.load_edge_file(sub_etype2files, args.graph_data_local_path, args.num_part, reverse)
-            log.info("sub_etype2files: %s" % sub_etype2files)
-            metapath_cpuload_end = time.time()
-            log.info("metapath: %s, cpuload time: %s" % (meta_paths[i], metapath_cpuload_end - metapath_cpuload_begin))
-
-            metapath_gpuload_begin = time.time()
-            for j in range(0, len(edge_types)):
-                log.info("begin upload edge type: %s" % edge_types[j])
-                g.upload_batch(0, j, len(get_cuda_places()), edge_types[j])
-                log.info("end upload edge type: %s" % edge_types[j])
-            metapath_gpuload_end = time.time()
-            log.info("metapath: %s, gpuload time:%s" % (meta_paths[i], metapath_gpuload_end - metapath_gpuload_begin))
-
-            g.init_metapath(meta_paths[i], cur_metapath_index, all_metapath_class_len)
+        for i in range(len(sorted_metapaths)):
+            dataset.dist_graph.load_metapath_edges(metapath_dict, sorted_metapaths[i])
             metapath_train_begin = time.time()
             for pass_dataset in dataset.pass_generator():
                 exe.train_from_dataset(
@@ -164,7 +127,7 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
                 epoch_loss += t_loss
                 train_pass_num += 1
             metapath_train_end = time.time()
-            log.info("metapath: %s, all train time: %s" % (meta_paths[i], metapath_train_end - metapath_train_begin))
+            log.info("metapath: %s, all train time: %s" % (sorted_metapaths[i], metapath_train_end - metapath_train_begin))
             g.clear_metapath_state()
 
         if train_pass_num > 0:
@@ -174,7 +137,7 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
         time_msg = "%s\n" % datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         train_msg += time_msg
         msg = "Train: Epoch %d | meta path: %s| batch_loss %.6f\n" % \
-                (epoch, meta_paths[i], epoch_loss)
+                (epoch, sorted_metapaths[i], epoch_loss)
         train_msg += msg
         log.info(msg)
 

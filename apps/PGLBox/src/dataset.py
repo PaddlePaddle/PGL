@@ -204,19 +204,19 @@ class UnsupReprLearningDataset(BaseDataset):
             self.ins_ready_sem.acquire()
 
             if len(dataset_list) == 0:
-                log.info("pass[%d] dataset_list is empty" % (pass_id))
+                log.info("train pass[%d] dataset_list is empty" % (pass_id))
                 self.could_load_sem.release()
                 break
 
             dataset = dataset_list.pop(0)
             if dataset is None:
-                log.info("pass[%d] dataset is null" % (pass_id))
+                log.info("train pass[%d] dataset is null" % (pass_id))
                 self.could_load_sem.release()
                 continue
 
             data_size = dataset.get_memory_data_size()
             if data_size == 0:
-                log.info("pass[%d], dataset size is 0" % (pass_id))
+                log.info("train pass[%d], dataset size is 0" % (pass_id))
                 self.could_load_sem.release()
                 continue
 
@@ -229,7 +229,7 @@ class UnsupReprLearningDataset(BaseDataset):
             beginpass_begin = time.time()
             self.embedding.begin_pass()
             beginpass_end = time.time()
-            log.info("pass[%d] STAGE [BEGIN PASS] finished, time cost: %f sec" \
+            log.info("train pass[%d] STAGE [BEGIN PASS] finished, time cost: %f sec" \
                     % (pass_id, beginpass_end - beginpass_begin))
 
             yield dataset
@@ -238,7 +238,7 @@ class UnsupReprLearningDataset(BaseDataset):
             endpass_begin = time.time()
             self.embedding.end_pass()
             endpass_end = time.time()
-            log.info("pass[%d] STAGE [END PASS] finished, time cost: %f sec" \
+            log.info("train pass[%d] STAGE [END PASS] finished, time cost: %f sec" \
                     % (pass_id, endpass_end - endpass_begin))
             self.could_load_sem.release()
 
@@ -248,7 +248,7 @@ class UnsupReprLearningDataset(BaseDataset):
                 cache_begin = time.time()
                 fleet.save_cache_table(0, cache_pass_id)
                 cache_end = time.time()
-                log.info("pass[%d] STAGE [SSD CACHE TABLE] finished, time cost: %f sec",
+                log.info("train pass[%d] STAGE [SSD CACHE TABLE] finished, time cost: %f sec",
                         pass_id, cache_end - cache_begin)
 
             pass_id = pass_id + 1
