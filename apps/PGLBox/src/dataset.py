@@ -161,15 +161,24 @@ class BaseDataset(object):
 
                 # Only training has epoch finish == True.
                 if not self.is_predict:
-                    epoch_finish = dataset.get_epoch_finish()
-                    if epoch_finish:
-                        log.info("epoch_finish == true, break")
-                        self.ins_ready_sem.release()
-                        break
-                    if self.config.max_steps > 0 and model_util.print_count >= self.config.max_steps:
-                        log.info("reach max_steps, dataset generator break")
-                        self.ins_ready_sem.release()
-                        break
+
+                    if self.config.metapath_split_opt:
+                        data_size = dataset.get_memory_data_size()
+                        if data_size == 0:
+                            log.info("train metapath memory data_size == 0, break")
+                            self.ins_ready_sem.release()
+                            break
+                    else:
+                        epoch_finish = dataset.get_epoch_finish()
+                        if epoch_finish:
+                            log.info("epoch_finish == true, break")
+                            self.ins_ready_sem.release()
+                            break
+                        if self.config.max_steps > 0 and model_util.print_count >= self.config.max_steps:
+                            log.info("reach max_steps, dataset generator break")
+                            self.ins_ready_sem.release()
+                            break
+
                 else:
                     data_size = dataset.get_memory_data_size()
                     if data_size == 0:

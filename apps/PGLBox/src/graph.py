@@ -219,6 +219,9 @@ class DistGraph(object):
                 metapath_dict[first_node].append(sorted_metapaths[i])
         return sorted_metapaths, metapath_dict
 
+    def clear_metapath_state(self):
+        self.graph.clear_metapath_state()
+
     def load_graph_into_cpu(self):
         """Pull whole graph from disk into memory
         """

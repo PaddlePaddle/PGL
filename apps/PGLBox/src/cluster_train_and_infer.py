@@ -128,7 +128,7 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
                 train_pass_num += 1
             metapath_train_end = time.time()
             log.info("metapath: %s, all train time: %s" % (sorted_metapaths[i], metapath_train_end - metapath_train_begin))
-            g.clear_metapath_state()
+            dataset.dist_graph.clear_metapath_state()
 
         if train_pass_num > 0:
             epoch_loss = epoch_loss / train_pass_num
@@ -332,6 +332,7 @@ if __name__ == "__main__":
     config.model_save_path = os.path.join(config.working_root, "model")
     config.infer_result_path = os.path.join(config.working_root, 'embedding')
     config.max_steps = config.max_steps if config.max_steps else 0
+    config.metapath_split_opt = config.metapath_split_opt if config.metapath_split_opt else False
     print("#===================PRETTY CONFIG============================#")
     pretty(config, indent=0)
     print("#===================PRETTY CONFIG============================#")
