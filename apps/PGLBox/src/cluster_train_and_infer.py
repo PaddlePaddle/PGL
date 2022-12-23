@@ -54,7 +54,6 @@ def train(args, exe, model_dict, dataset):
 
     train_begin_time = time.time()
     for epoch in range(1, args.epochs + 1):
-        # Used for erniesage.
         if args.max_steps > 0 and model_util.print_count >= args.max_steps:
             log.info("training reach max_steps: %d, training end" %
                      args.max_steps)

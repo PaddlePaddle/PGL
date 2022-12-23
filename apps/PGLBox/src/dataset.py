@@ -45,20 +45,9 @@ class BaseDataset(object):
         fs_name = config.fs_name if config.fs_name is not None else ""
         fs_ugi = config.fs_ugi if config.fs_ugi is not None else ""
 
-        str_samples = ""
-        if sage_mode and config.samples and len(config.samples) > 0:
-            for s in config.samples:
-                str_samples += str(s)
-                str_samples += ";"
-            str_samples = str_samples[:-1]
-
-        str_infer_samples = ""
-        if sage_mode and config.infer_samples and len(
-                config.infer_samples) > 0:
-            for s in config.infer_samples:
-                str_infer_samples += str(s)
-                str_infer_samples += ";"
-            str_infer_samples = str_infer_samples[:-1]
+        str_samples = util.sample_list_to_str(sage_mode, config.samples)
+        str_infer_samples = util.sample_list_to_str(sage_mode,
+                                                    config.infer_samples)
 
         excluded_train_pair = config.excluded_train_pair if config.excluded_train_pair else ""
         infer_node_type = config.infer_node_type if config.infer_node_type else ""

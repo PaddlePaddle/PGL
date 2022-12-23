@@ -530,3 +530,16 @@ def run_cmd(cmd):
     if ret != 0:
         raise RuntimeError("Fail to run cmd[%s] ret[%d]" % (cmd, ret))
     return ret
+
+
+def sample_list_to_str(sage_mode, samples):
+    """
+    turn sample list config to string
+    """
+    str_samples = ""
+    if sage_mode and samples and len(samples) > 0:
+        for s in samples:
+            str_samples += str(s)
+            str_samples += ";"
+        str_samples = str_samples[:-1]
+    return str_samples

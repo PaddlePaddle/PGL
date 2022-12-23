@@ -75,15 +75,6 @@ softsign: False
 # 对比学习损失函数选择： 目前支持 simgcl_loss
 gcl_loss: simgcl_loss
 
-# sage模型设置开关
-sage_mode: False
-# sage_layer_type: sage 模型类型选择
-sage_layer_type: "LightGCN"
-sage_alpha: 0.9
-samples: [5]
-infer_samples: [100]
-sage_act: "relu"
-
 # 是否要进行训练，如果只想单独热启模型做预估(inference)，则可以关闭need_train
 need_train: True
 # 是否需要进行inference. 如果只想单独训练模型，则可以关闭need_inference
