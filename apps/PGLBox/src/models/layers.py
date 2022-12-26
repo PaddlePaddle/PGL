@@ -19,20 +19,33 @@ import paddle.nn as nn
 import paddle.nn.functional as F
 import pgl
 
+from . import model_util
+
 
 class GIN(nn.Layer):
     """GIN"""
 
-    def __init__(self, hidden_size, act):
+    def __init__(self, hidden_size, act, use_degree_norm=False):
         super(GIN, self).__init__()
         self.lin = nn.Linear(hidden_size, hidden_size)
         self.act = act
+        self.use_degree_norm = use_degree_norm
 
-    def forward(self, graph, x, next_num_nodes):
+    def forward(self, graph, x, next_num_nodes, degree_norm=None):
         src, dst = graph.edges[:, 0], graph.edges[:, 1]
+        self_feature = x[:next_num_nodes]
+
+        if self.use_degree_norm:
+            x = x * degree_norm
+
         neigh_feature = paddle.geometric.send_u_recv(
             x, src, dst, pool_type="sum", out_size=next_num_nodes)
-        self_feature = x[:next_num_nodes]
+
+        if self.use_degree_norm:
+            sub_degree_norm = model_util.get_graph_degree_norm(
+                graph)[:next_num_nodes]
+            neigh_feature *= sub_degree_norm
+
         output = self_feature + neigh_feature
         output = self.lin(output)
         if self.act is not None:
@@ -44,12 +57,15 @@ class GIN(nn.Layer):
 class GraphSAGEMean(nn.Layer):
     """GraphSAGEMean"""
 
-    def __init__(self, hidden_size, act):
+    def __init__(self, hidden_size, act, use_degree_norm=False):
         super(GraphSAGEMean, self).__init__()
         self.lin = nn.Linear(2 * hidden_size, hidden_size)
         self.act = act
+        self.use_degree_norm = use_degree_norm
+        if self.use_degree_norm:
+            raise ValueError("degree norm is not allowed for GraphSAGEMean.")
 
-    def forward(self, graph, x, next_num_nodes):
+    def forward(self, graph, x, next_num_nodes, degree_norm=None):
         src, dst = graph.edges[:, 0], graph.edges[:, 1]
         neigh_feature = paddle.geometric.send_u_recv(
             x, src, dst, pool_type="mean", out_size=next_num_nodes)
@@ -65,10 +81,13 @@ class GraphSAGEMean(nn.Layer):
 class GraphSAGEBow(nn.Layer):
     """GraphSAGEBow"""
 
-    def __init__(self, hidden_size, act):
+    def __init__(self, hidden_size, act, use_degree_norm=False):
         super(GraphSAGEBow, self).__init__()
+        self.use_degree_norm = use_degree_norm
+        if self.use_degree_norm:
+            raise ValueError("degree norm is not allowed for GraphSAGEBow.")
 
-    def forward(self, graph, x, next_num_nodes):
+    def forward(self, graph, x, next_num_nodes, degree_norm=None):
         src, dst = graph.edges[:, 0], graph.edges[:, 1]
         neigh_feature = paddle.geometric.send_u_recv(
             x, src, dst, pool_type="mean", out_size=next_num_nodes)
@@ -81,12 +100,14 @@ class GraphSAGEBow(nn.Layer):
 class GraphSAGEMax(nn.Layer):
     """GraphSAGEMax"""
 
-    def __init__(self, hidden_size, act):
+    def __init__(self, hidden_size, act, use_degree_norm=False):
         super(GraphSAGEMax, self).__init__()
         self.lin = nn.Linear(2 * hidden_size, hidden_size)
         self.act = act
+        if self.use_degree_norm:
+            raise ValueError("degree norm is not allowed for GraphSAGEMax.")
 
-    def forward(self, graph, x, next_num_nodes):
+    def forward(self, graph, x, next_num_nodes, degree_norm=None):
         src, dst = graph.edges[:, 0], graph.edges[:, 1]
         neigh_feature = paddle.geometric.send_u_recv(
             x, src, dst, pool_type="max", out_size=next_num_nodes)
@@ -102,7 +123,7 @@ class GraphSAGEMax(nn.Layer):
 class GAT(nn.Layer):
     """GAT"""
 
-    def __init__(self, hidden_size, act):
+    def __init__(self, hidden_size, act, use_degree_norm=False):
         super(GAT, self).__init__()
         self.gnn = pgl.nn.GATConv(
             input_size=hidden_size,
@@ -113,10 +134,19 @@ class GAT(nn.Layer):
             activation=act)
         self.lin = nn.Linear(hidden_size * 2, hidden_size)
         self.act = act
+        self.use_degree_norm = use_degree_norm
 
-    def forward(self, graph, x, next_num_nodes):
-        neigh_feature = self.gnn(graph, x)[:next_num_nodes]
+    def forward(self, graph, x, next_num_nodes, degree_norm=None):
         self_feature = x[:next_num_nodes]
+        if self.use_degree_norm:
+            x = x * degree_norm
+        neigh_feature = self.gnn(graph, x)[:next_num_nodes]
+
+        if self.use_degree_norm:
+            sub_degree_norm = model_util.get_graph_degree_norm(
+                graph)[:next_num_nodes]
+            neigh_feature *= sub_degree_norm
+
         output = self.lin(paddle.concat([self_feature, neigh_feature], axis=1))
         if self.act is not None:
             output = getattr(F, self.act)(output)
@@ -126,11 +156,21 @@ class GAT(nn.Layer):
 class LightGCN(nn.Layer):
     """LightGCN"""
 
-    def __init__(self, hidden_size, act):
+    def __init__(self, hidden_size, act, use_degree_norm=False):
         super(LightGCN, self).__init__()
+        self.use_degree_norm = use_degree_norm
 
-    def forward(self, graph, x, next_num_nodes):
+    def forward(self, graph, x, next_num_nodes, degree_norm=None):
         src, dst = graph.edges[:, 0], graph.edges[:, 1]
+        if self.use_degree_norm:
+            x = x * degree_norm
+
         neigh_feature = paddle.geometric.send_u_recv(
             x, src, dst, pool_type="sum", out_size=next_num_nodes)
+
+        if self.use_degree_norm:
+            sub_degree_norm = model_util.get_graph_degree_norm(
+                graph)[:next_num_nodes]
+            neigh_feature *= sub_degree_norm
+
         return neigh_feature

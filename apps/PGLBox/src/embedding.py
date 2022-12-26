@@ -29,8 +29,10 @@ class DistEmbedding(object):
         embedding_size: the output size of the embedding.
     """
 
-    def __init__(self, slots, embedding_size):
+    def __init__(self, slots, embedding_size, slot_num_for_pull_feature):
         self.parameter_server = core.PSGPU()
+        self.parameter_server.set_slot_num_for_pull_feature(
+            slot_num_for_pull_feature)
         self.parameter_server.set_slot_vector(slots)
         self.parameter_server.init_gpu_ps(get_cuda_places())
         self.parameter_server.set_slot_dim_vector([embedding_size] *
@@ -44,6 +46,12 @@ class DistEmbedding(object):
 
     def end_pass(self):
         self.parameter_server.end_pass()
+
+    def dump_to_mem(self):
+        self.parameter_server.dump_to_mem()
+
+    def set_infer_mode(self, set_flag=False):
+        self.parameter_server.set_mode(set_flag)
 
     def __del__(self):
         self.finalize()

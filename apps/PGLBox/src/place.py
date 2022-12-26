@@ -14,6 +14,8 @@
 """CUDA Place MANAGERS 
 """
 import os
+
+import paddle
 import paddle.fluid.core as core
 
 
@@ -22,7 +24,7 @@ def get_cuda_places():
     if gpus_env:
         device_ids = [int(s) for s in gpus_env.split(",")]
     else:
-        device_ids = list(range(core.get_cuda_device_count()))
+        device_ids = list(range(paddle.device.cuda.device_count()))
         os.environ["FLAGS_selected_gpus"] = ",".join(
             [str(w) for w in device_ids])
     return device_ids
