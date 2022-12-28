@@ -215,12 +215,8 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         metapath_split_opt=args.metapath_split_opt)
 
     dist_graph.load_edge()
-
     ret = dist_graph.load_node()
     if ret is not 0:
-        embedding.finalize()
-        dist_graph.graph.release_graph_node()
-        dist_graph.graph.finalize()
         return -1
 
     if args.warm_start_from:

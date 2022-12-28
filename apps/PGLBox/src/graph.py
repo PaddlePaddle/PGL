@@ -107,10 +107,8 @@ class DistGraph(object):
         """
         cpuload_begin = time.time()
         load_begin_time = time.time()
-        sys.stderr.write("begin load edge\n")
         self.graph.load_edge_file(self.edge_types, self.root_dir,
                                   self.num_parts, self.reverse)
-        sys.stderr.write("end load edge\n")
         load_end_time = time.time()
         log.info("STAGE [CPU LOAD EDGE] finished, time cost: %f sec" %
                  (load_end_time - load_begin_time))
@@ -118,11 +116,10 @@ class DistGraph(object):
         if not self.metapath_split_opt:
             load_begin_time = time.time()
             for i in range(len(self.etype_list)):
+                log.info("begin to upload edge_type: [%s] to GPU" % self.etype_list[i])
                 self.graph.upload_batch(0, i,
                                         len(get_cuda_places()),
                                         self.etype_list[i])
-                sys.stderr.write("end upload edge, type[" + self.etype_list[i]
-                                 + "]\n")
             load_end_time = time.time()
             log.info("STAGE [GPU LOAD EDGE] finished, time cost: %f sec" %
                      (load_end_time - load_begin_time))
@@ -138,16 +135,15 @@ class DistGraph(object):
            After that, release memory on cpu.
         """
         load_begin_time = time.time()
-        sys.stderr.write("begin load node\n")
         ret = self.graph.load_node_file(self.node_types, self.root_dir,
                                         self.num_parts)
 
         if ret is not 0:
             log.info("Fail to load node, ntype2files[%s] path[%s] num_part[%d]" \
                      % (self.node_types, self.root_dir, self.num_parts))
+            self.graph.release_graph_node()
             return -1
 
-        sys.stderr.write("end load node\n")
         load_end_time = time.time()
         log.info("STAGE [CPU LOAD NODE] finished, time cost: %f sec" %
                  (load_end_time - load_begin_time))
