@@ -182,6 +182,6 @@ class GNNModel(object):
             loss_count += 1
 
         # for visualization
-        v_loss = loss / self.config.batch_node_size / loss_count
+        v_loss = loss / self.config.batch_size / loss_count
 
         return loss, v_loss

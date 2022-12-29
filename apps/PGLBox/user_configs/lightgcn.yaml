@@ -97,8 +97,7 @@ epochs: 1
 # 为了加快训练速度，可以设置每隔多少个epochs才保存一次模型。默认最后一个epoch训练完一定会保存模型。
 save_model_interval: 10
 # 训练样本的batch_size
-batch_node_size: 20000
-batch_size: 800
+batch_size: 20000
 infer_batch_size: 20000
 chunk_num: 1
 # how many sample times are performed in a buf

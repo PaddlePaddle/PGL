@@ -55,11 +55,11 @@ class BaseDataset(object):
         uniq_factor = 0.4
         if not sage_mode:
             train_pass_cap = int(config.walk_len * config.walk_times * config.sample_times_one_chunk \
-                             * config.batch_node_size * uniq_factor)
+                             * config.batch_size * uniq_factor)
         else:
             # If sage_mode is True, self.samples can not be None.
             train_pass_cap = int(config.walk_len * config.walk_times * config.sample_times_one_chunk \
-                             * config.batch_node_size * uniq_factor * config.samples[0])
+                             * config.batch_size * uniq_factor * config.samples[0])
 
         infer_pass_cap = 10000000  # 1kw
         if config.train_pass_cap:
@@ -73,7 +73,7 @@ class BaseDataset(object):
         graph_config = {
             "walk_len": config.walk_len,
             "walk_degree": config.walk_times,
-            "once_sample_startid_len": config.batch_node_size,
+            "once_sample_startid_len": config.batch_size,
             "sample_times_one_chunk": config.sample_times_one_chunk,
             "window": config.win_size,
             "debug_mode": config.debug_mode,
