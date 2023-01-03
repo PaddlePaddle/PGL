@@ -21,6 +21,7 @@ All datasets are runned with public split of  **semi-supervised** settings. And 
 | [SSGC (Zhu 2021)](https://openreview.net/forum?id=CYO5T-YjWZV) | 0.834(0.000) | 0.796(0.000) | 0.734(0.000) | Weight decay is important, 1e-4 for Citeseer/ 5e-6 for Cora / 5e-6  for Pubmed |
 | [GATv2 (Shaked Brody 2021)](https://arxiv.org/abs/2105.14491) | 0.829(0.007) | 0.779(0.002) | 0.709(0.006) |- |
 | [GPRGNN (Eli Chien 2021)](https://arxiv.org/abs/2006.07988) | 0.850(0.007) | 0.792(0.006) | 0.717(0.004) | hidden_size=64, 10 layers, weight_decay=0.0005 |
+| [FAGCN (Deyu Bo 2021)](https://arxiv.org/abs/2101.00797) | 0.840(0.005) | 0.788(0.002) | 0.710(0.004) | hidden_size=16, 5 layers, 1000 epochs |
 
 ### How to run the experiments?
 
@@ -83,4 +84,8 @@ python train.py --conf config/gpr.yaml --dataset cora
 python train.py --conf config/gpr.yaml --dataset pubmed
 python train.py --conf config/gpr.yaml --dataset citeseer
 
+# FAGCN
+python train.py --conf config/fagcn.yaml --dataset cora --epoch 1000
+python train.py --conf config/fagcn.yaml --dataset pubmed --epoch 1000
+python train.py --conf config/fagcn.yaml --dataset citeseer --epoch 1000
 ```

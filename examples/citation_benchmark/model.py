@@ -402,3 +402,51 @@ class GPRGNN(nn.Layer):
 
         feature = self.gpr(graph, feature)
         return feature
+
+
+class FAGCN(nn.Layer):
+    """Implementation of frequency adaptive graph convolution networks (FAGCN)"""
+
+    def __init__(
+        self, input_size, hidden_size, num_class, drop=0.6, eps=0.2, num_layer=3, **kwargs
+    ):
+        super(FAGCN, self).__init__()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_class = num_class
+        self.dropout = nn.Dropout(p=drop)
+        self.eps = eps
+        self.num_layer = num_layer
+
+        self.gnn_layer = nn.LayerList()
+        for _ in range(self.num_layer):
+            self.gnn_layer.append(pgl.nn.FAConv(self.hidden_size, drop))
+
+        self.t1 = nn.Linear(self.input_size, self.hidden_size)
+        self.t2 = nn.Linear(self.hidden_size, self.num_class)
+
+    def forward(self, graph, feature):
+        """
+
+        Args:
+
+            graph: `pgl.Graph` instance
+
+            feature: A tensor with shape (num_nodes, input_size)
+
+        Return:
+            A tensor with shape (num_nodes, output_size)
+
+        """
+        feature = self.dropout(feature)
+        feature = F.relu(self.t1(feature))
+        feature = self.dropout(feature)
+
+        h_0 = feature
+        for i in range(len(self.gnn_layer)):
+            feature = self.gnn_layer[i](graph, feature)
+            feature = self.eps * h_0 + feature
+
+        feature = self.t2(feature)
+        return feature

@@ -39,6 +39,7 @@ __all__ = [
     "SSGCConv",
     "NGCFConv",
     "LightGCNConv",
+    "FAConv",
 ]
 
 
@@ -63,11 +64,7 @@ class GraphSageConv(nn.Layer):
         normalize: Whether to normalize the output tensor.
     """
 
-    def __init__(self,
-                 input_size,
-                 hidden_size,
-                 aggr_func="sum",
-                 normalize=True):
+    def __init__(self, input_size, hidden_size, aggr_func="sum", normalize=True):
         super(GraphSageConv, self).__init__()
 
         assert aggr_func in [
@@ -100,11 +97,13 @@ class GraphSageConv(nn.Layer):
         """
 
         if isinstance(feature, paddle.Tensor) or isinstance(
-                feature, paddle.static.Variable):
+            feature, paddle.static.Variable
+        ):
             feature = (feature, feature)
 
         neigh_feature = graph.send_recv(
-            feature[0], self.aggr_func, out_size=feature[1].shape[0])
+            feature[0], self.aggr_func, out_size=feature[1].shape[0]
+        )
         neigh_feature = self.neigh_linear(neigh_feature)
         self_feature = self.self_linear(feature[1])
         output = self_feature + neigh_feature
@@ -174,8 +173,7 @@ class PinSageConv(nn.Layer):
         def _recv_func(message):
             return getattr(message, self.aggr_func)(message["msg"])
 
-        msg = graph.send(
-            _send_func, src_feat={"h": nfeat}, edge_feat={"w": efeat})
+        msg = graph.send(_send_func, src_feat={"h": nfeat}, edge_feat={"w": efeat})
         neigh_feature = graph.recv(reduce_func=_recv_func, msg=msg)
 
         self_feature = self.self_linear(nfeat)
@@ -280,14 +278,15 @@ class GATConv(nn.Layer):
     """
 
     def __init__(
-            self,
-            input_size,
-            hidden_size,
-            feat_drop=0.6,
-            attn_drop=0.6,
-            num_heads=1,
-            concat=True,
-            activation=None, ):
+        self,
+        input_size,
+        hidden_size,
+        feat_drop=0.6,
+        attn_drop=0.6,
+        num_heads=1,
+        concat=True,
+        activation=None,
+    ):
         super(GATConv, self).__init__()
         self.hidden_size = hidden_size
         self.num_heads = num_heads
@@ -327,8 +326,7 @@ class GATConv(nn.Layer):
             feature = self.feat_dropout(feature)
 
         feature = self.linear(feature)
-        feature = paddle.reshape(feature,
-                                 [-1, self.num_heads, self.hidden_size])
+        feature = paddle.reshape(feature, [-1, self.num_heads, self.hidden_size])
 
         attn_src = paddle.sum(feature * self.weight_src, axis=-1)
         attn_dst = paddle.sum(feature * self.weight_dst, axis=-1)
@@ -340,8 +338,7 @@ class GATConv(nn.Layer):
             alpha = self.attn_dropout(alpha)
         output = graph.send_ue_recv(feature, alpha, "mul", "sum")
         if self.concat:
-            output = paddle.reshape(output,
-                                    [-1, self.num_heads * self.hidden_size])
+            output = paddle.reshape(output, [-1, self.num_heads * self.hidden_size])
         else:
             output = paddle.mean(output, axis=1)
         if self.activation is not None:
@@ -373,14 +370,15 @@ class GATv2Conv(nn.Layer):
     """
 
     def __init__(
-            self,
-            input_size,
-            hidden_size,
-            feat_drop=0.6,
-            attn_drop=0.6,
-            num_heads=1,
-            concat=True,
-            activation=None, ):
+        self,
+        input_size,
+        hidden_size,
+        feat_drop=0.6,
+        attn_drop=0.6,
+        num_heads=1,
+        concat=True,
+        activation=None,
+    ):
         super(GATv2Conv, self).__init__()
         self.hidden_size = hidden_size
         self.num_heads = num_heads
@@ -418,8 +416,7 @@ class GATv2Conv(nn.Layer):
             feature = self.feat_dropout(feature)
 
         feature = self.linear(feature)
-        feature = paddle.reshape(feature,
-                                 [-1, self.num_heads, self.hidden_size])
+        feature = paddle.reshape(feature, [-1, self.num_heads, self.hidden_size])
         alpha = graph.send_uv(feature, feature, "add")
         alpha = self.leaky_relu(alpha)
         alpha = paddle.sum(alpha * self.attn, axis=-1)
@@ -429,8 +426,7 @@ class GATv2Conv(nn.Layer):
             alpha = self.attn_dropout(alpha)
         output = graph.send_ue_recv(feature, alpha, "mul", "sum")
         if self.concat:
-            output = paddle.reshape(output,
-                                    [-1, self.num_heads * self.hidden_size])
+            output = paddle.reshape(output, [-1, self.num_heads * self.hidden_size])
         else:
             output = paddle.mean(output, axis=1)
 
@@ -479,12 +475,10 @@ class APPNP(nn.Layer):
         """
         if self.self_loop:
             index = paddle.arange(start=0, end=graph.num_nodes, dtype="int64")
-            self_loop_edges = paddle.transpose(
-                paddle.stack((index, index)), [1, 0])
+            self_loop_edges = paddle.transpose(paddle.stack((index, index)), [1, 0])
 
             mask = graph.edges[:, 0] != graph.edges[:, 1]
-            mask_index = paddle.masked_select(
-                paddle.arange(end=graph.num_edges), mask)
+            mask_index = paddle.masked_select(paddle.arange(end=graph.num_edges), mask)
             edges = paddle.gather(graph.edges, mask_index)  # remove self loop
 
             edges = paddle.concat((self_loop_edges, edges), axis=0)
@@ -537,18 +531,19 @@ class GPRConv(nn.Layer):
     """
 
     def __init__(
-            self,
-            input_size,
-            hidden_size,
-            output_size,
-            drop=0.5,
-            dprate=0.5,
-            activation="relu",
-            self_loop=False,
-            alpha=0.1,
-            k_hop=10,
-            init_method="PPR",
-            gamma=None, ):
+        self,
+        input_size,
+        hidden_size,
+        output_size,
+        drop=0.5,
+        dprate=0.5,
+        activation="relu",
+        self_loop=False,
+        alpha=0.1,
+        k_hop=10,
+        init_method="PPR",
+        gamma=None,
+    ):
         super(GPRConv, self).__init__()
 
         self.alpha = alpha
@@ -565,11 +560,11 @@ class GPRConv(nn.Layer):
             TEMP[alpha] = 1.0
         elif init_method == "PPR":
             # PPR-like
-            TEMP = alpha * (1 - alpha)**np.arange(k_hop + 1)
-            TEMP[-1] = (1 - alpha)**k_hop
+            TEMP = alpha * (1 - alpha) ** np.arange(k_hop + 1)
+            TEMP[-1] = (1 - alpha) ** k_hop
         elif init_method == "NPPR":
             # Negative PPR
-            TEMP = (alpha)**np.arange(k_hop + 1)
+            TEMP = (alpha) ** np.arange(k_hop + 1)
             TEMP = TEMP / np.sum(np.abs(TEMP))
         elif init_method == "Random":
             # Random
@@ -583,7 +578,8 @@ class GPRConv(nn.Layer):
         self.temp = self.create_parameter(
             shape=TEMP.shape,
             dtype="float32",
-            default_initializer=nn.initializer.Assign(value=TEMP), )
+            default_initializer=nn.initializer.Assign(value=TEMP),
+        )
 
         self.linear_1 = nn.Linear(input_size, hidden_size)
         self.linear_2 = nn.Linear(hidden_size, output_size)
@@ -617,11 +613,9 @@ class GPRConv(nn.Layer):
 
         if self.self_loop:
             index = paddle.arange(start=0, end=graph.num_nodes, dtype="int64")
-            self_loop_edges = paddle.transpose(
-                paddle.stack((index, index)), [1, 0])
+            self_loop_edges = paddle.transpose(paddle.stack((index, index)), [1, 0])
             mask = graph.edges[:, 0] != graph.edges[:, 1]
-            mask_index = paddle.masked_select(
-                paddle.arange(end=graph.num_edges), mask)
+            mask_index = paddle.masked_select(paddle.arange(end=graph.num_edges), mask)
             edges = paddle.gather(graph.edges, mask_index)  # remove self loop
             edges = paddle.concat((self_loop_edges, edges), axis=0)
             graph = pgl.Graph(num_nodes=graph.num_nodes, edges=edges)
@@ -668,13 +662,14 @@ class GCNII(nn.Layer):
     """
 
     def __init__(
-            self,
-            hidden_size,
-            activation=None,
-            lambda_l=0.5,
-            alpha=0.2,
-            k_hop=10,
-            dropout=0.6, ):
+        self,
+        hidden_size,
+        activation=None,
+        lambda_l=0.5,
+        alpha=0.2,
+        k_hop=10,
+        dropout=0.6,
+    ):
         super(GCNII, self).__init__()
         self.hidden_size = hidden_size
         self.activation = activation
@@ -755,17 +750,18 @@ class TransformerConv(nn.Layer):
     """
 
     def __init__(
-            self,
-            input_size,
-            hidden_size,
-            num_heads=4,
-            feat_drop=0.6,
-            attn_drop=0.6,
-            concat=True,
-            skip_feat=True,
-            gate=False,
-            layer_norm=True,
-            activation="relu", ):
+        self,
+        input_size,
+        hidden_size,
+        num_heads=4,
+        feat_drop=0.6,
+        attn_drop=0.6,
+        concat=True,
+        skip_feat=True,
+        gate=False,
+        layer_norm=True,
+        activation="relu",
+    ):
         super(TransformerConv, self).__init__()
 
         self.hidden_size = hidden_size
@@ -827,8 +823,7 @@ class TransformerConv(nn.Layer):
         feature = msg["v"]
         feature = feature * alpha
         if self.concat:
-            feature = paddle.reshape(feature,
-                                     [-1, self.num_heads * self.hidden_size])
+            feature = paddle.reshape(feature, [-1, self.num_heads * self.hidden_size])
         else:
             feature = paddle.mean(feature, axis=1)
         feature = msg.reduce(feature, pool_type="sum")
@@ -839,16 +834,14 @@ class TransformerConv(nn.Layer):
         if edge_feat is not None:
             msg = graph.send(
                 self.send_attention,
-                src_feat={"k": k,
-                          "v": v},
+                src_feat={"k": k, "v": v},
                 dst_feat={"q": q},
-                edge_feat={"edge_feat": edge_feat}, )
+                edge_feat={"edge_feat": edge_feat},
+            )
         else:
             msg = graph.send(
-                self.send_attention,
-                src_feat={"k": k,
-                          "v": v},
-                dst_feat={"q": q})
+                self.send_attention, src_feat={"k": k, "v": v}, dst_feat={"q": q}
+            )
 
         output = graph.recv(reduce_func=self.reduce_attention, msg=msg)
         return output
@@ -866,8 +859,9 @@ class TransformerConv(nn.Layer):
         if edge_feat is not None:
             if self.feat_drop > 1e-5:
                 edge_feat = self.feat_dropout(edge_feat)
-            edge_feat = paddle.reshape(edge_feat,
-                                       [-1, self.num_heads, self.hidden_size])
+            edge_feat = paddle.reshape(
+                edge_feat, [-1, self.num_heads, self.hidden_size]
+            )
 
         output = self.send_recv(graph, q, k, v, edge_feat=edge_feat)
 
@@ -876,8 +870,9 @@ class TransformerConv(nn.Layer):
             if self.gate is not None:
                 gate = F.sigmoid(
                     self.gate(
-                        paddle.concat(
-                            [skip_feat, output, skip_feat - output], axis=-1)))
+                        paddle.concat([skip_feat, output, skip_feat - output], axis=-1)
+                    )
+                )
                 output = gate * skip_feat + (1 - gate) * output
             else:
                 output = skip_feat + output
@@ -914,12 +909,9 @@ class GINConv(nn.Layer):
 
     """
 
-    def __init__(self,
-                 input_size,
-                 output_size,
-                 activation=None,
-                 init_eps=0.0,
-                 train_eps=False):
+    def __init__(
+        self, input_size, output_size, activation=None, init_eps=0.0, train_eps=False
+    ):
         super(GINConv, self).__init__()
         self.input_size = input_size
         self.output_size = output_size
@@ -930,7 +922,8 @@ class GINConv(nn.Layer):
             self.epsilon = self.create_parameter(
                 shape=[1, 1],
                 dtype="float32",
-                default_initializer=nn.initializer.Constant(value=init_eps), )
+                default_initializer=nn.initializer.Constant(value=init_eps),
+            )
         else:
             self.epsilon = init_eps
 
@@ -996,11 +989,11 @@ class RGCNConv(nn.Layer):
             self.num_bases = self.num_rels
 
         self.weight = self.create_parameter(
-            shape=[self.num_bases, self.in_dim, self.out_dim])
+            shape=[self.num_bases, self.in_dim, self.out_dim]
+        )
 
         if self.num_bases < self.num_rels:
-            self.w_comp = self.create_parameter(
-                shape=[self.num_rels, self.num_bases])
+            self.w_comp = self.create_parameter(shape=[self.num_rels, self.num_bases])
 
     def forward(self, graph, feat):
         """
@@ -1051,21 +1044,16 @@ class SGCConv(nn.Layer):
 
     """
 
-    def __init__(self,
-                 input_size,
-                 output_size,
-                 k_hop=2,
-                 cached=True,
-                 activation=None,
-                 bias=False):
+    def __init__(
+        self, input_size, output_size, k_hop=2, cached=True, activation=None, bias=False
+    ):
         super(SGCConv, self).__init__()
         self.input_size = input_size
         self.output_size = output_size
         self.k_hop = k_hop
         self.linear = nn.Linear(input_size, output_size, bias_attr=False)
         if bias:
-            self.bias = self.create_parameter(
-                shape=[output_size], is_bias=True)
+            self.bias = self.create_parameter(shape=[output_size], is_bias=True)
 
         self.cached = cached
         self.cached_output = None
@@ -1136,14 +1124,15 @@ class SSGCConv(nn.Layer):
     """
 
     def __init__(
-            self,
-            input_size,
-            output_size,
-            k_hop=16,
-            alpha=0.05,
-            cached=True,
-            activation=None,
-            bias=False, ):
+        self,
+        input_size,
+        output_size,
+        k_hop=16,
+        alpha=0.05,
+        cached=True,
+        activation=None,
+        bias=False,
+    ):
         super(SSGCConv, self).__init__()
         self.input_size = input_size
         self.output_size = output_size
@@ -1151,8 +1140,7 @@ class SSGCConv(nn.Layer):
         self.alpha = alpha
         self.linear = nn.Linear(input_size, output_size, bias_attr=False)
         if bias:
-            self.bias = self.create_parameter(
-                shape=[output_size], is_bias=True)
+            self.bias = self.create_parameter(shape=[output_size], is_bias=True)
 
         self.cached = cached
         self.cached_output = None
@@ -1230,14 +1218,12 @@ class NGCFConv(nn.Layer):
         super(NGCFConv, self).__init__()
         self.input_size = input_size
         self.output_size = output_size
-        weight_attr = paddle.ParamAttr(
-            initializer=nn.initializer.XavierUniform())
-        bias_attr = paddle.ParamAttr(initializer=nn.initializer.XavierUniform(
-            fan_in=1, fan_out=output_size))
-        self.linear = nn.Linear(input_size, output_size, weight_attr,
-                                bias_attr)
-        self.linear2 = nn.Linear(input_size, output_size, weight_attr,
-                                 bias_attr)
+        weight_attr = paddle.ParamAttr(initializer=nn.initializer.XavierUniform())
+        bias_attr = paddle.ParamAttr(
+            initializer=nn.initializer.XavierUniform(fan_in=1, fan_out=output_size)
+        )
+        self.linear = nn.Linear(input_size, output_size, weight_attr, bias_attr)
+        self.linear2 = nn.Linear(input_size, output_size, weight_attr, bias_attr)
         self.leaky_relu = nn.LeakyReLU(negative_slope=0.2)
 
     def forward(self, graph, feature):
@@ -1296,3 +1282,60 @@ class LightGCNConv(nn.Layer):
         feature = graph.send_recv(feature, "sum")
         feature = feature * norm
         return feature
+
+
+class FAConv(nn.Layer):
+    """Implementation of frequency adaptive graph convolution networks (FAGCN)
+
+    This is an implementation of the paper Beyond Low-frequency Information in
+    Graph Convolutional Networks (https://arxiv.org/abs/2101.00797).
+
+    Args:
+
+        hidden_size: The hidden size for feaure projection.
+
+        drop: (default 0.5) Dropout rate (1 - keep probability).
+
+    """
+
+    def __init__(self, hidden_size, drop=0.5):
+        super(FAConv, self).__init__()
+        self.dropout = nn.Dropout(p=drop)
+        self.gate = nn.Linear(2 * hidden_size, 1)
+
+    def _send_attention(self, src_feat, dst_feat, edge_feat):
+        h = paddle.concat(x=[src_feat["src"], dst_feat["dst"]], axis=1)
+        h = paddle.tanh(self.gate(h))
+        alpha = h * src_feat["d"] * dst_feat["d"]
+        alpha = self.dropout(alpha)
+        return {"alpha": alpha, "h": src_feat["src"]}
+
+    def _reduce_attention(self, msg):
+        feature = msg["h"] * msg["alpha"]
+        feature = msg.reduce(feature, pool_type="sum")
+        return feature
+
+    def forward(self, graph, feature):
+        """
+
+        Args:
+
+            graph: `pgl.Graph` instance
+
+            feature: A tensor with shape (num_nodes, input_size)
+
+        Return:
+            A tensor with shape (num_nodes, output_size)
+
+        """
+        norm = GF.degree_norm(graph)
+
+        msg = graph.send(
+            self._send_attention,
+            src_feat={"src": feature, "d": norm},
+            dst_feat={"dst": feature, "d": norm},
+        )
+
+        output = graph.recv(reduce_func=self._reduce_attention, msg=msg)
+
+        return output
