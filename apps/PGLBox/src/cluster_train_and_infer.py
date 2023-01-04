@@ -216,7 +216,7 @@ def run_worker(args, exe, model_dict, infer_model_dict):
 
     dist_graph.load_edge()
     ret = dist_graph.load_node()
-    if ret is not 0:
+    if ret != 0:
         return -1
 
     if args.warm_start_from:
@@ -259,6 +259,13 @@ def run_worker(args, exe, model_dict, infer_model_dict):
     else:
         log.info("STAGE: need_inference is %s, skip inference process" %
                  args.need_inference)
+
+    if args.need_dump_walk is True:
+        upload_dump_begin = time.time()
+        util.upload_dump_walk(args, args.local_dump_path)
+        upload_dump_end = time.time()
+        log.info("STAGE [UPLOAD DUMP WALK] finished, time cost: %f sec" %
+                 (upload_dump_end - upload_dump_begin))
 
     return 0
 
@@ -314,7 +321,7 @@ def main(args):
 
     elif fleet.is_worker():
         ret = run_worker(args, exe, model_dict, infer_model_dict)
-        if ret is not 0:
+        if ret != 0:
             fleet.stop_worker()
             return -1
 
@@ -333,6 +340,7 @@ if __name__ == "__main__":
     config.local_result_path = "./embedding"
     config.model_save_path = os.path.join(config.working_root, "model")
     config.infer_result_path = os.path.join(config.working_root, 'embedding')
+    config.dump_save_path = os.path.join(config.working_root, 'dump_walk')
     config.max_steps = config.max_steps if config.max_steps else 0
     config.metapath_split_opt = config.metapath_split_opt if config.metapath_split_opt else False
     print("#===================PRETTY CONFIG============================#")
