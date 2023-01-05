@@ -47,6 +47,13 @@ def get_global_value(value_sum, value_cnt):
     return value_sum / np.maximum(value_cnt, 1)
 
 
+def get_batch_num(value_cnt):
+    """ get global value """
+    value_cnt = np.array(fluid.global_scope().find_var(value_cnt.name)
+                         .get_tensor())
+    return value_cnt
+
+
 def parse_path(path):
     """
     Args:

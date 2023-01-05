@@ -21,17 +21,14 @@ import os
 import sys
 import time
 import glob
-import yaml
 import shutil
 import argparse
 import traceback
 import pickle as pkl
 import numpy as np
 import helper
-from datetime import datetime
 
 import paddle
-import paddle.fluid as fluid
 import paddle.static as static
 from place import get_cuda_places
 from pgl.utils.logger import log
@@ -61,7 +58,7 @@ def train(args, exe, model_dict, dataset):
 
         epoch_loss = 0
         train_pass_num = 0
-        for pass_dataset in dataset.pass_generator():
+        for pass_dataset in dataset.pass_generator(epoch):
             exe.train_from_dataset(
                 model_dict.train_program, pass_dataset, debug=False)
 
@@ -161,7 +158,7 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
         fleet.barrier_worker()
         savemodel_end = time.time()
         log.info("STAGE [SAVE MODEL] for epoch [%d] finished, time cost: %f sec" \
-            % (epoch + 1, savemodel_end - savemodel_begin))
+            % (epoch, savemodel_end - savemodel_begin))
 
     train_end_time = time.time()
     log.info("STAGE [TRAIN MODEL] finished, time cost: % sec" %

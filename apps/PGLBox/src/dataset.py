@@ -14,13 +14,16 @@
 
 import os
 import time
-import paddle
 import threading
+
+import paddle
 from paddle.distributed import fleet
-import util
 import paddle.fluid as fluid
-from place import get_cuda_places
 from pgl.utils.logger import log
+
+import util
+from place import get_cuda_places
+import models.model_util as model_util
 
 
 class BaseDataset(object):
@@ -221,14 +224,13 @@ class UnsupReprLearningDataset(BaseDataset):
             dist_graph=dist_graph,
             is_predict=False)
 
-    def pass_generator(self):
+    def pass_generator(self, epoch=None):
         # open a thread for processing the data
         dataset_list = []
         t = threading.Thread(target=self.preload_thread, args=(dataset_list, ))
         t.setDaemon(True)
         t.start()
 
-        epoch_loss = 0
         pass_id = 0
         while 1:
             self.ins_ready_sem.acquire()

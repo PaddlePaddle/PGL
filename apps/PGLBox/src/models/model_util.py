@@ -283,7 +283,7 @@ def get_sparse_embedding(config,
             use_cvm=use_cvm)
         for bow in slot_bows:
             slot_embedding = bow[:, 1:]
-            slot_embedding = paddle.nn.softsign(slot_embedding)
+            slot_embedding = paddle.nn.functional.softsign(slot_embedding)
             slot_embedding_list.append(slot_embedding)
 
     return id_embedding, slot_embedding_list
