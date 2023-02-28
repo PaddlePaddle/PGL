@@ -47,6 +47,13 @@ def get_global_value(value_sum, value_cnt):
     return value_sum / np.maximum(value_cnt, 1)
 
 
+def get_batch_num(value_cnt):
+    """ get global value """
+    value_cnt = np.array(fluid.global_scope().find_var(value_cnt.name)
+                         .get_tensor())
+    return value_cnt
+
+
 def parse_path(path):
     """
     Args:
@@ -262,6 +269,32 @@ def upload_embedding(args, local_embed_path):
         make_dir(working_root)
         run_cmd("mv %s %s" % (local_embed_path, working_root))
         log.info("embedding has been saved in local path: %s" % working_root)
+
+
+def upload_dump_walk(args, local_dump_path):
+    mode, dump_save_path = parse_path(args.dump_save_path)
+    _, working_root = parse_path(args.working_root)
+    if mode == "hdfs":
+        HFS.rm(dump_save_path)
+        HFS.mkdir(dump_save_path)
+
+        log.info("being to upload walk_path to: %s " % dump_save_path)
+        for file in glob.glob(os.path.join(local_dump_path, "*")):
+            basename = os.path.basename(file)
+            HFS.put(file, dump_save_path)
+        log.info("[hadoop put] walk_path has been upload to: %s " %
+                 dump_save_path)
+    elif mode == "afs":
+        log.info("being to upload walk_path to: %s " % dump_save_path)
+        # HFS.rm(dump_save_path)
+        user, passwd = args.fs_ugi.split(',')
+        gzshell_upload(args.fs_name, user, passwd, local_dump_path,
+                       "afs:%s" % working_root)
+        log.info("[gzshell] walk_path has been upload to: %s" % dump_save_path)
+    else:
+        make_dir(working_root)
+        run_cmd("mv %s %s" % (local_dump_path, working_root))
+        log.info("walk_path has been saved in local path: %s" % working_root)
 
 
 def hadoop_touch_done(path):

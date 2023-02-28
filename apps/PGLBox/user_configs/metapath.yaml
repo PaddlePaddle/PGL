@@ -82,6 +82,8 @@ need_inference: True
 # 预估embedding的时候，需要的参数，保持默认即可.
 dump_node_name: "src_node___id"
 dump_node_emb_name: "src_node___emb"
+# 是否需要dump游走路径
+need_dump_walk: False
 
 # ---------------------------train param config---------------------------------------------#
 epochs: 1

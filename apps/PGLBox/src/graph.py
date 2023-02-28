@@ -116,7 +116,8 @@ class DistGraph(object):
         if not self.metapath_split_opt:
             load_begin_time = time.time()
             for i in range(len(self.etype_list)):
-                log.info("begin to upload edge_type: [%s] to GPU" % self.etype_list[i])
+                log.info("begin to upload edge_type: [%s] to GPU" %
+                         self.etype_list[i])
                 self.graph.upload_batch(0, i,
                                         len(get_cuda_places()),
                                         self.etype_list[i])
@@ -138,7 +139,7 @@ class DistGraph(object):
         ret = self.graph.load_node_file(self.node_types, self.root_dir,
                                         self.num_parts)
 
-        if ret is not 0:
+        if ret != 0:
             log.info("Fail to load node, ntype2files[%s] path[%s] num_part[%d]" \
                      % (self.node_types, self.root_dir, self.num_parts))
             self.graph.release_graph_node()
