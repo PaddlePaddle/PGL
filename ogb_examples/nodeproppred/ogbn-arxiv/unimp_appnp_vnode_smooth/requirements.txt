@@ -1,5 +1,5 @@
 paddlepaddle_gpu==1.8.3.post107
-torch==1.5.1
+torch==1.13.1
 tqdm==4.31.1
 six==1.12.0
 numpy==1.21.0
