@@ -58,7 +58,7 @@ def gen_sparse_config(args, sparse_lr, init_range, op_type, emb_size,
     gen sparse config
     """
     sparse_config = dict()
-    #sparse_config['sparse_table_class'] = sparse_table_class
+    sparse_config['sparse_table_class'] = sparse_table_class
     sparse_config['sparse_compress_in_save'] = True
     sparse_config['sparse_shard_num'] = 67
     # sparse_config['sparse_accessor_class'] = "DownpourCtrAccessor"
