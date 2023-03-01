@@ -32,11 +32,11 @@ symmetry: True
 meta_path: "u2t-t2u;t2u-u2t"
 
 # 游走路径的正样本窗口大小
-win_size: 3
+win_size: 2
 # neg_num: 每对正样本对应的负样本数量
-neg_num: 5
+neg_num: 10
 # walk_len: metapath 游走路径深度
-walk_len: 24
+walk_len: 4
 # walk_times: 每个起始节点重复n次游走，这样可以尽可能把一个节点的所有邻居游走一遍，使得训练更加均匀。
 walk_times: 10
 
@@ -70,7 +70,7 @@ emb_size: 64
 # sparse_type: 稀疏参数服务器的优化器，目前支持adagrad, shared_adam
 sparse_type: adagrad
 # sparse_lr: 稀疏参数服务器的学习率
-sparse_lr: 0.05
+sparse_lr: 0.1
 # dense_lr: 稠密参数的学习率
 dense_lr: 0.000005 #001
 # slot_feature_lr: slot特征的学习率
@@ -84,6 +84,17 @@ softsign: False
 # 对比学习损失函数选择： 目前支持 simgcl_loss
 gcl_loss: simgcl_loss
 
+# sage 模型设置开关
+sage_mode: True
+# sage_layer_type: sage 模型类型选择
+sage_layer_type: "LightGCN"
+sage_alpha: 0.4
+samples: [5]
+infer_samples: [100]
+sage_act: "relu"
+hcl: True
+use_degree_norm: True # 如果为True，则sage_alpha 需设置为0.4-0.5, batch_node_size 和 infer_batch_size也要调小.
+
 # 是否要进行训练，如果只想单独热启模型做预估(inference)，则可以关闭need_train
 need_train: True
 # 是否需要进行inference. 如果只想单独训练模型，则可以关闭need_inference
@@ -91,16 +102,14 @@ need_inference: True
 # 预估embedding的时候，需要的参数，保持默认即可.
 dump_node_name: "src_node___id"
 dump_node_emb_name: "src_node___emb"
-# 是否需要dump游走路径
-need_dump_walk: False
 
 # ---------------------------train param config---------------------------------------------#
 epochs: 1
 # 为了加快训练速度，可以设置每隔多少个epochs才保存一次模型。默认最后一个epoch训练完一定会保存模型。
 save_model_interval: 10
 # 训练样本的batch_size
-batch_size: 80000
-infer_batch_size: 80000
+batch_size: 10000
+infer_batch_size: 10000
 chunk_num: 1
 # how many sample times are performed in a buf
 sample_times_one_chunk: 5
@@ -110,12 +119,10 @@ save_cache_frequency: 4
 mem_cache_passid_num: 4
 # 是否保存为二进制模式，仅在SSD模式下生效
 save_binary_mode : False
-# 是否开启metapath优化
-metapath_split_opt: False
 # 训练模式，可填WHOLE_HBM/MEM_EMBEDDING/SSD_EMBEDDING，默认为MEM_EMBEDDING
 train_storage_mode: MEM_EMBEDDING
 # 大致设置gpups的显存占用率 默认 0.25
-gpups_memory_allocated_rate: 0.60
+gpups_memory_allocated_rate: 0.10
 
 # 1 for debug
 debug_mode: 0
