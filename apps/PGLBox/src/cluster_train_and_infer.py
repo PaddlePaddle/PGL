@@ -53,15 +53,17 @@ def train(args, exe, model_dict, dataset):
     train_msg = ""
 
     train_begin_time = time.time()
+    dataset.dist_graph.load_train_node_from_file(args.train_start_nodes)
     for epoch in range(1, args.epochs + 1):
         if args.max_steps > 0 and model_util.print_count >= args.max_steps:
             log.info("training reach max_steps: %d, training end" %
                      args.max_steps)
             break
 
+        epoch_begin = time.time()
         epoch_loss = 0
         train_pass_num = 0
-        for pass_dataset in dataset.pass_generator():
+        for pass_dataset in dataset.pass_generator(epoch):
             exe.train_from_dataset(
                 model_dict.train_program, pass_dataset, debug=False)
 
@@ -69,6 +71,10 @@ def train(args, exe, model_dict, dataset):
                                            model_dict.batch_count)
             epoch_loss += t_loss
             train_pass_num += 1
+
+        epoch_end = time.time()
+        log.info("epoch[%d] finished, time cost: %f sec" %
+                 (epoch, epoch_end - epoch_begin))
 
         if train_pass_num > 0:
             epoch_loss = epoch_loss / train_pass_num
@@ -86,18 +92,18 @@ def train(args, exe, model_dict, dataset):
 
         fleet.barrier_worker()
 
-        savemodel_begin = time.time()
         is_save = (epoch % args.save_model_interval == 0 or
                    epoch == args.epochs)
         if args.model_save_path and is_save:
+            savemodel_begin = time.time()
             log.info("save model for epoch {}".format(epoch))
             dataset.embedding.dump_to_mem()
             util.save_model(exe, model_dict, args, args.local_model_path,
                             args.model_save_path)
-        fleet.barrier_worker()
-        savemodel_end = time.time()
-        log.info("STAGE [SAVE MODEL] for epoch [%d] finished, time cost: %f sec" \
-            % (epoch, savemodel_end - savemodel_begin))
+            fleet.barrier_worker()
+            savemodel_end = time.time()
+            log.info("STAGE [SAVE MODEL] for epoch [%d] finished, time cost: %f sec" \
+                % (epoch, savemodel_end - savemodel_begin))
 
     train_end_time = time.time()
     log.info("STAGE [TRAIN MODEL] finished, time cost: % sec" %
@@ -113,12 +119,16 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
 
     train_begin_time = time.time()
     for epoch in range(1, args.epochs + 1):
+        epoch_begin = time.time()
         epoch_loss = 0
         train_pass_num = 0
-        for i in range(len(sorted_metapaths)):
-            dataset.dist_graph.load_metapath_edges(metapath_dict,
-                                                   sorted_metapaths[i])
+        meta_path_len = len(sorted_metapaths)
+        for i in range(meta_path_len):
+            dataset.dist_graph.load_metapath_edges_nodes(
+                metapath_dict, sorted_metapaths[i], i)
             metapath_train_begin = time.time()
+            dataset.dist_graph.load_train_node_from_file(
+                args.train_start_nodes)
             for pass_dataset in dataset.pass_generator():
                 exe.train_from_dataset(
                     model_dict.train_program, pass_dataset, debug=False)
@@ -127,10 +137,14 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
                 epoch_loss += t_loss
                 train_pass_num += 1
             metapath_train_end = time.time()
-            log.info("metapath: %s, all train time: %s" %
-                     (sorted_metapaths[i],
+            log.info("metapath[%s] [%d/%d] trained, pass_num[%d] time: %s" %
+                     (sorted_metapaths[i], i, meta_path_len, pass_id + 1,
                       metapath_train_end - metapath_train_begin))
             dataset.dist_graph.clear_metapath_state()
+
+        epoch_end = time.time()
+        log.info("epoch[%d] finished, time cost: %f sec" %
+                 (epoch, epoch_end - epoch_begin))
 
         if train_pass_num > 0:
             epoch_loss = epoch_loss / train_pass_num
@@ -138,7 +152,7 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
         fleet.barrier_worker()
         time_msg = "%s\n" % datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         train_msg += time_msg
-        msg = "Train: Epoch %d | meta path: %s| batch_loss %.6f\n" % \
+        msg = "Train: Epoch %d | meta path: %s | batch_loss %.6f\n" % \
                 (epoch, sorted_metapaths[i], epoch_loss)
         train_msg += msg
         log.info(msg)
@@ -150,18 +164,18 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
 
         fleet.barrier_worker()
 
-        savemodel_begin = time.time()
         is_save = (epoch % args.save_model_interval == 0 or
                    epoch == args.epochs)
         if args.model_save_path and is_save:
+            savemodel_begin = time.time()
             log.info("save model for epoch {}".format(epoch))
             dataset.embedding.dump_to_mem()
             util.save_model(exe, model_dict, args, args.local_model_path,
                             args.model_save_path)
-        fleet.barrier_worker()
-        savemodel_end = time.time()
-        log.info("STAGE [SAVE MODEL] for epoch [%d] finished, time cost: %f sec" \
-            % (epoch + 1, savemodel_end - savemodel_begin))
+            fleet.barrier_worker()
+            savemodel_end = time.time()
+            log.info("STAGE [SAVE MODEL] for epoch [%d] finished, time cost: %f sec" \
+                % (epoch, savemodel_end - savemodel_begin))
 
     train_end_time = time.time()
     log.info("STAGE [TRAIN MODEL] finished, time cost: % sec" %
@@ -174,6 +188,7 @@ def infer(args, exe, infer_model_dict, dataset):
     if hasattr(dataset.embedding.parameter_server, "set_mode"):
         dataset.embedding.set_infer_mode(True)
 
+    dataset.dist_graph.load_infer_node_from_file(args.infer_nodes)
     for pass_dataset in dataset.pass_generator():
         exe.train_from_dataset(
             infer_model_dict.train_program, pass_dataset, debug=False)
@@ -212,11 +227,12 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         token_slot=args.token_slot,
         slot_num_for_pull_feature=slot_num_for_pull_feature,
         num_parts=args.num_part,
-        metapath_split_opt=args.metapath_split_opt)
+        metapath_split_opt=args.metapath_split_opt,
+        infer_nodes=args.infer_nodes)
 
     dist_graph.load_edge()
     ret = dist_graph.load_node()
-    if ret is not 0:
+    if ret != 0:
         return -1
 
     if args.warm_start_from:
@@ -226,6 +242,14 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         load_model_end = time.time()
         log.info("STAGE [LOAD MODEL] finished, time cost: %f sec" \
             % (load_model_end - load_model_begin))
+    elif args.pretrained_model:
+        # if sparse table is null, then only load dense pretrained_model from dependency
+        dependency_path = os.getenv(
+            "DEPENDENCY_HOME")  # see env_run/scripts/train.sh for details
+        dense_path = os.path.join(dependency_path, args.pretrained_model)
+        log.info("only load dense parameters from: %s" % dense_path)
+        paddle.static.set_program_state(model_dict.train_program,
+                                        model_dict.state_dict)
 
     fleet.barrier_worker()
 
@@ -260,6 +284,12 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         log.info("STAGE: need_inference is %s, skip inference process" %
                  args.need_inference)
 
+    if args.need_dump_walk is True:
+        upload_dump_begin = time.time()
+        util.upload_dump_walk(args, args.local_dump_path)
+        upload_dump_end = time.time()
+        log.info("STAGE [UPLOAD DUMP WALK] finished, time cost: %f sec" \
+                % (upload_dump_end - upload_dump_begin))
     return 0
 
 
@@ -268,11 +298,27 @@ def main(args):
     device_ids = get_cuda_places()
     place = paddle.CUDAPlace(device_ids[0])
     exe = static.Executor(place)
-    fleet.init()
+    if paddle.distributed.get_world_size() > 1:
+        fleet.init(is_collective=True)
+    else:
+        fleet.init()
+
+    # multi node save model path add rank id
+    if paddle.distributed.get_world_size() > 1:
+        worker_id = ("%03d" % (fleet.worker_index()))
+        args.local_model_path = os.path.join(args.local_model_path, worker_id)
+        args.local_result_path = os.path.join(args.local_result_path,
+                                              worker_id)
+        args.local_dump_path = os.path.join(args.local_dump_path, worker_id)
+        print("args=%s" % (args))
     need_inference = args.need_inference
     infer_model_dict = None
     startup_program = static.Program()
     train_program = static.Program()
+
+    print("workid={}, work num={}, node num={}, worker_endpoints={}".format(
+        fleet.worker_index(),
+        fleet.worker_num(), fleet.node_num(), fleet.worker_endpoints(True)))
 
     with static.program_guard(train_program, startup_program):
         with paddle.utils.unique_name.guard():
@@ -309,12 +355,13 @@ def main(args):
 
     # init and run server or worker
     if fleet.is_server():
+        log.info("before run server")
         fleet.init_server()
         fleet.run_server()
 
     elif fleet.is_worker():
         ret = run_worker(args, exe, model_dict, infer_model_dict)
-        if ret is not 0:
+        if ret != 0:
             fleet.stop_worker()
             return -1
 
@@ -333,8 +380,12 @@ if __name__ == "__main__":
     config.local_result_path = "./embedding"
     config.model_save_path = os.path.join(config.working_root, "model")
     config.infer_result_path = os.path.join(config.working_root, 'embedding')
+    config.dump_save_path = os.path.join(config.working_root, 'dump_walk')
     config.max_steps = config.max_steps if config.max_steps else 0
-    config.metapath_split_opt = config.metapath_split_opt if config.metapath_split_opt else False
+    config.metapath_split_opt = config.metapath_split_opt \
+                                if config.metapath_split_opt else False
+
+    # set hadoop global account
     print("#===================PRETTY CONFIG============================#")
     pretty(config, indent=0)
     print("#===================PRETTY CONFIG============================#")

@@ -52,13 +52,13 @@ def get_strategy(args, model_dict):
 
 
 def gen_sparse_config(args, sparse_lr, init_range, op_type, emb_size,
-                      feature_lr, nodeid_slot):
+                      feature_lr, nodeid_slot, load_filter_slots,
+                      sparse_table_class):
     """
     gen sparse config
     """
     sparse_config = dict()
-    #sparse_config['sparse_table_class'] = "DownpourSparseSSDTable"
-    sparse_config['sparse_table_class'] = "DownpourSparseTable"
+    #sparse_config['sparse_table_class'] = sparse_table_class
     sparse_config['sparse_compress_in_save'] = True
     sparse_config['sparse_shard_num'] = 67
     # sparse_config['sparse_accessor_class'] = "DownpourCtrAccessor"
@@ -69,7 +69,7 @@ def gen_sparse_config(args, sparse_lr, init_range, op_type, emb_size,
     sparse_config['sparse_initial_range'] = init_range
     sparse_config['sparse_weight_bounds'] = [-10.0, 10.0]
     sparse_config['sparse_embedx_dim'] = emb_size
-    sparse_config['sparse_embedx_threshold'] = 10
+    sparse_config['sparse_embedx_threshold'] = 0
     sparse_config['sparse_nonclk_coeff'] = 0.1
     sparse_config['sparse_click_coeff'] = 1.0
     sparse_config['sparse_base_threshold'] = 0
@@ -98,30 +98,7 @@ def gen_sparse_config(args, sparse_lr, init_range, op_type, emb_size,
     sparse_config['embedx_sparse_weight_bounds'] = [-10.0, 10.0]
     sparse_config['nodeid_slot'] = nodeid_slot
     sparse_config['feature_learning_rate'] = feature_lr
-    return sparse_config
-
-
-def ada_sparse_config(args, sparse_lr, init_range):
-    """ Generate Proto For PSlib  """
-    #sparse_table config
-    sparse_config = dict()
-    sparse_config['sparse_table_class'] = "DownpourSparseTable"
-    sparse_config['sparse_compress_in_save'] = True
-    sparse_config['sparse_shard_num'] = 1000
-    sparse_config['sparse_accessor_class'] = "DownpourCtrAccessor"
-    sparse_config['sparse_learning_rate'] = sparse_lr
-    sparse_config['sparse_initial_g2sum'] = 3.0
-    sparse_config['sparse_initial_range'] = init_range
-    sparse_config['sparse_weight_bounds'] = [-10.0, 10.0]
-    sparse_config['sparse_embedx_threshold'] = 0
-    sparse_config['sparse_nonclk_coeff'] = 1.0
-    sparse_config['sparse_click_coeff'] = 1.0
-    sparse_config['sparse_base_threshold'] = 1
-    sparse_config['sparse_delta_threshold'] = 0.25
-    sparse_config['sparse_delta_keep_days'] = 16.0
-    sparse_config['sparse_show_click_decay_rate'] = 0.98
-    sparse_config['sparse_delete_threshold'] = 0.8
-    # embedding name as key name
+    sparse_config['sparse_load_filter_slots'] = load_filter_slots
     return sparse_config
 
 
@@ -139,8 +116,13 @@ def generate_config(args):
     slot_feature_lr = args.sparse_lr
     if "slot_feature_lr" in args:
         slot_feature_lr = args.slot_feature_lr
+    if "train_storage_mode" in args and args.train_storage_mode == "SSD_EMBEDDING":
+        sparse_table_class = "DownpourSparseSSDTable"
+    else:
+        sparse_table_class = "DownpourSparseTable"
     config['embedding'] = gen_config(args, args.sparse_lr, args.init_range, args.sparse_type, \
-                                     args.emb_size, slot_feature_lr, args.nodeid_slot)
+                                     args.emb_size, slot_feature_lr, args.nodeid_slot,
+                                     args.load_filter_slots, sparse_table_class)
 
     dense_config = dict()
     dense_config['dense_table_class'] = "DownpourDenseTable"

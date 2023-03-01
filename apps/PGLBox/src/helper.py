@@ -25,6 +25,8 @@ import warnings
 import glob
 from collections import defaultdict
 
+from pgl.utils.logger import log
+
 
 class AttrDict(dict):
     """ attr dict  """
@@ -122,6 +124,14 @@ def parse_files(type_files):
         t, file_or_dir = item.split(":")
         type2files[t] = file_or_dir
     return type2files
+
+
+def generate_files_string(ntype_list, nodes_file):
+    """ generate files string """
+    res = ""
+    for item in ntype_list:
+        res += item + ":" + nodes_file + ","
+    return res[:-1]
 
 
 def get_files(edge_file_or_dir):
