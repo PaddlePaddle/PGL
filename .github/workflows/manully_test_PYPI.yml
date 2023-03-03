@@ -12,6 +12,7 @@ jobs:
         os: [ 'ubuntu-latest', 'macos-latest' ]
         arch: [ 'x86_64' ]
         cibw_python: [ 'cp36*', 'cp37*', 'cp38*', 'cp39*' ]
+        manylinux: [ 'manylinux2014', 'manylinux1' ]
     steps:
       - uses: actions/checkout@v2
 
@@ -34,7 +35,7 @@ jobs:
         env:
           CIBW_BUILD: ${{ matrix.cibw_python }}
           CIBW_ARCHS: ${{ matrix.arch }}
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux2014
+          CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux }}
           CIBW_BEFORE_BUILD: "pip install -r requirements.txt cython>=0.29.21 numpy==1.19.0"
           CIBW_SKIP: "*-musllinux_*"
           CIBW_BEFORE_ALL_LINUX: >
