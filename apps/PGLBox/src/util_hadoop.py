@@ -193,3 +193,22 @@ def put(src, dest, hadoop_bin=None, fs_name=None, fs_ugi=None):
     cmd += " 2>%s" % ERR_LOG
     ret = os.system(cmd)
     return ret
+
+
+def replace(src, dest, hadoop_bin=None, fs_name=None, fs_ugi=None):
+    """hadoop replace"""
+    hadoop_bin, fs_name, fs_ugi = parse_account(hadoop_bin, fs_name, fs_ugi)
+    src = check_hadoop_path(src, fs_name, fs_ugi)
+    dest = check_hadoop_path(dest, fs_name, fs_ugi)
+
+    tmp = dest + "_" + str(int(time.time()))
+    cmd = make_base_cmd(hadoop_bin, fs_name, fs_ugi)
+    cmd += " -mv " + dest + " " + tmp + " && "
+
+    cmd += make_base_cmd(hadoop_bin, fs_name, fs_ugi)
+    cmd += " -put " + src + " " + dest + " && "
+
+    cmd += make_base_cmd(hadoop_bin, fs_name, fs_ugi)
+    cmd += " -rmr " + tmp
+    ret = os.system(cmd)
+    return ret

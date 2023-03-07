@@ -56,7 +56,8 @@ class DistGraph(object):
                  token_slot,
                  slot_num_for_pull_feature,
                  num_parts,
-                 metapath_split_opt=False):
+                 metapath_split_opt=False,
+                 infer_nodes=None):
         self.root_dir = root_dir
         self.node_types = node_types
         self.edge_types = edge_types
@@ -66,6 +67,7 @@ class DistGraph(object):
         self.slot_num_for_pull_feature = slot_num_for_pull_feature
         self.num_parts = num_parts
         self.metapath_split_opt = metapath_split_opt
+        self.infer_nodes = infer_nodes
         self.reverse = 1 if self.symmetry else 0
 
         self.etype2files = helper.parse_files(self.edge_types)
@@ -101,28 +103,48 @@ class DistGraph(object):
         self.graph.set_feature_separator(",")
         self.graph.init_service()
 
+    def load_edge_serial(self):
+        """load edge serially, just used in metapath_split_opt
+        """
+        for etype in self.etype_list:
+            if etype not in self.etype2files:
+                continue
+            load_begin_time = time.time()
+            self.graph.load_edge_file(etype + ":" + etype, self.root_dir,
+                                      self.num_parts, self.reverse, [])
+            load_end_time = time.time()
+            log.info("load edge[%s] to cpu, time cost: %f sec" %
+                     (etype, load_end_time - load_begin_time))
+
+            release_begin_time = time.time()
+            self.graph.release_graph_edge()
+            release_end_time = time.time()
+            log.info("STAGE [CPU RELEASE EDGE] finished, time cost: %f sec" %
+                     (release_end_time - release_begin_time))
+
     def load_edge(self):
         """Pull whole graph edges from disk into cpu memory, then load into gpu.
            After that, release memory on cpu.
         """
-        cpuload_begin = time.time()
+        if self.metapath_split_opt:
+            return self.load_edge_serial()
+
         load_begin_time = time.time()
         self.graph.load_edge_file(self.edge_types, self.root_dir,
-                                  self.num_parts, self.reverse)
+                                  self.num_parts, self.reverse, [])
         load_end_time = time.time()
         log.info("STAGE [CPU LOAD EDGE] finished, time cost: %f sec" %
                  (load_end_time - load_begin_time))
 
-        if not self.metapath_split_opt:
-            load_begin_time = time.time()
-            for i in range(len(self.etype_list)):
-                log.info("begin to upload edge_type: [%s] to GPU" % self.etype_list[i])
-                self.graph.upload_batch(0, i,
-                                        len(get_cuda_places()),
-                                        self.etype_list[i])
-            load_end_time = time.time()
-            log.info("STAGE [GPU LOAD EDGE] finished, time cost: %f sec" %
-                     (load_end_time - load_begin_time))
+        load_begin_time = time.time()
+        for i in range(len(self.etype_list)):
+            log.info("begin to upload edge_type: [%s] to GPU" %
+                     self.etype_list[i])
+            self.graph.upload_batch(0,
+                                    len(get_cuda_places()), self.etype_list[i])
+        load_end_time = time.time()
+        log.info("STAGE [GPU LOAD EDGE] finished, time cost: %f sec" %
+                 (load_end_time - load_begin_time))
 
         release_begin_time = time.time()
         self.graph.release_graph_edge()
@@ -138,7 +160,18 @@ class DistGraph(object):
         ret = self.graph.load_node_file(self.node_types, self.root_dir,
                                         self.num_parts)
 
-        if ret is not 0:
+        if self.infer_nodes:
+            log.info("[INFER NODE] loading infer_nodes from [%s]" %
+                     self.infer_nodes)
+
+            new_ntype2files = helper.generate_files_string(self.ntype_list,
+                                                           self.infer_nodes)
+            log.info("[INFER NODE] infer_node2files: %s" % new_ntype2files)
+
+            ret = self.graph.load_node_file(new_ntype2files, self.root_dir,
+                                            self.num_parts)
+
+        if ret != 0:
             log.info("Fail to load node, ntype2files[%s] path[%s] num_part[%d]" \
                      % (self.node_types, self.root_dir, self.num_parts))
             self.graph.release_graph_node()
@@ -148,14 +181,15 @@ class DistGraph(object):
         log.info("STAGE [CPU LOAD NODE] finished, time cost: %f sec" %
                  (load_end_time - load_begin_time))
 
-        load_begin_time = time.time()
-        if self.slot_num_for_pull_feature > 0:
-            self.graph.upload_batch(1,
-                                    len(get_cuda_places()),
-                                    self.slot_num_for_pull_feature)
-        load_end_time = time.time()
-        log.info("STAGE [GPU LOAD NODE] finished, time cost: %f sec" %
-                 (load_end_time - load_begin_time))
+        if not self.metapath_split_opt:
+            load_begin_time = time.time()
+            if self.slot_num_for_pull_feature > 0:
+                self.graph.upload_batch(1,
+                                        len(get_cuda_places()),
+                                        self.slot_num_for_pull_feature)
+            load_end_time = time.time()
+            log.info("STAGE [GPU LOAD NODE] finished, time cost: %f sec" %
+                     (load_end_time - load_begin_time))
 
         release_begin_time = time.time()
         self.graph.release_graph_node()
@@ -165,45 +199,75 @@ class DistGraph(object):
 
         return 0
 
-    def load_metapath_edges(self, metapath_dict, metapath):
+    def load_metapath_edges_nodes(self, metapath_dict, metapath, i):
         """Pull specific metapath's edges.
         """
+        log.info("Begin load_metapath_edges_nodes, metapath[%d]: %s" %
+                 (i, metapath))
         first_node = metapath.split('2')[0]
         all_metapath_class_len = len(metapath_dict[first_node])
         cur_metapath_index = metapath_dict[first_node].index(metapath)
-        log.info(
-            'metapath: %s, first node:%s, all_len:%s, index:%s' %
-            (metapath, first_node, all_metapath_class_len, cur_metapath_index))
 
-        sub_edge_types = metapath.split('-')
-        edge_len = len(sub_edge_types)
-        sub_etype2files = util.get_sub_path(self.edge_types, sub_edge_types,
-                                            True)
+        sub_edges_list = metapath.split('-')
+        edge_len = len(sub_edges_list)
+        sub_etype2files, is_reverse_map = \
+            util.get_sub_path(self.etype2files, sub_edges_list, True)
+        log.info("metapath[%s] etype2files[%s] is_reverse_map[%s]", metapath,
+                 sub_etype2files, is_reverse_map)
 
         metapath_cpuload_begin = time.time()
         self.graph.load_edge_file(sub_etype2files, self.root_dir,
-                                  self.num_parts, self.reverse)
-        log.info("sub_etype2files: %s" % sub_etype2files)
+                                  self.num_parts, False, is_reverse_map)
         metapath_cpuload_end = time.time()
-        log.info("metapath: %s, cpuload time: %s" %
-                 (metapath, metapath_cpuload_end - metapath_cpuload_begin))
+        log.info("metapath[%s] load edges[%s] to cpu, time: %s" %
+                 (metapath, sub_etype2files,
+                  metapath_cpuload_end - metapath_cpuload_begin))
 
         metapath_gpuload_begin = time.time()
-        for j in range(0, len(sub_edge_types)):
-            log.info("begin upload edge type: %s" % sub_edge_types[j])
-            self.graph.upload_batch(0, j,
-                                    len(get_cuda_places()), sub_edge_types[j])
-            log.info("end upload edge type: %s" % sub_edge_types[j])
+        for j in range(0, len(sub_edges_list)):
+            self.graph.upload_batch(0,
+                                    len(get_cuda_places()), sub_edges_list[j])
         metapath_gpuload_end = time.time()
-        log.info("metapath: %s, gpuload time:%s" %
-                 (metapath, metapath_gpuload_end - metapath_gpuload_begin))
+        log.info("metapath[%s] load edges[%s] to gpu, time: %s" %
+                 (metapath, sub_etype2files,
+                  metapath_gpuload_end - metapath_gpuload_begin))
+
+        self.graph.release_graph_edge()
+
+        sub_nodes_list = []
+        for edge in sub_edges_list:
+            sub_nodes_list.extend(edge.split('2'))
+        sub_ntype2files, _ = util.get_sub_path(self.ntype2files,
+                                               sub_nodes_list, False)
+        log.info("metapath[%s] ntype2files[%s]", metapath, sub_ntype2files)
+        load_begin_time = time.time()
+        ret = self.graph.load_node_file(sub_ntype2files, self.root_dir,
+                                        self.num_parts)
+        if ret != 0:
+            log.info("Fail to load node, ntype2files[%s] path[%s] num_part[%d]" \
+                     % (sub_ntype2files, self.root_dir, self.num_parts))
+            self.graph.release_graph_node()
+            return -1
+        load_end_time = time.time()
+        log.info("metapath[%s] load nodes[%s] to cpu, time: %s" %
+                 (metapath, sub_ntype2files, load_end_time - load_begin_time))
+
+        load_begin_time = time.time()
+        if self.slot_num_for_pull_feature > 0:
+            self.graph.upload_batch(1,
+                                    len(get_cuda_places()),
+                                    self.slot_num_for_pull_feature)
+        load_end_time = time.time()
+        log.info("metapath[%s] load nodes[%s] to gpu, time: %s" %
+                 (metapath, sub_ntype2files, load_end_time - load_begin_time))
+
+        self.graph.release_graph_node()
 
         self.graph.init_metapath(metapath, cur_metapath_index,
                                  all_metapath_class_len)
 
     def get_sorted_metapath_and_dict(self, metapaths):
-        """
-        """
+        """doc"""
         first_node_type = util.get_first_node_type(metapaths)
         node_type_size = self.graph.get_node_type_size(first_node_type)
         edge_type_size = self.graph.get_edge_type_size()
@@ -224,6 +288,25 @@ class DistGraph(object):
     def clear_metapath_state(self):
         self.graph.clear_metapath_state()
 
+    def load_train_node_from_file(self, train_start_nodes_path):
+        if not train_start_nodes_path:
+            self.graph.set_node_iter_from_graph(True)
+        else:
+            nodetype2files = helper.generate_files_string(
+                self.ntype_list, train_start_nodes_path)
+            self.graph.set_node_iter_from_file(nodetype2files, self.root_dir,
+                                               self.num_parts, True)
+
+    def load_infer_node_from_file(self, infer_nodes_path):
+        if not infer_nodes_path:
+            self.graph.set_node_iter_from_graph(False)
+        else:
+            # for online learning, maybe we need to change input for dir.
+            nodetype2files = helper.generate_files_string(self.ntype_list,
+                                                          infer_nodes_path)
+            self.graph.set_node_iter_from_file(nodetype2files, self.root_dir,
+                                               self.num_parts, False)
+
     def load_graph_into_cpu(self):
         """Pull whole graph from disk into memory
         """
@@ -241,7 +324,7 @@ class DistGraph(object):
         gpuload_begin = time.time()
         log.info("STAGE [GPU Load] begin load edges from cpu to gpu")
         for i in range(len(self.etype_list)):
-            self.graph.upload_batch(0, i,
+            self.graph.upload_batch(0,
                                     len(get_cuda_places()), self.etype_list[i])
             log.info("STAGE [GPU Load] end load edge into GPU, type[" +
                      self.etype_list[i] + "]")

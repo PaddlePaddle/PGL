@@ -51,7 +51,9 @@ def make_distributed_infer_program(args, model_dict):
     ]
     opt_info["dump_fields_path"] = args.local_result_path
     opt_info["is_dump_in_simple_mode"] = True
-    #opt_info["dump_file_num"] = 64
+    opt_info["user_define_dump_filename"] = "000"
+    opt_info["dump_fields_mode"] = "a"
+
     with open("infer_before_main_program.pbtxt", "w") as fout:
         fout.write(str(model_dict.train_program))
     remove_op(model_dict.train_program, "push_gpups_sparse")

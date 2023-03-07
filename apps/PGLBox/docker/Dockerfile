@@ -18,7 +18,7 @@ RUN mv ${HOME_WORK_DIR}/${PIP_CONF} /etc/pip.conf
 # download dependency
 ARG PADDLE_WHL=paddlepaddle_gpu-0.0.0-cp37-cp37m-linux_x86_64.whl
 ARG JEMALLOC_SO=libjemalloc.so
-ARG PADDLE_WHL_SITE=https://baidu-pgl.gz.bcebos.com/pglbox/dependency/paddlepaddle_gpu-0.0.0-cp37-cp37m-linux_x86_64.whl.60b6484/paddlepaddle_gpu-0.0.0-cp37-cp37m-linux_x86_64.whl.60b6484.1
+ARG PADDLE_WHL_SITE=https://baidu-pgl.gz.bcebos.com/pglbox/dependency/paddlepaddle_gpu-0.0.0-cp37-cp37m-linux_x86_64.whl.3966e89/paddlepaddle_gpu-0.0.0-cp37-cp37m-linux_x86_64.whl.3966e89.1
 ARG JEMALLOC_SO_SITE=https://baidu-pgl.gz.bcebos.com/pglbox/dependency/libjemalloc.so/libjemalloc.so.3
 RUN cd ${HOME_WORK_DIR} && \
     wget -q -O ${PADDLE_WHL} ${PADDLE_WHL_SITE} && \
@@ -39,4 +39,3 @@ RUN rm -rf ~/.cache/pip && yum clean all && \
     rm -rf /opt/_internal/cpython-3.8.0 && \
     rm -rf /gcc-8.2.0.tar.xz  && \
     rm -rf /binutils-2.27.tar.gz
-

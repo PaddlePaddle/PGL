@@ -9,6 +9,15 @@ etype2files: "u2t:u2t"
 # 每种节点类型对应的文件或目录, 不同类型的节点可以放在同个文件，读取的时候会自动过滤的。
 # 下面的示例表示节点保存在 ${graph_data_hdfs_path}/node_types/目录
 ntype2files: "u:node_types,t:node_types,f:node_types"
+# the pair specified by 'excluded_train_pair' will not be trained, eg "w2q;q2t"
+excluded_train_pair: ""
+# only infer the node(s) specified by 'infer_node_type', eg "q;t"
+infer_node_type: ""
+
+# 指定训练或者infer的节点目录。如果置空，则默认使用之前加载图数据中的点进行训练或者infer。
+# 例如，指定infer的节点目录在graph_data_hdfs_path下名称为"infer_nodes"，则写做 infer_nodes: "infer_nodes"
+train_start_nodes: ""
+infer_nodes: ""
 
 # 使用graph_shard 的功能, 对数据进行分片，可以加快加载速度。(目前必须sharding为1000 part)
 hadoop_shard: True
@@ -61,7 +70,7 @@ emb_size: 64
 # sparse_type: 稀疏参数服务器的优化器，目前支持adagrad, shared_adam
 sparse_type: adagrad
 # sparse_lr: 稀疏参数服务器的学习率
-sparse_lr: 0.05
+sparse_lr: 0.1
 # dense_lr: 稠密参数的学习率
 dense_lr: 0.000005 #001
 # slot_feature_lr: slot特征的学习率
@@ -83,6 +92,8 @@ sage_alpha: 0.9
 samples: [5]
 infer_samples: [100]
 sage_act: "relu"
+hcl: True
+use_degree_norm: False # 如果为True，则sage_alpha 需设置为0.4-0.5, batch_node_size 和 infer_batch_size也要调小.
 
 # 是否要进行训练，如果只想单独热启模型做预估(inference)，则可以关闭need_train
 need_train: True
@@ -110,6 +121,8 @@ mem_cache_passid_num: 4
 save_binary_mode : False
 # 训练模式，可填WHOLE_HBM/MEM_EMBEDDING/SSD_EMBEDDING，默认为MEM_EMBEDDING
 train_storage_mode: MEM_EMBEDDING
+# 大致设置gpups的显存占用率 默认 0.25
+gpups_memory_allocated_rate: 0.10
 
 # 1 for debug
 debug_mode: 0

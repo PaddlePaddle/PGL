@@ -17,7 +17,7 @@
 为了可以快速使用PGLBox的能力，我们提供了一些相应的镜像环境，只需要拉取相关硬件的镜像，下载相应的数据，修改配置文件，就可以一键运行。目前PGLBox只支持在**v100**和**a100**这两款GPU硬件下运行。
 
 ```
-docker pull registry.baidubce.com/paddlepaddle/pgl:pglbox-2.0rc-cuda11.0-cudnn8
+docker pull registry.baidubce.com/paddlepaddle/pgl:pglbox-2.0-cuda11.0-cudnn8
 ```
 
 拉取好docker之后，我们先下载PGLBox的代码，并进入PGLBox目录。
@@ -80,6 +80,8 @@ nvidia-docker run -it --rm \
 <details><summary>图数据的准备</summary>
 
 图数据的准备请参考[这里](./wiki/data_format_ch.md)。
+
+默认情况下，PGLBox会训练图数据中所有节点并且预测出所有节点的embedding。如果用户只想训练部分节点，或者只预测部分节点，PGLBox提供了相应的功能支持，具体可以参考[这里](./wiki/train_infer_from_file_ch.md)
 
 <br/>
 </details>
@@ -195,4 +197,3 @@ train_storage_mode: MEM_EMBEDDING
 - [在有边权重图上的应用](./wiki/application_on_edge_weight_ch.md)
 
 - [在多种边类型图上的应用](./wiki/application_on_multi_edge_types_ch.md)
-

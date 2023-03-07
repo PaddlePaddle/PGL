@@ -35,7 +35,7 @@ import paddle.fluid.core as core
 import paddle.distributed.fleet as fleet
 from pgl.utils.logger import log
 
-import hadoop as HFS
+import util_hadoop as HFS
 
 
 def get_global_value(value_sum, value_cnt):
@@ -45,6 +45,21 @@ def get_global_value(value_sum, value_cnt):
     value_cnt = np.array(static.global_scope().find_var(value_cnt.name)
                          .get_tensor())
     return value_sum / np.maximum(value_cnt, 1)
+
+
+def get_batch_num(value_cnt):
+    """ get global value """
+    value_cnt = np.array(fluid.global_scope().find_var(value_cnt.name)
+                         .get_tensor())
+    return value_cnt
+
+
+def save_holder_names(model_dict, filename):
+    """ save holder names """
+    holder_name_list = [str(var.name) for var in model_dict.holder_list]
+    with open(filename, "w") as f:
+        for name in holder_name_list:
+            f.write("%s\n" % name)
 
 
 def parse_path(path):
@@ -87,99 +102,91 @@ def remove_prefix_of_hadoop_path(hadoop_path):
 
 def load_pretrained_model(exe, model_dict, args, model_path):
     """ load pretrained model """
-    if fleet.is_first_worker():
-        if os.path.exists(model_path):  # local directory
-            sparse_params_path = os.path.join(model_path, "000")
-            if os.path.exists(sparse_params_path):
-                log.info("[WARM] load sparse model from %s" %
-                         sparse_params_path)
-                if "train_storage_mode" in args and args.train_storage_mode == "SSD_EMBEDDING":
-                    if "load_binary_mode" in args and args.load_binary_mode is True:
-                        # in train_storage_mode=SSD_EMBEDDING, mode=0 means load binary batch_model,
-                        # mode=4 means save origin batch_model
-                        fleet.load_model(model_path, mode=0)
-                    else:
-                        fleet.load_model(model_path, mode=4)
-                else:
-                    fleet.load_model(model_path, mode=0)
-                log.info("[WARM] load sparse model from %s finished." %
-                         sparse_params_path)
+    # multi node
+    if paddle.distributed.get_world_size() > 1:
+        sparse_model_path = os.path.join(model_path,
+                                         "%03d" % (fleet.worker_index()))
+    else:
+        sparse_model_path = model_path
+    if os.path.exists(sparse_model_path):  # local directory
+        sparse_params_path = os.path.join(sparse_model_path, "000")
+        if os.path.exists(sparse_params_path):
+
+            log.info("[WARM] load sparse model from %s" % sparse_params_path)
+            if "train_storage_mode" in args and args.train_storage_mode == "SSD_EMBEDDING":
+                if "load_binary_mode" in args and args.load_binary_mode is True:
+                    # in train_storage_mode=SSD_EMBEDDING, mode=0 means load binary batch_model,
+                    # mode=4 means save origin batch_model
+                    fleet.load_model(sparse_model_path, mode=0)
             else:
-                log.info("[WARM] sparse model [%s] is not existed, skiped" %
-                         sparse_params_path)
-
-            dense_params_path = os.path.join(model_path, "dense_vars")
-
-        else:  # load from hadoop path
-            mode, model_path = parse_path(model_path)
-            model_path = HFS.check_hadoop_path(model_path)
-            sparse_params_path = os.path.join(model_path, "000")
-
-            if HFS.exists(sparse_params_path):
-                log.info("[WARM] load sparse model from %s" %
-                         sparse_params_path)
-                if "train_storage_mode" in args and args.train_storage_mode == "SSD_EMBEDDING":
-                    if "load_binary_mode" in args and args.load_binary_mode is True:
-                        fleet.load_model(model_path, mode=0)
-                    else:
-                        fleet.load_model(model_path, mode=4)
-                else:
-                    fleet.load_model(model_path, mode=0)
-                log.info("[WARM] load sparse model from %s finished." %
-                         sparse_params_path)
-            else:
-                log.info("[WARM] sparse model [%s] is not existed, skipped" %
-                         sparse_params_path)
-
-            hadoop_dense_params_path = os.path.join(model_path, "dense_vars")
-            if HFS.exists(hadoop_dense_params_path):
-                HFS.get(hadoop_dense_params_path, "./")
-            dense_params_path = "./dense_vars"
-
-        # load dense vars
-        if os.path.exists(dense_params_path):
-            log.info("[WARM] load dense parameters from: %s" %
-                     dense_params_path)
-            all_vars = model_dict.train_program.global_block().vars
-            for filename in os.listdir(dense_params_path):
-                if filename in all_vars:
-                    log.info("[WARM] var %s existed" % filename)
-                else:
-                    log.info("[WARM_MISS] var %s not existed" % filename)
-
-            fluid.io.load_vars(
-                exe,
-                dense_params_path,
-                model_dict.train_program,
-                predicate=name_not_have_sparse)
-        elif args.pretrained_model:
-            # if hadoop model path did not include dense params, then load dense pretrained_model from dependency
-            dependency_path = os.getenv(
-                "DEPENDENCY_HOME")  # see env_run/scripts/train.sh for details
-            dense_path = os.path.join(dependency_path, args.pretrained_model)
-            log.info("[WARM] load dense parameters from: %s" % dense_path)
-            paddle.static.set_program_state(model_dict.train_program,
-                                            model_dict.state_dict)
+                fleet.load_model(sparse_model_path, mode=0)
+            log.info("[WARM] load sparse model from %s finished." %
+                     sparse_params_path)
         else:
-            log.info("[WARM] dense model is not existed, skipped")
+            raise Exception("[ERROR] sparse model [%s] is not existed" %
+                            sparse_params_path)
+
+        dense_params_path = os.path.join(model_path, "dense_vars")
+
+    else:  # load from hadoop path
+        mode, sparse_model_path = parse_path(sparse_model_path)
+        sparse_model_path = HFS.check_hadoop_path(sparse_model_path)
+        sparse_params_path = os.path.join(sparse_model_path, "000")
+
+        if HFS.exists(sparse_params_path):
+            log.info("[WARM] load sparse model from %s" % sparse_params_path)
+            if "train_storage_mode" in args and args.train_storage_mode == "SSD_EMBEDDING":
+                if "load_binary_mode" in args and args.load_binary_mode is True:
+                    fleet.load_model(sparse_model_path, mode=0)
+                else:
+                    fleet.load_model(sparse_model_path, mode=4)
+            else:
+                fleet.load_model(sparse_model_path, mode=0)
+            log.info("[WARM] load sparse model from %s finished." %
+                     sparse_params_path)
+        else:
+            raise Exception("[ERROR] sparse model [%s] is not existed" %
+                            sparse_params_path)
+
+        hadoop_dense_params_path = os.path.join(model_path, "dense_vars")
+        if HFS.exists(hadoop_dense_params_path):
+            HFS.get(hadoop_dense_params_path, "./")
+        dense_params_path = "./dense_vars"
+
+    # load dense vars
+    if os.path.exists(dense_params_path):
+        log.info("[WARM] load dense parameters from: %s" % dense_params_path)
+        all_vars = model_dict.train_program.global_block().vars
+        for filename in os.listdir(dense_params_path):
+            if filename in all_vars:
+                log.info("[WARM] var %s existed" % filename)
+            else:
+                log.info("[WARM_MISS] var %s not existed" % filename)
+
+        fluid.io.load_vars(
+            exe,
+            dense_params_path,
+            model_dict.train_program,
+            predicate=name_not_have_sparse)
+    else:
+        log.info("[WARM] dense model is not existed, skipped")
 
 
 def save_pretrained_model(exe, save_path, args, mode="hdfs"):
     """save pretrained model"""
-    if fleet.is_first_worker():
-        if mode == "hdfs":
-            save_path = HFS.check_hadoop_path(save_path)
-            HFS.rm(save_path)
+    if mode == "hdfs":
+        save_path = HFS.check_hadoop_path(save_path)
+        HFS.rm(save_path)
 
-        if "train_storage_mode" in args and args.train_storage_mode == "SSD_EMBEDDING":
-            if "save_binary_mode" in args and args.save_binary_mode is True:
-                # in train_storage_mode="SSD_EMBEDDING", mode=0 means save binary batch_model,
-                # mode=4 means save origin batch_model
-                fleet.save_persistables(exe, save_path, mode=0)
-            else:
-                fleet.save_persistables(exe, save_path, mode=4)
+    if "train_storage_mode" in args and args.train_storage_mode == "SSD_EMBEDDING":
+        if "save_binary_mode" in args and args.save_binary_mode is True:
+            # in train_storage_mode="SSD_EMBEDDING", mode=0 means save binary batch_model,
+            # mode=4 means save origin batch_model
+            fleet.save_persistables(exe, save_path, mode=0)
         else:
-            fleet.save_persistables(exe, save_path)
+            fleet.save_persistables(exe, save_path, mode=4)
+    else:
+        fleet.save_persistables(exe, save_path)
 
 
 def name_not_have_sparse(var):
@@ -194,10 +201,38 @@ def name_not_have_sparse(var):
     return res
 
 
+def remove_path(path):
+    """
+        remove file or path
+    """
+    try:
+        if not os.path.isdir(path):
+            os.remove(path)
+            return 1
+        cnt = 0
+        dirs = os.listdir(path)
+        for name in dirs:
+            full_path = os.path.join(path, name)
+            if os.path.isdir(full_path):
+                ret = remove_path(full_path)
+                if ret > 0:
+                    cnt = cnt + ret
+            else:
+                os.remove(full_path)
+        os.rmdir(path)
+        return cnt
+    except Exception as e:
+        log.info('remove_path %s exception: %s' % (path, e))
+        return 1
+
+
 def save_model(exe, model_dict, args, local_model_path, model_save_path):
     """final save model"""
     mode, model_save_path = parse_path(model_save_path)
     _, working_root = parse_path(args.working_root)
+    # multi node
+    if paddle.distributed.get_world_size() > 1:
+        working_root = os.path.join(working_root, "model")
 
     # save sparse table
     log.info("save sparse table")
@@ -212,10 +247,22 @@ def save_model(exe, model_dict, args, local_model_path, model_save_path):
         log.info("model has been saved, model_path: %s" % model_save_path)
     else:
         save_pretrained_model(exe, local_model_path, args, mode="local")
-        run_cmd("rm -rf %s && mkdir -p %s && mv %s %s" % \
-                    (working_root, working_root, local_model_path, working_root))
+        if paddle.distributed.get_world_size() is 1:
+            model_root = working_root
+        else:
+            model_root = working_root + "/model/"
+        if os.path.exists(model_root):
+            remove_path(model_root)
+        make_dir(working_root)
+        tmp_path = os.path.join(working_root, "model")
+        if os.path.exists(tmp_path):
+            run_cmd("rm -rf %s" % (tmp_path))
+        run_cmd("mv %s %s" % (local_model_path, working_root))
         log.info("model has been saved in local path: %s" % working_root)
 
+    # master node
+    if not fleet.worker_index() is 0:
+        return
     # save dense model
     log.info("save dense model")
     local_var_save_path = "./dense_vars"
@@ -239,6 +286,9 @@ def save_model(exe, model_dict, args, local_model_path, model_save_path):
 def upload_embedding(args, local_embed_path):
     mode, infer_result_path = parse_path(args.infer_result_path)
     _, working_root = parse_path(args.working_root)
+    # multi node
+    if paddle.distributed.get_world_size() > 1:
+        working_root = os.path.join(working_root, "embedding")
     if mode == "hdfs":
         HFS.rm(infer_result_path)
         HFS.mkdir(infer_result_path)
@@ -260,8 +310,42 @@ def upload_embedding(args, local_embed_path):
                  infer_result_path)
     else:
         make_dir(working_root)
+        tmp_path = os.path.join(working_root, "embedding")
+        if os.path.exists(tmp_path):
+            run_cmd("rm -rf %s" % (tmp_path))
         run_cmd("mv %s %s" % (local_embed_path, working_root))
         log.info("embedding has been saved in local path: %s" % working_root)
+
+
+def upload_dump_walk(args, local_dump_path):
+    mode, dump_save_path = parse_path(args.dump_save_path)
+    _, working_root = parse_path(args.working_root)
+    # multi node
+    if paddle.distributed.get_world_size() > 1:
+        working_root = os.path.join(working_root, "dump_walk")
+    if mode == "hdfs":
+        HFS.rm(dump_save_path)
+        HFS.mkdir(dump_save_path)
+
+        log.info("being to upload walk_path to: %s " % dump_save_path)
+        for file in glob.glob(os.path.join(local_dump_path, "*")):
+            basename = os.path.basename(file)
+            HFS.put(file, dump_save_path)
+        log.info("[hadoop put] walk_path has been upload to: %s " %
+                 dump_save_path)
+
+    elif mode == "afs":
+        log.info("being to upload walk_path to: %s " % dump_save_path)
+        #  HFS.rm(dump_save_path)
+        user, passwd = args.fs_ugi.split(',')
+        gzshell_upload(args.fs_name, user, passwd, local_dump_path,
+                       "afs:%s" % working_root)
+        log.info("[gzshell] walk_path has been upload to: %s " %
+                 dump_save_path)
+    else:
+        make_dir(working_root)
+        run_cmd("mv %s %s" % (local_dump_path, working_root))
+        log.info("walk_path has been saved in local path: %s" % working_root)
 
 
 def hadoop_touch_done(path):
@@ -326,13 +410,13 @@ def get_all_edge_type(etype2files, symmetry):
     if symmetry:
         etype_list = []
         for etype in etype2files.keys():
+
             r_etype = get_inverse_etype(etype)
             etype_list.append(etype)
             if r_etype != etype:
                 etype_list.append(r_etype)
     else:
         etype_list = list(etype2files.keys())
-
     return etype_list
 
 
@@ -351,49 +435,30 @@ def get_edge_type(etype, symmetry):
     return etype_list
 
 
-def get_inverse_etype(etype):
-    """ get_inverse_etype """
-    fields = etype.split("2")
-    if len(fields) == 3:
-        src, etype, dst = fields
-        r_etype = "2".join([dst, etype, src])
-    else:
-        r_etype = "2".join([fields[1], fields[0]])
-    return r_etype
-
-
-def get_sub_path(type2files, parse_list, is_edge):
+def get_sub_path(type2files_dict, sub_types_list, is_edge):
     """ get sub path in metapath split """
-    type_dict = {}
-    type2files = type2files.split(',')
-    for i in range(0, len(type2files)):
-        type2file = type2files[i].split(':')
-        if len(type2file) < 2:
-            print("check type config")
-            exit(-1)
-        sub_type = type2file[0]
-        sub_path = type2file[1]
-        if sub_type not in type_dict:
-            type_dict[sub_type] = sub_path
-
     final_path = []
-    for j in range(0, len(parse_list)):
+    is_reverse_edge_map = []
+    for sub_type in sub_types_list:
         combine = []
-        sub_type = parse_list[j]
         #combine.append(sub_type)
-        if sub_type in type_dict:
+        if sub_type in type2files_dict:
             combine.append(sub_type)
-            sub_path = type_dict[sub_type]
+            sub_path = type2files_dict[sub_type]
             combine.append(sub_path)
-        elif get_inverse_etype(sub_type) in type_dict:
+            if is_edge:
+                is_reverse_edge_map.append(0)
+        elif is_edge and get_inverse_etype(sub_type) in type2files_dict:
             sub_inverse_type = get_inverse_etype(sub_type)
-            combine.append(sub_inverse_type)
-            sub_path = type_dict[sub_inverse_type]
+            combine.append(sub_type)
+            sub_path = type2files_dict[sub_inverse_type]
             combine.append(sub_path)
+            if is_edge:
+                is_reverse_edge_map.append(1)
         combine_path = ":".join(combine)
         if combine_path not in final_path:
             final_path.append(combine_path)
-    return ','.join(final_path)
+    return ','.join(final_path), is_reverse_edge_map
 
 
 def change_metapath_index(meta_path, node_type_size, edge_type_size):
@@ -425,6 +490,17 @@ def change_metapath_index(meta_path, node_type_size, edge_type_size):
     for i in range(0, len(sort_meta_path)):
         final_path_list.append(sort_meta_path[i]['path'])
     return final_path_list
+
+
+def get_inverse_etype(etype):
+    """ get_inverse_etype """
+    fields = etype.split("2")
+    if len(fields) == 3:
+        src, etype, dst = fields
+        r_etype = "2".join([dst, etype, src])
+    else:
+        r_etype = "2".join([fields[1], fields[0]])
+    return r_etype
 
 
 def get_first_node_type(meta_path):
@@ -543,3 +619,44 @@ def sample_list_to_str(sage_mode, samples):
             str_samples += ";"
         str_samples = str_samples[:-1]
     return str_samples
+
+
+def print_tensor(scope, name):
+    """
+    get tensor specified by name
+    """
+    var = scope.find_var(name)
+    if var is None:
+        print("var: %s is not in scope" % (name))
+        return
+
+    batch_size_tensor = None
+    try:
+        batch_size_tensor = var.get_tensor()
+    except Exception as e:
+        print("var: %s is invalid, can not be printed" % (name))
+        return
+
+    ori_array = np.array(batch_size_tensor)
+    ori_array = ori_array.transpose()
+    num = 1
+    for e in ori_array.shape:
+        num = num * e
+
+    sys.stdout.write("%s:[%s]" % (name, num))
+    a = ori_array.reshape(num)
+
+    if num > 10:
+        num = 10
+
+    for i in range(num):
+        sys.stdout.write(str(a[i]) + ",")
+    sys.stdout.write("\n")
+
+
+def print_tensor_of_program(scope, program):
+    """
+    print tensor in program
+    """
+    for param in program.global_block().all_parameters():
+        print_tensor(scope, param.name)

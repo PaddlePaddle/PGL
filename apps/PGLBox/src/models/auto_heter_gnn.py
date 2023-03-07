@@ -113,7 +113,7 @@ class AutoHeterGNN(nn.Layer):
             next_num_nodes = graph_holder[1] + 1
             edges_src = graph_holder[2] + 1
             edges_dst = graph_holder[3] + 1
-            split_edges = paddle.cumsum(graph_holder[4])
+            split_edges = graph_holder[4]
             nxt_fs = []
 
             for j in range(self.etype_len):
