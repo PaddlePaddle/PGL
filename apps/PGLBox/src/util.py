@@ -168,14 +168,6 @@ def load_pretrained_model(exe, model_dict, args, model_path):
             dense_params_path,
             model_dict.train_program,
             predicate=name_not_have_sparse)
-    elif args.pretrained_model:
-        # if hadoop model path did not include dense params, then load dense pretrained_model from dependency
-        dependency_path = os.getenv(
-            "DEPENDENCY_HOME")  # see env_run/scripts/train.sh for details
-        dense_path = os.path.join(dependency_path, args.pretrained_model)
-        log.info("[WARM] load dense parameters from: %s" % dense_path)
-        paddle.static.set_program_state(model_dict.train_program,
-                                        model_dict.state_dict)
     else:
         log.info("[WARM] dense model is not existed, skipped")
 

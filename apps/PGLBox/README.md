@@ -81,7 +81,7 @@ nvidia-docker run -it --rm \
 
 图数据的准备请参考[这里](./wiki/data_format_ch.md)。
 
-如果想要制定训练或者infer的节点目录，可以参考[这里](./wiki/train_infer_from_file_ch.md)
+默认情况下，PGLBox会训练图数据中所有节点并且预测出所有节点的embedding。如果用户只想训练部分节点，或者只预测部分节点，PGLBox提供了相应的功能支持，具体可以参考[这里](./wiki/train_infer_from_file_ch.md)
 
 <br/>
 </details>

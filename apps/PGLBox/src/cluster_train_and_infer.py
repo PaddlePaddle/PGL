@@ -242,14 +242,6 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         load_model_end = time.time()
         log.info("STAGE [LOAD MODEL] finished, time cost: %f sec" \
             % (load_model_end - load_model_begin))
-    elif args.pretrained_model:
-        # if sparse table is null, then only load dense pretrained_model from dependency
-        dependency_path = os.getenv(
-            "DEPENDENCY_HOME")  # see env_run/scripts/train.sh for details
-        dense_path = os.path.join(dependency_path, args.pretrained_model)
-        log.info("only load dense parameters from: %s" % dense_path)
-        paddle.static.set_program_state(model_dict.train_program,
-                                        model_dict.state_dict)
 
     fleet.barrier_worker()
 
