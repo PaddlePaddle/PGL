@@ -46,6 +46,7 @@ from graph import DistGraph
 from dataset import UnsupReprLearningDataset, InferDataset
 from distributed_program import make_distributed_train_program, make_distributed_infer_program
 from util_config import prepare_config, pretty
+import util_hadoop as HFS
 
 
 def train(args, exe, model_dict, dataset):
@@ -370,16 +371,33 @@ if __name__ == "__main__":
     config = prepare_config(args.config)
     config.local_model_path = "./model"
     config.local_result_path = "./embedding"
+
+    if config.train_mode == "online_train":
+        config.working_root = os.path.join(config.working_root,
+                                           config.newest_time)
+
     config.model_save_path = os.path.join(config.working_root, "model")
     config.infer_result_path = os.path.join(config.working_root, 'embedding')
     config.dump_save_path = os.path.join(config.working_root, 'dump_walk')
+
     config.max_steps = config.max_steps if config.max_steps else 0
     config.metapath_split_opt = config.metapath_split_opt \
                                 if config.metapath_split_opt else False
 
     # set hadoop global account
+    if config.fs_naame or config.fs_ugi:
+        hadoop_bin = "%s/bin/hadoop" % (os.getenv("HADOOP_HOME"))
+        HFS.set_hadoop_account(hadoop_bin, config.fs_name, config.fs_ugi)
+
     print("#===================PRETTY CONFIG============================#")
     pretty(config, indent=0)
     print("#===================PRETTY CONFIG============================#")
     ret = main(config)
+
+    if config.train_mode == "online_train":
+        # update warm_start_time fro next timestamp training
+        cmd = 'sed -i "s|^warm_start_from: .*$|warm_start_from: %s|" ./config.yaml' \
+                % (config.model_save_path)
+        util.run_cmd(cmd)
+
     exit(ret)
