@@ -119,3 +119,21 @@ gpups_memory_allocated_rate: 0.60
 
 # 1 for debug
 debug_mode: 0
+
+# --------------------------例行训练和预测--------------------------#
+# 若修改为"online_train"，则表示需要进行例行训练，否则默认为普通训练模式。
+train_mode: "train"
+# 例行训练的第一次图数据起始时间。（注意，天级别更新的时候，日期的格式也一定要是20230217/00, 不能省略小时的单位）
+start_time: 20230217/00
+# 例行训练的小时级间隔(当train_mode=online_train时生效)，time_delta=1表示每次训练一个小时数据，然后换到下一个小时。如果是天级别更新，则time_delta=24。
+time_delta: 24
+
+# 设置图数据目录，若为hadoop集群则需要hdfs:开头，否则默认为本机docker内路径
+graph_data_hdfs_path: ""
+
+# 以下配置如果为非hadoop环境，则无需配置。
+hadoop_home: ""  # 例如: /pglbox/dependency/hadoop_client/hadoop，如为本机图数据则不需要设置
+graph_data_fs_name: ""  # 主要用于图数据保存的hadoop目录
+graph_data_fs_ugi: ""   # 主要用于图数据保存的hadoop目录
+output_fs_name: ""      # 主要用于模型和向量保存的hadoop目录
+output_fs_ugi: ""       # 主要用于模型和向量保存的hadoop目录
