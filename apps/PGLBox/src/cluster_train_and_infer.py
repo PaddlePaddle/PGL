@@ -396,7 +396,7 @@ if __name__ == "__main__":
     ret = main(config)
 
     if config.train_mode == "online_train":
-        # update warm_start_time fro next timestamp training
+        # update warm_start_time for next timestamp training
         cmd = 'sed -i "s|^warm_start_from: .*$|warm_start_from: %s|" ./config.yaml' \
                 % (config.model_save_path)
         util.run_cmd(cmd)
