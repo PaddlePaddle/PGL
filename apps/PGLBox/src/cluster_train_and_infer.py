@@ -385,9 +385,10 @@ if __name__ == "__main__":
                                 if config.metapath_split_opt else False
 
     # set hadoop global account
-    if config.fs_naame or config.fs_ugi:
+    if config.output_fs_naame or config.output_fs_ugi:
         hadoop_bin = "%s/bin/hadoop" % (os.getenv("HADOOP_HOME"))
-        HFS.set_hadoop_account(hadoop_bin, config.fs_name, config.fs_ugi)
+        HFS.set_hadoop_account(hadoop_bin, config.output_fs_name,
+                               config.output_fs_ugi)
 
     print("#===================PRETTY CONFIG============================#")
     pretty(config, indent=0)

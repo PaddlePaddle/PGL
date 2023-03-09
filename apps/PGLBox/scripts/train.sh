@@ -10,7 +10,7 @@ orig_config_file=$1
 cp ${orig_config_file} ${PGLBOX_HOME}/src/config.yaml
 config_file="${PGLBOX_HOME}/src/config.yaml"
 
-fs_name=`parse_yaml2 ${config_file} graph_data_fs_ugi`
+fs_name=`parse_yaml2 ${config_file} graph_data_fs_name`
 fs_ugi=`parse_yaml2 ${config_file} graph_data_fs_ugi`
 export HADOOP_HOME=`parse_yaml2 ${config_file} hadoop_home`
 export hadoop="$HADOOP_HOME/bin/hadoop fs -D fs.default.name=$fs_name -D hadoop.job.ugi=$fs_ugi"
@@ -34,32 +34,29 @@ if [ "${train_mode}" = "online_train" ]; then
         # 检测是否有最新的图数据产生
         cur_graph_data_hdfs_path=${graph_data_hdfs_path}/${newest_time}
         data_flag=0
-        if [[ ${cur_graph_data_hdfs_path} =~ "afs:"]]; then
-            data_flag=1
-        elif [[ ${cur_graph_data_hdfs_path} =~ "hdfs:" ]]; then
+        if [[ ${cur_graph_data_hdfs_path} =~ "hdfs:" ]]; then
             data_flag=1
         fi
-        while true; do
-            echo "detect ${cur_graph_data_hdfs_path}/to.hadoop.done"
-            if [ $data_flag -eq 1 ]; then
-                # hadoop
+        if [ $data_flag -eq 1 ]; then
+            # hadoop
+            while true; do
                 $hadoop -test -e ${cur_graph_data_hdfs_path}/to.hadoop.done
                 if [ $? -eq 0 ]; then
                     break
                 else
                     sleep 60
                     continue
-                fi 
-            elif
-                # local machine
-                if [ -f ${cur_graph_data_hdfs_path}/to.hadoop.done ]; then
-                    break
-                else
-                    sleep 60
-                    continue
                 fi
+            done
+        elif [ $data_flag -eq 0 ]; then
+            # local machine
+            if [ -f ${cur_graph_data_hdfs_path}/to.hadoop.done ]; then
+                break
+            else
+                sleep 60
+                continue
             fi
-        done
+        fi
 
         # 创建新的日志目录
         LAST_DATE=`echo ${newest_time} | awk -F"/" '{print $1}'`
@@ -68,7 +65,7 @@ if [ "${train_mode}" = "online_train" ]; then
         [ ! -d ${CUR_LOG_DIR} ] && mkdir -p ${CUR_LOG_DIR}
 
         # 开始加载最新图数据
-        sh -x ${SOURCE_HOME}/download_graph_data.sh ${cur_graph_data_hdfs_path} ${graph_data_local_path} ${data_flag} > {CUR_LOG_DIR}/graph_data.log 2>&1
+        sh -x ${SOURCE_HOME}/download_graph_data.sh ${cur_graph_data_hdfs_path} ${graph_data_local_path} ${data_flag} > ${CUR_LOG_DIR}/graph_data.log 2>&1
 
         # train
         pushd ${PGLBOX_HOME}/src
