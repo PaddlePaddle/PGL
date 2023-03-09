@@ -36,11 +36,10 @@ function copy_data_from_local_machine() {
 echo "======================== [BUILD_INFO] download_gdata =============================="
 hdfs_path=$1
 local_path=$2
-data_flag=$3
 echo "download or copy data from [${hdfs_path}] to [${local_path}]"
-if [ ${data_flag} -eq 0 ]; then
-    copy_data_from_local_machine ${hdfs_path} ${local_path}
-elif [ ${data_flag} -eq 1 ]; then
+if [[ ${hdfs_path} =~ "hdfs:" ]]; then
     download_data_by_hadoop ${hdfs_path} ${local_path}
+else
+    copy_data_from_local_machine ${hdfs_path} ${local_path}
 fi
 [ $? -ne 0 ] && fatal_error "download data failed"

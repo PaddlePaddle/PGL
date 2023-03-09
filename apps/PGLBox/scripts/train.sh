@@ -33,11 +33,7 @@ if [ "${train_mode}" = "online_train" ]; then
     while true; do
         # 检测是否有最新的图数据产生
         cur_graph_data_hdfs_path=${graph_data_hdfs_path}/${newest_time}
-        data_flag=0
         if [[ ${cur_graph_data_hdfs_path} =~ "hdfs:" ]]; then
-            data_flag=1
-        fi
-        if [ $data_flag -eq 1 ]; then
             # hadoop
             while true; do
                 $hadoop -test -e ${cur_graph_data_hdfs_path}/to.hadoop.done
@@ -48,14 +44,16 @@ if [ "${train_mode}" = "online_train" ]; then
                     continue
                 fi
             done
-        elif [ $data_flag -eq 0 ]; then
+        else
             # local machine
-            if [ -f ${cur_graph_data_hdfs_path}/to.hadoop.done ]; then
-                break
-            else
-                sleep 60
-                continue
-            fi
+            while true; do
+                if [ -f ${cur_graph_data_hdfs_path}/to.hadoop.done ]; then
+                    break
+                else
+                    sleep 60
+                    continue
+                fi
+            done
         fi
 
         # 创建新的日志目录
@@ -65,7 +63,7 @@ if [ "${train_mode}" = "online_train" ]; then
         [ ! -d ${CUR_LOG_DIR} ] && mkdir -p ${CUR_LOG_DIR}
 
         # 开始加载最新图数据
-        sh -x ${SOURCE_HOME}/download_graph_data.sh ${cur_graph_data_hdfs_path} ${graph_data_local_path} ${data_flag} > ${CUR_LOG_DIR}/graph_data.log 2>&1
+        sh -x ${SOURCE_HOME}/download_graph_data.sh ${cur_graph_data_hdfs_path} ${graph_data_local_path} > ${CUR_LOG_DIR}/graph_data.log 2>&1
 
         # train
         pushd ${PGLBOX_HOME}/src
