@@ -39,10 +39,8 @@ cd PGL/apps/PGLBox
 wget https://baidu-pgl.gz.bcebos.com/pglbox/data/MAG240M/preprocessed_MAG240M.tar.gz
 tar -zxf preprocessed_MAG240M.tar.gz
 ```
-按照图的结构信息，以及需要的模型配置我们的配置文件，可以直接使用我们提供的这份配置。具体配置含义我们会在后面进行解释。
-```
-wget https://baidu-pgl.gz.bcebos.com/pglbox/data/MAG240M/mag240m_metapath2vec.yaml
-```
+按照图的结构信息，以及需要的模型配置我们的配置文件，可以直接使用我们提供的[这份配置](./demo_configs/mag240m_metapath2vec.yaml)。具体配置含义我们会在后面进行解释。
+
 在PGLBox主目录下通过`nvidia-docker run`命令运行模型
 ```
 nvidia-docker run -it --rm \
@@ -52,7 +50,7 @@ nvidia-docker run -it --rm \
     -v ${PWD}:/pglbox \
     -w /pglbox \
     registry.baidubce.com/paddlepaddle/pgl:pglbox-2.0rc-cuda11.0-cudnn8 \
-    /bin/bash -c "/pglbox/train.sh ./mag240m_metapath2vec.yaml"
+    /bin/bash -c "/pglbox/scripts/train.sh ./demo_configs/mag240m_metapath2vec.yaml"
 ```
 训练完成后，我们可以在主目录下找到`mag240m_output`文件夹，该文件夹下包含了`model`和`embedding`两个文件夹，分别表示保存的模型以及infer产出的节点embedding。
 
