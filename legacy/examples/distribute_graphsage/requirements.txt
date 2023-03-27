@@ -3,6 +3,6 @@ pyyaml
 paddlepaddle==1.6.1
 
 scipy
-redis==2.10.6
+redis==4.5.3
 redis-py-cluster==1.3.6
 
