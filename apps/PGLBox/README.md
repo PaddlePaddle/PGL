@@ -14,7 +14,7 @@
 
 ## 更新日志
 
-- v2.1: 更新部分代码，包括增加[指定训练或infer节点](./wiki/train_infer_from_file_ch.md)、增加[例行训练功能](./wiki/online_train.md)。(2023.03.08)
+- v2.1: 更新部分代码，包括增加[指定训练或infer节点](./wiki/train_infer_from_file_ch.md)、增加[例行训练功能](./wiki/online_train_ch.md)。(2023.03.08)
 - v2.0: PGLBox V2版本，支持特征和Embedding多级存储，支持更大图规模。(2022.12.29)
 - v1.0: 新增PGLBox能力，V1版本。(2022.12.14)
 
