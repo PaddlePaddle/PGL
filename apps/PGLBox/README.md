@@ -1,6 +1,4 @@
-
-## PGLBox: Distributed Hierarchical GPU Engine for Efficiently Training Super-large Scale Graph Neural Network
-
+# PGLBox: Distributed Hierarchical GPU Engine for Efficiently Training Super-large Scale Graph Neural Network ([English document](./README_EN.md))
 
 **PGLBox**是基于**GPU**的超大规模图模型训练引擎，通过异构层次化存储技术，突破了显存瓶颈，单机即可支持百亿节点、数百亿边的图采样和训练。用户只需要对配置文件进行简单的配置，便可以利用单机多卡训练大规模的图表示学习，并可快速搭建基于GNN的推荐系统、用户画像、图检索系统。
 
