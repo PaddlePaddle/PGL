@@ -24,6 +24,7 @@ import pickle as pkl
 
 import paddle
 import paddle.static as static
+import paddle.fluid as F
 import pgl
 from pgl.utils.logger import log
 
