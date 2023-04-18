@@ -80,10 +80,10 @@ class AttrDict(dict):
 def pretty(d, indent=0):
     for key, value in d.items():
         if isinstance(value, dict):
-            print('    ' * indent + "%s:" % str(key))
+            print('    ' * indent + "%s:" % str(key), file=sys.stderr)
             pretty(value, indent + 1)
         else:
-            print('    ' * indent + "%s: %s" % (str(key), repr(value)))
+            print('    ' * indent + "%s: %s" % (str(key), repr(value)), file=sys.stderr)
 
 
 def get_last_dir(path):

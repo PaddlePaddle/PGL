@@ -12,6 +12,8 @@ ntype2files: "u:node_types,t:node_types,f:node_types"
 excluded_train_pair: ""
 # only infer the node(s) specified by 'infer_node_type', eg "q;t"
 infer_node_type: ""
+# label of train pair, eg "cuid2conv:2,cuid2fcclk:3,cuid2fcconv:4,clk2entity:5,conv2entity:6"
+pair_label: ""
 
 # specify the node directory for training or inference.If left empty, it will default to using the points loaded from the graph data for training or inference.
 # for example, if the node directory for inferencing is named "infer_nodes" under the directory "graph_data_hdfs_path", then it is written as "infer_nodes".
@@ -67,7 +69,7 @@ model_type: GNNModel
 # embedding dimension, which needs to be the same as hidden_size
 emb_size: 64
 # sparse_type: optimizer for sparse parameter servers, currently supports adagrad, shared_adam
-sparse_type: adagrad
+sparse_type: adagrad_v2
 # sparse_lr: learning rate for sparse parameter server
 sparse_lr: 0.1
 # dense_lr: learning rate for dense parameters
@@ -94,6 +96,11 @@ sage_act: "relu"
 hcl: True
 # use_degree_norm: if it is true, sage_alpha needs to be set to 0.4-0.5, batch_node_size and infer_batch_size should also be adjusted smaller
 use_degree_norm: True
+
+# whether to use weighted sample, which will work on walk and sample simultaneously.
+weighted_sample: False
+# whether to return edge weight, which only works only for sage_mode=True. If edges have no weight, return 1.
+return_weight: False
 
 # whether to train the model or not. if only want to hot-start the model for inference, then the need_train flag can be turned off.
 need_train: True

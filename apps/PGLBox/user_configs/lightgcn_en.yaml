@@ -67,7 +67,7 @@ model_type: GNNModel
 # embedding dimension, which needs to be the same as hidden_size
 emb_size: 64
 # sparse_type: optimizer for sparse parameter servers, currently supports adagrad, shared_adam
-sparse_type: adagrad
+sparse_type: adagrad_v2
 # sparse_lr: learning rate for sparse parameter server
 sparse_lr: 0.1
 # dense_lr: learning rate for dense parameters
@@ -82,6 +82,11 @@ margin: 2.0  # for hinge loss
 softsign: False
 # contrastive learning loss function selection: currently supports simgcl_loss
 gcl_loss: simgcl_loss
+
+# whether to use weighted sample, which will work on walk and sample simultaneously.
+weighted_sample: False
+# whether to return edge weight, which only works only for sage_mode=True. If edges have no weight, return 1.
+return_weight: False
 
 # sage model setting
 sage_mode: True

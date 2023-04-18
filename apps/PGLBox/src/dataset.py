@@ -80,7 +80,7 @@ class BaseDataset(object):
             etype_list = util.get_all_edge_type(etype2files, config.symmetry)
             etype_len = len(etype_list)
 
-            train_chunk_nodes *= np.prod(config.samples)
+            train_chunk_nodes *= np.prod(config.samples) * config.win_size
             infer_chunk_nodes *= np.prod(config.infer_samples)
 
         if config.train_pass_cap:
@@ -115,6 +115,7 @@ class BaseDataset(object):
                                                     config.infer_samples)
 
         excluded_train_pair = config.excluded_train_pair if config.excluded_train_pair else ""
+        pair_label = config.pair_label if config.pair_label else ""
         infer_node_type = config.infer_node_type if config.infer_node_type else ""
 
         cap_and_chunks = self.compute_chunks_and_cap(config)
@@ -126,8 +127,7 @@ class BaseDataset(object):
             "walk_len": config.walk_len,
             "walk_degree": config.walk_times,
             "once_sample_startid_len": config.batch_size,
-            "sample_times_one_chunk":
-            cap_and_chunks["train_sample_times_one_chunk"],
+            "sample_times_one_chunk": cap_and_chunks["train_sample_times_one_chunk"],
             "window": config.win_size,
             "debug_mode": config.debug_mode,
             "batch_size": config.batch_size,
@@ -139,7 +139,10 @@ class BaseDataset(object):
             "infer_table_cap": cap_and_chunks["infer_pass_cap"],
             "excluded_train_pair": excluded_train_pair,
             "infer_node_type": infer_node_type,
-            "get_degree": get_degree
+            "get_degree": get_degree,
+            "weighted_sample": config.weighted_sample,
+            "return_weight": config.return_weight,
+            "pair_label": pair_label,
         }
 
         first_node_type = util.get_first_node_type(config.meta_path)
@@ -210,7 +213,9 @@ class BaseDataset(object):
         """
 
         global pass_id
+        global epoch_stat
         pass_id = 0
+        epoch_stat = 0
         while 1:
             dataset = None
             self.could_load_sem.acquire()
@@ -220,6 +225,10 @@ class BaseDataset(object):
             if dataset is None:
                 index = fleet.worker_index() * self.chunk_num
                 global_chunk_num = fleet.worker_num() * self.chunk_num
+
+                if dataset is None:
+                    index = fleet.worker_index() * self.chunk_num
+                    global_chunk_num = fleet.worker_num() * self.chunk_num
 
                 dataset = self.generate_dataset(self.config, index, pass_id)
                 begin = time.time()
@@ -235,26 +244,33 @@ class BaseDataset(object):
 
                 # Only training has epoch finish == True.
                 if not self.is_predict:
-
-                    if self.config.metapath_split_opt:
-                        data_size = dataset.get_memory_data_size()
-                        if data_size == 0:
-                            log.info(
-                                "train metapath memory data_size == 0, break")
+                    if paddle.distributed.get_world_size() > 1:
+                        multi_node_stat = util.allreduce_min(epoch_stat)
+                        if multi_node_stat == 1:
+                            log.info("epoch stat is 1, will clear state and exit")
+                            dataset = self.generate_dataset(self.config, index, pass_id)
+                            dataset.clear_sample_state()
                             self.ins_ready_sem.release()
                             break
-                    else:
-                        epoch_finish = dataset.get_epoch_finish()
-                        if epoch_finish:
+                    epoch_finish = dataset.get_epoch_finish()
+                    if epoch_finish or epoch_stat == 1:
+                        if paddle.distributed.get_world_size() > 1:
+                            epoch_stat = 1
+                            multi_node_stat = util.allreduce_min(epoch_stat)
+                            if multi_node_stat == 1:
+                                log.info("train finished in multi node, break")
+                                self.ins_ready_sem.release()
+                                break
+                            else:
+                                log.info("other node has pass, not break")
+                        else:
                             log.info("epoch_finish == true, break")
                             self.ins_ready_sem.release()
                             break
-                        if self.config.max_steps > 0 and model_util.print_count >= self.config.max_steps:
-                            log.info(
-                                "reach max_steps, dataset generator break")
-                            self.ins_ready_sem.release()
-                            break
-
+                    if self.config.max_steps > 0 and model_util.print_count >= slef.config.max_steps:
+                        log.info("reach max_steps, dataset generator break")
+                        self.ins_ready_sem.release()
+                        break
                 else:
                     data_size = dataset.get_memory_data_size()
                     if data_size == 0:

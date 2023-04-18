@@ -57,7 +57,8 @@ class DistGraph(object):
                  slot_num_for_pull_feature,
                  num_parts,
                  metapath_split_opt=False,
-                 infer_nodes=None):
+                 infer_nodes=None,
+                 use_weight=False):
         self.root_dir = root_dir
         self.node_types = node_types
         self.edge_types = edge_types
@@ -68,6 +69,7 @@ class DistGraph(object):
         self.num_parts = num_parts
         self.metapath_split_opt = metapath_split_opt
         self.infer_nodes = infer_nodes
+        self.use_weight = use_weight
         self.reverse = 1 if self.symmetry else 0
 
         self.etype2files = helper.parse_files(self.edge_types)
@@ -111,7 +113,8 @@ class DistGraph(object):
                 continue
             load_begin_time = time.time()
             self.graph.load_edge_file(etype + ":" + etype, self.root_dir,
-                                      self.num_parts, self.reverse, [])
+                                      self.num_parts, self.reverse, [],
+                                      self.use_weight)
             load_end_time = time.time()
             log.info("load edge[%s] to cpu, time cost: %f sec" %
                      (etype, load_end_time - load_begin_time))
@@ -131,7 +134,8 @@ class DistGraph(object):
 
         load_begin_time = time.time()
         self.graph.load_edge_file(self.edge_types, self.root_dir,
-                                  self.num_parts, self.reverse, [])
+                                  self.num_parts, self.reverse, [],
+                                  self.use_weight)
         load_end_time = time.time()
         log.info("STAGE [CPU LOAD EDGE] finished, time cost: %f sec" %
                  (load_end_time - load_begin_time))
@@ -217,7 +221,8 @@ class DistGraph(object):
 
         metapath_cpuload_begin = time.time()
         self.graph.load_edge_file(sub_etype2files, self.root_dir,
-                                  self.num_parts, False, is_reverse_map)
+                                  self.num_parts, False, is_reverse_map,
+                                  self.use_weight)
         metapath_cpuload_end = time.time()
         log.info("metapath[%s] load edges[%s] to cpu, time: %s" %
                  (metapath, sub_etype2files,

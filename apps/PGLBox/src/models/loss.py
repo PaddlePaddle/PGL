@@ -115,20 +115,25 @@ def simgcl_loss(config, predictions):
         paddle.shape(nfeat), dtype="float32", min=0.0, max=1.0)
     noise = noise * paddle.sign(nfeat)
     ratio = 0.5
-    noised_nfeat = nfeat + noise * ratio
-    noised_src_nfeat = noised_nfeat[:, 0:1, :]
+    noised_nfeat = src_feat + noise * ratio
 
-    noised_logits = paddle.matmul(src_feat, noised_src_nfeat, transpose_y=True)
-    noised_logits = paddle.squeeze(noised_logits, axis=[1])
+    neighbor_dsts_feat_all = [noised_nfeat]
 
-    tao = 100
+    for neg in range(config.neg_num):
+        neighbor_dsts_feat_all.append(
+            F.contrib.layers.shuffle_batch(neighbor_dsts_feat_all[0]))
+    neighbor_dsts_feat = paddle.concat(neighbor_dsts_feat_all, axis=1)
+
+    noised_logits = paddle.matmul(src_feat, neighbor_dsts_feat, transpose_y=True)
+    # noised_logits [batch_size, 1]
+
+    tao = 5 
     # equal to L.elementwise_div(logits, 1/tao) and it will boardcast automatically
     noised_logits = noised_logits * tao
+    noised_logits = paddle.squeeze(noised_logits, [1])
     labels = paddle.zeros([paddle.shape(noised_logits)[0], 1], dtype="int64")
-    loss = paddle.nn.functional.softmax_with_cross_entropy(noised_logits,
-                                                           labels)
+    loss = paddle.nn.functional.softmax_with_cross_entropy(noised_logits, labels)
     loss = paddle.sum(loss)
-
     return loss
 
 
