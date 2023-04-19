@@ -13,6 +13,8 @@ ntype2files: "u:node_types,t:node_types,f:node_types"
 excluded_train_pair: ""
 # only infer the node(s) specified by 'infer_node_type', eg "q;t"
 infer_node_type: ""
+# label of train pair, eg "cuid2conv:2,cuid2fcclk:3,cuid2fcconv:4,clk2entity:5,conv2entity:6"
+pair_label: ""
 
 # 指定训练或者infer的节点目录。如果置空，则默认使用之前加载图数据中的点进行训练或者infer。
 # 例如，指定infer的节点目录在graph_data_hdfs_path下名称为"infer_nodes"，则写做 infer_nodes: "infer_nodes"
@@ -68,7 +70,7 @@ model_type: GNNModel
 # embedding 维度，需要和hidden_size保持一样。
 emb_size: 64
 # sparse_type: 稀疏参数服务器的优化器，目前支持adagrad, shared_adam
-sparse_type: adagrad
+sparse_type: adagrad_v2
 # sparse_lr: 稀疏参数服务器的学习率
 sparse_lr: 0.1
 # dense_lr: 稠密参数的学习率
@@ -94,6 +96,11 @@ infer_samples: [100]
 sage_act: "relu"
 hcl: True
 use_degree_norm: False # 如果为True，则sage_alpha 需设置为0.4-0.5, batch_node_size 和 infer_batch_size也要调小.
+
+# 带权采样开关，同时作用于游走和sage子图采样阶段。
+weighted_sample: False
+# 是否返回边权重，仅用于sage_mode=True模式，如边不带权则默认返回1。
+return_weight: False
 
 # 是否要进行训练，如果只想单独热启模型做预估(inference)，则可以关闭need_train
 need_train: True

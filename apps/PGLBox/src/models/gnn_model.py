@@ -52,7 +52,7 @@ class GNNModel(object):
         self.holder_list = []
 
         self.nodeid_slot_holder, self.show_clk, holder_list = \
-                model_util.build_node_holder(self.config.nodeid_slot)
+                model_util.build_node_holder(self.config.nodeid_slot, self.config, is_predict)
         self.holder_list.extend(holder_list)
 
         self.discrete_slot_holders, self.discrete_slot_lod_holders, holder_list = \
@@ -61,8 +61,10 @@ class GNNModel(object):
 
         if self.config.sage_mode:
             use_degree_norm = False if not self.config.use_degree_norm else True
+            self.return_weight = False if not self.config.return_weight else True
             holder_dict = \
-                    model_util.build_graph_holder(self.config.samples, use_degree_norm)
+                    model_util.build_graph_holder(self.config.samples, use_degree_norm,
+                                                  self.return_weight)
             self.graph_holders = holder_dict["graph_holders"]
             self.final_index = holder_dict["final_index"]
             holder_list = holder_dict["holder_list"]
@@ -79,7 +81,8 @@ class GNNModel(object):
                 act=self.config.sage_act,
                 alpha_residual=self.config.sage_alpha,
                 interact_mode=self.config.sage_layer_type,
-                use_degree_norm=use_degree_norm)
+                use_degree_norm=use_degree_norm,
+                return_weight=self.return_weight)
 
         self.total_gpups_slots = [int(self.config.nodeid_slot)] + \
                 [int(i) for i in self.config.slots]
@@ -123,17 +126,29 @@ class GNNModel(object):
 
         # merge id_embedding and slot_embedding_list here
         feature = paddle.add_n([id_embedding] + slot_embedding_list)
+        empty_flag = paddle.cast(paddle.mean(feature ** 2, -1, keepdim=True) > 1e-3, dtype="float32")
         if self.config.softsign:
             log.info("using softsign in feature_mode (sum)")
             feature = paddle.nn.functional.softsign(feature)
 
         if self.config.sage_mode:
-            if self.config.hcl:
-                hcl_logits_list = model_util.hcl(self.config, feature,
-                                                 self.graph_holders)
+
+            if not self.is_predict:
+                graph_holders = model_util.remove_leakage_edges_gnn(self.graph_holders,
+                                                                    self.etype_len,
+                                                                    self.final_index,
+                                                                    empty_flag,
+                                                                    self.return_weight)
+            else:
+                graph_holders = self.graph_holders
 
             feature = self.gnn_model(self.graph_holders, feature,
                                      self.node_degree)
+            if (not self.is_predict) and self.config.hcl:
+                hcl_logits_list = model_util.hcl(self.config, self.gnn_model.hcl_buffer,
+                                                 self.graph_holders, empty_flag)
+            # remove empty feature. Don't train empty nodes
+            feature = feature * empty_flag[:paddle.shape(feature)[0]]
             feature = paddle.gather(feature, self.final_index)
 
         feature = paddle.reshape(feature, shape=[-1, 2, self.emb_size])
@@ -176,7 +191,7 @@ class GNNModel(object):
             loss_count += 1
 
         hcl_logits_list = predictions.get("hcl_logits")
-        if hcl_logits_list is not None:
+        if (not self.is_predict) and (hcl_logits_list is not None):
             hcl_loss = Loss.hcl_loss(self.config, hcl_logits_list)
             loss += hcl_loss
             loss_count += 1

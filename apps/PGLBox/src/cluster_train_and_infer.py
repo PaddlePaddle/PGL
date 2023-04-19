@@ -97,11 +97,14 @@ def train(args, exe, model_dict, dataset):
                    epoch == args.epochs)
         if args.model_save_path and is_save:
             savemodel_begin = time.time()
-            log.info("save model for epoch {}".format(epoch))
+            log.info("saving model for epoch {}".format(epoch))
             dataset.embedding.dump_to_mem()
-            util.save_model(exe, model_dict, args, args.local_model_path,
+            ret = util.save_model(exe, model_dict, args, args.local_model_path,
                             args.model_save_path)
             fleet.barrier_worker()
+            if ret != 0:
+                log.warning("Fail to save model")
+                return -1
             savemodel_end = time.time()
             log.info("STAGE [SAVE MODEL] for epoch [%d] finished, time cost: %f sec" \
                 % (epoch, savemodel_end - savemodel_begin))
@@ -109,6 +112,8 @@ def train(args, exe, model_dict, dataset):
     train_end_time = time.time()
     log.info("STAGE [TRAIN MODEL] finished, time cost: % sec" %
              (train_end_time - train_begin_time))
+
+    return 0
 
 
 def train_with_multi_metapath(args, exe, model_dict, dataset):
@@ -169,11 +174,14 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
                    epoch == args.epochs)
         if args.model_save_path and is_save:
             savemodel_begin = time.time()
-            log.info("save model for epoch {}".format(epoch))
+            log.info("saving model for epoch {}".format(epoch))
             dataset.embedding.dump_to_mem()
-            util.save_model(exe, model_dict, args, args.local_model_path,
+            ret = util.save_model(exe, model_dict, args, args.local_model_path,
                             args.model_save_path)
             fleet.barrier_worker()
+            if ret != 0:
+                log.warning("Fail to save model")
+                return -1
             savemodel_end = time.time()
             log.info("STAGE [SAVE MODEL] for epoch [%d] finished, time cost: %f sec" \
                 % (epoch, savemodel_end - savemodel_begin))
@@ -182,6 +190,7 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
     log.info("STAGE [TRAIN MODEL] finished, time cost: % sec" %
              (train_end_time - train_begin_time))
 
+    return 0
 
 def infer(args, exe, infer_model_dict, dataset):
     infer_begin = time.time()
@@ -229,11 +238,13 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         slot_num_for_pull_feature=slot_num_for_pull_feature,
         num_parts=args.num_part,
         metapath_split_opt=args.metapath_split_opt,
-        infer_nodes=args.infer_nodes)
+        infer_nodes=args.infer_nodes,
+        use_weight=args.weighted_sample or args.return_weight)
 
     dist_graph.load_edge()
     ret = dist_graph.load_node()
     if ret != 0:
+        log.warning("Fail to load node")
         return -1
 
     if args.warm_start_from:
@@ -253,25 +264,29 @@ def run_worker(args, exe, model_dict, infer_model_dict):
         embedding=embedding,
         dist_graph=dist_graph)
 
-    infer_dataset = InferDataset(
-        args.chunk_num,
-        dataset_config=args,
-        holder_list=model_dict.holder_list,
-        infer_model_dict=infer_model_dict,
-        embedding=embedding,
-        dist_graph=dist_graph)
-
+    ret = 0
     if args.need_train:
         if args.metapath_split_opt:
-            train_with_multi_metapath(args, exe, model_dict, train_dataset)
+            ret = train_with_multi_metapath(args, exe, model_dict, train_dataset)
         else:
-            train(args, exe, model_dict, train_dataset)
+            ret = train(args, exe, model_dict, train_dataset)
     else:
         log.info("STAGE: need_train is %s, skip training process" %
                  args.need_train)
+    if ret != 0:
+        log.warning("Fail to train")
+        return -1
 
     fleet.barrier_worker()
     if args.need_inference:
+        infer_dataset = InferDataset(
+            args.chunk_num,
+            dataset_config=args,
+            holder_list=infer_model_dict.holder_list,
+            infer_model_dict=infer_model_dict,
+            embedding=embedding,
+            dist_graph=dist_graph)
+
         infer(args, exe, infer_model_dict, infer_dataset)
     else:
         log.info("STAGE: need_inference is %s, skip inference process" %
@@ -355,9 +370,10 @@ def main(args):
     elif fleet.is_worker():
         ret = run_worker(args, exe, model_dict, infer_model_dict)
         if ret != 0:
+            exe.close()
             fleet.stop_worker()
             return -1
-
+    exe.close()
     fleet.stop_worker()
     return 0
 
@@ -383,6 +399,8 @@ if __name__ == "__main__":
     config.max_steps = config.max_steps if config.max_steps else 0
     config.metapath_split_opt = config.metapath_split_opt \
                                 if config.metapath_split_opt else False
+    config.weighted_sample = config.weighted_sample if config.weighted_sample else False
+    config.return_weight = config.return_weight if config.return_weight else False
 
     # set hadoop global account
     if config.output_fs_naame or config.output_fs_ugi:

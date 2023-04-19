@@ -119,7 +119,7 @@ def paddle_print(*args):
             speed = 1.0 * (time.time() - start_time) / print_per_step
             msg = "Speed %s sec/batch \t Batch:%s\t " % (speed, print_count)
             for x in inputs:
-                msg += " %s \t" % (np.array(x)[0])
+                msg += " Loss:%s \t" % (np.array(x)[0])
             log.info(msg)
             start_time = time.time()
 
@@ -138,7 +138,7 @@ def loss_visualize(loss):
     return visualize_loss, batch_count
 
 
-def build_node_holder(nodeid_slot_name):
+def build_node_holder(nodeid_slot_name, config, is_predict):
     """ build node holder """
     holder_list = []
     nodeid_slot_holder = static.data(
@@ -151,7 +151,11 @@ def build_node_holder(nodeid_slot_name):
         axis=-1)
     show_clk = paddle.cast(show_clk, dtype="float32")
     show_clk.stop_gradient = True
-    holder_list = [nodeid_slot_holder, show, click]
+    if not is_predict and config.pair_label:
+        pair_label = static.data("pair_label", shape=[-1], dtype="int32")
+        holder_list = [nodeid_slot_holder, show, click, pair_label]
+    else:
+        holder_list = [nodeid_slot_holder, show, click]
 
     return nodeid_slot_holder, show_clk, holder_list
 
@@ -189,7 +193,7 @@ def build_token_holder(token_slot_name):
     return token_slot_holder, token_slot_lod_holder
 
 
-def build_graph_holder(samples, use_degree_norm=False):
+def build_graph_holder(samples, use_degree_norm=False, return_weight=False):
     """ build graph holder """
     holder_list = []
     graph_holders = {}
@@ -197,12 +201,12 @@ def build_graph_holder(samples, use_degree_norm=False):
         # For different sample size, we hold a graph block.
         graph_holders[i] = []
         num_nodes = static.data(
-            name="%s_num_nodes" % i, shape=[-1], dtype="int")
+            name="%s_num_nodes" % i, shape=[-1], dtype="int32")
         graph_holders[i].append(num_nodes)
         holder_list.append(num_nodes)
 
         next_num_nodes = static.data(
-            name="%s_next_num_nodes" % i, shape=[-1], dtype="int")
+            name="%s_next_num_nodes" % i, shape=[-1], dtype="int32")
         graph_holders[i].append(next_num_nodes)
         holder_list.append(next_num_nodes)
 
@@ -217,11 +221,20 @@ def build_graph_holder(samples, use_degree_norm=False):
         holder_list.append(edges_dst)
 
         edges_split = static.data(
-            name="%s_edges_split" % i, shape=[-1], dtype="int")
+            name="%s_edges_split" % i, shape=[-1], dtype="int32")
         graph_holders[i].append(edges_split)
         holder_list.append(edges_split)
 
-    ego_index_holder = static.data(name="final_index", shape=[-1], dtype="int")
+        if return_weight:
+            edges_weight = static.data(
+                name="%s_edges_weight" % i,
+                shape=[-1],
+                dtype="float32")
+            graph_holders[i].append(edges_weight)
+            holder_list.append(edges_weight)
+
+
+    ego_index_holder = static.data(name="final_index", shape=[-1], dtype="int32")
     holder_list.append(ego_index_holder)
 
     if use_degree_norm:
@@ -275,7 +288,7 @@ def get_sparse_embedding(config,
         tmp_slot_emb_list.append(slot_emb)
 
     slot_embedding_list = []
-    if (len(discrete_slot_holders)) > 0:
+    if len(discrete_slot_holders) > 0:
         slot_bows = F.contrib.layers.fused_seqpool_cvm(
             tmp_slot_emb_list,
             config.slot_pool_type,
@@ -283,7 +296,7 @@ def get_sparse_embedding(config,
             use_cvm=use_cvm)
         for bow in slot_bows:
             slot_embedding = bow[:, 1:]
-            slot_embedding = paddle.nn.softsign(slot_embedding)
+            slot_embedding = paddle.nn.functional.softsign(slot_embedding)
             slot_embedding_list.append(slot_embedding)
 
     return id_embedding, slot_embedding_list
@@ -323,8 +336,17 @@ def dump_embedding(config, nfeat, node_index):
         name=config.dump_node_name)  # for rename
 
 
-def hcl(config, feature, graph_holders):
+def hcl(config, hcl_buffer, graph_holders, empty_flag):
     """Hierarchical Contrastive Learning"""
+    if config.sage_layer_type == "TransformerConv":
+        # bcl_buffer [ init_feature, (q, k, v, ori_x)]
+        # TransformerConv HCL take the output after Linear
+        log.info("using TransformerConv HCL")
+        feature = hcl_buffer[1][2].reshape([-1, config.emb_size])[1:] * empty_flag 
+    else:
+        # bcl_buffer [ init_feature, layer1 inputs] 
+        feature = hcl_buffer[0][1:] 
+
     hcl_logits = []
     for idx, sample in enumerate(config.samples):
         graph_holder = graph_holders[idx]
