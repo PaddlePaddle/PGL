@@ -12,7 +12,7 @@ PGLBox is a distributed GPU-based engine for training super-large graph models. 
 
 ## Changelog
 
-- v2.2: Add new functions, including weighted sampling, return edge weight and setting pair label, etc. (2023.04.18)
+- v2.2: Add new functions, including weighted sampling, returning edge weight and supporting new GNN model layer TransformerConv, etc. (2023.04.18)
 - v2.1: Update some codes, including [adding specify training or infer nodes](./wiki/train_infer_from_file_en.md), and [routine training](./wiki/online_train_en.md). (2023.03.08)
 - v2.0: Release PGLBox V2 version, which supports feature and embedding multi-level storage, and supports larger graph scale. (2022.12.29)
 - v1.0: Newly added PGLBox, V1 version. (2022.12.14)
