@@ -421,3 +421,100 @@ def lod_reset(x, y=None, target_lod=None):
     else:
         raise ValueError("y and target_lod should not be both none.")
     return out
+
+
+def remove_duplitcate(arr, ref):
+    """ doc """
+    ref_size = paddle.shape(ref)[0]
+    arr_concat = paddle.concat([ref, arr], axis=0)
+    uniq_ele, inverse = paddle.unique(arr_concat, return_inverse=True) 
+    zeros = paddle.zeros_like(uniq_ele, dtype="int32")
+
+    ref_inv = inverse[:ref_size]
+    exits_flag = paddle.scatter(zeros, ref_inv, paddle.ones_like(ref_inv, dtype="int32"))
+    mask = paddle.gather(exits_flag, inverse[ref_size:])
+    return mask == 0
+
+
+def remove_leakage_edges(edges_src, edges_dst, final_index):
+    """remove leakage edges"""
+    ego_pairs = final_index.reshape([-1, 2])
+    magic_number = 27644437  
+    log.info("magic number: %s" % magic_number)
+    hashnum = ego_pairs[:, 0] * magic_number + ego_pairs[:, 1]
+    hashnum = paddle.unique(hashnum)
+
+    tmp_edges_dst = paddle.cast(edges_dst, dtype="int32")
+    tmp_edges_src = paddle.cast(edges_src, dtype="int32")
+    edge_hash = tmp_edges_dst * magic_number + tmp_edges_src
+    edge_hash = paddle.reshape(edge_hash, [-1])
+    mask1 = remove_duplitcate(edge_hash, hashnum)
+
+    edge_hash = tmp_edges_src * magic_number + tmp_edges_dst
+    edge_hash = paddle.reshape(edge_hash, [-1])
+    mask2 = remove_duplitcate(edge_hash, hashnum)
+
+    mask = paddle.logical_and(mask1, mask2)
+    
+    return edges_src[mask], edges_dst[mask]
+
+
+def remove_leakage_edges_gnn(graph_holders, etype_len, final_index, empty_flag, return_weight=False):
+    """ remove duplicate edges, avoid data leakage"""
+    new_graph_holders = {}
+    ego_pairs = final_index.reshape([-1, 2])
+    magic_number = 27644437  
+    hashnum = ego_pairs[:, 0] * magic_number + ego_pairs[:, 1]
+    hashnum = paddle.unique(hashnum)
+    for key, graph_holder in graph_holders.items():
+        num_nodes = graph_holder[0]
+        next_num_nodes = graph_holder[1]
+        edges_src = graph_holder[2] 
+        edges_dst = graph_holder[3]
+        split_edges = graph_holder[4]
+
+        if return_weight:
+            edges_weight = graph_holder[5]
+
+        tmp_edges_dst = paddle.cast(edges_dst, dtype="int32")
+        tmp_edges_src = paddle.cast(edges_src, dtype="int32")
+        edge_hash = tmp_edges_dst * magic_number + tmp_edges_src
+        edge_hash = paddle.reshape(edge_hash, [-1])
+        mask1 = remove_duplitcate(edge_hash, hashnum)
+
+        edge_hash = tmp_edges_src * magic_number + tmp_edges_dst
+        edge_hash = paddle.reshape(edge_hash, [-1])
+        mask2 = remove_duplitcate(edge_hash, hashnum)
+
+        empty_flag = empty_flag.squeeze([-1])
+        mask3 = paddle.gather(empty_flag, edges_src)
+
+        mask4 = paddle.gather(empty_flag, edges_dst)
+        mask5 = mask3 * mask4
+
+        mask = paddle.logical_and(mask1, mask2)
+        mask = paddle.logical_and(mask, mask5 > 0.5)
+
+        edges_src = edges_src[mask]
+        edges_dst = edges_dst[mask]
+
+        if return_weight:
+            edges_weight = edges_weight[mask]
+
+        mask = mask.astype("int32")
+        new_split_edges = []
+        for j in range(etype_len):
+            start = paddle.zeros(
+                [1], dtype="int64") if j == 0 else split_edges[j - 1]
+            new_split_edges.append(paddle.sum(mask[start:split_edges[j]]))
+        if len(new_split_edges) > 1:
+            new_split_edges = paddle.cumsum(paddle.concat(new_split_edges))
+        else:
+            new_split_edges = new_split_edges[0]
+
+        if not return_weight:
+            new_graph_holders[key] = [num_nodes, next_num_nodes, edges_src, edges_dst, new_split_edges]
+        else:
+            new_graph_holders[key] = [num_nodes, next_num_nodes, edges_src, edges_dst, new_split_edges, edges_weight]
+
+    return new_graph_holders
