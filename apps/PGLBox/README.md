@@ -23,7 +23,7 @@
 为了可以快速使用PGLBox的能力，我们提供了一些相应的镜像环境，只需要拉取相关硬件的镜像，下载相应的数据，修改配置文件，就可以一键运行。目前PGLBox只支持在**v100**和**a100**这两款GPU硬件下运行。
 
 ```
-docker pull registry.baidubce.com/paddlepaddle/pgl:pglbox-2.1-cuda11.0-cudnn8
+docker pull registry.baidubce.com/paddlepaddle/pgl:pglbox-2.2-cuda11.0-cudnn8
 ```
 
 拉取好docker之后，我们先下载PGLBox的代码，并进入PGLBox目录。
@@ -48,7 +48,7 @@ nvidia-docker run -it --rm \
     --ipc=host \
     -v ${PWD}:/pglbox \
     -w /pglbox \
-    registry.baidubce.com/paddlepaddle/pgl:pglbox-2.1-cuda11.0-cudnn8 \
+    registry.baidubce.com/paddlepaddle/pgl:pglbox-2.2-cuda11.0-cudnn8 \
     /bin/bash -c "/pglbox/scripts/train.sh ./demo_configs/mag240m_metapath2vec.yaml"
 ```
 训练完成后，我们可以在主目录下找到`mag240m_output`文件夹，该文件夹下包含了`model`和`embedding`两个文件夹，分别表示保存的模型以及infer产出的节点embedding。

@@ -1,13 +1,21 @@
-export GLOG_v=-1
+export GLOG_v=0
 
+# environment variables for fleet distribute training
+export NCCL_DEBUG=INFO
 export FLAGS_LAUNCH_BARRIER=0
 export PADDLE_TRAINERS=1
 export FLAGS_enable_tracker_all2all=false
 export FLAGS_enable_auto_rdma_trans=true
-export FLAGS_enable_all2all_use_fp16=true
+export FLAGS_enable_all2all_use_fp16=false
 export FLAGS_enable_sparse_inner_gather=true
 export FLAGS_check_nan_inf=false
+export FLAGS_eager_delete_tensor_gb=0.0
+export FLAGS_memory_fraction_of_eager_deletion=1
+export FLAGS_control_flow_use_new_executor=false
 
+# multiple machines need high version nccl
+# set launch mode GROUP, after more than nccl2.9 default PARALLEL multi-thread will blocking
+export NCCL_LAUNCH_MODE=GROUP
 if [[ ! -z "$MPI_NODE_NUM" ]] && [[ $MPI_NODE_NUM -gt 1 ]]; then
     echo "PADDLE_TRAINER_ID: $PADDLE_TRAINER_ID, PADDLE_TRAINER_ENDPOINTS: $PADDLE_TRAINER_ENDPOINTS, PADDLE_CURRENT_ENDPOINT: $PADDLE_CURRENT_ENDPOINT"
     export PADDLE_WITH_GLOO=2
@@ -35,7 +43,6 @@ export FLAGS_gpugraph_enable_segment_merge_grads=true
 export FLAGS_gpugraph_merge_grads_segment_size=128
 export FLAGS_gpugraph_dedup_pull_push_mode=1
 export FLAGS_gpugraph_load_node_list_into_hbm=false
-export FLAGS_enable_exit_when_partial_worker=false
 export FLAGS_gpugraph_debug_gpu_memory=false
 export FLAGS_gpugraph_slot_feasign_max_num=200
 export FLAGS_gpugraph_enable_gpu_direct_access=false
@@ -64,4 +71,13 @@ if [ "${metapath_split_opt}" == "True" ] || [ "${metapath_split_opt}" == "true" 
 else
     export FLAGS_graph_metapath_split_opt=false
     echo "FLAGS_graph_metapath_split_opt is false"
+fi
+
+sage_mode=`grep sage_mode ./config.yaml | sed s/#.*//g | grep sage_mode | awk -F':' '{print $2}' | sed 's/ //g'`
+if [ "${sage_mode}" = "True" ] || [ "${sage_mode}" = "true" ]; then
+    export FLAGS_enable_exit_when_partial_worker=true
+    echo "FLAGS_enable_exit_when_partial_worker is true"
+else
+    export FLAGS_enable_exit_when_partial_worker=false
+    echo "FLAGS_enable_exit_when_partial_worker is false"
 fi

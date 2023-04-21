@@ -22,7 +22,7 @@ PGLBox is a distributed GPU-based engine for training super-large graph models. 
 To quickly use PGLBox's capabilities, we provide some corresponding mirror environments. You only need to pull the mirror of the relevant hardware, download the corresponding data, and modify the configuration file, then you can run it with one click. Currently, PGLBox only supports running on two GPU hardware, v100 and a100.
 
 ```
-docker pull registry.baidubce.com/paddlepaddle/pgl:pglbox-2.1-cuda11.0-cudnn8
+docker pull registry.baidubce.com/paddlepaddle/pgl:pglbox-2.2-cuda11.0-cudnn8
 ```
 
 After pulling the docker, we first download the code of PGLBox and enter the PGLBox directory.
@@ -48,7 +48,7 @@ nvidia-docker run -it --rm \
     --ipc=host \
     -v ${PWD}:/pglbox \
     -w /pglbox \
-    registry.baidubce.com/paddlepaddle/pgl:pglbox-2.1-cuda11.0-cudnn8 \
+    registry.baidubce.com/paddlepaddle/pgl:pglbox-2.2-cuda11.0-cudnn8 \
     /bin/bash -c "/pglbox/scripts/train.sh ./demo_configs/mag240m_metapath2vec.yaml"
 ```
 

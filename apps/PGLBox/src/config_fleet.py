@@ -18,6 +18,9 @@ import copy
 import numpy as np
 import paddle
 from pgl.utils.logger import log
+from paddle.distributed.fleet.base.role_maker import PaddleCloudRoleMaker
+from paddle.distributed.fleet.base.role_maker import Role, Gloo
+from multiprocessing import Manager, Process
 
 
 def get_strategy(args, model_dict):
@@ -147,3 +150,155 @@ def generate_config(args):
     config['datanorm_table'] = datanorm_config
 
     return config
+
+
+class GraphRoleMaker(PaddleCloudRoleMaker):
+    """ graph role maker """
+    def __init__(self, is_collective=False, **kwargs):
+        """ init """
+        self._init_gloo = (paddle.distributed.get_world_size() > 1)
+        super().__init__(
+            is_collective=is_collective, init_gloo=self._init_gloo, **kwargs
+        )
+        self.gpu_nums = os.getenv("FLAGS_selected_gpus", 
+                                  "0,1,2,3,4,5,6,7").split(",")
+
+    def _init_collective_env(self):
+        """ init gpu env """
+        self._current_id = int(os.getenv("PADDLE_TRAINER_ID", "0"))
+        self._training_role = os.getenv("PADDLE_TRAINING_ROLE", "TRAINER")
+        assert self._training_role == "TRAINER"
+        self._role = Role.WORKER
+        self._worker_endpoints = os.getenv("PADDLE_TRAINER_ENDPOINTS")
+        if self._worker_endpoints is None or len(self._worker_endpoints.split(":")) < 2:
+            # back to non_distributed execution.
+            self._worker_endpoints = "127.0.0.1:6170"
+            self._cur_endpoint = self._worker_endpoints
+            self._non_distributed = True
+        self._worker_endpoints = self._worker_endpoints.split(",")
+        self._cur_endpoint = self._worker_endpoints[paddle.distributed.get_rank()]
+        self._nodes_num = paddle.distributed.get_world_size()
+        self._trainers_num = self._nodes_num * len(self.gpu_nums)
+        self._local_rank = paddle.distributed.get_rank() * len(self.gpu_nums)
+        self._local_device_ids = self.gpu_nums
+        self._world_device_ids = []
+        self._non_distributed = (self._trainers_num == 1)
+        
+    def _worker_num(self):
+        """ return trainer number """
+        return self._trainers_num
+    
+    def _worker_index(self):
+        """ return rank id """
+        return self._local_rank
+    
+    def _role_id(self):
+        """ return role id """
+        return self._current_id
+    
+    def _node_num(self):
+        """ node num """
+        return self._nodes_num
+    
+    def _ps_endpoints(self):
+        """ endpoints list """
+        return self._worker_endpoints
+    
+    def _get_pserver_endpoints(self):
+        """ pserver endpoints """
+        return self._worker_endpoints
+    
+    def _generate_role(self):
+        """
+        generate role for role maker
+        """
+        if self._role_is_generated:
+            return
+        if not self._is_collective:
+            super()._ps_env()
+        else:
+            self._init_collective_env()
+        self._role_is_generated = True
+        if not self._init_gloo:
+            return
+        self._gloo_init()
+            
+    def _gloo_init(self):
+        # PADDLE_WITH_GLOO 1: trainer barrier, 2: all barrier
+        use_gloo = int(os.getenv("PADDLE_WITH_GLOO", "0"))
+        if use_gloo not in [1, 2]:
+            return
+
+        # PADDLE_GLOO_RENDEZVOUS 1: HDFS 2: FILE 3: HTTP
+        rendezvous_type = int(os.getenv("PADDLE_GLOO_RENDEZVOUS", "0"))
+        prefix = os.getenv("SYS_JOB_ID", "")
+        if rendezvous_type not in [
+            Gloo.RENDEZVOUS.HDFS,
+            Gloo.RENDEZVOUS.HTTP,
+            Gloo.RENDEZVOUS.FILE,
+        ]:
+            raise ValueError(self._gloo._err_type)
+
+        need_init_all = True if use_gloo == 2 else False
+
+        if rendezvous_type == Gloo.RENDEZVOUS.HDFS:
+            dfs_name = os.getenv("PADDLE_GLOO_FS_NAME", "")
+            dfs_ugi = os.getenv("PADDLE_GLOO_FS_UGI", "")
+            dfs_path = os.getenv("PADDLE_GLOO_FS_PATH", "")
+            kwargs = {
+                "dfs.name": dfs_name,
+                "dfs.ugi": dfs_ugi,
+                "dfs.path": dfs_path,
+                "store.prefix": prefix,
+            }
+        elif rendezvous_type == Gloo.RENDEZVOUS.HTTP:
+            start_http_server = False
+            manager = Manager()
+            http_server_d = manager.dict()
+            http_server_d["running"] = False
+            if self._is_collective:
+                ep_rank_0 = self._worker_endpoints[0]
+                if self._is_first_worker():
+                    start_http_server = True
+            else:
+                ep_rank_0 = os.getenv("PADDLE_GLOO_HTTP_ENDPOINT", "")
+                if self._is_server() and self._server_index() == 0:
+                    start_http_server = True
+            ip, port = ep_rank_0.split(':')
+            kwargs = {
+                "http.host": ip,
+                "http.port": port,
+                "store.prefix": prefix,
+                'start_http_server': start_http_server,
+                'http_server_d': http_server_d,
+            }
+        else:
+            dfs_path = os.getenv("PADDLE_GLOO_FS_PATH", "")
+            kwargs = {
+                "dfs.path": dfs_path,
+                "store.prefix": prefix,
+            }
+
+        if rendezvous_type == Gloo.RENDEZVOUS.HDFS:
+            type = "HDFS"
+        elif rendezvous_type == Gloo.RENDEZVOUS.HTTP:
+            type = "HTTP"
+        else:
+            type = "FILE"
+        print(
+            "Gloo init with {}: need_init_all: {}, args: {}".format(
+                type, need_init_all, kwargs
+            )
+        )
+        self._gloo.init(
+            rendezvous=rendezvous_type,
+            role=self._role,
+            role_id=self._role_id(),
+            worker_num=self._node_num(),
+            server_num=self._server_num(),
+            need_init_all=need_init_all,
+            kwargs=kwargs,
+        )
+
+        if rendezvous_type == Gloo.RENDEZVOUS.HTTP:
+            http_server_d['running'] = False

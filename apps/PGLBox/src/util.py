@@ -38,6 +38,14 @@ from pgl.utils.logger import log
 import util_hadoop as HFS
 
 
+comm = MPI.COMM_WORLD
+def all_reduce_min(input_num):
+    """
+    mpi reduce min
+    """
+    return comm.allreduce(input_num, op = MPI.MIN)
+
+
 def get_global_value(value_sum, value_cnt):
     """ get global value """
     value_sum = np.array(static.global_scope().find_var(value_sum.name)
@@ -150,7 +158,11 @@ def load_pretrained_model(exe, model_dict, args, model_path):
 
         hadoop_dense_params_path = os.path.join(model_path, "dense_vars")
         if HFS.exists(hadoop_dense_params_path):
-            HFS.get(hadoop_dense_params_path, "./")
+            ret = HFS.get(hadoop_dense_params_path, "./")
+            if ret != 0:
+                log.warning("Fail to download dense model: %s -> %s" \
+                        % (hadoop_dense_params_path, "./"))
+                return -1
         dense_params_path = "./dense_vars"
 
     # load dense vars
@@ -170,6 +182,8 @@ def load_pretrained_model(exe, model_dict, args, model_path):
             predicate=name_not_have_sparse)
     else:
         log.info("[WARM] dense model is not existed, skipped")
+
+    return 0
 
 
 def save_pretrained_model(exe, save_path, args, mode="hdfs"):
@@ -262,7 +276,7 @@ def save_model(exe, model_dict, args, local_model_path, model_save_path):
 
     # master node
     if not fleet.worker_index() is 0:
-        return
+        return 0
     # save dense model
     log.info("save dense model")
     local_var_save_path = "./dense_vars"
@@ -278,9 +292,15 @@ def save_model(exe, model_dict, args, local_model_path, model_save_path):
     # local_var_save_path is not existed if no variable in model
     if os.path.exists(local_var_save_path):
         if mode == "hdfs" or mode == "afs":
-            HFS.put(local_var_save_path, model_save_path)
+            ret = HFS.put(local_var_save_path, model_save_path)
+            if ret != 0:
+                log.warning("Fail to upload dense model: %s -> %s" \
+                    % (local_var_save_path, model_save_path))
+                return -1
         else:
             run_cmd("mv %s %s" % (local_var_save_path, model_save_path))
+
+    return 0
 
 
 def upload_embedding(args, local_embed_path):
@@ -296,7 +316,11 @@ def upload_embedding(args, local_embed_path):
         log.info("being to upload embedding to: %s " % infer_result_path)
         for file in glob.glob(os.path.join(local_embed_path, "*")):
             basename = os.path.basename(file)
-            HFS.put(file, infer_result_path)
+            ret = HFS.put(file, infer_result_path)
+            if ret != 0:
+                log.warning("Fail to upload embedding: %s -> %s" \
+                    % (file, infer_result_path))
+                return -1
         log.info("[hadoop put] embedding has been upload to: %s " %
                  infer_result_path)
 
@@ -316,6 +340,8 @@ def upload_embedding(args, local_embed_path):
         run_cmd("mv %s %s" % (local_embed_path, working_root))
         log.info("embedding has been saved in local path: %s" % working_root)
 
+    return 0
+
 
 def upload_dump_walk(args, local_dump_path):
     mode, dump_save_path = parse_path(args.dump_save_path)
@@ -330,7 +356,11 @@ def upload_dump_walk(args, local_dump_path):
         log.info("being to upload walk_path to: %s " % dump_save_path)
         for file in glob.glob(os.path.join(local_dump_path, "*")):
             basename = os.path.basename(file)
-            HFS.put(file, dump_save_path)
+            ret = HFS.put(file, dump_save_path)
+            if ret != 0:
+                log.warning("Fail to upload walk_path: %s -> %s" \
+                    % (file, dump_save_path))
+                return -1
         log.info("[hadoop put] walk_path has been upload to: %s " %
                  dump_save_path)
 
@@ -347,13 +377,21 @@ def upload_dump_walk(args, local_dump_path):
         run_cmd("mv %s %s" % (local_dump_path, working_root))
         log.info("walk_path has been saved in local path: %s" % working_root)
 
+    return 0
+
 
 def hadoop_touch_done(path):
     """ touch hadoop done """
     if fleet.worker_index() == 0:
         with open("to.hadoop.done", 'w') as f:
             f.write("infer done\n")
-        HFS.put("to.hadoop.done", os.path.join(path, "to.hadoop.done"))
+        ret = HFS.put("to.hadoop.done", os.path.join(path, "to.hadoop.done"))
+        if ret != 0:
+            log.warning("Fail to upload hadoop done: %s -> %s" \
+                    % ("to.hadoop.done", os.path.join(path, "to.hadoop.done")))
+            return -1
+
+    return 0
 
 
 def print_useful_info():

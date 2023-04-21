@@ -33,17 +33,17 @@ from datetime import datetime
 import paddle
 import paddle.fluid as fluid
 import paddle.static as static
-from place import get_cuda_places
+from paddle.distributed import fleet
 from pgl.utils.logger import log
-from datetime import datetime
-from config_fleet import get_strategy
+
 import util
 import models as M
-
-from paddle.distributed import fleet
+import model.model_util as model_util
+from config_fleet import get_strategy, GraphRoleMaker
 from embedding import DistEmbedding
 from graph import DistGraph
 from dataset import UnsupReprLearningDataset, InferDataset
+from place import get_cuda_places
 from distributed_program import make_distributed_train_program, make_distributed_infer_program
 from util_config import prepare_config, pretty
 import util_hadoop as HFS
@@ -177,7 +177,7 @@ def train_with_multi_metapath(args, exe, model_dict, dataset):
             log.info("saving model for epoch {}".format(epoch))
             dataset.embedding.dump_to_mem()
             ret = util.save_model(exe, model_dict, args, args.local_model_path,
-                            args.model_save_path)
+                                  args.model_save_path)
             fleet.barrier_worker()
             if ret != 0:
                 log.warning("Fail to save model")
@@ -306,10 +306,16 @@ def main(args):
     device_ids = get_cuda_places()
     place = paddle.CUDAPlace(device_ids[0])
     exe = static.Executor(place)
-    if paddle.distributed.get_world_size() > 1:
-        fleet.init(is_collective=True)
+    role_maker = None
+    # sharding mode
+    if getattr(args, "sharding", False):
+        role_maker = GraphRoleMaker(is_collective=True)
+        fleet.init(role_maker)
     else:
-        fleet.init()
+        if paddle.distributed.get_world_size() > 1:
+            fleet.init(is_collective=True)
+        else:
+            fleet.init()
 
     # multi node save model path add rank id
     if paddle.distributed.get_world_size() > 1:
@@ -334,10 +340,25 @@ def main(args):
 
     model_dict.startup_program = startup_program
     model_dict.train_program = train_program
+    # get strategy
+    strategy=get_strategy(args, model_dict)
+    # need sharding mode
+    if getattr(args, "sharding", False):
+        segment_broadcast_MB = getattr(args, "segment_broadcast_MB", None)
+        if segment_broadcast_MB is None:
+            segment_broadcast_MB = 1
+        configs = {
+            "sharding_segment_strategy": "segment_broadcast_MB",
+            "segment_broadcast_MB": segment_broadcast_MB,
+            "sharding_degree": role_maker._worker_num(),
+        }
+        print(configs)
+        strategy.sharding = True
+        strategy.sharding_configs = configs
 
     adam = paddle.optimizer.Adam(learning_rate=args.dense_lr)
     optimizer = fleet.distributed_optimizer(
-        adam, strategy=get_strategy(args, model_dict))
+        adam, strategy=strategy)
     optimizer.minimize(model_dict.loss, model_dict.startup_program)
     make_distributed_train_program(args, model_dict)
 
@@ -403,7 +424,7 @@ if __name__ == "__main__":
     config.return_weight = config.return_weight if config.return_weight else False
 
     # set hadoop global account
-    if config.output_fs_naame or config.output_fs_ugi:
+    if config.output_fs_name or config.output_fs_ugi:
         hadoop_bin = "%s/bin/hadoop" % (os.getenv("HADOOP_HOME"))
         HFS.set_hadoop_account(hadoop_bin, config.output_fs_name,
                                config.output_fs_ugi)
