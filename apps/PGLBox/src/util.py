@@ -27,6 +27,7 @@ import numpy as np
 import pickle as pkl
 from collections import defaultdict, OrderedDict
 from datetime import datetime, timedelta
+from mpi4y import MPI
 
 import paddle
 import paddle.static as static
