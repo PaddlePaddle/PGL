@@ -1,4 +1,4 @@
-export GLOG_v=0
+export GLOG_v=-1
 
 # environment variables for fleet distribute training
 export NCCL_DEBUG=INFO
