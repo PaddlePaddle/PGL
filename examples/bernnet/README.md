@@ -16,7 +16,7 @@ The datasets contain three small citation networks: Cora, CiteSeer, Pubmed from 
 For examples, use gpu to train BernNet on citation dataset.
 
 ```sh
-python train.py  --dataset cora --prop_lr 0.01 --dprate 0.0 
+python train.py  --dataset cora --prop_lr 0.01 --dprate 0.0
 python train.py  --dataset citeseer --prop_lr 0.01 --dprate 0.5
 python train.py  --dataset pubmed --prop_lr 0.01 --dprate 0.0 --weight_decay 0.0
 ```
@@ -27,9 +27,9 @@ We train ChebNetII for 10 runs and report the accuracy on the test dataset.
 
 | Dataset | Accuracy |
 | --- | --- |
-| Cora | 88.97(1.56) | 
+| Cora | 88.97(1.56) |
 | CiteSeer | 79.96(1.31)|
-| PubMed | 88.93(0.43) | 
+| PubMed | 88.93(0.43) |
 
 
 ### Citation

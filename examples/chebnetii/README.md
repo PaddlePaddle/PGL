@@ -36,9 +36,9 @@ We train ChebNetII for 10 runs and report the accuracy on the test dataset.
 
 | Dataset | Accuracy |
 | --- | --- |
-| Cora | 88.87(1.19) | 
+| Cora | 88.87(1.19) |
 | CiteSeer | 80.24(1.22)|
-| PubMed | 89.05(0.53) | 
+| PubMed | 89.05(0.53) |
 | ogbn-arxiv | 72.23(0.37) |
 
 
