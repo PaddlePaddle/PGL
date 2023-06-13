@@ -118,6 +118,6 @@ def edge_softmax(graph, logits, norm_by="dst"):
     uniq_ind, segment_ids = graph.get_segment_ids(src, dst, segment_by=norm_by)
     logits = paddle.gather(logits, eid, axis=0)
     score = pgl.math.segment_softmax(logits, segment_ids)
-    init_output = paddle.zeros(shape=score.shape, dtype=score.dtype)
+    init_output = paddle.zeros_like(score, dtype=score.dtype)
     score = paddle.scatter(init_output, eid, score)
     return score
