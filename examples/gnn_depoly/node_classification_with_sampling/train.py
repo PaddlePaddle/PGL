@@ -23,7 +23,7 @@ import paddle.nn as nn
 from paddle.io import Dataset, DataLoader
 from pgl.utils.logger import log
 from paddle.optimizer import Adam
-from paddle.fluid import core
+from paddle.framework import core
 
 from dataset import ShardedDataset
 sys.path.insert(0, os.path.abspath(".."))

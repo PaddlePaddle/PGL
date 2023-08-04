@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import paddle
-from paddle.fluid import core
+from paddle.framework import core
 
 class DistFeat(object):
     """ Shard the feature into multi-gpu with NCCL and UVA to support large scale feature.

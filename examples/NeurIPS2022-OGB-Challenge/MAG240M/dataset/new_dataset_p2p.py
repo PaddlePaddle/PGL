@@ -24,7 +24,7 @@ from paddle.io import Dataset
 from pgl.graph import Graph
 from ogb.lsc import MAG240MDataset
 from pgl.utils.logger import log
-from paddle.fluid import core
+from paddle.framework import core
 
 
 class MAG240M(object):
