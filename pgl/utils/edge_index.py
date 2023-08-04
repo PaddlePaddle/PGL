@@ -19,7 +19,7 @@ import copy
 
 import numpy as np
 import paddle
-from paddle.fluid import core
+from paddle.framework import core
 from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
 from pgl.utils.helper import check_is_tensor, to_paddle_tensor

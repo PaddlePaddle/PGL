@@ -15,7 +15,7 @@
 import numpy as np
 import paddle
 from paddle.common_ops_import import Variable
-from paddle.fluid import core
+from paddle.framework import core
 
 from pgl.utils import op
 

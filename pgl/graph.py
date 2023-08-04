@@ -24,7 +24,7 @@ from collections import defaultdict
 import numpy as np
 import paddle
 import paddle.distributed as dist
-from paddle.fluid import core
+from paddle.framework import core
 
 import pgl
 from pgl.utils import op
