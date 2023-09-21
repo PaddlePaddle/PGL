@@ -1109,7 +1109,8 @@ class Graph(object):
                 mode)
 
         if is_tensor:
-            counts = paddle.concat(counts)
+            counts = [c.item() for c in counts]
+            counts = paddle.to_tensor(counts, dtype="int64")
         return op.get_index_from_counts(counts)
 
     @staticmethod
