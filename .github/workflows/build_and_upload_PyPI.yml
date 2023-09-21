@@ -1,0 +1,64 @@
+name: Build and upload PyPI
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build_wheels:
+    name: Build ${{ matrix.os }} wheels for ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ 'ubuntu-latest', 'macos-latest' ]
+        arch: [ 'x86_64' ]
+        cibw_python: [ 'cp36*', 'cp37*', 'cp38*', 'cp39*' ]
+        manylinux: [ 'manylinux2014', 'manylinux1' ]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.7'
+          
+      - uses: docker/setup-qemu-action@v1
+        if: runner.os == 'Linux'
+        name: Set up QEMU
+      
+      - name: Install cibuildwheel
+        run: |
+          python -m pip install cibuildwheel
+      
+      - name: Build wheels for CPython
+        run: |
+          python -m cibuildwheel --output-dir dist
+        env:
+          CIBW_BUILD: ${{ matrix.cibw_python }}
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.manylinux }}
+          CIBW_BEFORE_BUILD: "pip install -r requirements.txt"
+          CIBW_SKIP: "*-musllinux_*"
+          CIBW_BEFORE_ALL_LINUX: >
+            yum -y update &&
+            yum install -y zlib-devel bzip2-devel lzo-devel
+          
+      - uses: actions/upload-artifact@v2
+        with:
+          path: ./dist/*.whl
+
+
+  upload_pypi:
+    needs: [build_wheels]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: artifact
+          path: ./dist
+          
+      - uses: pypa/gh-action-pypi-publish@master
+        with:
+          skip_existing: true
+          password: ${{ secrets.PYPI_API_TOKEN }}

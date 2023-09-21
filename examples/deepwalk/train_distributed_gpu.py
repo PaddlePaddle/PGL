@@ -18,7 +18,6 @@ import math
 
 import numpy as np
 import paddle
-import paddle.fluid as F
 import paddle.distributed.fleet as fleet
 import pgl
 from pgl.utils.logger import log
@@ -68,10 +67,19 @@ def train(exe, program, data_loader, loss, log_per_step=1):
     return total_loss / total_sample
 
 
-def StaticSkipGramModel(num_nodes, neg_num, embed_size, num_emb_part=8):
-    src = F.data("src", shape=[-1, 1], dtype="int64")
-    dsts = F.data("dsts", shape=[-1, neg_num + 1], dtype="int64")
-    model = SkipGramModel(num_nodes, embed_size, neg_num, num_emb_part)
+def StaticSkipGramModel(num_nodes,
+                        neg_num,
+                        embed_size,
+                        num_emb_part=8,
+                        shared_embedding=False):
+    src = paddle.static.data("src", shape=[-1, 1], dtype="int64")
+    dsts = paddle.static.data("dsts", shape=[-1, neg_num + 1], dtype="int64")
+    model = SkipGramModel(
+        num_nodes,
+        embed_size,
+        neg_num,
+        num_emb_part,
+        shared_embedding=shared_embedding)
     loss = model(src, dsts)
     return loss
 
@@ -88,9 +96,10 @@ def main(args):
         graph.num_nodes,
         args.neg_num,
         args.embed_size,
-        num_emb_part=args.num_emb_part)
+        num_emb_part=args.num_emb_part,
+        shared_embedding=args.shared_embedding)
 
-    optimizer = F.optimizer.Adam(args.learning_rate)
+    optimizer = paddle.optimizer.Adam(args.learning_rate)
     dist_strategy = fleet.DistributedStrategy()
     dist_strategy.sharding = True
     dist_strategy.sharding_configs = {

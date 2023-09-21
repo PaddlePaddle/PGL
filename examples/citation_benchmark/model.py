@@ -18,8 +18,7 @@ import paddle.nn.functional as F
 
 
 class GCN(nn.Layer):
-    """Implement of GCN
-    """
+    """Implement of GCN"""
 
     def __init__(self,
                  input_size,
@@ -62,8 +61,7 @@ class GCN(nn.Layer):
 
 
 class GAT(nn.Layer):
-    """Implement of GAT
-    """
+    """Implement of GAT"""
 
     def __init__(self,
                  input_size,
@@ -91,7 +89,7 @@ class GAT(nn.Layer):
                         self.feat_drop,
                         self.attn_drop,
                         self.num_heads,
-                        activation='elu'))
+                        activation="elu", ))
             elif i == (self.num_layers - 1):
                 self.gats.append(
                     pgl.nn.GATConv(
@@ -101,7 +99,7 @@ class GAT(nn.Layer):
                         self.attn_drop,
                         1,
                         concat=False,
-                        activation=None))
+                        activation=None, ))
             else:
                 self.gats.append(
                     pgl.nn.GATConv(
@@ -110,7 +108,7 @@ class GAT(nn.Layer):
                         self.feat_drop,
                         self.attn_drop,
                         self.num_heads,
-                        activation='elu'))
+                        activation="elu", ))
 
     def forward(self, graph, feature):
         for m in self.gats:
@@ -119,8 +117,7 @@ class GAT(nn.Layer):
 
 
 class Transformer(nn.Layer):
-    """Implement of TransformerConv
-    """
+    """Implement of TransformerConv"""
 
     def __init__(self,
                  input_size,
@@ -150,7 +147,7 @@ class Transformer(nn.Layer):
                         self.feat_drop,
                         self.attn_drop,
                         skip_feat=False,
-                        activation='relu'))
+                        activation="relu", ))
 
             elif i == (self.num_layers - 1):
                 self.trans.append(
@@ -163,7 +160,7 @@ class Transformer(nn.Layer):
                         concat=False,
                         skip_feat=False,
                         layer_norm=False,
-                        activation=None))
+                        activation=None, ))
             else:
                 self.trans.append(
                     pgl.nn.TransformerConv(
@@ -173,7 +170,7 @@ class Transformer(nn.Layer):
                         self.feat_drop,
                         self.attn_drop,
                         skip_feat=False,
-                        activation='relu'))
+                        activation="relu", ))
 
     def forward(self, graph, feature):
         for m in self.trans:
@@ -182,8 +179,7 @@ class Transformer(nn.Layer):
 
 
 class APPNP(nn.Layer):
-    """Implement of APPNP 
-    """
+    """Implement of APPNP"""
 
     def __init__(self,
                  input_size,
@@ -223,8 +219,7 @@ class APPNP(nn.Layer):
 
 
 class SGC(nn.Layer):
-    """Implement of SGC
-    """
+    """Implement of SGC"""
 
     def __init__(self, input_size, num_class, num_layers=1, **kwargs):
         super(SGC, self).__init__()
@@ -240,8 +235,7 @@ class SGC(nn.Layer):
 
 
 class SSGC(nn.Layer):
-    """Implement of SSGC
-    """
+    """Implement of SSGC"""
 
     def __init__(self,
                  input_size,
@@ -257,7 +251,7 @@ class SSGC(nn.Layer):
             output_size=num_class,
             k_hop=num_layers,
             alpha=alpha,
-            bias=True)
+            bias=True, )
 
     def forward(self, graph, feature):
         feature = graph.node_feat["words"]
@@ -266,8 +260,7 @@ class SSGC(nn.Layer):
 
 
 class GCNII(nn.Layer):
-    """Implement of GCNII
-    """
+    """Implement of GCNII"""
 
     def __init__(self,
                  input_size,
@@ -302,7 +295,7 @@ class GCNII(nn.Layer):
             lambda_l=self.lambda_l,
             alpha=self.alpha,
             k_hop=self.k_hop,
-            dropout=self.dropout)
+            dropout=self.dropout, )
 
     def forward(self, graph, feature):
         for m in self.mlps:
@@ -311,4 +304,149 @@ class GCNII(nn.Layer):
             feature = self.drop_fn(feature)
         feature = self.gcnii(graph, feature)
         feature = self.output(feature)
+        return feature
+
+
+class GATv2(nn.Layer):
+    """Implement of GATv2"""
+
+    def __init__(self,
+                 input_size,
+                 num_class,
+                 num_layers=1,
+                 feat_drop=0.6,
+                 attn_drop=0.6,
+                 num_heads=8,
+                 hidden_size=8,
+                 **kwargs):
+        super(GATv2, self).__init__()
+        self.num_class = num_class
+        self.num_layers = num_layers
+        self.feat_drop = feat_drop
+        self.attn_drop = attn_drop
+        self.num_heads = num_heads
+        self.hidden_size = hidden_size
+        self.gats = nn.LayerList()
+        for i in range(self.num_layers):
+            if i == 0:
+                self.gats.append(
+                    pgl.nn.GATv2Conv(
+                        input_size,
+                        self.hidden_size,
+                        self.feat_drop,
+                        self.attn_drop,
+                        self.num_heads,
+                        activation="elu", ))
+            elif i == (self.num_layers - 1):
+                self.gats.append(
+                    pgl.nn.GATv2Conv(
+                        self.num_heads * self.hidden_size,
+                        self.num_class,
+                        self.feat_drop,
+                        self.attn_drop,
+                        1,
+                        concat=False,
+                        activation=None, ))
+            else:
+                self.gats.append(
+                    pgl.nn.GATv2Conv(
+                        self.num_heads * self.hidden_size,
+                        self.hidden_size,
+                        self.feat_drop,
+                        self.attn_drop,
+                        self.num_heads,
+                        activation="elu", ))
+
+    def forward(self, graph, feature):
+        for m in self.gats:
+            feature = m(graph, feature)
+        return feature
+
+
+class GPRGNN(nn.Layer):
+    """Implement of GPRGNN"""
+
+    def __init__(self,
+                 input_size,
+                 hidden_size,
+                 num_class,
+                 num_layers=10,
+                 drop=0.5,
+                 dprate=0.5,
+                 alpha=0.1,
+                 init_method="PPR",
+                 gamma=None,
+                 **kwargs):
+        super(GPRGNN, self).__init__()
+        self.num_class = num_class
+        self.num_layers = num_layers
+        self.hidden_size = hidden_size
+        self.drop = drop
+        self.dprate = dprate
+        self.alpha = alpha
+        self.init_method = init_method
+        self.gamma = gamma
+
+        self.gpr = pgl.nn.GPRConv(
+            input_size=input_size,
+            hidden_size=self.hidden_size,
+            output_size=self.num_class,
+            drop=self.drop,
+            dprate=self.dprate,
+            alpha=self.alpha,
+            k_hop=self.num_layers,
+            init_method=self.init_method,
+            gamma=self.gamma, )
+
+    def forward(self, graph, feature):
+
+        feature = self.gpr(graph, feature)
+        return feature
+
+
+class FAGCN(nn.Layer):
+    """Implementation of frequency adaptive graph convolution networks (FAGCN)"""
+
+    def __init__(
+        self, input_size, hidden_size, num_class, drop=0.6, eps=0.2, num_layer=3, **kwargs
+    ):
+        super(FAGCN, self).__init__()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_class = num_class
+        self.dropout = nn.Dropout(p=drop)
+        self.eps = eps
+        self.num_layer = num_layer
+
+        self.gnn_layer = nn.LayerList()
+        for _ in range(self.num_layer):
+            self.gnn_layer.append(pgl.nn.FAConv(self.hidden_size, drop))
+
+        self.t1 = nn.Linear(self.input_size, self.hidden_size)
+        self.t2 = nn.Linear(self.hidden_size, self.num_class)
+
+    def forward(self, graph, feature):
+        """
+
+        Args:
+
+            graph: `pgl.Graph` instance
+
+            feature: A tensor with shape (num_nodes, input_size)
+
+        Return:
+            A tensor with shape (num_nodes, output_size)
+
+        """
+        feature = self.dropout(feature)
+        feature = F.relu(self.t1(feature))
+        feature = self.dropout(feature)
+
+        h_0 = feature
+        for i in range(len(self.gnn_layer)):
+            feature = self.gnn_layer[i](graph, feature)
+            feature = self.eps * h_0 + feature
+
+        feature = self.t2(feature)
         return feature

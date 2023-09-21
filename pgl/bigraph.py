@@ -17,19 +17,20 @@
 
 import os
 import json
-import paddle
 import copy
+import warnings
+from collections import defaultdict
+
 import numpy as np
+import paddle
+import paddle.distributed as dist
 
 from pgl.utils import op
 import pgl.graph_kernel as graph_kernel
-
 from pgl.message import Message
-from collections import defaultdict
-from pgl.utils.helper import check_is_tensor, scatter, generate_segment_id_from_index, maybe_num_nodes, unique_segment
 from pgl.utils.edge_index import EdgeIndex
-import paddle.distributed as dist
-import warnings
+from pgl.utils.helper import check_is_tensor, maybe_num_nodes
+from pgl.utils.helper import generate_segment_id_from_index, unique_segment
 
 
 class BiGraph(object):
@@ -154,20 +155,10 @@ class BiGraph(object):
             self._src_num_nodes = maybe_num_nodes(self._edges[:, 0])
         else:
             self._src_num_nodes = src_num_nodes
-            max_edge_id = maybe_num_nodes(self._edges[:, 0])
-            if self._src_num_nodes < max_edge_id:
-                raise ValueError("The max src edge ID should be less than the number of src nodes. "
-                        "But got max src edge ID [%s] >= src_num_nodes [%s]" \
-                        % (max_edge_id-1, self._src_num_nodes))
         if dst_num_nodes is None:
             self._dst_num_nodes = maybe_num_nodes(self._edges[:, 1])
         else:
             self._dst_num_nodes = dst_num_nodes
-            max_edge_id = maybe_num_nodes(self._edges[:, 1])
-            if self._dst_num_nodes < max_edge_id:
-                raise ValueError("The max dst edge ID should be less than the number of dst  nodes. "
-                        "But got max dst edge ID [%s] >= dst_num_nodes [%s]" \
-                        % (max_edge_id-1, self._dst_num_nodes))
 
         self._adj_src_index = kwargs.get("adj_src_index", None)
         self._adj_dst_index = kwargs.get("adj_dst_index", None)
@@ -234,7 +225,7 @@ class BiGraph(object):
             dst_num_nodes = self.dst_num_nodes.numpy()
         else:
             src_num_nodes = self.src_num_nodes
-            dst_num_nodes = sefl.dst_num_nodes
+            dst_num_nodes = self.dst_num_nodes
         repr_dict["src_num_nodes"] = int(src_num_nodes)
         repr_dict["dst_num_nodes"] = int(dst_num_nodes)
         repr_dict["edges_shape"] = self.edges.shape
@@ -1064,10 +1055,9 @@ class BiGraph(object):
         and built-in receive function ('sum', 'mean', 'max', 'min').
 
         Args:
-
             feature (Tensor | Tensor List): the node feature of a graph.
-
             reduce_func (str): 'sum', 'mean', 'max', 'min' built-in receive function.
+
         """
         # TODO:@ZHUI add support for 'mean', 'max', 'min' function.
         assert reduce_func in ['sum', 'mean', 'max', 'min'], \
@@ -1087,7 +1077,8 @@ class BiGraph(object):
             output_dim = feat.shape[-1]
             init_output = paddle.zeros(
                 shape=[self._dst_num_nodes, output_dim], dtype=feat.dtype)
-            final_output = scatter(init_output, dst, feat, overwrite=False)
+            final_output = paddle.scatter(
+                init_output, dst, feat, overwrite=False)
 
             return final_output
 
@@ -1230,7 +1221,7 @@ class BiGraph(object):
             init_output = paddle.zeros(
                 shape=[self._src_num_nodes, output_dim], dtype=output.dtype)
 
-        final_output = scatter(init_output, uniq_ind, output)
+        final_output = paddle.scatter(init_output, uniq_ind, output)
 
         return final_output
 
@@ -1396,7 +1387,8 @@ class BiGraph(object):
                 % mode)
 
         if is_tensor:
-            counts = paddle.concat(counts)
+            counts = [c.item() for c in counts]
+            counts = paddle.to_tensor(counts, dtype="int64")
         return op.get_index_from_counts(counts)
 
     @staticmethod

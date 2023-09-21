@@ -7,6 +7,20 @@
 
 ## 最新消息
 
+**一篇关于知识表示学习的论文被接收！！**(2022.05.06)
+
+- Simple and Effective Relation-based Embedding Propagation for Knowledge Representation Learning, **IJCAI2022**. 相关代码可以查看[这里](./apps/Graph4KG/examples/REP)。
+
+
+PGL v2.2 2021.12.20
+
+- **Graph4Rec**: 我们发布了一个用于推荐系统的通用大规模分布式图表示学习工具包，详情请参考[这里](./apps/Graph4Rec)。
+
+- **Graph4KG**: 我们发布了一个用于大规模知识图谱表示学习的工具包，详情请参考[这里](./apps/Graph4KG)。
+
+- **GNNAutoScale**: PGL现在支持GNNAutoScale框架了，这是一个用于图学习异构设备训练的工具包，详情请参考[这里](./apps/GNNAutoScale)。
+
+
 &#x1F525; &#x1F525; &#x1F525; **OGB-LSC KDD CUP 2021 冠军宣布!!**  (2021.06.17)
 
 非常兴奋地宣布，我们PGL团队在 OGB-LSC KDD CUP 2021 的三个赛道中获得了<font color=Red>**两个冠军**</font>和<font color=Red>**一个亚军**</font>。官方排行榜可以参考[这里](https://ogb.stanford.edu/kddcup2021/results/).
@@ -23,28 +37,6 @@
 - Masked Label Prediction: Unified Message Passing Model for Semi-Supervised Classification, to appear in **IJCAI2021**.
 - HGAMN: Heterogeneous Graph Attention Matching Network for Multilingual POI Retrieval at Baidu Maps, to appear in **KDD2021**.
 
-PGL v2.1 2021.02.02
-
-- 更易用了！正式发布PGL 2.1版本，正式支持PaddlePaddle 2.0
-- 之前静态图版本（<2.0）的PGL放在“static_stable”分支
-
-PGL v1.2 2020.11.20
-
-- PGL团队提出统一的消息传递模型**UniMP**，刷新OGB**三**项榜单SOTA。你可以在[这里](./ogb_examples/nodeproppred/unimp)看到详细的代码。
-
-- PGL团队提出基于**ERNIEsage**的二阶段召回与排序模型, 在COLING协办的[TextGraphs2020](https://competitions.codalab.org/competitions/23615)比赛中取得**第一名**。
-
-- PGL团队倾力开发了**图神经网络公开课**,带你七天高效入门图神经网络。课程详情请参考[course](https://github.com/PaddlePaddle/PGL/tree/main/course)。
-
-PGL v1.1 2020.4.29
-
-- **ERNIESage**是PGL团队最新提出的模型，可以用于建模文本以及图结构信息。你可以在[这里](./legacy/examples/erniesage/)看到详细的介绍。
-
-- PGL现在提供[Open Graph Benchmark](https://github.com/snap-stanford/ogb)的一些例子，你可以在[这里](./ogb_examples)找到。
-
-- 新增了图级别的算子包括**GraphPooling**以及[**GraphNormalization**](https://arxiv.org/abs/2003.00982)，这样你就能实现更多复杂的图级别分类模型。
-
-- 新增PGL-KE工具包，里面包含许多经典知识图谱图嵌入算法，包括TransE, TransR, RotatE，详情可见[这里](./examples/pgl-ke)
 
 ------
 
@@ -145,7 +137,7 @@ Paddle Graph Learning (PGL)是一个基于[PaddlePaddle](https://github.com/Padd
 
 PGL依赖于:
 
-* paddle >= 2.0.0 
+* paddlepaddle >= 2.2.0 
 * cython
 
 

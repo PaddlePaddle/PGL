@@ -14,11 +14,10 @@
 
 import numpy as np
 import paddle
-from paddle.fluid.layers import core
-from paddle.fluid.layer_helper import LayerHelper
-from paddle.fluid.data_feeder import convert_dtype, check_variable_and_dtype, check_type, check_dtype
-from paddle.fluid.framework import Variable, in_dygraph_mode, convert_np_dtype_to_dtype_
-import paddle.fluid.layers as L
+from paddle.common_ops_import import Variable
+from paddle.framework import core
+
+from pgl.utils import op
 
 
 def check_is_tensor(*data):
@@ -28,6 +27,20 @@ def check_is_tensor(*data):
         if isinstance(d, paddle.Tensor) or isinstance(d, Variable):
             return True
     return False
+
+
+def to_paddle_tensor(data, uva=False):
+    """Convert a numpy ndarray to paddle.Tensor.
+    """
+    if not uva:
+        data = paddle.to_tensor(data)
+    else:
+        if not paddle.device.is_compiled_with_cuda() or \
+           not paddle.device.get_device().startswith("gpu"):
+            raise ValueError(
+                "UVA tensor should be used under GPU environment.")
+        data = core.to_uva_tensor(data)
+    return data
 
 
 def scatter(x, index, updates, overwrite=True, name=None):
@@ -97,29 +110,14 @@ def scatter(x, index, updates, overwrite=True, name=None):
             #  [2., 2.],
             #  [1., 1.]]
     """
-    if in_dygraph_mode():
-        return core.ops.scatter(x, index, updates, 'overwrite', overwrite)
-
-    check_variable_and_dtype(
-        x, 'dtype', ['float32', 'int32', 'int64', 'float64'], 'scatter')
-    check_type(overwrite, 'overwrite', bool, 'scatter')
-    helper = LayerHelper('scatter', **locals())
-    out = helper.create_variable_for_type_inference(x.dtype)
-    helper.append_op(
-        type="scatter",
-        inputs={"X": x,
-                "Ids": index,
-                "Updates": updates},
-        attrs={'overwrite': overwrite},
-        outputs={"Out": out})
-    return out
+    return paddle.scatter(x, index, updates, overwrite, name)
 
 
 def generate_segment_id_from_index(index):
     if check_is_tensor(index):
         zeros = paddle.zeros(index[-1] + 1, dtype="int32")
         index = index[:-1]
-        segments = scatter(
+        segments = paddle.scatter(
             zeros, index, paddle.ones_like(
                 index, dtype="int32"))
         segments = paddle.cumsum(segments)[:-1] - 1
@@ -158,10 +156,55 @@ def maybe_num_nodes(edges):
 def unique_segment(data, dtype="int64"):
     """Return Segment Id from data
     """
-    if in_dygraph_mode():
-        attr_dtype = convert_np_dtype_to_dtype_(dtype)
-        unique, index, _ = core.ops.unique_with_counts(data, "dtype",
-                                                       attr_dtype)
-        return unique, index
-    else:
-        unqiue, index, _ = L.unique_with_counts(data)
+    unique, index = paddle.unique(data, return_inverse=True, dtype=dtype)
+    return unique, index
+
+
+def graph_send_recv(x, src_index, dst_index, pool_type="sum"):
+    """This method combines the send and recv function in different pool_type.
+
+    Now, this method only supports default copy send function, and built-in receive pool_type
+    function ('sum', 'mean', 'max', 'min').
+
+    Args:
+
+        x (Tensor): The input tensor, and the available data type is float32, float64, int32, int64.
+
+        src_index (Tensor): An 1-D tensor, and the available data type is int32, int64.
+
+        dst_index (Tensor): An 1-D tensor, and should have the same shape as `src_index`. 
+                            The available data type is int32, int64. 
+
+        pool_type (str): The pooling type of graph_send_recv, including `sum`, `mean`, 
+                         `max`, `min`. Default value is `sum`.
+
+    Returns:
+
+        out (Tensor): The output tensor, should have the same shape and same dtype as input tensor `x`.
+
+    """
+
+    # TODO:@ZHUI add support for 'mean', 'max', 'min' pool_type.
+    assert pool_type == "sum", "Only implement 'sum' pool_type function right now. Maybe you can update PaddlePaddle version to fix this problem."
+
+    def send(message_func, src_feat):
+        src_feat_temp = {}
+        if src_feat is not None:
+            assert isinstance(src_feat,
+                              dict), "The input src_feat must be a dict"
+            src_feat_temp.update(src_feat)
+        src_feat = op.RowReader(src_feat_temp, src_index)
+        msg = message_func(src_feat)
+        return msg
+
+    def _sum_recv(feat):
+        output_dim = feat.shape[-1]
+        init_output = paddle.zeros(
+            shape=[x.shape[0], output_dim], dtype=feat.dtype)
+        final_output = paddle.scatter(
+            init_output, dst_index, feat, overwrite=False)
+        return final_output
+
+    msg = send(lambda sf: {"msg": sf["h"]}, src_feat={"h": x})
+
+    return eval("_%s_recv" % pool_type)(msg["msg"])

@@ -1,0 +1,17 @@
+model_name: GCNII
+data_name: reddit
+num_layers: 4
+num_parts: 200
+batch_size: 100
+hidden_size: 256
+pool_size: 2
+lr: 0.01
+weight_decay: 0.0
+dropout: 0.5
+alpha: 0.1
+lambda_l: 0.5
+gcn_norm: True
+grad_norm: False
+gen_train_data_in_advance: True
+feat_gpu: True
+epochs: 400

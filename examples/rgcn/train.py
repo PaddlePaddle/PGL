@@ -107,13 +107,13 @@ def main(args):
 
         msg = "epoch: %s" % epoch
         msg += " | train_loss: %.4f | train_acc: %.4f" \
-                % (train_loss.numpy()[0], train_acc.numpy()[0])
+                % (float(train_loss), float(train_acc))
 
         msg += " | test_loss: %.4f | test_acc: %.4f" \
-                % (test_loss.numpy()[0], test_acc.numpy()[0])
+                % (float(test_loss), float(test_acc))
 
         log.info(msg)
-        test_acc_list.append(test_acc.numpy()[0])
+        test_acc_list.append(float(test_acc))
 
     log.info("best test acc result: %.4f" % (np.max(test_acc_list)))
 
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_class", type=int, default=2)
     parser.add_argument("--num_layers", type=int, default=2)
     parser.add_argument("--num_bases", type=int, default=8)
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=100)
     parser.add_argument("--lr", type=float, default=0.01)
     args = parser.parse_args()
     log.info(args)

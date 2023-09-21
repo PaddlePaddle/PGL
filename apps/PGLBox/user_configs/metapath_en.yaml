@@ -1,0 +1,143 @@
+# ---------------------------Data Config-------------------------------------------------#
+graph_data_local_path: "/pglbox/data"
+
+# each type of edge corresponds to a file or directory, here the u2t_edges directory in graph_data_hdfs_path directory refers to the u2u_edges directory under the u2u_edges directory, and so on.
+# if there is a click relationship between u and t, and there is a possibility of a follow relationship, then it can be represented by a triplet, which is u2click2t and u2focus2t, representing different types of relationships.
+# The following example shows how to save the edges of u2t in the directory "u2t_edges" in the directory "graph_data_hdfs_path"
+etype2files: "u2t:u2t"
+# the corresponding file or directory for each node type, different types of nodes can be placed in the same file, and will be automatically filtered when reading
+# the following example shows that the nodes of u2t are saved in the directory "node_types" under the directory "graph_data_hdfs_path"
+ntype2files: "u:node_types,t:node_types,f:node_types"
+# the pair specified by 'excluded_train_pair' will not be trained, eg "w2q;q2t"
+excluded_train_pair: ""
+# only infer the node(s) specified by 'infer_node_type', eg "q;t"
+infer_node_type: ""
+# label of train pair, eg "cuid2conv:2,cuid2fcclk:3,cuid2fcconv:4,clk2entity:5,conv2entity:6"
+pair_label: ""
+
+# specify the node directory for training or inference.If left empty, it will default to using the points loaded from the graph data for training or inference.
+# for example, if the node directory for inferencing is named "infer_nodes" under the directory "graph_data_hdfs_path", then it is written as "infer_nodes".
+train_start_nodes: ""
+infer_nodes: ""
+
+# using the graph_shard function to shard the data can speed up loading times.(Currently, sharding must be set to 1000 parts)
+hadoop_shard: True
+num_part: 1000
+# is this edge bidirectional?(bidirectional edges are supported currently)
+symmetry: True
+
+# ---------------------------Graph Random Walk Config-------------------------------------------------#
+# meta Path definition. Note the matching between the edge type and the file type. use "-" to separate.
+# the following settings can be used to set multiple metapaths, and each ";" is a user-defined metapath.
+# meta_path: "u2t-t2u;t2f-f2t;u2t-t2f-f2t-t2u;t2u-u2t".
+meta_path: "u2t-t2u;t2u-u2t"
+
+# win_size: The positive sample window size of the walk path.
+win_size: 3
+# neg_num: The number of negative samples corresponding to each pair of positive samples.
+neg_num: 5
+# walk_len: metapath walk path depth.
+walk_len: 24
+# walk_times: Each starting node repeats n times of walking, so that all neighbors of a node can be walked as much as possible, making the training more uniform.
+walk_times: 10
+
+
+# -------------------------Slot Feature Config-----------------------------------------------#
+# the slot of the embedding table of the node ID, just keep the default
+nodeid_slot: 9008
+# node slot feature configuration, if there is no node feature, the slots parameter is an empty list
+slots: [] #["1", "2", "3", "4", "5", "6", "7", "8"]
+# slot_pool_type: the aggregation method of the slot feature includes concat or sum. generally, it does not need to be changed, and the effect of sum is relatively ok.
+slot_pool_type: sum
+# max_slot_value_size: if there are too many values corresponding to a slot, it will greatly affect the training speed, or even fail to train, and the effect will   not necessarily be better. So here's the limit. Generally do not need to change.
+max_slot_value_size: 100
+# feature_mode: concat or sum, the interaction between slot features, does not need to be changed generally, and the effect of sum is relatively ok.
+feature_mode: sum
+
+# ------------------Models and Embeddings output Config---------------------------------------#
+# working_root: output directory of training results (model and embedding)
+working_root: /pglbox/output
+
+# warm_start_from: the hadoop path where the model that needs to be hot-started during the training phase.
+warm_start_from: null
+# load_binary_mode : Load the binary model on hot restart, only valid in SSD mode.
+load_binary_mode : False
+
+# ---------------------------Model Parameter Config---------------------------------------------#
+# model type selection
+model_type: GNNModel
+# embedding dimension, which needs to be the same as hidden_size
+emb_size: 64
+# sparse_type: optimizer for sparse parameter servers, currently supports adagrad, shared_adam
+sparse_type: adagrad_v2
+# sparse_lr: learning rate for sparse parameter server
+sparse_lr: 0.05
+# dense_lr: learning rate for dense parameters
+dense_lr: 0.000005 #001
+# slot_feature_lr: learning rate of the slot feature
+slot_feature_lr: 0.001
+init_range: 0.1
+# loss_type: loss function, currently supports hinge; sigmoid; nce
+loss_type: nce
+margin: 2.0  # for hinge loss
+# if there are many slot features (more than 5), it is recommended to enable softsign to prevent the value from being too large
+softsign: False
+# contrastive learning loss function selection: currently supports simgcl_loss
+gcl_loss: simgcl_loss
+
+# whether to use weighted sample, which will work on walk and sample simultaneously.
+weighted_sample: False
+
+# whether to train the model or not. if only want to hot-start the model for inference, then the need_train flag can be turned off.
+need_train: True
+# whether to infer the model. if only want to train model, then the need_inference flag can be turned off.
+need_inference: True
+# the required parameters when estimating the embedding, just keep the default.
+dump_node_name: "src_node___id"
+dump_node_emb_name: "src_node___emb"
+# 是否需要dump游走路径
+need_dump_walk: False
+
+# ---------------------------Train Param Config---------------------------------------------#
+epochs: 1
+# in order to speed up the training, you can set how many epochs to save the model. The model will be saved after the last epoch is trained by default.
+save_model_interval: 10
+# batch_size of training samples
+batch_size: 80000
+infer_batch_size: 80000
+chunk_num: 1
+# how many sample times are performed in a buf
+sample_times_one_chunk: 5
+# the frequency of triggering ssd cache
+save_cache_frequency: 4
+# number of passes cached in memory
+mem_cache_passid_num: 4
+# whether to save in binary mode, only valid in SSD mode
+save_binary_mode : False
+# whether to enable metapath optimization
+metapath_split_opt: False
+# training mode, options are WHOLE_HBM/MEM_EMBEDDING/SSD_EMBEDDING, default is MEM_EMBEDDING
+train_storage_mode: MEM_EMBEDDING
+# The memory usage of gpups, defaults is 0.25
+gpups_memory_allocated_rate: 0.60
+
+# 1 for debug
+debug_mode: 0
+
+# --------------------------Routine Training and Prediction--------------------------#
+# if it is changed to "online_train", it means that routine training is required, otherwise it defaults to normal training mode
+train_mode: "train"
+# the start time of the first graph data for routine training. (note that when the day level is updated, the format of the date must also be 20230217/00, and the hour unit cannot be omitted)
+start_time: 20230217/00
+# the hour-level interval of routine training (effective when train_mode=online_train), time_delta=1 means one hour of data for each training, and then switch to the next hour. If it is a day-level update, then tim e_delta=24
+time_delta: 24
+
+# set the graph data directory, if it is a hadoop cluster, it needs to start with hdfs:, otherwise it defaults to the path in the local docker
+graph_data_hdfs_path: ""
+
+# the following configuration is not required if it is not an hadoop environment
+hadoop_home: ""  # for example: /pglbox/dependency/hadoop_client/hadoop, don't need to set the graph data if the dataset is on this machine
+graph_data_fs_name: ""  # hadoop directory used for graph data storage
+graph_data_fs_ugi: ""   # hadoop directory where graph data is saved
+output_fs_name: ""      # hadoop directory where models and vectors are saved
+output_fs_ugi: ""       # hadoop ugi where models and vectors are saved

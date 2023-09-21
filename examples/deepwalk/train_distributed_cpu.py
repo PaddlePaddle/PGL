@@ -18,7 +18,6 @@ import math
 
 import numpy as np
 import paddle
-import paddle.fluid as F
 import paddle.distributed.fleet as fleet
 import pgl
 from pgl.utils.logger import log
@@ -70,7 +69,7 @@ def train(exe, program, reader, loss, log_per_step=1):
             if batch % log_per_step == 0:
                 log.info("Batch %s\t%s-Loss %.6f\t%.6f sec/step" %
                          (batch, "train", loss_val, step_time))
-    except paddle.fluid.core.EOFException:
+    except paddle.framework.core.EOFException:
         reader.reset()
 
     return total_loss / batch
@@ -80,16 +79,22 @@ def StaticSkipGramModel(num_nodes,
                         neg_num,
                         embed_size,
                         sparse=False,
-                        sparse_embedding=False):
-    src = F.data("src", shape=[-1, 1], dtype="int64")
-    dsts = F.data("dsts", shape=[-1, neg_num + 1], dtype="int64")
-    py_reader = paddle.fluid.io.DataLoader.from_generator(
+                        sparse_embedding=False,
+                        shared_embedding=False):
+    src = paddle.static.data("src", shape=[-1, 1], dtype="int64")
+    dsts = paddle.static.data("dsts", shape=[-1, neg_num + 1], dtype="int64")
+    py_reader = paddle.io.DataLoader.from_generator(
         capacity=64,
         feed_list=[src, dsts],
         iterable=False,
         use_double_buffer=False)
-    model = SkipGramModel(num_nodes, embed_size, neg_num, sparse=sparse,
-                          sparse_embedding=sparse_embedding)
+    model = SkipGramModel(
+        num_nodes,
+        embed_size,
+        neg_num,
+        sparse=sparse,
+        sparse_embedding=sparse_embedding,
+        shared_embedding=shared_embedding)
     loss = model(src, dsts)
     return py_reader, loss
 
@@ -102,9 +107,13 @@ def main(args):
 
     fake_num_nodes = 1
     py_reader, loss = StaticSkipGramModel(
-        fake_num_nodes, args.neg_num, args.embed_size, sparse_embedding=True)
+        fake_num_nodes,
+        args.neg_num,
+        args.embed_size,
+        sparse_embedding=True,
+        shared_embedding=args.shared_embedding)
 
-    optimizer = F.optimizer.Adam(args.learning_rate, lazy_mode=True)
+    optimizer = paddle.optimizer.Adam(args.learning_rate, lazy_mode=True)
     dist_strategy = fleet.DistributedStrategy()
     dist_strategy.a_sync = True
     optimizer = fleet.distributed_optimizer(optimizer, dist_strategy)

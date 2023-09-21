@@ -59,21 +59,6 @@ class GraphTest(unittest.TestCase):
             node_feat={'nfeat': nfeat},
             edge_feat={'efeat': efeat})
 
-    def test_num_nodes_valid(self):
-
-        num_nodes = 3
-        dim = 4
-        edges = [(0, 1), (1, 2), (3, 4)]
-        nfeat = np.random.randn(num_nodes, dim)
-        efeat = np.random.randn(len(edges), dim)
-
-        with self.assertRaises(ValueError):
-            g1 = pgl.Graph(
-                edges=edges,
-                num_nodes=num_nodes,
-                node_feat={'nfeat': nfeat},
-                edge_feat={'efeat': efeat})
-
     def test_build_tensor_graph(self):
         num_nodes = paddle.to_tensor(5)
         e = np.array([(0, 1), (1, 2), (3, 4)])
@@ -235,7 +220,7 @@ class GraphTest(unittest.TestCase):
         # testing for jointing One Graph
         multi_graph = pgl.Graph.disjoint([glist[0]])
         self.assertEqual(multi_graph.node_feat['nfeat'].shape,
-                         [glist[0].num_nodes.numpy()[0], dim])
+                         [int(glist[0].num_nodes), dim])
 
     def test_dump_numpy_load_tensor(self):
 

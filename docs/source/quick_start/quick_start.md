@@ -151,7 +151,7 @@ for epoch in range(30):
     loss.backward()
     optim.step()
     optim.clear_grad()
-    print("epoch: %s | loss: %.4f" % (epoch, loss.numpy()[0]))
+    print("epoch: %s | loss: %.4f" % (epoch, float(loss)))
     
 ```
 

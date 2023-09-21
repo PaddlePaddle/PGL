@@ -1,0 +1,16 @@
+model_name: GCN
+data_name: arxiv
+num_layers: 3
+num_parts: 80
+batch_size: 40
+hidden_size: 256
+lr: 0.01
+weight_decay: 0.0
+dropout: 0.
+drop_input: False
+batch_norm: False
+gcn_norm: True
+grad_norm: False
+gen_train_data_in_advance: True
+feat_gpu: True
+epochs: 400

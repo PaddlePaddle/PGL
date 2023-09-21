@@ -16,6 +16,13 @@
 import os
 import sys
 import logging
+import warnings
+
+import paddle
+if not (paddle.__version__ >= '2.2.0' or paddle.__version__ == '0.0.0'):
+    warnings.warn(
+        "The PaddlePaddle version is out of date. Your version is %s, while we need at least 2.2.0."
+        % paddle.__version__)
 
 from pgl import graph
 from pgl import graph_kernel
@@ -24,9 +31,11 @@ from pgl import nn
 from pgl import message
 from pgl import dataset
 from pgl import utils
+from pgl import sampling
+from pgl import partition
 
 from pgl.graph import *
 from pgl.bigraph import *
 from pgl.heter_graph import *
 
-__version__ = "2.1.5"
+__version__ = "2.2.6"

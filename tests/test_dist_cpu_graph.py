@@ -50,6 +50,7 @@ edges_file = """37	45	0.34
 39	131	0.21"""
 
 node_file = """u	98	a 0.21	b 13 14	c hello1	
+u	17	a 0.22	b 13 14	c hello7	d 23:0,23:1,24:10,24:0
 u	97	a 0.22	b 13 14	c hello2	d 23:0,23:1,24:10,24:1
 u	96	a 0.23	b 13 14	c hello3	d 23:0,23:1,24:10,24:2
 u	7	a 0.24	b 13 14	c hello4	d 23:0,23:1,24:10,24:3
@@ -147,7 +148,7 @@ class DistGraphTest(unittest.TestCase):
     #      time.sleep(10)
 
     def test_random_sample_nodes(self):
-        g_u_nodes = [98, 97, 96, 7, 59, 47, 39, 37, 34]
+        g_u_nodes = [98, 97, 96, 7, 59, 47, 39, 37, 34, 17]
 
         g_t_nodes = [
             211, 333, 222, 121, 234, 48, 113, 145, 111, 247, 45, 112, 122, 131,
@@ -185,7 +186,7 @@ class DistGraphTest(unittest.TestCase):
 
     def test_node_batch_iter(self):
 
-        g_u_nodes = [98, 97, 96, 7, 59, 47, 39, 37, 34]
+        g_u_nodes = [98, 97, 96, 7, 59, 47, 39, 37, 34, 17]
 
         g_t_nodes = [
             211, 333, 222, 121, 234, 48, 113, 145, 111, 247, 45, 112, 122, 131,
@@ -299,12 +300,48 @@ class DistGraphTest(unittest.TestCase):
                     continue
 
     def test_sample_successor(self):
-        nodes = [98, 7]
-        neighs = self.c1.sample_successor(nodes, 10, "u2e2t")
+        nodes = [98, 7, 17]
 
-        g_neighs = [[247], [222, 234]]
+        g_neighs = [[247], [222, 234], []]
+        g_weights = [[0.31], [0.91, 0.09], []]
+
+        g_flat_neighs = [247, 222, 234]
+        g_flat_weights = [0.31, 0.91, 0.09]
+
+        g_edges = [[98, 247], [7, 222], [7, 234]]
+
+        neighs = self.c1.sample_successor(nodes, 10, "u2e2t")
         for a, b in zip(neighs, g_neighs):
             self.assertEqual(set(a), set(b))
+
+        # return weights and splited
+        neighs, weights = self.c1.sample_successor(
+            nodes, 10, "u2e2t", return_weight=True, split=True)
+        for a, b in zip(neighs, g_neighs):
+            self.assertEqual(set(a), set(b))
+        for a, b in zip(weights, g_weights):
+            for i, j in zip(a, b):
+                self.assertAlmostEqual(i, j)
+
+        # return weights without splited
+        neighs, weights = self.c1.sample_successor(
+            nodes, 10, "u2e2t", return_weight=True, split=False)
+        self.assertEqual(set(neighs), set(g_flat_neighs))
+        for a, b in zip(sorted(weights), sorted(g_flat_weights)):
+            self.assertAlmostEqual(a, b)
+
+        # return edges and weights
+        edges, weights = self.c1.sample_successor(
+            nodes, 10, "u2e2t", return_weight=True, return_edges=True)
+        for a, b in zip(edges.tolist(), g_edges):
+            self.assertListEqual(a, b)
+        for a, b in zip(sorted(weights), sorted(g_flat_weights)):
+            self.assertAlmostEqual(a, b)
+
+        # return edges only
+        edges = self.c1.sample_successor(nodes, 10, "u2e2t", return_edges=True)
+        for a, b in zip(edges.tolist(), g_edges):
+            self.assertListEqual(a, b)
 
     @classmethod
     def tearDownClass(cls):

@@ -1,0 +1,16 @@
+model_name: GCNII
+data_name: cora
+num_layers: 64
+num_parts: 2
+batch_size: 1
+hidden_size: 64
+lr: 0.01
+weight_decay: 0.0005
+dropout: 0.
+alpha: 0.1
+lambda_l: 0.5
+gcn_norm: True
+grad_norm: False
+gen_train_data_in_advance: True
+feat_gpu: True
+epochs: 1000

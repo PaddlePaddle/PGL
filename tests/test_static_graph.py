@@ -83,7 +83,7 @@ class StaticGraphOpTest(unittest.TestCase):
         model2.set_state_dict(state_dict)
 
         feed_dict = {
-            "num_nodes": num_nodes,
+            "num_nodes": np.array([num_nodes]).astype("int32"),
             "edges": np.array(
                 edges, dtype="int32"),
             "feature": nfeat.astype("float32"),

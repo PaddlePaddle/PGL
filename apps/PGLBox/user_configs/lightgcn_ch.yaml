@@ -1,0 +1,154 @@
+# ---------------------------数据配置-------------------------------------------------#
+graph_data_local_path: "/pglbox/data"
+
+# 每种边类型对应的文件或者目录, 这里u2t_edges目录对应graph_data_hdfs_path目录下的u2u_edges目录, 其它的以此类推。
+# 如果u和t之间既有点击关系，有可能有关注关系，那么可以用三元组表示，即用：u2click2t 和 u2focus2t 来表示点击和关注这两种不同的关系
+# 下面的示例表示u2t的边保存在 ${graph_data_hdfs_path}/u2t_edges/目录
+# etype2files: "u2t:u2t,t2f:t2f,u2f:u2f"
+etype2files: "u2t:u2t"
+# 每种节点类型对应的文件或目录, 不同类型的节点可以放在同个文件，读取的时候会自动过滤的。
+# 下面的示例表示节点保存在 ${graph_data_hdfs_path}/node_types/目录
+ntype2files: "u:node_types,t:node_types,f:node_types"
+# the pair specified by 'excluded_train_pair' will not be trained, eg "w2q;q2t"
+excluded_train_pair: ""
+# only infer the node(s) specified by 'infer_node_type', eg "q;t"
+infer_node_type: ""
+# label of train pair, eg "cuid2conv:2,cuid2fcclk:3,cuid2fcconv:4,clk2entity:5,conv2entity:6"
+pair_label: ""
+
+# 指定训练或者infer的节点目录。如果置空，则默认使用之前加载图数据中的点进行训练或者infer。
+# 例如，指定infer的节点目录在graph_data_hdfs_path下名称为"infer_nodes"，则写做 infer_nodes: "infer_nodes"
+train_start_nodes: ""
+infer_nodes: ""
+
+# 使用graph_shard 的功能, 对数据进行分片，可以加快加载速度。(目前必须sharding为1000 part)
+hadoop_shard: True
+num_part: 1000
+# 是否双向边（目前只支持双向边）
+symmetry: True
+
+# ---------------------------图游走配置-------------------------------------------------#
+# meta_path 元路径定义。 注意跟etype2files变量的边类型对应。用“-”隔开
+# 按照下面的设置可以设置多条metapath, 每个";"号是一条用户定义的metapath
+# meta_path: "u2t-t2u;t2f-f2t;u2t-t2f-f2t-t2u;t2u-u2t"
+meta_path: "u2t-t2u;t2u-u2t"
+
+# 游走路径的正样本窗口大小
+win_size: 2
+# neg_num: 每对正样本对应的负样本数量
+neg_num: 10
+# walk_len: metapath 游走路径深度
+walk_len: 4
+# walk_times: 每个起始节点重复n次游走，这样可以尽可能把一个节点的所有邻居游走一遍，使得训练更加均匀。
+walk_times: 10
+
+
+# -------------------------slot特征的配置-----------------------------------------------#
+# 节点ID 的embedding 表的slot, 保持默认即可
+nodeid_slot: 9008
+# 节点slot 特征配置，如果没有节点特征, 则slots参数为空列表
+slots: [] #["1", "2", "3", "4", "5", "6", "7", "8"]
+# slot_pool_type: slot 特征的聚合方式，有concat或者sum， 一般不用改动, sum的效果就比较ok了。
+slot_pool_type: sum
+# max_slot_value_size: 一个slot如果对应的值太多，会很影响训练速度，甚至无法训练, 而且效果也不一定会更好。所以这里做了限制。一般不用改动。
+max_slot_value_size: 100
+# feature_mode: concat or sum, slot特征之间的交互方式，一般不用改动，sum的效果就比较好了。
+feature_mode: sum
+
+# ------------------模型与向量的输出目录配置---------------------------------------#
+# working_root: 训练结果(模型和embedding)的输出目录
+working_root: /pglbox/output
+
+# warm_start_from: 训练阶段需要热启的模型所在的hadoop路径
+warm_start_from: null
+# 热启时加载二进制模型，仅在SSD模式下生效
+load_binary_mode : False
+
+# ---------------------------模型参数配置---------------------------------------------#
+# 模型类型选择
+model_type: GNNModel
+# embedding 维度，需要和hidden_size保持一样。
+emb_size: 64
+# sparse_type: 稀疏参数服务器的优化器，目前支持adagrad, shared_adam
+sparse_type: adagrad_v2
+# sparse_lr: 稀疏参数服务器的学习率
+sparse_lr: 0.1
+# dense_lr: 稠密参数的学习率
+dense_lr: 0.000005 #001
+# slot_feature_lr: slot特征的学习率
+slot_feature_lr: 0.001
+init_range: 0.1
+# loss_type: 损失函数，目前支持hinge; sigmoid; nce
+loss_type: nce
+margin: 2.0  # for hinge loss
+# 如果slot 特征很多(超过5个), 建议开启softsign，防止数值太大。
+softsign: False
+# 对比学习损失函数选择： 目前支持 simgcl_loss
+gcl_loss: simgcl_loss
+
+# sage 模型设置开关
+sage_mode: True
+# sage_layer_type: sage 模型类型选择
+sage_layer_type: "LightGCN"
+sage_alpha: 0.9
+samples: [5]
+infer_samples: [100]
+sage_act: "relu"
+hcl: True
+use_degree_norm: False # 如果为True，则sage_alpha 需设置为0.4-0.5, batch_node_size 和 infer_batch_size也要调小.
+
+# 带权采样开关，同时作用于游走和sage子图采样阶段。
+weighted_sample: False
+# 是否返回边权重，仅用于sage_mode=True模式，如边不带权则默认返回1。
+return_weight: False
+
+# 是否要进行训练，如果只想单独热启模型做预估(inference)，则可以关闭need_train
+need_train: True
+# 是否需要进行inference. 如果只想单独训练模型，则可以关闭need_inference
+need_inference: True
+# 预估embedding的时候，需要的参数，保持默认即可.
+dump_node_name: "src_node___id"
+dump_node_emb_name: "src_node___emb"
+
+# ---------------------------train param config---------------------------------------------#
+epochs: 1
+# 为了加快训练速度，可以设置每隔多少个epochs才保存一次模型。默认最后一个epoch训练完一定会保存模型。
+save_model_interval: 10
+# 训练样本的batch_size
+batch_size: 20000
+infer_batch_size: 20000
+chunk_num: 1
+# how many sample times are performed in a buf
+sample_times_one_chunk: 5
+# 触发ssd cache的频率
+save_cache_frequency: 4
+# 内存中缓存多少个pass
+mem_cache_passid_num: 4
+# 是否保存为二进制模式，仅在SSD模式下生效
+save_binary_mode : False
+# 训练模式，可填WHOLE_HBM/MEM_EMBEDDING/SSD_EMBEDDING，默认为MEM_EMBEDDING
+train_storage_mode: MEM_EMBEDDING
+# 大致设置gpups的显存占用率 默认 0.25
+gpups_memory_allocated_rate: 0.10
+
+# 1 for debug
+debug_mode: 0
+
+
+# --------------------------例行训练和预测--------------------------#
+# 若修改为"online_train"，则表示需要进行例行训练，否则默认为普通训练模式。
+train_mode: "train"
+# 例行训练的第一次图数据起始时间。（注意，天级别更新的时候，日期的格式也一定要是20230217/00, 不能省略小时的单位）
+start_time: 20230217/00
+# 例行训练的小时级间隔(当train_mode=online_train时生效)，time_delta=1表示每次训练一个小时数据，然后换到下一个小时。如果是天级别更新，则time_delta=24。
+time_delta: 24
+
+# 设置图数据目录，若为hadoop集群则需要hdfs:开头，否则默认为本机docker内路径
+graph_data_hdfs_path: ""
+
+# 以下配置如果为非hadoop环境，则无需配置。
+hadoop_home: ""  # 例如: /pglbox/dependency/hadoop_client/hadoop，如为本机图数据则不需要设置
+graph_data_fs_name: ""  # 主要用于图数据保存的hadoop目录
+graph_data_fs_ugi: ""   # 主要用于图数据保存的hadoop目录
+output_fs_name: ""      # 主要用于模型和向量保存的hadoop目录
+output_fs_ugi: ""       # 主要用于模型和向量保存的hadoop目录

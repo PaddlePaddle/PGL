@@ -1,0 +1,9 @@
+model_name: GPRGNN 
+learning_rate: 0.005
+weight_decay: 0.0005
+hidden_size: 64
+num_layers: 10
+drop: 0.5
+dprate: 0.5
+alpha: 0.1
+init_method: PPR
