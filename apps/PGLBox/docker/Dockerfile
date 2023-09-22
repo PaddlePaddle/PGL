@@ -28,6 +28,8 @@ RUN cd ${HOME_WORK_DIR} && \
     pip3 install protobuf==3.20.0 -U && \
     pip3 install pgl -U && \
     pip3 install gpustat==1.0.0 -U && \
+    pip3 install requests==2.28.1 -U && \
+    pip3 install joblib==1.2.0 -U && \
     rm -rf ${PADDLE_WHL}
 
 

@@ -282,6 +282,8 @@ def save_model(exe, model_dict, args, local_model_path, model_save_path):
         else:
             run_cmd("mv %s %s" % (local_var_save_path, model_save_path))
 
+    return 0
+
 
 def upload_embedding(args, local_embed_path):
     mode, infer_result_path = parse_path(args.infer_result_path)
