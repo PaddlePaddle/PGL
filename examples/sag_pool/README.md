@@ -26,7 +26,7 @@ python main.py --use_cuda --dataset_name PROTEINS --lr 0.005 --batch_size 128 --
 
 - data\_path: the root path of your dataset 
 - dataset\_name: the name of the dataset. ("MUTAG", "IMDBBINARY", "IMDBMULTI", "COLLAB", "PROTEINS", "NCI1", "PTC", "REDDITBINARY", "REDDITMULTI5K")
-- fold\_idx: The $fold\_idx^{th}$ fold of dataset splited. Here we use 10 fold cross-validation
+- fold\_idx: The $fold\_{idx}^{th}$ fold of dataset splited. Here we use 10 fold cross-validation
 - min\_score: parameter for SAGPool which indicates minimal node score. (When min\_score is not None, pool\_ratio is ignored)
 - pool\_ratio: parameter for SAGPool which decides how many nodes will be removed.
 

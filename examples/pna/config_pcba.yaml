@@ -1,0 +1,42 @@
+task_name: train.pcba
+dataset_name: ogbg-molpcba
+metrics: ap
+
+hidden_size: 510
+out_size: 510
+dropout: 0.2
+num_layers: 4
+batch_norm: True
+residual: True
+aggregators: ["mean", "sum", "max"]
+scalers: ["identity"]
+in_feat_dropout: 0.0
+post_layers: 1
+pre_layers: 1
+towers: 5
+edge_feat: True
+seed: 41
+optim: adam
+# data config
+num_class: 128
+
+# runconfig
+epochs: 100
+batch_size: 512 
+lr: 0.0005
+lr_reduce_factor: 0.8
+lr_schedule_patience: 4
+min_lr: 0.00002
+weight_decay: 0.000003
+num_workers: 4
+shuffle: True
+max_time: 48
+log_step: 100
+
+# logger
+stdout: True
+log_dir: ./logs
+log_filename: log.txt
+save_dir: ./checkpoints
+output_dir: ./outputs
+files2saved: ["*.yaml", "*.py", "./utils"]

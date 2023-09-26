@@ -22,6 +22,9 @@ global_feat_dim = 4
 
 
 def get_conv_list():
+    """
+    get_conv_list
+    """
     return [
         pgl.nn.GCNConv(
             input_size=global_feat_dim, output_size=global_feat_dim),
@@ -41,7 +44,14 @@ def get_conv_list():
 
 
 class ConvTest(unittest.TestCase):
+    """
+    Test Conv
+    """
+
     def run_graph_conv(self, dtype="float32"):
+        """
+        run_graph_conv
+        """
         num_nodes = 5
 
         edges = [(0, 1), (1, 2), (3, 4)]
@@ -63,12 +73,51 @@ class ConvTest(unittest.TestCase):
             self.assertTrue(isinstance(out, paddle.Tensor))
 
     def test_graph_conv_float32(self):
+        """
+        test_graph_conv_float32
+        """
         paddle.set_default_dtype("float32")
         self.run_graph_conv("float32")
 
     def test_graph_conv_float64(self):
+        """
+        test_graph_conv_float32
+        """
         paddle.set_default_dtype("float64")
         self.run_graph_conv("float64")
+
+    def test_pna_conv(self):
+        """
+        test pna conv
+        """
+        num_nodes = 5
+        edges = [(0, 1), (1, 2), (3, 4)]
+        nfeat = np.random.randn(num_nodes, global_feat_dim).astype("float32")
+        efeat = np.random.randn(len(edges), global_feat_dim).astype("float32")
+
+        g = pgl.Graph(
+            edges=edges,
+            num_nodes=num_nodes,
+            node_feat={'nfeat': nfeat},
+            edge_feat={'efeat': efeat}).tensor()
+        paddle.set_default_dtype("float32")
+        pna_conv = pgl.nn.PNAConv(
+            input_size=global_feat_dim,
+            hidden_size=global_feat_dim * 2,
+            aggregators=["mean", "max", "min", "sum", "var", "std"],
+            scalers=[
+                "identity", "amplification", "attenuation", "linear",
+                "inverse_linear"
+            ],
+            deg=paddle.to_tensor([0, 1, 1, 1, 2]),
+            towers=2,
+            pre_layers=1,
+            post_layers=2,
+            divide_input=False,
+            use_edge=True)
+        out = pna_conv(g, g.node_feat['nfeat'],
+                       g.indegree(), g.edge_feat['efeat'])
+        assert out.shape == [num_nodes, global_feat_dim * 2]
 
 
 if __name__ == "__main__":
