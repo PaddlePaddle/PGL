@@ -1,0 +1,3 @@
+gensim
+pathos
+fastdtw
