@@ -3,5 +3,5 @@ mistune
 sphinx_rtd_theme
 numpy >= 1.16.4
 cython >= 0.25.2
-paddlepaddle == 2.0.0rc1
+paddlepaddle == 2.4.0
 pgl == 2.0.0a
