@@ -11,7 +11,7 @@ jobs:
       matrix:
         os: [ 'ubuntu-latest', 'macos-latest' ]
         arch: [ 'x86_64' ]
-        cibw_python: [ 'cp36*', 'cp37*', 'cp38*', 'cp39*' ]
+        cibw_python: [ 'cp36*', 'cp37*', 'cp38*' ]
         manylinux: [ 'manylinux2014', 'manylinux1' ]
     steps:
       - uses: actions/checkout@v2
