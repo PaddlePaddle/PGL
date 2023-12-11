@@ -136,7 +136,8 @@ setup(
     package_data=package_data,
     setup_requires=[
         'setuptools>=18.0',
-        'numpy>=1.16.4',
+        'numpy==1.23.5',
+        'cython==3.0.6',
     ],
     install_requires=requirements,
     cmdclass={'build_ext': CustomBuildExt},
