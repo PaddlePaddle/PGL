@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .appnp import APPNP
 from .gcn import GCN
 from .gat import GAT
+from .gin import GIN
 from .graphsage import GraphSage
+from .sgc import SGC

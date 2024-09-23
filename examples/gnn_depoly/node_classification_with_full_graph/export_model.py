@@ -21,7 +21,7 @@ import paddle
 import pgl
 
 sys.path.insert(0, os.path.abspath(".."))
-from models import GCN, GAT, GraphSage
+from models import GCN, GAT, GraphSage, GIN, SGC, APPNP 
 
 
 def save_static_model(args):
@@ -35,6 +35,21 @@ def save_static_model(args):
                     attn_drop=0.6,
                     num_heads=8,
                     hidden_size=8)
+    elif args.model == "APPNP":
+        model = APPNP(input_size=dataset.graph.node_feat["words"].shape[1],
+                      num_class=dataset.num_classes,
+                      num_layers=2,
+                      alpha=0.1,
+                      k_hop=10)
+    elif args.model == "SGC":
+        model = SGC(input_size=dataset.graph.node_feat["words"].shape[1],
+                    num_class=dataset.num_classes,
+                    num_layers=2)
+    elif args.model == "GIN":
+        model = GIN(input_size=dataset.graph.node_feat["words"].shape[1],
+                    num_class=dataset.num_classes,
+                    num_layers=2,
+                    hidden_size=16) 
     elif args.model == "GCN":
         model = GCN(input_size=dataset.graph.node_feat["words"].shape[1],
                     num_class=dataset.num_classes,
@@ -54,7 +69,7 @@ def save_static_model(args):
     model.eval()
 
     # Convert to static graph with specific input description
-    if args.model == "GraphSage":
+    if args.model == "GraphSage" or args.model == "GIN":
         model = paddle.jit.to_static(
             model,
             input_spec=[

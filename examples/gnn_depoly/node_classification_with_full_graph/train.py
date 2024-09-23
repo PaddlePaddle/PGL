@@ -24,7 +24,7 @@ from pgl.utils.logger import log
 from paddle.optimizer import Adam
 
 sys.path.insert(0, os.path.abspath(".."))
-from models import GCN, GAT, GraphSage
+from models import GCN, GAT, GraphSage, GIN, SGC, APPNP
 
 
 def normalize(feat):
@@ -59,7 +59,7 @@ def load():
 
 def train(node_index, node_label, gnn_model, graph, criterion, optim, args):
     gnn_model.train()
-    if args.model == "GraphSage":
+    if args.model == "GraphSage" or args.model == "GIN":
         pred = gnn_model(graph.edges, graph.node_feat["words"])
     else:
         pred = gnn_model(graph.edges, graph.num_nodes,
@@ -76,7 +76,7 @@ def train(node_index, node_label, gnn_model, graph, criterion, optim, args):
 @paddle.no_grad()
 def eval(node_index, node_label, gnn_model, graph, criterion, args):
     gnn_model.eval()
-    if args.model == "GraphSage":
+    if args.model == "GraphSage" or args.model == "GIN":
         pred = gnn_model(graph.edges, graph.node_feat["words"])
     else:
         pred = gnn_model(graph.edges, graph.num_nodes,
@@ -108,6 +108,21 @@ def main(args):
                         attn_drop=0.6,
                         num_heads=8,
                         hidden_size=8)
+    elif args.model == "SGC":
+        gnn_model = SGC(input_size=graph.node_feat["words"].shape[1],
+                        num_class=dataset.num_classes,
+                        num_layers=2)
+    elif args.model == "APPNP":
+        gnn_model = APPNP(input_size=graph.node_feat["words"].shape[1],
+                          num_class=dataset.num_classes,
+                          num_layers=2,
+                          alpha=0.1,
+                          k_hop=10)
+    elif args.model == "GIN":
+        gnn_model = GIN(input_size=graph.node_feat["words"].shape[1],
+                        num_class=dataset.num_classes,
+                        num_layers=2,
+                        hidden_size=16)
     elif args.model == "GCN":
         gnn_model = GCN(input_size=graph.node_feat["words"].shape[1],
                         num_class=dataset.num_classes,

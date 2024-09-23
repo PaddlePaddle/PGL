@@ -31,7 +31,7 @@ class BaseConv(nn.Layer):
     def send_recv(self, edge_index, feature, pool_type="sum"):
         src, dst = edge_index[:, 0], edge_index[:, 1]
         return paddle.geometric.send_u_recv(
-            feature, src, dst, pool_type=pool_type)
+            feature, src, dst, reduce_op=pool_type)
 
     def send(
             self,
